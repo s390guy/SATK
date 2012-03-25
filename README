@@ -1,0 +1,29 @@
+                      SATK - Stand-alone Tool Kit
+              
+SATK is intended to assist in the development of stand-alone, or baremetal, programs 
+on mainframe compatible systems using the GNU assembler, as.  While targeting the 
+Hercules emulator, nothing precludes its use with "big-iron" real or virtual 
+environments.
+
+The following directories are provided:
+    doc             - various related documentation
+    doc/iplelf      - Documentation related to the IPL ELF Supplement and SATK 
+                      support.
+    hstage0         - an architecture and media agnostic stage0 boot loader.  The 
+                      'h' stands for the Hercules environment that supports the 
+                      loader or the host file system from which it loads content.
+    lib             - Linker scripts
+    mlfloadr        - Stage0 loader utilizing VM emulated block I/O for program 
+                      loading.
+    mlfutil         - Utility to build an OpenSolaris s390x FBA IPL Disk using 
+                      mlfloadr
+    src             - source code for use in stand-alone programs.
+    src/ipl         - IPL ELF supporting source
+    src/ipl/include - Routines useful for IPL ELF stage0 loaders.
+    test            - tests for the IPL ELF Supplement support.
+    tools           - Python and bash tools for use with SATK.
+    tools/ipl       - IPL ELF Media Preparation Processor, iplmed.py, and related 
+                      tools: ipldpp.py, media.py
+
+Contact the author, Harold Grovesteen, on the hercules-390 Yahoo group.
+
