@@ -1,0 +1,225 @@
+#!/bin/sh
+# Copyright (C) 2012 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+usage()
+{
+     echo "Usage: ./xtest as|ld module          - build an IPL ELF obj or exe"
+     echo "       ./xtest dev cls elf|ext|ipl|medium module" 
+     echo "               device function with module"
+     echo "       ./xtest dumpall module        - generate all ELF debug info"
+     echo "       ./xtest exedump module        - dump an IPL ELF executable"
+     echo "       ./xtest exeread module        - read an IPL ELF executable"
+     echo "       ./xtest help [ldpp|medium]    - help"
+     echo "       ./xtest objdump elf|noldr     - dump an IPL ELF object"
+     echo "   cls=ckd|fba|tape"
+     echo "   module=default|elf|noldr|xxxmbed"
+}
+
+# Tool chain components - update when releases change:
+HERC=${HOME}/Herc
+SATK=${HOME}/SATK
+SATKTOOLS=${SATK}/tools
+SATKIPL=${SATKTOOLS}/ipl
+SATKLIB=${SATKLIB}/test
+SATKLINK=${SATKIPL}/link
+SATKTEST=${SATK}/test
+SATKBIN=${SATKTEST}/bin/ipl
+SATKLIB=${SATKTEST}/lib/ipl
+SATKSRC=${SATKTEST}/src/ipl
+IPLINC=${SATKSRC}/include
+XBUILD=${HOME}/crossbuild
+XTOOLS=${XBUILD}/run/bin
+XSCRIPTS=${XBUILD}/run/s390-linux/lib/ldscripts
+
+# Python setup
+ARGPARSE=${SATKTOOLS}/argparse-1.1
+export PYTHONPATH=${SATKIPL}:${SATKTOOLS}:${ARGPARSE}
+
+# Set up cross-tool chain environments
+source ${SATKTOOLS}/xtoolfun
+bin_tools dir ${XTOOLS}
+bin_tools pfx "s390x-linux-"
+tools set
+as_env default z
+as_env include ${IPLINC}
+ld_env reloc enable
+
+# Set up Hercules environment
+source ${HERC}/imlfun
+herc_env svn
+
+
+
+datetime()
+{
+	sfx=$(date +%Y%m%d.%H%M%S)
+}
+
+debug()
+{
+    case ${1} in
+        objd) ${OBJDUMP} -x -s ${OBJECT} >${ODUMP} ;;
+        exed) ${OBJDUMP} -x -s ${EXE}    >${XDUMP} ;; 
+        exer) ${READELF} -a -t ${EXE}    >${XREAD} ;;
+        *)     echo "Invalid debug function option: $1" ; exit 1 ;;
+    esac
+}
+
+debug_std()
+{
+    case ${1} in
+        objd) ${OBJDUMP} -x -s ${OBJECT} >${ODUMP}.std  ;;
+        exed) ${OBJDUMP} -x -s ${EXE}.std >${XDUMP}.std ;; 
+        exer) ${READELF} -a -t ${EXE}.std >${XREAD}.std ;;
+        *)     echo "Invalid debug function option: $1" ; exit 1 ;;
+    esac
+}
+
+device()
+{
+    case ${1} in
+        card)  dev=card  ; cls="3525"  ; ext=""     ; options="--nolowc " 
+               external="cardmbed" ;;
+        cdrom) dev=cdrom ; cls="CDROM" ; ext=""     ; options="" 
+               external="cdrommbed" ;;
+        ckd)   dev=ckd   ; cls="3380"  ; ext=""     ; options="" 
+               external="ckdmbed" ;;
+        eckd)  dev=eckd ;;
+        fba)   dev=fba   ; cls="3310"  ; ext=""     ; options="" 
+               external="fbambed" ;;
+        tape)  dev=tape  ; cls="3410"  ; ext=".aws" ; options="" 
+               external="tapembed" ;;
+        *) echo "xtest: invalid device class: ${1}"; exit 1 ;;
+    esac    
+}
+
+# Set up paths to files
+# Usage: module dev_class
+module()
+{   
+    case ${1} in
+        cardmbed) mod="cardmbed"  ;;
+        cdrommbed)mod="cdrommbed" ;;
+        ckdmbed)  mod="ckdmbed"   ;;
+        fbambed)  mod="fbambed"   ;;
+        tapembed) mod="tapembed"  ;;
+        default)  mod="default"   ;;
+        noldr)    mod="noldr"     ;;
+        ldr)      mod="elf"       ;;
+        *) echo "xtest: invalid module: ${1}"; exit 1 ;;
+    esac
+}
+
+devpaths()
+{
+    DEVPATH=${SATKTEST}/${dev}
+    IPL=${DEVPATH}/${mod}.ipl${ext}
+    CONF=${DEVPATH}/${mod}.conf
+    LOG=${DEVPATH}/${mod}.log
+    RC=${DEVPATH}/${mod}.rc
+    EXTERNAL=${SATKBIN}/${external}
+}
+
+modpaths()
+{
+    # src files
+    SOURCE=${SATKSRC}/${mod}.S
+    LISTING=${SATKSRC}/${mod}.lst
+    # lib files
+    OBJECT=${SATKLIB}/${mod}.o
+    LDS=${SATKLIB}/${mod}.lds
+    MAP=${SATKLIB}/${mod}.map
+    ODUMP=${SATKLIB}/${mod}.txt
+    # bin files
+    MODULE=${SATKBIN}/${mod}
+    EXE=${MODULE}
+    XDUMP=${MODULE}.exe.txt
+    XREAD=${MODULE}.elf.txt
+}
+
+
+case ${1} in
+    as)    module ${2} ; modpaths
+           asm ${LISTING} ${OBJECT} ${SOURCE} ;;
+    dumpall) module ${2} ; modpaths ; debug objd ; debug exed ; debug exer ;;
+    dumpall_std) module ${2} ; modpaths
+           debug_std objd ; debug_std exed ; debug_std exer ;;
+    exedump) module ${2} ; modpaths ; debug exed ;; 
+    exeread) module ${2} ; modpaths ; debug exer ;;
+    dev)   module ${4} ; modpaths
+           device ${2} ; devpaths
+           case ${3} in
+               ipl)# Run a IPL test in Hercules
+                   export IPLMED=${IPL}
+                   iml -h ${hercules} -c ${CONF} -r ${RC} -l ${LOG}
+                   ;;
+               elf)# Create medium using external loader and force ELF booting
+                   ${SATKIPL}/iplmed.py \
+                       --device=${cls} \
+                       ${options} \
+                       --bootelf \
+                       --external=${EXTERNAL} \
+                       --trunc \
+                       --debug \
+                       --medium=${IPL} ${EXE}
+                   ;;
+               ext)
+                   # Create medium using external loader
+                   ${SATKIPL}/iplmed.py \
+                       --device=${cls} \
+                       ${options} \
+                       --external=${EXTERNAL} \
+                       --arch=31 \
+                       --trunc \
+                       --debug \
+                       --medium=${IPL} ${EXE}
+                   ;;
+               medium)
+                   # Create medium from ELF
+                   ${SATKIPL}/iplmed.py \
+                       --device=${cls} \
+                       ${options} \
+                       --trunc \
+                       --debug \
+                       --medium=${IPL} ${EXE}
+                   ;;
+               *) "xtest: invalid dev function: $2" ; exit 1 ;;
+           esac 
+           ;;
+    help)  case $2 in
+               ldpp) ${SATKIPL}/ipldpp.py --help ;;
+               medium) ${SATKIPL}/iplmed.py --help ;;
+               *) usage ;;
+            esac ;;
+    ld)    module ${2} ; modpaths
+           ${SATKIPL}/ipldpp.py \
+               --entry=_start  \
+               --load=4000 \
+               --relo \
+               --debug \
+               --lds=${LDS} ${OBJECT}
+           ld_env script ${LDS}
+           lnk ${MAP} ${EXE} ${OBJECT}
+           ;;
+    ldstd) module ${2} ; modpaths
+           ld_env script ${XSCRIPTS}/elf64_s390.x
+           lnk ${MAP}.std ${EXE}.std ${OBJECT}
+           ;;
+    objdump) module ${2} ; modpaths ; debug objd ;;
+    *)     echo "Invalid xtest option: $1" ; usage ; exit 1 ;;
+esac

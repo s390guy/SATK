@@ -1,0 +1,625 @@
+#!/bin/sh
+# Copyright (C) 2012 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+# This script is intended to be sourced for access to IPL ELF facilities:
+#
+# source  path/medfun [xtools=dir] [satk=dir] [pfx=xxx] [sfx=yyy] [module=name]
+#
+# This sourced file provides the following functions:
+#    med_env   Establishes the run time environment for IPL ELF construction
+#    path      Manages paths for a specific IPL ELF and medium build instance
+#    ipl_elf   The run-time processing for building IPL ELF's and a IPL medium
+#
+# When sourcing the file, optional arguments may be utilized.  Otherwise certain 
+# variables are expected by the sourced file or esablished by the sourcing script
+# prior to execution of the ipl_elf function.
+#
+#   argument   variable    Description
+#    arch      see note 3  Sets the toolchain architecture
+#    module    see note 1  Set the module name for this environment
+#    pfx       see note    xtools tool executable install prefix
+#    satk      SATK_DIR    base directory of the SATK package
+#    sfx       see note    xtools tool executable install suffix
+#    xtools     XBUILD     base directory used by xtools when building toolchain
+#
+# Note 1: If not set using the medfun source command argument then, if using
+#         default paths, it must be set using the med_env function before any
+#         ipl_elf function calls are used.
+# Note 2: If required for the toolchain environment, then must be set using either
+#         the med_env pfx or sfx attributes or the bin_tools pfx or sfx environment
+#         before issuing any ipl_elf function calls.  If letting med_env handle
+#         these toolchain attributes, use med_env tools to enitialize
+# Note 3: Sets the architecture for the toolchain.  This will drive the toolchain
+#         prefix, if not indepedently set, and which architecture related parameters
+#         are provided to the assembler.
+#
+#  arch    prefix   assembler parameters       Defined Assembler Symbols  $IPLMODE
+#  s370    s390-    -m31 -march=g5 -mesa       __ARCH__=1    __s370__=1    S/370
+#  s390    s390-    -m31 -march=z196 -mesa     __ARCH__=2    __s390__=1    ESA/390
+#  s390x   s390x-   -m64 -march=z196 -mzarch   __ARCH__=2    __s390x__=1   z/Arch
+
+for arg in $*
+    do
+        case $arg in
+            arch=*)   med_tools_arch=${arg#arch=} ;;
+            module=*) med_mod=${arg#module=};;
+            pfx=*)    med_pfx=${arg#pfx=}   ;;
+            satk=*)   SATK_DIR=${arg#satk=} ;;
+            sfx=*)    med_sfx=${arg#sfx=}   ;;
+            xtools=*) XBUILD=${arg#xtools=} ;;
+            *) echo "medfun: ignoring unrecognized argument: ${arg}" ;;
+        esac
+    done
+# If SATK_dir is provided export it, otherwise abort if it isn't
+if [ -n "${SATK_DIR}" ]
+then
+    export SATK_DIR
+else
+    echo "medfun: 'satk' argument or SATK_DIR variable not set, aborting" ; exit 1
+fi
+# If xtools or XBUILD is provided export it, otherwise abort if it isn't
+if [ -n "${XBUILD}" ]
+then
+    export XBUILD
+else
+    echo "medfun: 'xtools' argument or XBUILD variable not set, aborting" ; exit 1
+fi
+
+# Get access cross-tool chain related functions
+source ${SATK_DIR}/tools/xtoolfun
+
+
+# Sets the environment of building IPL ELF executables and IPL eligible media
+# Usage:  med_env attribute value
+#                   ${1}     ${2}
+#   Attributes supported
+#       debug enable|disable  Specify whether debugging information is generated.
+#                             Default: disable
+#       init             Initializes all environment defaults
+#
+#   Directories and tools:
+#       build   dir      Directory in which the IPL ELF executables will be built
+#       install dir      Directory in which the IPL ELF medium will be installed
+#       logs    dir      Directory in which logs are placed
+#       source  dir      Directory in which the IPL ELF assembly source and 
+#                        repository specification is located
+#       tools            Establish IPL ELF tools environment
+#
+#   IPL ELF Executable options:
+#       entry symbol|default  Specify the default IPL ELF entry symbol.  
+#                             Default: _start
+#       reloc enable|disable  Enable or disable relocation information in the IPL
+#                             ELF executable.  Default: enable
+#
+#   IPL Process options
+#       lowc suppress|allow   Allow or suppress LOWC segment.  Default: allow
+#       load     hex|default  Specify the default load point for an IPL ELF.
+#                             Default: 2000 (hexadecimal)
+#       loader suppress|allow Allow or suppress LOADER segment. Default: allow
+#       repoload hex|default  Specify the default load location for the IPL ELF
+#                             repository inventory.  Default: 40000 (hexadecimal)
+#
+#   IPL ELF Boot Loader (LOADER segment) options
+#       bootelf [no]force     Force booting of the entire IPL ELF regardless of
+#                             the object file special section designation.
+#                             Default: noforce
+#       arch s370|s390|z|any  Specify the I/O architecture required by the boot
+#                             loader.  Default: any
+#       external exe|disable  IPL ELF containing an external loader.  
+#                             Default:disable
+#       ioarch channel|subchannel|any
+#                             Specify the I/O architecture required by the boot
+#                             loader.  Default: any
+#
+#   IPL Medium options
+#       compress              Specify whether the resulting medium file is eligible
+#        eligible|ineligible  for compression or not.  Default: ineligible
+#       model  device_model   Specify the IPL medium device model number.  
+#                             Default: 3310 (FBA)
+#       trunc enable|disable  Specify whether the IPL ELF medium is to be the
+#                             minimal supported for the device.  Default: enable
+
+med_env()
+{
+    case ${1} in
+        arch)
+            case ${2} in
+                "s370bc")  med_arch="--arch=24" ; med_tools_arch="s370bc" ;;
+                "s370")    med_arch="--arch=24" ; med_tools_arch="s370"   ;;
+                "s390")    med_arch="--arch=31" ; med_tools_arch="s390"   ;; 
+                "z")       med_arch="--arch=64" ; med_tools_arch="s390x"  ;;
+                "any")     med_arch=""          ; med_tools_arch=""       ;;
+                "implied") med_arch="" ;;
+                *)  echo "med_env: invalid arch value: ${2}"; exit 1 ;;
+            esac ;;
+        bootelf)
+            case ${2} in
+                "noforce")  med_bootelf=""   ;;
+                "force")    med_bootelf="--bootelf" ;;
+                *)  echo "med_env: invalid bootelf value: ${2}"; exit 1 ;;
+            esac ;;
+        build)    med_build="${2}"   ;;
+        compress)
+            case ${2} in
+                "ineligible")  med_compress=""   ;;
+                "eligible")    med_compress="--compressable" ;;
+                *)  echo "med_env: invalid compress value: ${2}"; exit 1 ;;
+            esac ;;
+        debug)
+            case ${2} in
+                "disable")  med_debug=""   ;;
+                "enable")   med_debug="--debug" ;;
+                *)  echo "med_env: invalid debug value: ${2}"; exit 1 ;;
+            esac ;;
+        entry)
+            case ${2} in
+                "default")  med_entry="--entry=_start"   ;;
+                *)          med_entry="--entry=${2}" ;;
+            esac ;;
+        external)
+            case ${2} in
+                "disable")  med_extlodr=""  ;;
+                *)          med_extlodr="--external=${2}" ;;
+            esac ;;
+        init)     med_env debug disable           # create and ipl_elf link option
+                  med_env compress ineligible     # create option
+                  med_env entry default           # ipl_elf link option
+                  med_env external disable        # create option
+                  med_env ioarch any              # create option
+                  med_env load default            # ipl_elf link option
+                  med_env lowc allow              # create option
+                  med_env loader allow            # create option
+                  med_env reloc enable            # ipl_elf link option
+                  med_env repoload default        # create option
+                  med_env s370bc disable          # create option
+                  med_env tools ${med_tools_arch} # ipl_elf assemble and link option
+                  med_env trunc enable            # create option
+                  ;;
+        install)  med_install="${2}" ;;
+        ioarch)
+            case ${2} in
+                "channel")    med_ioarch="--ioarch=channel"   ;;
+                "subchannel") med_ioarch="--ioarch=subch" ;;
+                "any")        med_ioarch="" ;;
+                *)  echo "med_env: invalid ioarch value: ${2}"; exit 1 ;;
+            esac ;;
+        load)     
+            case ${2} in
+                "default")  med_load="--load=2000"   ;;
+                *)          med_load="--load=${2}" ;;
+            esac ;;
+        lowc)
+            case ${2} in
+                "suppress")  med_lowc="--nolowc" ;;
+                "allow")     med_lowc="" ;;
+                *)  echo "med_env: invalid lowc value: ${2}"; exit 1 ;;
+            esac ;;
+        loader)
+            case ${2} in
+                "suppress")  med_loader="--nolodr" ;;
+                "allow")     med_loader="" ;;
+                *)  echo "med_env: invalid loader value: ${2}"; exit 1 ;;
+            esac ;;
+        logs) med_logs=${2} ;;
+        model)    
+            case ${2} in
+                "3505") med_cls="3525" ; med_ext=""     ; med_dev="card"
+                        ipl_cls="3505"
+                        as_sym __CARD__ 1
+                        ;;
+                "3380") med_cls="3380" ; med_ext=""     ; med_dev="ckd"
+                        ipl_cls="${med_cls}"
+                        as_sym __CKD__  1
+                        ;;
+                "3310") med_cls="3310" ; med_ext=""     ; med_dev="fba"
+                        ipl_cls="${med_cls}"
+                        as_sym __FBA__  1
+                        ;;
+                "3410") med_cls="3410" ; med_ext=".aws" ; med_dev="tape"
+                        ipl_cls="${med_cls}"
+                        as_sym __TAPE__ 1
+                        ;;
+                "CDROM")med_cls="CDROM"; med_ext=""     ; med_def="cdrom"
+                        ipl_cls="${med_cls}"
+                        as_sym __CDROM__ 1
+                        ;;
+                *) echo "med_env: invalid device model number: ${2}"; exit 1 ;;
+            esac ;;
+        module) med_mod="${2}"  ;;
+        python) PYTHONPATH=${SATK_DIR}/tools/ipl
+                PYTHONPATH=${PYTHONPATH}:${SATK_DIR}/tools
+                PYTHONPATH=${PYTHONPATH}:${SATK_DIR}/tools/argparse-1.1
+                export PYTHONPATH
+                ;;
+        reloc)
+            case ${2} in
+                "disable")  med_reloc=""
+                            ld_env reloc disable
+                            ld_env symbols disable
+                            ;;
+                "enable")   med_reloc="--relo"
+                            ld_env reloc enable
+                            ld_env symbols enable
+                            ;;
+                *)  echo "med_env: invalid reloc value: ${2}"; exit 1 ;;
+            esac ;;
+        repoload)
+            case ${2} in
+                "default")  med_repoload="10000"  ;;
+                *)          med_repoload="${2}"   ;;
+            esac ;;
+        s370bc)
+            case ${2} in
+                "enable")  med_s370bc="--s370bc" ;;
+                "disable") med_s370bc=""         ;;
+                *)  echo "med_env: invalid s370bc value: ${2}"; exit 1 ;;
+            esac ;;
+        source)   med_src="${2}"  ;;
+        tools)
+            # Set up cross-tool chain environments
+            bin_tools dir ${XBUILD}/run/bin
+            if [ -n "${med_pfx}" ]
+            then
+                bin_tools pfx "${med_pfx}"
+            fi
+            if [ -n "${med_sfx}" ]
+            then
+                bin_tools sfx "${med_sfx}"
+            fi
+            case ${med_tools_arch} in
+                "s370bc") if [ -z ${med_pfx} ]
+                        then
+                            bin_tools pfx "s390-"
+                        fi
+                        as_env default s370
+                        as_env arch s370
+                        IPLMODE="s/370"  # Hercules archmode
+                        as_sym "__ARCH__"   1 
+                        as_sym "__s370__"   1
+                        as_sym "__bcmode__" 1
+                        ;;
+                "s370") if [ -z ${med_pfx} ]
+                        then
+                            bin_tools pfx "s390-"
+                        fi
+                        as_env default s370
+                        as_env arch s370
+                        IPLMODE="s/370"  # Hercules archmode
+                        as_sym "__ARCH__" 1 ; as_sym "__s370__" 1 
+                        ;;
+                "s390") if [ -z ${med_pfx} ]
+                        then
+                            bin_tools pfx "s390-"
+                        fi
+                        as_env default s390
+                        IPLMODE="ESA/390"  # Hercules archmode
+                        as_sym "__ARCH__" 2 ; as_sym "__s390__" 1
+                        ;;
+                "s390x")if [ -z ${med_pfx} ]
+                        then
+                            bin_tools pfx "s390x-"
+                        fi
+                        as_env default z
+                        IPLMODE="z/Arch"
+                        as_sym "__ARCH__" 3 ; as_sym "__s390x__" 1 
+                        ;;
+                *) echo "med_env: invalid tools value: ${med_tools_arch}"; exit 1
+            esac
+            tools set
+            med_env python
+            ;;
+        trunc)
+            case ${2} in
+                "disable")  med_trunc=""   ;;
+                "enable")   med_trunc="--trunc" ;;
+                *)  echo "med_env: invalid trunc value: ${2}"; exit 1 ;;
+            esac ;;
+        *) echo "med_env: invalid attribute: ${1}"; exit 1
+    esac
+}
+
+# Usage: path item|all default   -- sets the default based upon "med_env module"
+#     or path item|all reset     -- resets to "" the path
+#     or path item value         -- sets an explicit path and file name
+# Requires med_env module to be set 
+#   Supported paths:
+#   Defaults placed in the mod_env source directory
+#     Path      SYMBOL
+#       spec    ${REPOSPEC} path to the IPL ELF repository specification
+#       source  ${SOURCE}   path to the IPL ELF assembly source file
+#
+#   Defaults placed in the mod_env build directory
+#     Path      SYMBOL
+#       exe     ${EXE}      path to the IPL ELF executable
+#       lds     ${LDS}      path to the IPL ELF linker script
+#       listing ${LISTING}  path to the assembly listing
+#       map     ${MAP}      path to the linkage editor map output
+#       object  ${object}   path to the IPL ELF object file from assembly
+#
+#  Defaults placed in the mod_env install directory
+#     Path      SYMBOL
+#       inv     ${INV}      path to repository inventory
+#       ipl     ${IPL}      path to IPL medium
+#
+
+path()
+{
+    case ${2} in
+        "default")
+            if [ -z ${med_mod} ]
+            then
+                echo "path: required med_env attribute 'module' not set"
+            exit 1
+            fi
+            case ${1} in
+                all)     path exe default
+                         path exe370 default
+                         path exedump default
+                         path herccong default
+                         path hercrc default
+                         path inv default
+                         path ipl default
+                         path lds default
+                         path listing default
+                         path map default
+                         path objdump default
+                         path object default
+                         path source default
+                         path spec default
+                         ;;
+                exe)     EXE=${med_build}/${med_mod}            ;;
+                exe370)  EXE370=${med_build}/${med_mod}.s370    ;;
+                exedump) XDUMP=${med_build}/${med_mod}.exe.txt  ;;
+                hercconf)CONF=${med_install}/${med_mod}.conf    ;;
+                hercrc)  RC=${med_install}/${med_mod}.rc        ;;
+                inv)     INV=${med_src}/${med_mod}.repo         ;;
+                ipl)     IPL=${med_install}/${med_mod}.${ipl_cls}${med_ext} ;;
+                lds)     LDS=${med_build}/${med_mod}.lds        ;;
+                listing) LISTING=${med_build}/${med_mod}.lst    ;;
+                log)     datetime
+                         LOG=${med_logs}/${med_mod}.${sfx}.log  ;;
+                map)     MAP=${med_build}/${med_mod}.map        ;;
+                objdump) ODUMP=${med_build}/${med_mod}.obj.txt  ;;
+                object)  OBJECT=${med_build}/${med_mod}.o       ;;
+                source)  SOURCE=${med_src}/${med_mod}.S         ;;
+                spec)    REPOSPEC=${med_src}/${med_mod}.spec    ;;
+                *) echo "path: invalid path designation: ${1}" ; exit 1 ;;
+            esac  ;;
+        "reset")
+            case $1 in
+                all)     path exe reset
+                         path inv reset
+                         path ipl reset
+                         path lds reset
+                         path listing reset
+                         path map reset
+                         path object reset
+                         path source reset
+                         path spec reset
+                         ;;
+                exe)     EXE=""      ;;
+                exe370)  EXE370=""   ;;
+                exedump) XDUMP=""    ;;
+                hercconf)CONF=""     ;;
+                hercrc)  RC=""       ;;
+                ipl)     IPL=""      ;;
+                lds)     LDS=""      ;;
+                listing) LISTING=""  ;;
+                log)     LOG=""      ;;
+                map)     MAP=""      ;;
+                objdump) ODUMP=""    ;;
+                object)  OBJECT=""   ;;
+                repo)    REPOSPEC="" ;;
+                source)  SOURCE=""   ;;
+                spec)    REPOSPEC="" ;;
+                *) echo "path: invalid path designation: ${1}" ; exit 1 ;;
+            esac ;;
+        *)  case $1 in
+                exe)     EXE=${2}      ;;
+                exe370)  EXE370=${2}   ;;
+                exedump) XDUMP=${2}    ;;
+                hercconf)CONF=${2}     ;;
+                hercrc)  RC=${2}       ;;
+                ipl)     IPL=${2}      ;;
+                lds)     LDS=${2}      ;;
+                listing) LISTING=${2}  ;;
+                log)     LOG=${2}      ;;
+                map)     MAP=${2}      ;;
+                objdump) ODUMP=${2}    ;;
+                object)  OBJECT=${2}   ;;
+                repo)    REPOSPEC=${2} ;;
+                source)  SOURCE=${2}   ;;
+                spec)    REPOSPEC=${2} ;;
+                *) echo "path: invalid path designation: ${1}" ; exit 1 ;;
+            esac ;;
+    esac
+}
+
+# Usage: create [device_model] [default]
+create()
+{
+    if [ -n "${1}" ]
+    then
+        med_env model ${1}
+    fi
+    med_tool=${SATK_DIR}/tools/ipl/iplmed.py
+    if [ "${2}" == "default" ]
+    then
+        path exe default
+        path ipl default
+        path exe370 default
+    fi
+    if [ -z ${REPOSPEC} ]
+    then
+        med_repo=""
+    else
+        med_repo="--repo=${REPOSPEC}"
+    fi
+    med_cmd="${med_tool}" 
+    med_cmd="${med_cmd} --device=${med_cls} ${med_trunc} ${med_compress}"
+    med_cmd="${med_cmd} ${med_debug} ${med_lowc} ${med_extlodr} ${med_bootelf}"
+    med_cmd="${med_cmd} ${med_arch} ${med_ioarch} ${med_s370bc}" 
+    med_cmd="${med_cmd} ${med_repo} ${repoload} --medium=${IPL}"
+    case ${med_tools_arch} in
+        "s370bc") med_cmd="${med_cmd} ${EXE370}" ;;
+        "s370")   med_cmd="${med_cmd} ${EXE370}" ;;
+        *)        med_cmd="${med_cmd} ${EXE}"
+    esac
+    if [ -z ${med_debug} ]
+    then
+        ${med_cmd}
+    else
+        ${med_cmd} > ${IPL}.debug.txt  
+    fi
+}
+
+datetime()
+{
+	sfx=$(date +%Y%m%d.%H%M%S)
+}
+
+# Usage: ipl_elf action [default]
+# Actions:
+#    help iplmed|ipldpp     Generate tool help information
+#    assemble  [default]    Assemble IPL ELF source
+#    dump exe|obj [default] List executable or object contents
+#    link      [default]    Link edit IPL ELF object file into an IPL ELF executable
+#    repo      [default]    Create repository inventory
+#    s370 [default [print]] Identify a s390 executable as s370
+#      or [nodefault print]
+#
+# Option 'default' causes the med_env source, build, inventory directories to be
+# used with the default file names based upon the specified mod_env module name.
+# Otherwise, before the ipl_elf function is called the path function must be used
+# to specifify the required path.  The paths required for a specific ipl_elf action
+# can be seen by reviewing the paths set when the 'default' option is used.
+ipl_elf()
+{
+    case ${1} in
+        assemble)
+            if [ "${2}" = "default" ]
+            then 
+                path source default
+                path listing default
+                path object default
+                as_env include ${med_src}      # Include files from source directory
+                ipl_elf include src
+                ipl_elf include ipl
+                ipl_elf include hal
+                ipl_elf include drv
+            fi
+            asm ${LISTING} ${OBJECT} ${SOURCE}
+            med_tool=${SATK_DIR}/tools/ckaslst.py 
+            ${med_tool} ${LISTING}
+            ;;
+        dump)
+            if [ "${3}" = "default" ]
+            then 
+                path exe default
+                path exedump default
+                path objdump default
+                path object default
+            fi
+            case ${2} in
+                all) ipl_elf dump obj 
+                     ipl_elf dump exe 
+                     ;;
+                exe) echo "Executable ${EXE} using ${OBJDUMP}" >${XDUMP}
+                     ${OBJDUMP} -x -s ${EXE} >>${XDUMP}
+                     echo "" >>${XDUMP}
+                     echo "Executable ${EXE} using ${READELF}" >>${XDUMP} 
+                     ${READELF} -a -t ${EXE} >>${XDUMP}
+                     echo "" >>${XDUMP}
+                     echo "Executable ${EXE} using hexdump" >>${XDUMP}
+                     echo "" >>${XDUMP}
+                     hexdump -C -v ${EXE} >>${XDUMP} 
+                     ;; 
+                obj) echo "Object file ${OBJECT} using ${OBJDUMP}" >${ODUMP}
+                     ${OBJDUMP} -x -s ${OBJECT} >>${ODUMP}
+                     echo "" >> ${ODUMP}
+                     echo "Object file ${OBJECT} using ${READELF}" >>${ODUMP}
+                     ${READELF} -a -t ${OBJECT} >>${ODUMP}
+                     echo "" >>${ODUMP}
+                     echo "Object file ${OBJECT} using hexdump" >>${ODUMP}
+                     echo "" >>${ODUMP}
+                     hexdump -C -v ${OBJECT} >>${ODUMP}
+                     ;;
+                *)  echo "ipl_elf: invalid dump target: ${2}"; exit 1 ;;
+            esac ;;
+        help)
+            case ${2} in
+                "ipldpp")  ${SATK_DIR}/tools/ipl/ipldpp.py --help ;;
+                "iplmed")  ${SATK_DIR}/tools/ipl/iplmed.py --help ;;
+                *)  echo "ipl_elf: invalid help target: ${2}"; exit 1 ;;
+            esac ;;
+        include)
+            case ${2} in
+                "drv")  as_env include ${SATK_DIR}/src/drivers ;;
+                "hal")  as_env include ${SATK_DIR}/src/hal ;;
+                "ipl")  as_env include ${SATK_DIR}/src/ipl
+                        as_env include ${SATK_DIR}/src/ipl/include
+                        ;;
+                "src")  as_env include ${SATK_DIR}/src     ;;
+                *)  echo "ipl_elf: invalid include value: ${2}"; exit 1 ;;
+            esac ;;
+        link)
+            if [ "${2}" = "default" ]
+            then 
+                path lds default
+                path object default
+                path map default
+                path exe default
+                path object default
+            fi
+            med_tool=${SATK_DIR}/tools/ipl/ipldpp.py
+            ${med_tool} ${med_entry} ${med_load} ${med_reloc} ${med_debug} \
+                --lds=${LDS} ${OBJECT}
+            ld_env script ${LDS}
+            lnk ${MAP} ${EXE} ${OBJECT}
+            ;;
+        repo)
+            if [ "${2}" = "default" ]
+            then
+                path spec default
+                path inv default
+            fi
+            med_tool=${SATK_DIR}/tools/ipl/repo.py
+            ${med_tool} -a -v -s -c ${med_repoload} -i ${INV} ${SPEC}
+            ;;
+        rmlog)
+            if [ -z ${med_logs} ]
+            then
+                echo "ipl_elf: med_env logs directory not set, aborting"
+                exit 1
+            fi
+            cd ${med_logs} && \
+            rm *.log
+            ;;
+        s370)
+            if [ "${2}" = "default" ]
+            then 
+                path exe default
+                path exe370 default
+            fi
+            cp -f ${EXE} ${EXE370}
+            med_tool=${SATK_DIR}/tools/elfs370.py
+            ${med_tool} ${EXE370} ${3}
+            ;;
+         *) echo "ipl_elf: invalid action: ${1}" ; exit 1 ;;
+     esac
+}

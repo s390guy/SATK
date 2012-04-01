@@ -1,0 +1,332 @@
+#!/bin/sh
+# Copyright (C) 2012 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+# This script builds a simple s390/s390x cross-toolchain.
+#    Threads are not supported
+#    An external C library is implied by newlib
+#    Linux specific support excluded
+#    Statically linked
+
+# This script is based upon work done by Ivan Warren.
+
+# Compiling gcc as root can corrupt a running system.  Play it safe!
+if [ `whoami` = 'root' ]
+then
+   echo "Must NOT be root!"
+   exit 1
+fi
+
+# Tool chain components - update when releases change:
+# Current Executable Versions:
+#VERBIN=2.21.51.0.7
+VERBIN=2.22
+# Source Versions
+BIN=binutils-${VERBIN}
+CLOOG=cloog-ppl-0.15.9
+GCC=gcc-4.5.1
+GMP=gmp-5.0.1
+LIBELF=libelf-0.8.12
+MPC=mpc-0.8.2
+MPFR=mpfr-3.0.0
+PPL=ppl-0.10.2
+
+# Directory structure:
+XBUILD=${HOME}/crossbuild
+#  ${XBUILD}/
+#      src/
+#          ${BIN}/
+#          ${GCC}/
+#          ${GMP}/
+#          ${MPC}/
+#          ${MPFR}/
+#      build/
+#          binutils/   (generated)
+#          binutils64/ (generated)
+#          gcc/        (generated)
+#          gcc64/      (generated)
+#          gmp/        (generated)
+#          mpc/        (generated)
+#          mpfr/       (generated)
+#      download/
+#      help/
+#      run/            (generated)
+#      sup/            (generated)
+
+usage()
+{
+     echo "Usage: ./xbuild all        - build the complete toolchain"
+     echo "       ./xbuild chelp tool - generate configuration help"
+     echo "       ./xbuild get tool [bz2|gz] - download source tarball"
+     echo "       ./xbuild tool|bin64|gcc64  - build the tool"
+     echo "       ./xbuild untar tool - extract tarball into src dir"
+     echo "       ./xbuild help       - xbuild usage information"
+     echo " tool: bin, gcc, gcc64, gmp, mpc, mpfr"
+}
+
+buildall()
+{
+     buildbinutils
+     buildgmp
+     buildppl
+     buildcloog
+     buildmpfr
+     buildmpc
+     buildlibelf
+     buildgcc
+}
+
+buildbinutils()
+{    cd ${XBUILD}/build
+     rm -rf binutils
+     mkdir binutils
+     cd binutils
+     ${XBUILD}/src/${BIN}/configure  \
+         --prefix=${XBUILD}/run      \
+         --program-prefix=s390-      \
+         --program-suffix=-${VERBIN} \
+         --target=s390-linux         \
+         --enable-install-libbfd     \
+         --enable-64-bit-bfd
+     make -j
+     make -j install
+}
+
+buildbinutils64()
+{    cd ${XBUILD}/build
+     rm -rf binutils64
+     mkdir binutils64
+     cd binutils64
+     ${XBUILD}/src/${BIN}/configure  \
+         --prefix=${XBUILD}/run      \
+         --program-prefix=s390x-     \
+         --program-suffix=-${VERBIN} \
+         --target=s390x-linux        \
+         --enable-install-libbfd     \
+         --enable-64-bit-bfd
+     make -j
+     make -j install
+}
+
+buildcloog()
+{    cd ${XBUILD}/build
+     rm -rf cloog
+     mkdir cloogl
+     cd cloog
+     ${XBUILD}/src/${PPL}/configure \
+          --prefix=${XBUILD}/sup \
+          --with-ppl=${XBUILD}/sup \
+          --with-libgmp-prefix=${XBUILD}/sup \
+          --without-libgmp-prefix \
+          --with-libgmpxx-prefix=${XBUILD}/sup \
+          --without-libgmpxx-prefix
+          --disable-shared
+     make -j install
+}
+
+buildgcc()
+{    cd ${XBUILD}/build
+     rm -rf gcc
+     mkdir gcc
+     cd gcc
+     ${XBUILD}/src/${GCC}/configure \
+         --prefix=${XBUILD}/run \
+         --target=s390-linux \
+         --enable-languages="c" \
+         --with-newlib \
+         --disable-threads \
+         --without-headers \
+         --disable-shared \
+         --with-gmp=${XBUILD}/sup \
+         --with-mpfr=${XBUILD}/sup \
+         --with-mpc=${XBUILD}/sup \
+         --with-ppl=${XBUILD}/sup \
+         --with-ppl=${XBUILD}/sup \
+         --with-cloog=${XBUILD}/sup \
+         --with-libelf=${XBUILD}/sup
+
+     make -j all-gcc
+     make -j install-gcc
+}
+
+buildgcc64()
+{    cd ${XBUILD}/build
+     rm -rf gcc64
+     mkdir gcc64
+     cd gcc64
+     ${XBUILD}/src/${GCC}/configure \
+         --prefix=${XBUILD}/run \
+         --target=s390x-linux \
+         --enable-languages="c" \
+         --with-newlib \
+         --disable-threads \
+         --without-headers \
+         --disable-shared \
+         --with-gmp=${XBUILD}/sup \
+         --with-mpfr=${XBUILD}/sup \
+         --with-mpc=${XBUILD}/sup \
+         --with-ppl=${XBUILD}/sup \
+         --with-cloog=${XBUILD}/sup \
+         --with-libelf=${XBUILD}/sup
+
+     make -j all-gcc
+     make -j install-gcc
+}
+
+buildgmp()
+{    cd ${XBUILD}/build
+     rm -rf gmp
+     mkdir gmp
+     cd gmp
+     ${XBUILD}/src/${GMP}/configure \
+          --prefix=${XBUILD}/sup \
+          --enable-cxx \
+     make -j install
+}
+
+buildlibelf()
+{    cd ${XBUILD}/build
+     rm -rf libelf
+     mkdir libelf
+     cd libelf
+     ${XBUILD}/src/${LIBELF}/configure \
+          --prefix=${XBUILD}/sup
+     make -j install
+}
+
+buildmpc()
+{    cd ${XBUILD}/build
+     rm -rf mpc
+     mkdir mpc
+     cd mpc
+     ${XBUILD}/src/${MPC}/configure \
+            --prefix=${XBUILD}/sup \
+            --with-mpfr=${XBUILD}/sup \
+            --with-gmp=${XBUILD}/sup \
+     make -j install
+                
+}
+
+buildmpfr()
+{    cd ${XBUILD}/build
+     rm -rf mpfr
+     mkdir mpfr
+     cd mpfr
+     ${XBUILD}/src/${MPFR}/configure \
+          --prefix=${XBUILD}/sup \
+          --with-gmp=${XBUILD}/sup 
+     make -j install
+}
+
+buildppl()
+{    cd ${XBUILD}/build
+     rm -rf ppl
+     mkdir ppl
+     cd ppl
+     ${XBUILD}/src/${PPL}/configure \
+          --prefix=${XBUILD}/sup
+     make -j install
+}
+
+confighelp()
+{    setvars ${1} 
+     ${XBUILD}/src/${tool}/configure \
+          --help 2>&1 |tee ${XBUILD}/help/${1}.config.help
+}
+
+datetime()
+{
+	sfx=$(date +%Y%m%d.%H%M%S)
+}
+
+# Usage download tool [bz2|gz]
+download()
+{
+     case ${2} in
+         bz2) sfx="bz2" ;;
+         gz)  sfx="gz"  ;;
+         *)   echo "invalid get tarball suffix: $2"; exit 1 ;;
+     esac
+     setvars ${1}
+     download=${XBUILD}/download
+     file=${tool}.tar.${sfx}
+     url=${prot}://${site}/${path}/${file}
+     
+     rm ${XBUILD}/download/${file}
+     wget -P ${download} ${url}
+}
+
+extract()
+{    setvars ${1}
+     if [ -e ${XBUILD}/download/${tool}.tar.gz ]
+     then
+         cd ${XBUILD}/src && \
+         rm -rf ${tool} &&   \
+         tar -xzf ${XBUILD}/download/${tool}.tar.gz
+         return 0
+     fi
+     if [ -e ${XBUILD}/download/${tool}.tar.bz2 ]
+     then
+         cd ${XBUILD}/src && \
+         rm -rf ${tool} &&   \
+         tar -xjf ${XBUILD}/download/${tool}.tar.bz2
+         return 0 
+     fi
+     echo "${tool}.tar.[bz2|gz] not found"
+     exit 1
+}
+
+setvars()
+{   case $1 in
+       bin) prot="http"    ;tool=${BIN}    ; path=gnu/binutils 
+            site="ftp.gnu.org" ;;
+       cloog) prot="ftp"   ; tool=${CLOOG} ; path="pub/gcc/infrastructure"
+            site="gcc.gnu.org"           ; sfx="gz" ;;
+       gcc) prot="http"    ; tool=${GCC}   ; path=gnu/gcc/${GCC} 
+            site="ftp.gnu.org" ;;
+       gmp) prot="http"    ; tool=${GMP}   ; path=gnu/gmp
+            site="ftp.gnu.org" ;;
+       libelf) prot="http" ; tool=${LIBELF}; path="software"
+            site="www.mr511.de"            ; sfx="gz" ;;
+       mpc) prot="http"    ; tool=${MPC}   ; path=mpc/download
+            site="www.multiprecision.org" ; sfx="gz" ;;
+       mpfr)prot="http"    ; tool=${MPFR}  ; path=gnu/mpfr 
+            site="ftp.gnu.org" ;;
+       ppl) prot="ftp"     ; tool=${PPL}    ; path="pub/gcc/infrastructure"
+            site="gcc.gnu.org"           ; sfx="gz" ;;
+         *)   echo "invalid tool: $1" ; exit 1 ;;
+     esac
+}
+
+case ${1} in
+    all)   buildall ;;
+    bin)   buildbinutils ;;
+    bin64) buildbinutils64 ;;
+    chelp) confighelp ${2} ;;
+    cloog) buildcloog ;;
+    gcc)   buildgcc ;;
+    gcc64) buildgcc64 ;;
+    get)   download ${2} ${3} ;;
+    gmp)   buildgmp ;;
+    libelf)buildlibelf ;;
+    mpc)   buildmpc ;;
+    mpfr)  buildmpfr ;;
+    ppl)   buildppl ;;
+    untar) extract ${2} ;;
+    help)  usage ;;
+    *)     echo "Invalid xbuild option: $1" ; usage ; exit 1 ;;
+esac

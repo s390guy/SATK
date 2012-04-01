@@ -1,0 +1,124 @@
+#!/bin/sh
+# Copyright (C) 2012 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+# This script is intended to be sourced for access to SATK facilities:
+#
+# source  path/satkfun [cross_dir [SATK_dir]]
+
+# If SATK_dir is provided export it, otherwise abort if it isn't
+if [ -n "${2}" ]
+then
+    export SATK_DIR=${2}
+else
+    if [-z "${SATK_DIR}" ]
+    then
+        echo "SATK environment variable not set, aborting" ; exit 1
+    fi
+fi
+# If cross_dir is provided export it, otherwise abort if it isn't
+if [-n "${2}" ]
+then
+    export XBUILD=${1}
+else
+    if [-z "${XBUILD}" ]
+    then
+        echo "XBUILD environment variable not set, aborting" ; exit 1
+    fi
+fi
+
+# Create the default Stand Alone Tool Kit (SATK) environment
+#  Usage: sa_env init s390|s390x       Use s390 or s390x configured compiler
+#         sa_env tools s370|s390|z
+#         sa_env default all
+sa_env()
+{
+    if [ $# -ne 2 ]
+    then 
+         echo "sa_env function requires 1 argument, ignored"
+         return 1
+    fi
+    case ${1} in
+       default) sa_env init s390x
+                sa_env tools s390x
+                ;;
+       init)
+          case ${2} in
+             s390) bin_tools pfx "s390-linux-"
+                   gcc_tools pfx "s390-linux-"
+                   ;;
+             s390x)bin_tools pfx "s390x-linux-"
+                   gcc_tools pfx "s390x-linux-"
+                   ;;
+             *)    echo "invalid tools_env sa_env target [s390|s390x]: $2" 
+                  return 1 ;;
+          esac
+          export XTOOLS=${XBUILD}/run/bin
+          ;;
+       reset)
+          tools reset
+          gcc_tools reset all
+          bin_tools reset all
+          as_env reset all
+          ld_env reset all
+          gcc_env reset all
+       tools)
+          case ${2} in
+             s370) ;;
+             s390) ;;
+             z)    ;;
+             *)    echo "invalid sa_env tools option ignored: ${2}"
+                   return 1 ;;
+          esac
+        # Tool chain as a whole
+          bin_tools reset all
+          gcc_tools reset all
+          bin_tools dir ${XTOOLS}
+          gcc_tools dir ${XTOOLS}
+          tools set
+        # as environment
+          as_env default $2
+          as_env include "${SATK_DIR}/src"
+        # ld environment
+          ld_env verbose enable
+          ld_env stdlib disable
+          ld_env entry "start"
+          ld_env include "${SATK_DIR}/lib"
+          case ${2} in
+             s370) ld_sym "__ARCH__" 1 ; ld_sym "__s370__" 1
+                   ld_env script "${SATK_DIR}/lib/s370.ld"  ;;
+             s390) ld_sym "__ARCH__" 2 ; ld_sym "__s390__" 1 
+                   ld_env script "${SATK_DIR}/lib/s390.ld"  ;;
+             z)    ld_sym "__ARCH__" 3 ; ld_sym "__zarch__" 1
+                   ld_env script "${SATK_DIR}/lib/s390x.ld" ;;
+          esac
+        # gcc environment
+          gcc_env verbose enable   # display internal commands
+          gcc_env temps enable     # save intermediate files
+          gcc_env stdlib disable   # no standard libs or start files
+          gcc_env stdinc disable   # Only include from dir. specified
+          gcc_env only comp        # stops after compile, no link
+          gcc_env output explicit  # use: cmp out_file source_file
+          case ${2} in
+             s370) gcc_s390 abi 31 ; gcc_env defmac __s370__  ;;
+             s390) gcc_s390 abi 31 ; gcc_env defmac __s390__  ;;
+             z)    gcc_s390 abi 64 ; gcc_env defmac __zarch__ ;;
+          esac
+          ;;
+       *) echo "invalid sa_env option: ${1}" ;;
+    esac  
+}

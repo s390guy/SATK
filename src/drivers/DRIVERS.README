@@ -1,0 +1,185 @@
+Copyright (C) 2012 Harold Grovesteen
+
+    This file is part of SATK.
+
+    SATK is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    SATK is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+
+                       +-----------------------------+
+                       |  DRIVER FRAMEWORK OVERVIEW  |
+                       +-----------------------------+
+
+The Driver Framework provides a standard structure for accessing input/output
+devices in a stand-alone program.  The driver acts as an intermediary between
+the functionality provided by the program and the underlying low-level input/
+output abstractions that interact directly with the platform input/output
+system.  All accesses to the Driver Framework require a storage area provided by
+the program.  
+
+Accessing the Driver Frame work is via one of two mechanisms.  The first mechanism 
+connects the program to the Driver Framework and registers the Common Driver to
+the framework.  As part of this operation the Driver Management Block (DMB) is 
+initialized in the storage provided by the program.  The first slot (see the "Slots"
+section) of this area is initalized with the address of the function that provides 
+program access to the Driver Framework.  This function is designated as the Driver 
+Access Function.  Programmatic access to the DAF is only possible through the 
+function that initializes the DBM.  The DAF routes requests to the drivers.
+
+Drivers perform three types of actions:
+
+   - Input,
+   - Output, and
+   - Control.
+
+Depending upon the driver, only control actions are supported or some combination
+of all three actions.  All drivers include an Open Control action.  Framework-
+wide and common operations are supported by the Common Driver.  Device drivers 
+operate exclusively with input/output devices.  The Common Driver may operate with
+devices for certain common actions.  Control actions are differentiated from input
+or output actions by the absence of the requirement to provide program managed
+storage for device data.  All actions performed on devices require a Device
+Definition Block (DDB).  The DDB defines the device to the Driver Framework and
+is initialized with the Common Open Device Control action is performed.  All 
+publicly accessible actions are defined in the DRIVER.S source module.  Each action
+has associated with it an Action Token (AT). AT's are driver and action specific.
+
+The Driver Framework links device specific functionality to devices.  Once the 
+device specific functionality is linked to the device, the program can access the
+device for input, output and control operations.  For a driver to be linked to a
+device, the Driver Framework must recognize the device driver and be able to
+associate the driver to the device.  These mechanisms are provided by the Common
+Driver.  The Common Driver provides the management functions between the program, 
+the drivers and devices.  The Common Driver may be used by the program and the
+device drivers for various public and private functions.
+
+
++--------------------------+
+|  Program Considerations  |
++--------------------------+
+
+A program intending to provide and use the Driver Framework is only required to 
+include the desired drivers.  Drivers are found in the SATK directory src/drivers.
+By convention, driver names are xxx_driver.S.  Following the last included driver
+the program must issue a drvrend macro.
+
+Programs intending to use drivers provided by an external program must include
+DRIVER.S.  DRIVER.S defines the supported driver actions by a set of Action Tokens
+used when calling the DAF.  The program providing the Driver Framework must 
+communicate the DAF address to the external program.
+
+The program providing the Driver Framework must use the appropriate ABI mechanisms
+to call either .LDF_open or .LDF_open64 depending on the running platform
+architecture.
+
+
+Calling .LDF_open on 32-bit CPU Architectures
+---------------------------------------------
+
+At Call:
+   R2     24- or 31-bit Driver Management Block (DMB) address.  The DMB is 64 bytes
+          in length.
+
+On Return:
+   Initialized DMB.  Slot 0 contains the address of the 32-bit DAF function.  Slots
+   1-15 are reserved for the Driver Framework usage.
+
+
+Calling .LDF_open64 on 64-bit CPU Architectures
+------------------------------------------------
+
+At Call:
+   R2     64-bit Driver Management Block (DMB) address.  The DMB is 128 bytes
+          in length.
+
+On Return:
+   Initialized DMB.  Slot 0 contains the address of the 64-bit DAF function.  Slots
+   1-15 are reserved for the Driver Framework usage.
+
+
+Calling the DAF on 32-bit CPU Architectures
+-------------------------------------------
+
+The DAF uses the following general register calling conventions for device drivers.
+The Common Driver may have different arguments depending upon the action.  See the
+file common_driver.S in src/drivers for details.
+
+At Call:
+   R2     The driver Action Token for the requested action.
+   R3     24- or 31-bit Device Definition Block address for device specific actions.
+          Bits 0-7 or bit 0 are ignored.
+   R4     64-bit input/output action data area address bits 0-31.
+   R5     64-bit input/output action data area address bits 32-63.
+   R6     Input/output action requested data length in register bits 16-31.  Bits
+          0-15 are ignored.
+
+   Note: R4 is only used in 32-bit architecture mode on a 64-bit supporting
+   platform.  Otherwise, R4 is ignored.  However, 32-bit mode programs should set 
+   R4 to zero in the event that the program is used on a 64-bit CPU capable 
+   platform.
+
+On Return:
+   R2     32-bit signed binary return code.
+            <0 - indicates a failure of the action
+            =0 - indicates success of the action
+            >0 - indicates an incomplete action by providing the number of data 
+                 bytes failed to be read or written
+
+Calling the DAF on 64-bit CPU Architectures
+-------------------------------------------
+
+The DAF uses the following general register calling conventions for device drivers.
+The Common Driver may have different arguments depending upon the action.  See the
+file common_driver.S in src/drivers for details.
+
+On Entry:
+   R2     The driver Action Token for the requested action.
+   R3     31-bit Device Definition Block address for device specific actions in
+          bits 33-63.  Bits 0-32 are ignored.
+   R4     64-bit input/output action data area address.
+   R5     Input/output action requested data length in register bits 48-63.  Bits
+          0-47 are ignored.
+
+On Exit:
+   R2     64-bit signed binary return code.
+            <0 - indicates a failure of the action
+            =0 - indicates success of the action
+            >0 - indicates an incomplete action by providing the number of data 
+                 bytes failed to be read or written
+
+
++-------------------------+
+|  Driver Considerations  |
++-------------------------+
+
+A driver is simply a set of ABI compliant functions that communicate with the
+driver management framework provided by common_driver.S.  The driver management
+framework is embodied in the Driver Specification Block (DSB).  The DSB defines
+the driver to the Driver Framework.   Depending upon the type of device supported
+by the driver, the Driver Framework will record the location of a driver's DSB
+in DMB managed slot that corresponds with the device type.  The device type 
+is treated as displacement.  On 64-bit architectures the device type is doubled.
+By defining a DSB, a driver automatically adds itself to the list of embedded
+drivers.
+
+Drivers must include DRVUTIL.S for access to driver related macros and structures.
+These include the DDB, DSB, the CCW Specification Block (CSB), slot macros.
+DRVUTIL will automatically include driver.S and DRIVER.S.
+
+
+The Device Definition Block
+---------------------------
+
+The Device Definition Block is a structure shared by the Driver Framework,
+individual drivers, the low-level input/output abstraction layer and the program
+indirectly via the DAF.

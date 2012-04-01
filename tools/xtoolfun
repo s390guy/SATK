@@ -1,0 +1,1072 @@
+#!/bin/sh
+# Copyright (C) 2012 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+# This script sets the cross tool environment via the provided functions and
+# provides aids in use of the primary GNU tools: gas, ld and gcc.
+#
+# This script is intended to be sourced into another script that uses the
+# provided function.  Each function will establish some internal variables
+# depedning on the options provided.  All variables managed by a function
+# can be set to a zero length string by using its reset option.  For debugging
+# purposes, the debug option will echo each variables value.
+#
+# Functions supplied:
+#
+# Establishing access to the cross tool chain:
+#   bin_tools   Specify binutils --prefix, --program-prefix, --program-suffix
+#   gcc_tools   Specify gcc --prefix, --program-prefix, --program-suffix
+#   tools       Establish variables for execution, for example, ${FOO}
+#
+# Establishing the execution environment
+#   tools_env   Define a log file, set up SATK, Linux or Solaris tool chain
+#               access.
+# Using as:
+#    as_env     Set option for the use of the GNU assembler
+#    asm        Execute the GNU s390 cross assembler
+#
+# Using ld:
+#    ld_env     Set options for the use of the GNU linker, ld
+#    ld_sym     Set a symbol externally for use by ld
+#    lnk        Execute the GNU s390 cross linker
+#
+# Using gcc:
+#    gcc_env    Set options for the use of the GNU Compiler Collection for c
+#    cmp_s390   Establish code generation parameters for s390 or s390x
+#    cmp        Execute the GNU Compiler Collection s390/s390x C cross compiler
+# 
+# A prerequisite for use of the functions is that the following variables
+# have been set with the path and executable name: AS, GCC, LD.
+# The 'xxx_tools set' functions will do this in the generic case.  
+# In the specific case where the xbuild script is used to build a toolchain,
+# the use 'tools_env satk s390|s390x' will set the tool variables.
+#
+# No requirement exists to use these functions with SATK.  However, the author
+# has found them useful.  These functions may also be used with any toolchain 
+# built by other than xbuild, for example, crosstool-NG.  However, these
+# functions may not provide all the options required outside of the SATK
+# context.
+
+# Sets the --prefix, --program-prefix and --program-suffix configured for
+# binutils.
+# Usage: bin_tools option value
+#   Options supported:
+#        dir   path         set the configured --prefix
+#        pfx   prefix       set the configured --program-prefix
+#        sfx   suffix       set the configured --program-suffix
+#        reset option|all   reset an option or all options to ""
+#        debug option|all   display an option setting or all
+#       
+bin_tools()
+{   if [ $# -ne 2 ]
+    then 
+         echo "bin_tools function requires 2 arguments, ignored"
+         return 1
+    fi
+    case "${1}" in
+        dir)  bin_dir="${2}" ;;
+        pfx)  bin_pfx="${2}" ;;
+        sfx)  bin_sfx="${2}" ;;
+        debug)
+            case "${2}" in
+                dir)  echo "bin_dir='${bin_dir}'" ;;
+                pfx)  echo "bin_pfx='${bin_pfx}'" ;;
+                sfx)  echo "bin_sfx='${bin_sfx}'" ;;
+                all)  bin_tools debug dir
+                      bin_tools debug pfx
+                      bin_tools debug sfx
+                      ;;
+                *)    echo "invalid bin_tools debug option ignored: ${2}" ;
+                      return 1
+                      ;;
+            esac
+            ;;
+        reset)
+            case "${2}" in
+                dir)  bin_dir="" ;;
+                pfx)  bin_pfx="" ;;
+                sfx)  bin_sfx="" ;;
+                all)  bin_tools reset dir
+                      bin_tools reset pfx
+                      bin_tools reset sfx
+                      ;;
+                *)    echo "invalid bin_tools reset option ignored: ${2}" ;
+                      return 1
+                      ;;
+            esac
+            ;;
+        *) echo "Invalid bin_tools option ignored: $1" ; return 1 ;;
+    esac
+}
+
+# Sets the --prefix, --program-prefix and --program-suffix configured for
+# gcc
+# Usage: gcc_tools option value
+#   Options supported:
+#        dir   path         set the configured --prefix
+#        pfx   prefix       set the configured --program-prefix
+#        sfx   suffix       set the configured --program-suffix
+#        reset option|all   reset an option or all options to ""
+#        debug option|all   display an option setting or all
+#       
+gcc_tools()
+{   if [ $# -ne 2 ]
+    then 
+         echo "gcc_tools function requires 2 arguments, ignored"
+         return 1
+    fi
+    case "${1}" in
+        dir)  gcc_dir="${2}" ;;
+        pfx)  gcc_pfx="${2}" ;;
+        sfx)  gcc_sfx="${2}" ;;
+        debug)
+            case "${2}" in
+                dir)  echo "gcc_dir='${gcc_dir}'" ;;
+                pfx)  echo "gcc_pfx='${gcc_pfx}'" ;;
+                sfx)  echo "gcc_sfx='${gcc_sfx}'" ;;
+                all)  gcc_tools debug dir
+                      gcc_tools debug pfx
+                      gcc_tools debug sfx
+                      ;;
+                *)    echo "invalid gcc_tools debug value ignored: ${2}" ;
+                      return 1
+                      ;;
+            esac
+            ;;
+        reset)
+            case "${2}" in
+                dir)  gcc_dir="" ;;
+                pfx)  gcc_pfx="" ;;
+                sfx)  gcc_sfx="" ;;
+                all)  gcc_tools reset dir
+                      gcc_tools reset pfx
+                      gcc_tools reset sfx
+                      ;;
+                *)    echo "invalid gcc_tools reset value ignored: ${2}" ;
+                      return 1
+                      ;;
+            esac
+            ;;
+        *) echo "Invalid gcc_tools option ignored: $1" ; return 1 ;;
+    esac
+}
+
+
+# Sets the general tools environment
+# Usage: tools_env option value
+#   Options supported:
+#       default   dir             Sets the default options and --prefix dir
+#       log       logfile         Sets the logfile for tool output
+#       os        linux|solaris   Synonyms for program_prefix
+#       reset     option|all      Undefines an option setting or all
+#       satk      s390|x390x      S390 or s390x tools built with xbuild
+tools_env()
+{
+    if [ $# -ne 2 ]
+    then 
+         echo "tools_env function requires 2 arguments, ignored"
+         return 1
+    fi
+    case "${1}" in
+       # Set default tools environment
+       default)
+          bin_tools reset all
+          bin_tools dir ${2}
+          gcc_tools reset all
+          gcc_tools dir ${2}
+          tools_env os linux
+          tools_env reset log
+          tools set
+          ;;
+       debug)
+          case "${2}" in
+             all)
+                tools_env echo log
+                ;;
+             log) echo "tools_log=${tools_log}" ;;
+             vars)
+                echo "tools_log=${tools_log}"
+                ;;
+             *) echo "invalid tools_env echo option ignored: ${2}" ;;
+          esac
+          ;;
+
+       # Set the tools logging file
+       log) tools_log="${2}" ;;
+       # Set the OS program prefixes
+       os)
+          case ${2} in
+             linux)   bin_tools pfx "s390x-linux-"
+                      gcc_tools pfx "s390x-linux-"
+                      tools set
+                      ;;
+             solaris) bin_tools pfx "s390x-solaris-" 
+                      gcc_tools pfx "s390x-solaris-"
+                      tools set
+                      ;;
+             *) echo "invalid tools_env os option ignored: ${2}" ;;
+          esac
+          ;;
+       # Reset tools environment options
+       reset)
+          case $2 in
+             log) tools_log="" ;;
+             os)  bin_tools reset all
+                  gcc_tools reset all
+                  tools reset all
+                  ;;  
+             all) tools_env reset log
+                  tools_env reset os
+                  ;;
+             *) echo "invalid tools_env reset option: $2" ;;
+          esac
+          ;;
+       *) echo "Invalid tools_env option ignored: $1" ;;
+       esac
+}
+
+# Set variables for GNU tools access.  Use bin_tools and gcc_tools functions
+# to establish the:
+#    directory (configure --prefix), 
+#    program prefix (configure --program-prefix) and/or
+#    program suffix (configure --program-suffix)
+# usage: tools [debug|reset|set]
+tools()
+{
+    if [ $# -ne 1 ]
+    then 
+         echo "tools function requires 1 argument, ignored"
+         return 1
+    fi
+    case $1 in
+       debug)
+          echo "AR=${AR}"
+          echo "AS=${AS}"
+          echo "LD=${LD}"
+          echo "NM=${NM}"
+          echo "OBJCOPY=${OBJCOPY}"
+          echo "OBJDUMP=${OBJDUMP}"
+          echo "RANLIB=${RANLIB}"
+          echo "READELF=${READELF}"
+          echo "SIZE=${SIZE}"
+          echo "STRINGS=${STRINGS}"
+          echo "STRIP=${STRIP}"
+          echo "CPP=${CPP}"
+          echo "GCC=${GCC}"
+          ;;
+       reset)
+          # Binutils tools
+          AR=""
+          AS=""
+          LD=""
+          NM=""
+          OBJCOPY=""
+          OBJDUMP=""
+          RANLIB=""
+          READELF=""
+          SIZE=""
+          STRINGS=""
+          STRIP=""
+          # GCC tools
+          CPP=""
+          GCC=""
+          ;;
+       set)
+          # Binutils tools
+          AR="${bin_dir}/${bin_pfx}ar${bin_sfx}"
+          AS="${bin_dir}/${bin_pfx}as${bin_sfx}"
+          LD="${bin_dir}/${bin_pfx}ld${bin_sfx}"
+          NM="${bin_dir}/${bin_pfx}nm${bin_sfx}"
+          OBJCOPY="${bin_dir}/${bin_pfx}objcopy${bin_sfx}"
+          OBJDUMP="${bin_dir}/${bin_pfx}objdump${bin_sfx}"
+          RANLIB="${bin_dir}/${bin_pfx}ranlib${bin_sfx}"
+          READELF="${bin_dir}/${bin_pfx}readelf${bin_sfx}"
+          SIZE="${bin_dir}/${bin_pfx}size${bin_sfx}"
+          STRINGS="${bin_dir}/${bin_pfx}strings${bin_sfx}"
+          STRIP="${bin_dir}/${bin_pfx}strip${bin_sfx}"
+          # GCC tools
+          CPP="${gcc_dir}/${gcc_pfx}cpp${gcc_sfx}"
+          GCC="${gcc_dir}/${gcc_pfx}gcc${gcc_sfx}"
+          ;;
+       *)  echo "Invalid tools option: ${1}"
+           echo "Processing aborted"
+           exit 1
+           ;;
+    esac
+}
+
+# Sets the AS environment
+# Usage: as_env option value
+#   Options supported:
+#       arch    s370|s390|z      Sets as options for the architecture
+#       debug   var|all          Displays the internal variable values
+#       default s370|s390|z      Sets as default options and architecture
+#       include dir              Adds an include directory to the assembly
+#                                include search path.  Current directory is
+#                                always searched first.
+#       list    file|nolist      Sets the listing file and content or none
+#       hexc    number           Number of continuation hex output lines
+#       hexw    number           Number of words in a hex output line
+#       onesect enable|disable   Setting for merging .data and .text
+#       regs    enable|disable   Setting for allowing names for registers
+#       reset   option|all       Undefines an option setting or all
+#       verbose enable|disable   Setting for verbose information
+as_env()
+{
+    if [ $# -ne 2 ]
+    then 
+         echo "as_env function requires 2 arguments, ignored"
+         return 1
+    fi
+    case $1 in
+       # Set architecture
+       arch)
+          case $2 in
+             s370) as_arch="-m31 -march=g5 -mesa" ;;
+             s390) as_arch="-m31 -march=z196 -mesa" ;;
+             z)    as_arch="-m64 -march=z196 -mzarch" ;;
+             *) echo "invalid arch value [s370|s390|z]: $2" ; return 1
+                ;;
+          esac
+          ;;
+       # Set default environment for architecture
+       default)
+             as_env verbose enable
+             as_env regs disable
+             as_env hexw 2
+             as_env hexc 16
+             as_env arch $2
+             ;;
+       # Echo settings
+       debug)
+           case $2 in
+             all)  as_env debug arch
+                   as_env debug inc
+                   as_env debug list
+                   as_env debug lstc
+                   as_env debug lstw
+                   as_env debug onesect
+                   as_env debug regs
+                   as_env debug sym
+                   as_env debug v
+                   ;;
+             arch)    echo "as_arch=${as_arch}" ;;
+             hexc)    as_env debug lstc ;;
+             hexw)    as_env debug lstw ;;
+             include) echo "as_inc=${as_inc}" ;;
+             list)    echo "as_list=${as_list}" ;;
+             lstc)    echo "as_lstc=${lstc}" ;;
+             lstw)    echo "as_lstw=${lstw}" ;;
+             onesect) echo "as_mrg=${as_mrg}" ;;
+             regs)    echo "as_r=${as_r}" ;;
+             sym)     echo "as_sym=${as_sym}" ;;
+             verbose) as_env debug v ;;
+             v)       echo "as_v=${as_v}" ;; 
+             *) echo "invalid echo option: $2" ; return 1
+                ;;
+          esac
+          ;;
+       # Listing continuation lines
+       hexc) as_lstc="--listing-cont-lines=${2}" ;;
+       # Listing width
+       hexw) as_lstw="--listing-lhs-width=${2}"  ;;
+       # Add include path
+       include) as_inc="${as_inc} -I ${2}"       ;;
+       # Create listing
+       list)
+          if [ "${2}" = "nolist" ]
+          then 
+              as_env reset list
+          else
+              as_list="-acghlms=${2}"
+          fi
+          ;;
+       onesect)
+          case $2 in
+             enable) as_mrg="-R" ;;
+             disable) as_mrg="" ;;
+             *) echo "invalid onesect value [enable|disable]: $2"
+                return 1
+                ;;
+          esac
+          ;;
+       # Register names supported
+       regs)
+          case $2 in
+             enable) as_r="-mregnames" ;;
+             disable) as_r="" ;;
+             *) echo "invalid regs value [enable|disable]: $2"
+                return 1
+                ;;
+          esac
+          ;;
+       reset)
+          case $2 in
+             arch)    as_arch="" ;;
+             include) as_inc=""  ;;
+             list)    as_list="" ;;
+             hexc)    as_lstc="" ;;
+             hexw)    as_lstw="" ;;
+             onesect) as_mrg=""  ;;
+             regs)    as_r=""    ;;
+             sym)     as_sym=""  ;;
+             verbose) as_v=""    ;;
+             all)
+                 as_env reset arch
+                 as_env reset hexc
+                 as_env reset hexw
+                 as_env reset include
+                 as_env reset list
+                 as_env reset onesect
+                 as_env reset regs
+                 as_env reset sym
+                 as_env reset verbose
+                 ;;
+             *) echo "invalid reset option ignored: $2" ;;
+          esac
+          ;;
+       verbose)
+          case $2 in
+             enable) as_v="-v" ;;
+             disable) as_v="" ;;
+             *) echo "invalid verbose value [enable|disable]: $2"
+                return 1
+                ;;
+          esac
+          ;;
+       *) echo "Invalid as_env option ignored: $1" ;;
+       esac
+}
+
+# Define an assembler defined command line symbol
+#   Usage: as_sym symbol value
+as_sym()
+{
+    if [ $# -ne 2 ]
+    then 
+         echo "as_sym function requires 2 arguments, ignored"
+         return 1
+    fi
+    as_sym="${as_sym} --defsym ${1}=${2}"
+}
+
+# Invoke the assembler
+#   Usage: asm lisfile|nolist objelf srcfile
+asm()
+{
+    if [ $# -ne 3 ]
+    then 
+         echo "asm function requires 3 arguments, ignored"
+         return 1
+    fi
+    as_env list $1
+    as_lst="${as_lstw} ${as_lstc} ${as_list}"
+    as_opt="${as_v} ${as_r} ${as_mrg} ${as_arch} ${as_lst}"
+    as_cmd="${AS} ${as_opt} ${as_inc} ${as_sym} -o ${2} ${3}"
+    if [ -z ${tools_log} ]
+    then
+        ${as_cmd}
+    else
+        echo ${as_cmd} >${tools_log}
+        ${as_cmd} 2>&1 |tee -a ${tools_log}
+    fi
+}
+
+# Sets the LD environment
+# Usage: ld_env option value
+#   Options supported:
+#       default all         Sets ld default options
+#       entry   lable       Sets the entry point of the executable
+#       include dir         Adds an include directory to the link
+#       map     file|nomap  Specifies the linkage map
+#       reloc   enable|disable Setting for relocation info in executable
+#       reset option|all    Undefines an option setting
+#       stdlib  enable|disable Setting for standard library includes
+#       symbols enable|disable Setting for symbols in executable
+#       verbose enable|disable Setting for verbose information
+ld_env()
+{
+    if [ $# -ne 2 ]
+    then 
+         echo "ld_env function requires 2 arguments, ignored"
+         return 1
+    fi
+    case $1 in
+       # Set default environment with stdlib enabled or disabled
+       default)
+             ld_env verbose enable
+             ld_env stdlib disable
+             ;;
+       # Echo environment settings
+       debug)
+          case ${2} in
+             all)  ld_env debug entry
+                   ld_env debug include
+                   ld_env debug map
+                   ld_env debug reloc
+                   ld_env debug script
+                   ld_env debug stdlib
+                   ld_env debug sym
+                   ld_env debug symbols
+                   ld_env debug text
+                   ld_env debug verbose
+                   ;;
+             entry)   echo "ld_entry=${ld_entry}" ;;
+             include) echo "ld_inc=${ld_inc}" ;;
+             map)     echo "ld_map=${ld_map}" ;;
+             reloc)   echo "ld_relo=${ld_relo}" ;;
+             script)  echo "ld_script=${ld_script}" ;;
+             stdlib)  echo "ld_lib=${ld_lib}" ;;
+             sym)     echo "ld_sym=${ld_sym}" ;;
+             symbols) echo "ld_syms=${ld_syms}" ;;
+             text)    echo "ld_text=${ld_text}" ;;
+             verbose) echo "ld_v=${ld_v}" ;;
+             *) echo "invalid ld_env debug option: ${2}" ;;
+          esac
+          ;;
+       # Listing continuation lines
+       entry) ld_entry="-e ${2}" ;;
+       # Add include path
+       include) ld_inc="${ld_inc} -L ${2}" ;;
+       # Establish linkage map setting
+       map)
+          if [ "${2}" = "nomap" ]
+          then 
+               ld_env reset map
+          else 
+               ld_map="-Map ${2} --cref"
+          fi
+          ;;
+       # Emit relocation information in executalbes
+       reloc)
+          case $2 in
+             enable) ld_relo="-q" ;;
+             disable) ld_relo="" ;;
+             *) echo "invalid reloc value [enable|disable]: $2"
+                return 1
+                ;;
+          esac
+          ;;
+       # Reset LD environment options
+       reset)
+          case $2 in
+             all)
+                 ld_env reset entry
+                 ld_env reset include
+                 ld_env reset map
+                 ld_env reset script
+                 ld_env reset stdlib
+                 ld_env reset text
+                 ld_env reset verbose
+                 ld_env reset sym
+                 ld_env reset symbols
+                 ;;
+             include) ld_inc=""    ;;
+             entry) ld_entry=""    ;;
+             map) ld_map=""        ;;
+             reloc) ld_relo=""     ;;
+             script) ld_script=""  ;;
+             stdlib) ld_list=""    ;;
+             sym)  ld_sym=""       ;;
+             symbols) ld_syms=""   ;;
+             text) ld_text=""      ;;
+             verbose) ld_v=""      ;;
+             *) echo "invalid reset option: $2" ;;
+          esac
+          ;;
+       # Identify the linker script
+       script) ld_script="-T ${2}"  ;;
+       stdlib)
+          case $2 in
+             enable) ld_lib="" ;;
+             disable) ld_lib="--nostdlib" ;;
+             *) echo "invalid stdlib value [enable|disable]: $2" ; return 1 ;;
+          esac
+          ;;
+       # Enable or disable symbol information in executables
+       symbols)
+          case $2 in
+             enable) ld_syms="" ;;
+             disable) ld_syms="-s" ;;
+             *) echo "invalid stdlib value [enable|disable]: $2" ; return 1 ;;
+          esac
+          ;;
+       # Set text and data segments are writable and do not align
+       text) 
+          case $2 in
+             ro) ld_text="" ;;
+             rw) ld_text="-N" ;;
+             *)  echo "invalid text value [ro|rw]: $2" ; return 1 ;;
+          esac
+          ;;
+       verbose)
+          case ${2} in
+             enable)  ld_v="--verbose" ;;
+             disable) ld_v="" ;;
+             *) echo "invalid verbose value [enable|disable]: $2"
+                return 1
+                ;;
+          esac
+          ;;
+       *) echo "Invalid ld_env option ignored: $1" ;;
+    esac
+}
+
+# Define an linker command line symbol
+# Usage: ld_sym global_symbol absolute_expression
+ld_sym()
+{
+    if [ $# -ne 2 ]
+    then 
+         echo "ld_sym function requires 2 arguments, ignored"
+         return 1
+    fi
+    ld_sym="${ld_sym} --defsym ${1}=${2}"
+}
+
+# Invoke linkage editor
+#   Usage: link mapfile|nomap exeelf objelf
+lnk()
+{
+    if [ $# -ne 3 ]
+    then 
+         echo "lnk function requires 3 arguments, ignored"
+         return 1
+    fi
+    ld_env map $1
+    ld_scr="${ld_sym} ${ld_relo} ${ld_script} ${ld_entry}"
+    ld_opt="${ld_v} ${ld_scr} ${ld_lib} ${ld_text} ${ld_syms}"
+    ld_cmd="${LD} ${ld_opt} ${ld_inc} ${ld_map} -o ${2} ${3}"
+    if [ -z ${tools_log} ]
+    then
+        ${ld_cmd}
+    else
+        echo ${ld_cmd} >${tools_log}
+        ${ld_cmd} 2>&1 |tee -a ${tools_log}
+    fi
+}
+
+# Set the gcc C compiler environment
+# Note: due to the excessive set of options available, only fairly general
+#       options are supported by this function.  All s390 related options are
+#       supported.
+# Usage:  gcc_env option value
+#   Options supported:
+#      defmac   mac_name            Define a macro name in the command line
+#      hdrtrc   enable|disable      Display included files and depth
+#      incdir   directory           Add include directory to search path
+#      include  file                Include at start of source, file from
+#                                   include search path
+#      lang     asm|asmp|c|default  Input source language. Default allows
+#                                   gcc to determine from the input suffix
+#      only     prep|comp|asm|link  Only preprocess, compile assemble, 
+#                                   or link source
+#      output   explicit|default    cmp command has explicit output or lets
+#                                   gcc default the output file name and suffix
+#      stdinc   enable|disable      Use standard include or just incdir dir's.
+#      stdlib   enable|disable      Use standard libs and start files or not
+#      temps    enable|disable      Save intermediate temporary files
+#      verbose  enable|disable      Display subcomponent commands or not
+#
+gcc_env()
+{
+    if [ $# -ne 2 ]
+    then 
+         echo "gcc_env function requires 2 arguments, ignored"
+         return 1
+    fi
+    case $1 in
+        default)
+             gcc_env lang default
+             gcc_env only link
+             gcc_env output default
+             gcc_env verbose disable
+             ;;
+        debug)
+          case ${2} in
+             all) gcc_env debug def
+                  gcc_env debug hdrtrc
+                  gcc_env debug incdir
+                  gcc_env debug include
+                  gcc_env debug lang
+                  gcc_env debug only
+                  gcc_env debug output
+                  gcc_env debug stdinc
+                  gcc_env debug stdlib
+                  gcc_env debug temps
+                  gcc_env debug verbose 
+                  ;;
+             defmac)  echo "gcc_defm=${gcc_defm}" ;;
+             hdrtrc)  echo "gcc_hdrt=${gcc_hdrt}" ;;
+             incdir)  echo "gcc_dinc=${gcc_dinc}" ;;
+             include) echo "gcc_finc=${gcc_finc}" ;;
+             lang)    echo "gcc_lang=${gcc_lang}" ;;
+             only)    echo "gcc_only=${gcc_only}" ;;
+             output)  echo "gcc_out=${gcc_out}"   ;;
+             stdinc)  echo "gcc_sinc=${gcc_sinc}" ;;
+             stdlib)  echo "gcc_std=${gcc_std}"   ;;
+             temps)   echo "gcc_tmp=${gcc_tmp}"   ;;
+             verbose) echo "gcc_v=${gcc_v}"       ;;
+             *) echo "invalid gcc_env debug option: ${2}" ;;
+          esac
+          ;;
+        defmac) gcc_defm="${gcc_defm} -D${2}" ;;
+        hdrtrc)
+          case ${2} in
+              enable)  gcc_hdrt="-H" ;;
+              disable) gcc_hdrt="" ;;
+              *) echo "invalid hdrtrc value [enable|disable]: $2" ; return 1 ;;
+           esac
+           ;;
+        incdir) gcc_dinc="${gcc_dinc} -I${2}" ;;
+        include)gcc_finc="${gcc_finc} -include ${2}" ;;
+        lang)
+          case ${2} in
+             asm)     gcc_lang="-x assembler" ;;
+             asmp)    gcc_lang="-x assembler-with-cpp" ;;
+             c)       gcc_lang="-x c" ;;
+             default) gcc_lang="" ;;
+             *) echo "invalid gcc_env lang option: ${2}" ;;
+          esac
+          ;;
+        only)
+          case ${2} in
+             asm)  gcc_only="-c" ;;
+             comp) gcc_only="-S" ;;
+             link) gcc_only=""   ;;
+             prep) gcc_only="-E" ;;
+             *) echo "invalid gcc_env only option: ${2}" ;;
+          esac
+          ;;
+        output)
+          case ${2} in
+             defautl)  gcc_out=""    ;;
+             explicit) gcc_out="exp" ;;
+             *) echo "invalid gcc_env output option: ${2}" ;;
+          esac
+          ;;
+        reset)
+          case $2 in
+             all) gcc_env reset defmac
+                  gcc_env reset hdrtrc
+                  gcc_env reset incdir
+                  gcc_env reset include
+                  gcc_env reset lang
+                  gcc_env reset only
+                  gcc_env reset output
+                  gcc_env reset stdinc
+                  gcc_env reset stdlib
+                  gcc_env reset temps
+                  gcc_env reset verbose
+                  ;;
+             defmac)  gcc_defm=""  ;;
+             hdrtrc)  gcc_hdrt=""  ;;
+             incdir)  gcc_dinc=""  ;;
+             include) gcc_finc=""  ;;
+             lang)    gcc_lang=""  ;;
+             only)    gcc_only=""  ;;
+             output)  gcc_out=""   ;;
+             stdinc)  gcc_sinc=""  ;;
+             stdlib)  gcc_std=""   ;;
+             temps)   gcc_tmp=""   ;;
+             verbose) gcc_v=""     ;;
+             *) echo "invalid reset option: $2" ;;
+          esac
+           ;;
+        stdinc)
+           case ${2} in
+              enable)  gcc_sinc="" ;;
+              disable) gcc_sinc="-nostdinc" ;;
+              *) echo "invalid stdinc value [enable|disable]: $2" ; return 1 ;;
+           esac
+           ;;
+        stdlib)
+           case ${2} in
+              enable)  gcc_std="" ;;
+              disable) gcc_std="-nostdlib" ;;
+              *) echo "invalid temps value [enable|disable]: $2" ; return 1 ;;
+           esac
+           ;;
+        temps)
+           case ${2} in
+              enable)  gcc_tmp="-save-temps" ;;
+              disable) gcc_tmp="" ;;
+              *) echo "invalid temps value [enable|disable]: $2" ; return 1 ;;
+           esac
+          ;;
+          
+        verbose)
+          case ${2} in
+             enable)  gcc_v="-v" ;;
+             disable) gcc_v="" ;;
+             *) echo "invalid verbose value [enable|disable]: $2" ; return 1 ;;
+          esac
+          ;;
+        *)  echo "Invalid gcc_env option ignored: $1" ;;
+      
+    esac
+}
+
+# Set GCC C compiler s390 specific options
+# Usage: gcc_s390 option value
+#   Options supported:
+#     abi    31|64           Specify the ABI being targeted and defaults
+#     bfp    hard|soft       Use hardware or software for bfp IEEE instructions
+#     bras   enable|disable  Use bras for <64K object
+#     chain  enable|disable  Enable or disable the stack back chain pointer
+#     cpu    g5|g6|z900|z9-109|z9-ec|z10|z196
+#                            Specify the targeted CPU and available instructions
+#     dfp    hard|soft       Use hardware or software for dfp IEEE instructions
+#     guard  2**N            Trap if stack-size > stack+guard
+#     madd   enable|disable  Use madd instruction
+#     mvcle  enable|disable  Use mvcle or mvc loops
+#     packed enable|disable  Removes unused space from the stack
+#     stack  2**N            Trap if stack-size > stack+guard
+#     warn   dynamic|size    Enable warning if alloca or dynamically sized
+#                            arrays used.  Warn if frame size exceeds 'size'
+# Note: some combination of options may be incompatible.  No attempt is made
+# to replicate GCC sanity checks here.  Some warnings or errors could result
+# from some values set.
+gcc_s390()
+{   
+    if [ $# -ne 2 ]
+    then 
+         echo "gcc_env function requires 2 arguments, ignored"
+         return 1
+    fi
+    case $1 in
+         abi)
+           case ${2} in
+              "31") gcc_s390_abi="-m31" ;;
+              "64") gcc_s390_abi="-m64" ;;
+             *) echo "invalid abi value [31|64]: $2" ; return 1 ;;
+           esac
+           ;;
+         bfp)
+           case ${2} in
+              hard) gcc_s390_bfp="-mhard_float" ;;
+              soft) gcc_s390_bfp="-msoft_float" ;;
+             *) echo "invalid bfp value [hard|soft]: $2" ; return 1 ;;
+           esac
+           ;;
+         bras)
+           case ${2} in
+              disable) gcc_s390_bras="-mno-small-exec" ;;
+              enable)  gcc_s390_bras="-msmall-exec" ;;
+             *) echo "invalid bras value [enable|disable]: $2" ; return 1 ;;
+           esac
+           ;;
+         chain)
+           case ${2} in
+              disable) gcc_s390_chain="-mno_backchain" ;;
+              enable)  gcc_s390_chain="-mbackchain" ;;
+             *) echo "invalid chain value [enable|disable]: $2" ; return 1 ;;
+           esac
+           ;;
+         cpu)
+           case ${2} in
+              "g5")    ;;
+              "g6")    ;;
+              "z900")  ;;
+              "z990")  ;;
+              "z9-109");;
+              "z9-ec") ;;
+              "z10")   ;;
+              "z196")  ;;
+              *) echo "invalid cpu value [g5|g6|z900|z990|z9-109|z9-ec|z10|z196]: $2" 
+                 return 1 ;;
+           esac
+           gcc_s390_cpu="${2}"
+           ;;
+         debug)
+           case ${2} in
+              abi) echo "gcc_s390_abi=${gcc_s390_abi}" ;;
+              all) gcc_s390 debug abi
+                   gcc_s390 debug bfp
+                   gcc_s390 debug bras
+                   gcc_s390 debug chain
+                   gcc_s390 debug cpu
+                   gcc_s390 debug dfp
+                   gcc_s390 debug guard
+                   gcc_s390 debug madd
+                   gcc_s390 debug mvcle
+                   gcc_s390 debug pack
+                   gcc_s390 debug stack
+                   gcc_s390 debug wdyn
+                   gcc_s390 debug wsiz
+                   ;;
+              bfp)   echo "gcc_s390_bfp=${gcc_s390_bfp}"   ;;
+              bras)  echo "gcc_s390_bras=${gcc_s390_bras}" ;;
+              chain) echo "gcc_s390_chain=${gcc_s390_chain}" ;;
+              cpu)   echo "gcc_s390_cpu=${gcc_s390_cpu}" ;;
+              dfp)   echo "gcc_s390_dfp=${gcc_s390_dfp}" ;;
+              guard) echo "gcc_s390_guard=${gcc_s390_guard}" ;;
+              madd)  echo "gcc_s390_madd=${gcc_s390_madd}" ;;
+              mvcle) echo "gcc_s390_mvcle=${gcc_s390_mvcle}" ;;
+              pack)  echo "gcc_s390_pack=${gcc_s390_pack}" ;;
+              stack) echo "gcc_s390_stack=${gcc_s390_stack}" ;;
+              wdyn)  echo "gcc_s390_wdyn=${gcc_s390_wdyn}" ;;
+              wsiz)  echo "gcc_s390_wsiz=${gcc_s390_wsiz}" ;;
+              *) echo "invalid debug value: $2" 
+                 return 1 ;;
+           esac
+           ;;
+         dfp)
+           case ${2} in
+              hard) gcc_s390_dfp="-mhard-dfp" ;;
+              soft) gcc_s390_dfp="-mno-hard_dfp" ;;
+             *) echo "invalid dfp value [hard|soft]: $2" ; return 1 ;;
+           esac
+           ;;
+         guard)
+           case ${2} in
+              "1"|"2"|"4"|"8"|"16"|"32"|"64"|"128"|"256"|"512") ;;
+              "1024"|"2048"|"4096"|"8192"|"16384"|"32768") ;;
+              *) echo "invalid guard value (power of 2 1-32768): $2" 
+                 return 1 ;;
+           esac
+           gcc_s390_guard="-mstack-guard=${2}"
+           ;;
+         hfp)  echo "hfp not supported by GCC, ignored" ; return 1 ;;
+         madd)
+           case ${2} in
+              disable) gcc_s390_madd="-mno-fused-madd" ;;
+              enable)  gcc_s390_madd="-mfused-madd" ;;
+             *) echo "invalid madd value [enable|disable]: $2" ; return 1 ;;
+           esac
+           ;;
+         mvcle)
+           case ${2} in
+              disable) gcc_s390_mvcle="-mno-mvcle" ;;
+              enable)  gcc_s390_mvcle="-mmvcle" ;;
+             *) echo "invalid mvcle value [enable|disable]: $2" ; return 1 ;;
+           esac
+           ;;
+         packed)
+           case ${2} in
+              disable) gcc_s390_pack="-mno-packed-stack" ;;
+              enable)  gcc_s390_pack="-mpacked-stack" ;;
+             *) echo "invalid packed value [enable|disable]: $2" ; return 1 ;;
+           esac
+           ;;
+         reset)
+           case ${2} in
+              abi) gcc_s390_abi="" ;;
+              all) gcc_s390 reset abi
+                   gcc_s390 reset bfp
+                   gcc_s390 reset bras
+                   gcc_s390 reset chain
+                   gcc_s390 reset cpu
+                   gcc_s390 reset dfp
+                   gcc_s390 reset guard
+                   gcc_s390 reset madd
+                   gcc_s390 reset mvcle
+                   gcc_s390 reset pack
+                   gcc_s390 reset stack
+                   gcc_s390 reset warn
+                   ;;
+              bfp)   gcc_s390_bfp=""   ;;
+              bras)  gcc_s390_bras=""  ;;
+              chain) gcc_s390_chain="" ;;
+              cpu)   gcc_s390_cpu=""   ;;
+              dfp)   gcc_s390_dfp=""   ;;
+              guard) gcc_s390_guard="" ;;
+              madd)  gcc_s390_madd=""  ;;
+              mvcle) gcc_s390_mvcle="" ;;
+              pack)  gcc_s390_pack=""  ;;
+              stack) gcc_s390_stack="" ;;
+              warn)  gcc_s390_wdyn="" ; gcc_s390_wsiz="" ;;
+              *) echo "invalid reset value: $2" 
+                 return 1 ;;
+           esac
+           ;;
+         stack)
+           case ${2} in
+              "1"|"2"|"4"|"8"|"16"|"32"|"64"|"128"|"256"|"512") ;;
+              "1024"|"2048"|"4096"|"8192"|"16384"|"32768"|"65536") ;;
+              *) echo "invalid stack value (power of 2 1-65536): $2" 
+                 return 1 ;;
+           esac
+           gcc_s390_stack="-mstack-size=${2}"
+           ;;
+         warn)
+           case ${2} in
+              dynamic) gcc_s390_wdyn="-mwarn-dynamicstack" ;;
+              [1-9][0-9]*) gcc_s390_wsiz="-mwarn-framesize=${2}" ;;
+             *) echo "invalid warn value [dynamic|number]: $2" ; return 1 ;;
+           esac
+           ;;
+         *)  echo "Invalid cmp_s390 option ignored: $1" ;;
+    esac
+}
+
+# Invoke the C compiler
+# Usage: comp source          If gcc_env output default
+#    or: comp output source   If gcc_env output explicit
+cmp()
+{   
+    if [ "${gcc_out}" = "exp" ]
+    then
+        if [ $# -ne 2 ]
+        then 
+            echo "cmp function requires 2 arguments, ignored"
+            return 1
+        else
+            gccout="-o ${1}"
+            gccin=${2}
+        fi
+    else
+        if [ $# -ne 1 ]
+        then
+            echo "cmp function requires 1 argument, ignored"
+            return 1
+        else
+            gccout=""
+            gccin=${1}
+        fi
+    fi
+    # S390 ABI and CPU
+    gcc_s390="${gcc_s390_abi} ${gcc_s390_cpu}"
+    # S390 Stack frame generation
+    gcc_s390="${gcc_s390} ${gcc_s390_chain} ${gcc_s390_pack}"
+    # S390 Compile-time stack usage monitoring
+    gcc_s390="${gcc_s390} ${gcc_s390_wdyn} ${gcc_s390_wsiz}"
+    # S390 Floating point support options
+    gcc_s390="${gcc_s390} ${gcc_s390_bfp} ${gcc_s390_dfp} ${gcc_s390_madd}"
+    # S390 Special instruction usage
+    gcc_s390="${gcc_s390} ${gcc_s390_bras} ${gcc_s390_mvcle}"
+    # S390 Run-time stack-size monitoring
+    gcc_s390="${gcc_s390} ${gcc_s390_stack} ${gcc_s390_guard}"
+    # GCC Operational controls
+    gcc_files="${gcc_lang} ${gcc_v} ${gcc_tmp}"
+    # GCC Preprocessor options
+    gcc_prep="${gcc_hdrt} ${gcc_sinc} ${gcc_dinc} ${gcc_finc}"
+    # GCC linkage options
+    gcc_link="${gcc_std}"
+    # GCC command line
+    gcc_cmd="${GCC} ${gcc_files} ${gcc_prep} ${gcc_link} ${gcc_s390}"
+    gcc_cmd="${gcc_cmd} ${gccout} ${gccin}"
+    if [ -z ${tools_log} ]
+    then
+        ${gcc_cmd}
+    else
+        echo ${gcc_cmd} >${tools_log}
+        ${gcc_cmd} 2>&1 |tee -a ${tools_log}
+    fi
+}
+
+

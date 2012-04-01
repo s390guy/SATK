@@ -1,0 +1,114 @@
+#!/bin/sh
+# Copyright (C) 2012 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+# This script verifies the tools built by xbuild
+
+usage()
+{
+     echo "Usage: ./xverify bin [s390|s390x] formats - format help"
+     echo "       ./xverify bin [s390|s390x] target  - target help"
+     echo "       ./xverify bin [s390|s390x] version - version help"
+     echo "       ./xverify gcc [s390|s390x] target  - target help"
+     echo "       ./xverify gcc [s390|s390x] test    - test compiler/options"
+     echo "       ./xverify help - this usage information"
+}
+
+source ${HOME}/SATK/tools/xtoolfun ${HOME}/crossbuild
+
+XBUILD=${HOME}/crossbuild
+XLIBS=${XBUILD}/sup/lib
+XTOOLS=${XBUILD}/run/bin
+
+datetime()
+{
+     sfx=$(date +%Y%m%d.%H%M%S)
+}
+
+setup()
+{  
+    case ${1} in
+       s390)  bin_tools pfx "s390-"        ; bin_tools sfx "-2.21.51.0.7"
+              gcc_tools pfx "s390-linux-"  ;;
+       s390x) bin_tools pfx "s390x-"       ; bin_tools sfx "-2.21.51.0.7"
+              gcc_tools pfx "s390x-linux-" ;;
+       *) echo "invalid xverify arch [s390|s390x]: ${1}"; exit 1 ;;
+    esac
+    bin_tools dir ${XTOOLS}
+    gcc_tools dir ${XTOOLS}
+    tools set
+}
+
+case ${1} in
+    bin)setup ${2}
+        case ${3} in
+            formats)
+                logfile=${XBUILD}/help/binutils.${2}.formats
+                echo "Formats configured for binutils"  |tee ${logfile}
+                ${OBJDUMP} -i 2>&1 |tee -a ${logfile}
+                ;;
+            target)
+                logfile=${XBUILD}/help/binutils.${2}.target
+                echo "GNU Assembler: ${AS}"             |tee ${logfile}
+                echo "Target help:"                     |tee -a ${logfile}
+                ${AS} -v --target-help 2>&1             |tee -a ${logfile}
+                echo "Formats configured for binituls:" |tee -a ${logfile}
+                ${OBJDUMP} -i 2>&1                      |tee -a ${logfile}
+                ;;
+            version)
+                logfile=${XBUILD}/help/binutils.${2}.version
+                echo "GNU Assembler Version: ${as}"     |tee ${logfile}
+	            ${AS} -v 2>&1 |tee -a ${logfile}
+                ;;
+            *) echo "invalid bin tool option: ${3}" ; usage ; exit 1 ;;
+        esac
+        ;;
+    gcc)setup ${2}
+        case ${3} in
+            target)
+                logfile=${XBUILD}/help/gcc.${2}.target
+                echo "GCC Target help: ${GCC}"          |tee ${logfile}
+                ${GCC} --target-help 2>&1               |tee -a ${logfile}
+                ;;
+            test)  datetime
+                   logfile=${XBUILD}/test/gcctest.$sfx.log
+                   gcc_env verbose enable
+                   gcc_env temps enable
+                   gcc_env stdlib disable
+                   gcc_env output explicit
+                   gcc_s390 abi 31
+                   tools_env log ${logfile}
+                   export PATH="${PATH}:${XLIBS}"
+                   export LD_LIBRARY_PATH="${XLIBS}"
+                   cd ${XBUILD}/test && \
+                   cmp gcctest gcctest.c && \
+                   ${READELF} -a gcctest.o              |tee -a  ${logfile}
+                   ${READELF} -a gcctest                |tee -a  ${logfile}
+                   ${OBJDUMP} -x gcctest.o              |tee -a  ${logfile}
+                   ${OBJDUMP} -x gcctest                |tee -a  ${logfile}
+                ;;
+            version)
+                logfile=${XBUILD}/help/gcc.${2}.version
+                echo "GCC Version: ${GCC}"              |tee ${logfile}
+                ${GCC} --version 2>&1                   |tee -a ${logfile}
+                ;;
+            *) echo "invalid gcc tool option: ${3}" ; usage ; exit 1 ;;
+        esac
+        ;;
+    help)  usage ;;
+    *)     echo "Invalid xverify option: $1" ; usage ; exit 1 ;;
+esac
