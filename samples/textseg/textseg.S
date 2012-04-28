@@ -1,4 +1,4 @@
-          .title "IPL ELF Boot Loader Sample"
+          .title "IPL ELF IPL Function Sample"
  # Copyright (C) 2012 Harold Grovesteen
  #
  # This file is part of SATK.
@@ -16,10 +16,13 @@
  #     You should have received a copy of the GNU General Public License
  #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
  
- # This is a test source module to develop support for the 
- # IPL ELF ABI Supplement.  It uses an embedded loader to load the program and 
- # the default LOWC content.  The booted program is nothing more than a hello world
- # program.
+ # This is a test source module to develop support for the IPL ELF ABI Supplement.  
+ # The program's text segment is loaded directly into storage by the IPL function
+ # including the default LOWC content.  The booted program is nothing more than a 
+ # hello world program.  A boot loader is not used with this program.
+ #
+ # The lodrtest bash script in this program's directory is used to build and test 
+ # the IPL medium containing this program.
           
           .sbttl "IPL Program"
           
@@ -30,10 +33,11 @@
  # TXT Segment
           .text
 .L_ipl:
-# The loader frees itself from the shackles of the IPL environment of CCW0 24-bit 
-# addressing mode.  Because only this segment is loaded by the embedded
-# loader it will remain is ESA/390 mode.  It will only enter z/Archtecture mode
-# if it loads a s390 64-bit ELF in its entirety.
+ # Because this program is loaded by the IPL function constrained to Format 0 CCW's
+ # it may only be loaded into the first 16M of storage. It will be entered in either
+ # an S/370 mode or in ESA/390 mode depending upon the hardware architecture. The
+ # program must enter z/Architecture mode itself as determined by assembly time
+ # defined symbols.
 
 _start:   .global _start
           basr    15,0
