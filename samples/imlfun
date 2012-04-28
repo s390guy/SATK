@@ -1,0 +1,109 @@
+#!/bin/sh
+# Copyright (C) 2012 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+# Function to Initial Microprogram Load a Hercules CPU
+iml()
+{
+        # iml -h hercbin -c conf -r rc_file -l logfile
+        #
+        #   option      variable
+        #
+        # -h hercbin  HERCULES       required    Hercules binary
+        # -c conf     HERCULES_CNF   required    Hercules configuration file
+        # -r rc_file  HERCULES_RC    optional    Hercules run command file
+        # -l logfile  HERCULES_LOG   optional    Herucles logfile
+        hercbin=""    
+        hercconf=""
+        hercrc=""
+        herclog=""
+        error=0
+        while getopts ":h:c:r:l:" Option
+          do
+              #echo "Option=${Option} OPTARG=${OPTARG}"
+              case "$Option" in
+                 "h") hercbin="${OPTARG}"  ;;
+                 "c") hercconf="${OPTARG}" ;;
+                 "r") hercrc="${OPTARG}"   ;;
+                 "l") herclog="${OPTARG}"  ;;
+                 ":") echo "iml: Missing argument for option: $OPTARG"
+                      error=1
+                      ;;
+                 "?") echo "iml: Unrecognized option: $OPTARG"
+                      error=1
+                      ;;
+                 *)   echo "iml: unrecognized getopts Option - internal error: $Option"
+                      error=1
+                      ;;
+              esac
+          done
+          
+          if [ -z "${hercbin}" ]
+             then hercbin="${HERCULES}"
+          fi
+          if [ -z "${hercconf}" ]
+             then hercconf="${HERCULES_CNF}"
+          fi
+          if [ -n "${hercrc}" ]
+             then export HERCULES_RC="${hercrc}"
+          fi
+          if [ -z "${herclog}" ]
+             then herclog="${HERCULES_LOG}"
+          fi
+          if [ -z "${hercbin}" ]
+             then echo "iml: required option -h or variable HERCULES missing"
+                  error=1
+          fi
+          if [ -z "${hercconf}" ]
+             then echo "iml: required option -c or variable HERCULES_CONF missing"
+                  error=1
+             else hercconf="-f ${hercconf}"
+          fi
+          if [ $error = 1 ]
+             then echo "iml: Hercules not started due to error"
+                  return 1
+          fi
+          echo "hercbin=${hercbin}"
+          echo "herclog=${herclog}"
+          echo "HERCULES_RC=${HERCULES_RC}"
+          echo "hercconf=${hercconf}"
+          cmd="${hercbin} ${hercconf}"
+          echo "cmd=${cmd}"
+          if [ -n "${herclog}" ]
+             then echo "${cmd}" >${herclog}
+                  $cmd  >> ${herclog}
+                  rc=$?
+             else $cmd
+          fi
+          echo "Hercules execution completed: rc=$rc"
+          return $rc
+}
+
+herc_env()
+{
+     case $1 in
+        rel) herc_path="${HOME}/Herc/hercules-3.07/bin" ;;
+        gold) herc_path="${HOME}/hercgoldi/bin"         ;;
+        sand) herc_path="${HOME}/hercsandi/bin"         ;;
+        *)  echo "invalid hercules environment: $1" ; exit 1 ;;
+     esac
+     hercules=${herc_path}/hercules
+     # The Hercules install directory must be in the PATH so that
+     # the networking program hercifc is found when launched as a
+     # separate process.
+     export PATH=${herc_path}:${PATH}
+}
