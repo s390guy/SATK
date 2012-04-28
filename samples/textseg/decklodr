@@ -1,0 +1,219 @@
+#!/bin/sh
+# Copyright (C) 2012 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+# This is the sample build script for the decklodr sample.  This program acts as
+# the boot loader for the samples in samples/decklodr/card
+
+SATK_DIR=${HOME}/SATK
+SAMPLE_DIR=${SATK_DIR}/samples/textseg
+
+# Bring in the iml function for launching Hercules
+source ${SATK_DIR}/samples/imlfun
+
+# Tool chain components - update when releases change:
+source ${SATK_DIR}/tools/medfun \
+    xtools=${HOME}/crossbuild sfx="-2.21.51.0.7" module="decklodr"
+
+med_env source ${SAMPLE_DIR}    # Establish where the source file is found
+ipl_elf include src             # include the basic SATK/src file
+
+# Check the number of arguments. usage_str echoed on error
+usage()
+{
+     echo "Usage: ./decklodr <arch> as      - Assemble the IPL ELF object"
+     echo "       ./decklodr <arch> objdump - List the IPL ELF object file"
+     echo "       ./decklodr <arch> ld      - Link the IPL ELF executable"
+     echo "       ./decklodr <arch> exedump - List the IPL ELF executable file"
+     echo "       ./decklodr <arch> ipldev  - Create the IPL device"
+     echo "       ./decklodr <arch> ipl     - Test the stand-alone program"
+     echo "       ./decklodr <arch> dumpall - List all IPL ELF's"
+     echo "       ./decklodr <arch> rmlogs  - Remove all logs"
+     echo ""
+     echo "  where <arch>  is any one of: s370bc s370 s390 s390x"
+}
+
+# Set the Hercules environment
+herc_env svn
+env="svn"
+
+#  +------------------------------------------------------------+
+#  |                                                            | 
+#  |        Set the device option for all architectures         |
+#  |        (decklodr only supports card reader devices)        |
+#  |                                                            |
+#  +------------------------------------------------------------+
+
+med_env model 3505    # Card Reader Device
+export IPLTYPE="3505"       # export so Hercules can use it
+SAMPLE=${SAMPLE_DIR}/card
+DTYPE="card"
+
+#  +------------------------------------------------------------+
+#  |                                                            | 
+#  |       Set the linker options for all architectures         |
+#  |                                                            |
+#  +------------------------------------------------------------+
+
+linker_options()
+{
+ # Specify the load point of the IPL ELF executable
+    med_env load default      # Load point at absolute 0x2000
+    #med_env load xxxx         # Set a different hexadecimal load address
+
+ # Specify the assembly symbol that marks the entry point of the ELF
+    med_env entry default     # Use the '_start' symbol as the entry point
+    #med_env entry asymbol     # Specify another symbol as the entry point
+
+ # Specify whether relocation information should be preserved in the ELF executable
+   med_env reloc enable       # Retain relocation information in ELF executable
+   #med_env reloc disable      # Strip relocation information from ELF executable
+
+ # Specify whether to generate linker debugging information
+    #med_env debug enable  # Enable debug output
+    med_env debug disable # Disable debug output
+
+ # Specify the storage address at which the IPL program is to be loaded
+    #med_env load default      # The default is 2000 (hex)
+    med_env load 300          # Override default with 300 (hex) -- loaders go here
+}
+
+
+#  +------------------------------------------------------------+
+#  |                                                            | 
+#  |   Set the IPL device media options for all architectures   |
+#  |                                                            |
+#  +------------------------------------------------------------+
+
+# Usage: ipldev_options external_loader_path
+ipldev_options()
+{
+ # Specify how big to make the emulated IPL DASD device medium
+    med_env trunc enable   # Make as small as possible
+    #med_env trunc disable  # Make the medium full size
+
+ # Specify if media should be sized to make it compression eligible
+    med_env compress ineligible   # Media not sized to allow compression
+    #med_env compress eligible     # Media sized to allow comprssion
+
+ # Specify whether to generate IPL device debugging file
+    med_env debug enable  # Enable debug output
+    #med_env debug disable # Disable debug output
+
+ # Set whether to IPL the entire IPL ELF executable or just the TEXT segment
+    #med_env bootelf force     # IPL the entire ELF executable
+    med_env bootelf noforce   # IPL only the IPL ELF executable's TEXT segment
+
+ # Set whether to include a LOWC segment
+    #med_env lowc allow        # Generate a default LOWC segment if not present
+    med_env lowc suppress     # Suppress the LOWC segment even if present
+
+ # Specify whether an embedded loader is allowed
+    #med_env loader allow      # Utilize an embedded boot loader if present
+    med_env loader suppress   # Do not use an embedded boot loader even if present
+
+ # Specify whether to use an external embedded boot loader and its IPL ELF executable
+if [ -z "${1}" ] 
+then
+    med_env external disable  # Do not include an external embedded boot loader
+else
+    med_env external ${1}     # Include this executable's embedded boot loader
+fi
+}
+
+ # Initialize the architecture in use
+case $1 in
+    "s370bc")
+        ARCHDIR=${SAMPLE}/s370bc    # Architecture directory
+        med_env arch s370bc         # Causes psw's to be S/370 Bc-mode
+        med_env arch implied        # Use IPL ELF implied architecture
+        med_env init
+        med_env s370bc enable       # Causes IPL PSW's to use S/370 BC-mode
+        rc=${ARCHDIR}/s370bc.rc
+        conf=${ARCHDIR}/s370bc.conf
+        ELFARCH="s370"
+        ;;
+    "s370")   
+        ARCHDIR=${SAMPLE}/s370
+        med_env arch s370
+        med_env arch implied        # Used IPL ELF implied architecture
+        med_env init
+        rc=${ARCHDIR}/s370.rc
+        conf=${ARCHDIR}/s370.conf
+        ELFARCH="s370"
+        ;;
+    "s390")   
+        ARCHDIR=${SAMPLE}/s390
+        med_env arch s390
+        med_env arch implied        # Used IPL ELF implied architecture
+        med_env init
+        rc=${ARCHDIR}/s390.rc
+        conf=${ARCHDIR}/s390.conf
+        ELFARCH="s390"
+        ;;
+    "s390x")  
+        ARCHDIR=${SAMPLE}/s390x
+        med_env arch z
+        med_env arch implied        # Use IPL ELF implied architecture
+        med_env init
+        rc=${ARCHDIR}/s390x.rc
+        conf=${ARCHDIR}/s390x.conf
+        ELFARCH="s390x"
+        ;;
+    *)
+        echo "decklodr: Error: invalid test architecture: $1"
+        exit 1
+esac
+
+med_env build   ${ARCHDIR}      # Establish where to build the object and executable
+med_env install ${ARCHDIR}      # Establish where to install the IPL device medium
+med_env logs    ${ARCHDIR}      # Establish where logs are placed
+
+# Create log file path
+datetime
+log="${ARCHDIR}/hercules.${env}.${sfx}.log"
+
+case $2 in
+    as)      ipl_elf assemble default ;;
+    dumpall) ipl_elf dump all default ;;
+    exedump) ipl_elf dump exe default ;;
+    ipl)
+         export IPLDEV=${ARCHDIR}/textseg.${IPLTYPE}   # IPL device
+         iml -h $hercules -c $conf -r $rc -l $log
+         ;;
+    ipldev)
+         ipldev_options
+         create ${IPLTYPE} default
+         ;;
+    ld)  linker_options
+         ipl_elf link default
+         if [ "${ELFARCH}" = "s370" ]
+         then
+             ipl_elf s370 default
+         fi
+         ;;
+    objdump) ipl_elf dump obj default ;;
+    rmlogs)  ipl_elf rmlog ;;
+    help)
+         usage
+	     exit 0
+	     ;;
+    *)
+	     echo "decklodr: Error: unavailable option: $2"
+	     usage
+	     exit 1
+esac
