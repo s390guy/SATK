@@ -164,9 +164,33 @@ class device(object):
     def __str__(self):
         return "device(%s) device class=%s, record class=%s" \
             % (self.dtype,self.devcls.__name__,self.reccls.__name__)
-    def create(self,path,minimize=False,comp=False,progress=False,debug=False):
+    def create(self,path=None,minimize=False,comp=False,progress=False,debug=False):
         # Create the media handler used to build the media
-        self.handler=self.hndcls(path)
+        #self.handler=self.hndcls(path)
+        # To create the medium, a host path is required for the emulating file.
+        # The handler class does the actual medium creation and requires the path.
+        # Setting the path may occur:
+        #   - When the handler class is instantiated or
+        #   - Later by using the handler.set_path method or
+        #   - At the latest when this method is called.
+        #
+        # Likewise the actual creation of the handler class instance may occur:
+        #   - When the device.create_handler method is called (with or without
+        #     a path), or
+        #   - At the latest when this method is called.
+        if self.handler is None:
+            self.create_handler()
+        if self.handler.path is None:
+            if path is None:
+                raise ValueError("media.py - ERROR - device.create - path is "
+                        "required")
+            else:
+                self.handler.set_path(path)
+        else:
+            if path is not None:
+                print("media.py - WARNING - path already specified in handler, "
+                    "ignoring: %s" % path)
+        
         self.sequence=self.handler.sequence(self.records)
         if debug:
             for x in self.sequence:
@@ -183,6 +207,10 @@ class device(object):
             progress=progress)
         self.handler.initialize(self.sequence,debug=debug)
         self.handler.close(debug=debug)
+    def create_handler(self,path=None):
+        self.handler=self.hndcls(path)
+    def query_size(self,last=None,comp=False):
+        return self.devcls.size(self.dtype,hwm=last.recid,comp=comp)
     def record(self,rec):
         if not isinstance(rec,self.reccls):
             raise TypeError("device requires record class %s: %s" \
@@ -208,7 +236,7 @@ class handler(object):
         raise NotImplementedError(\
             "%s class must provide model() class method" \
             % cls.__name__)
-    def __init__(self,path):
+    def __init__(self,path=None):
         # Attributes from arguments
         self.path=path  # The path for the emulating media file
         # Attributes form size() instance method
@@ -229,6 +257,8 @@ class handler(object):
         if strict:
            raise TypeError(msg)
         print "Warning: %s" % msg
+    def set_path(self,path):
+        self.path=path
     def valid(self,rec):
         # Return True/False if record instance is valid for the handler
         return isinstance(rec,self.__class__.record)

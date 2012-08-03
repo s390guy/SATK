@@ -170,12 +170,19 @@ class ckd(object):
     @staticmethod
     def size(dtype,hwm=None,comp=False):
         # Size a new device by providing the number of required cylinders 
-        # hwm (high water mark) is the recsutil recid of the last record
-        # This method is required by media.py to size a emulating media file
+        # hwm (high water mark) is the recsutil recid of the last record.
+        # An invalid device type (dtype) will throw a KeyError exception.
+        # This method is required by media.py to size a emulating media file.
         if hwm is None:
             dev=ckd.geometry[dtype]
             return dev.ecyl
         return hwm[0]+1  # Return the number of cylinders
+    @staticmethod
+    def tracks(dtype):
+        # tracks returns the number of tracks per cylinder of a specific device
+        # type.  An invalide device type (dtype) will throw a KeyError exception.
+        dev=ckd.geometry[dtype]
+        return dev.eheads
     #
     # ckd instance methods
     def __init__(self,fo,dev,cyls,ro=True):
@@ -703,7 +710,7 @@ class devcap(object):
     # with operating systems current during the period when the device was
     # in common usage.  In addition, vintage operating system Logical 
     # Input/Output Control System utilizes data dependent upon these 
-    # formulats for the construction of Volume Table of Contents records.
+    # formulas for the construction of Volume Table of Contents records.
     # These classes support these various capacity calculations.
     def __init__(self,f1,f2,f3,f4,f5,f6,tracklen):
         # Factors used in the formulas that determine track capacity on
@@ -790,7 +797,7 @@ class neg_2(devcap):
             self.block_used=(dlen*self.f3 // self.f4)+self.f2
         else:
             self.last_used=klen+dlen+self.f1
-            self.block_used=((keylen+datalen)*self.f3 // self.f4)\
+            self.block_used=((klen+dlen)*self.f3 // self.f4)\
                  +self.f1+self.f2
         # nrecs = (trklen - b1)/b2 + 1;
         self.NUMRECS=((self.tracklen-self.last_used) // self.block_used)+1

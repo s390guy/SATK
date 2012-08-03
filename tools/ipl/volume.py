@@ -16,1108 +16,1400 @@
 #     You should have received a copy of the GNU General Public License
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
-# This module organizes a FBA or CKD volume into dataset named extents in a Volume
-# Table of Contents (VTOC).  The structure of the datasets may not conform to that 
-# found on a standard volume and the volume or datasets may not be readable by 
-# legacy operating system supporting the volume.  Rather than creating a new 
-# structure, this approach uses a known VTOC layout for use with the IPL repository 
-# loader. But it is not intended to replicate in detail standard volume structures.
+# The DASD Volume Standard is implemented by this Python module.
+# 
+# At its core is the DASDDEFN class.  This class instantiates the processing of
+# the standard.  This module may be used as a utility in its own right or as 
+# component driven by another utility.
 #
-# The VTOC uses the standard volume VTOC.  The lable records may have modified 
-# content for use with the repository loader.
-#
-# It is believed that a standard operating system should be able to read the
-# datasets stored on the volume with the appropriate application level coding.
-#
-# Current limitations: only FBA volumes are presently supported, however the 
-# design is intended to allow CKD to be supported with some ease.
+# The following device types are supported:
+#   CKD - 2305-x, 2311, 2314, 3330-x, 3340-x, 3350, 3375, 3380-x, 3390, 3390-x, 
+#         9345-x
+#   FBA - 0671, 3310, 3370, 9313, 9332, 9335, 9336
 
 import os
 import os.path
 import re
 import sys
 import struct
-import time
+#import time
 
 # SATK modules
 from translate import *       # ASCII-EBCDIC translation tables
 from hexdump import *         # Bigendian binary conversion routines
-#import ckdutil                # Access CKD emulation support (uncomment to use)
+from specfile import *        # Generic specification file handling classes
+import media                  # Access the Hercules device emulation support
+import ckdutil                # Access CKD emulation support (uncomment to use)
 import fbautil                # Access FBA emulation support
 import recsutil               # Access to the generic device record classes
 
-def spaces(number,ascii=False):
-    if ascii:
-        return number*"\x20"
-    return number*"\x40"
+def chunk(data,size,pad=False):
+    # This method breaks a string 'data' into pieces of 'size' length, the last
+    # being truncated or padded as requested by 'pad'.
+    chunks=[]
+    for x in range(0,len(data),size):
+        if x+size<=len(data):
+            chunks.append(data[x:x+size])
+        else:
+            chunks.append(data[x:])
+    if pad:
+        last=chunks[-1]
+        if len(last)!=size:
+            last+=size*"\x00"
+            chunks[-1]=last[:size]
+    return chunks
 
-class CONTENT(object):
-    # This class processes an individual statement (line) from the content file
-    # The command structure is simple:
-    #
-    #         Command syntax      Description
-    #
-    #     # comment                      A comment statement
-    #     cards  dataset path [ascii]    Create an 80-byte card stream file,
-    #                                    truncating any lines in the file identified 
-    #                                    by the path to 80-bytes.  'ascii' leaves
-    #                                    content in ASCII character set.
-    #     cd path                        Establish the directory for relative paths.
-    #                                    The default is the current working dir.
-    #     direct dataset path address [blksize]   Create a directed dataset
-    #     owner owner_name               Define the volume owner
-    #     seq dataset path lrecl blksize Create a sequential dataset with these 
-    #                                    attributes
-    #     stream dataset path [blksize]  Create a stream dataset
-    #     system system_name             Define the system
-    #     volume volid [ascii]           Define the volume id. 'ascii' causes VTOC
-    #                                    information to be in ASCII rather than 
-    #                                    EBCDIC.
-    #
-    #  Environment variables are expanded for all paths.
-    def __init__(self,specfile,process_dict):
-        # Values extracted from statements, otherwise these are the defaults:
-        self.volid="IPL001"
-        self.owner="STAND-ALONE TK"
-        self.system="SATK"
-        self.vol_ascii=False  # When True VTOC fields contain ASCII not EBCDIC
+#def spaces(number,ascii=False):
+#    if ascii:
+#        return number*"\x20"
+#    return number*"\x40"
+
+# This class manages the relationships between physical device type and geometries
+# and the DASD Volume Standard block abstraction.  It is used by the DASD class
+# to assist in media device record creation.
+class BLOCKS(object):
+    index={512:0,1024:1,2048:2,4096:3}
+    @staticmethod
+    def new(dtype,blksize,debug=False):
+        # Instantiate a BLOCK subclass for creation of the management of block
+        # semantics as appropriate to the device type (dtype).
+        if debug:
+            print("volume.py - BLOCKS.new(%s,%s,debug=%s)" \
+                % (repr(dtype),repr(blksize),debug))
+        # Create either a CKD_BLOCKS or FBA_BLOCKS instance.  If the dtype is 
+        # not valid for the DASD architecture, a KeyError will be thrown.
+        try:
+            return CKD_BLOCKS(dtype,blksize,debug=debug)
+        except KeyError:
+            if debug:
+                print("volume.py - BLOCKS.new_dasd - CKD_BLOCKS failed")
+        try:
+            return FBA_BLOCKS(dtype,blksize,debug=debug)
+        except KeyError:
+            if debug:
+                print("volume.py - BLOCKS.new_dasd - FBA_BLOCKS failed")
+        # Neither successful, fail.
+        raise ValueError
+
+    def __init__(self,dtype,blksize,debug=False):
+        self.dtype=dtype
+        self.blksize=blksize
+        self.block_factor=self.block_factors[BLOCKS.index[self.blksize]]
+        if self.block_factor==0:
+            print("volume.py - ERROR - Device type %s does not support a block "
+                "size of %s") % (self.dtype,self.blksize)
+            raise ValueError
+        self.reserve=self.minrsrv()  # Determine the minimum to reserve
+        self.nullblk=self.blksize*"\x00"  # An empty block
+    def __str__(self):
+        return "BLOCKS: %s" % self.device
+
+    def init(self):
+        # Initialize variables
+        self.block_factors=[0,0,0,0]
+        self.cylinders_per_volume=0
+        self.tracks_per_cylinder=0
+        self.blocks_per_track=0
+        self.sectors_per_volume=0
+        self.sectors_per_block=0
+        self.ckd=False
+        self.fba=False
+        self.dasdcls=None
         
-        self.relpath=os.getcwd()
+    def blocks(self,length):
+        # This method returns a tuple, the number of blocks required to contain
+        # content of 'length' bytes and the number of bytes in the last block.
+        blocks,extra = divmod(length,self.blksize)
+        if extra==0:
+            return (blocks,self.blksize)
+        return (blocks+1,extra)
 
-        self.statements=[]    # These statements only contain dataset statements
-        fo=open(specfile)
-        lineno=0
-        for line in fo:
-            if line[-1]=="\n":
-                line=line[:-1]
-            lineno+=1
+    def dasd(self,vdbr,device,debug=False):
+        # This method creates the DASD subclass required for the medium 
+        return self.dasdcls(vdbr,device,debug=debug)
+        
+    def dasd_file(self,start,alloc,blklist=[],debug=False):
+        # This method returns a list of physical media records, corresponding
+        # to a DASD Volume file starting with block 'start' and allocated for
+        # 'alloc' blocks.  The record creation will truncate a file source
+        # content is larger than the number of allocated blocks and will pad with
+        # blocks of binary zeros if the allocation exceeds the source content 
+        # size.  Truncation and padding may occur only if the specification
+        # FILE statement for the file contains a size argument.
+        if debug:
+            print("volume.py - BLOCKS.dasd_file - start=%s,alloc=%s,"
+                "len(blklist)=%s" % (start,alloc,len(blklist)))
+        recs=[]
+        current_content=start
+        first_content=start
+        last_content=start+len(blklist)-1
+        last_file=start+alloc-1
+        for x in blklist:
+            if len(x)!=self.blksize:
+                raise ValueError  # figure out what this should be
+            if current_content<=last_file:
+                recs=self.record(current_content,x,recs,debug=debug)
+                if debug:
+                    print("volume.py - BLOCKS.dasd_file - file content len(recs)=%s" \
+                        % len(recs))
+                current_content+=1
+            else:
+                break
+        for x in range(last_content+1,last_file):
+            recs=self.record(x,self.nullblk,recs,debug=False)
+            if debug:
+                print("volume.py - BLOCKS.dasd_file - file content with pad "
+                    "len(recs)=%s" % len(recs))
+        if debug:
+             print("volume.py - BLOCKS.dasd_file - returning len(recs)=%s"
+                 % len(recs))
+        return recs
+
+    # These methods must be supplied by the BLOCKS subclass.
+
+    def blk2phys(self,block):
+        # Returns in device specific terms the location of a 'block' number
+        raise NotImplementedError("volume.py - INTERNAL - subclass %s must "
+            "implement blk2phyx method" % (self.__class__.__name__))
+
+    def capacity(self):
+        # Returns the total capacity in blocks of the volume
+        raise NotImplementedError("volume.py - INTERNAL - subclass %s must "
+            "implement capacity method" % (self.__class__.__name__))
+
+    def minrsrv(self):
+        # Returns the minimum number of blocks that must be reserved on the volume
+        raise NotImplementedError("volume.py - INTERNAL - subclass %s must "
+            "implement minrsrv method" % (self.__class__.__name__))
+        
+    def record(self,block,data,reclist=[],debug=False):
+        # Adds a block converted to physical media records to a list of 
+        # physical media records.
+        raise NotImplementedError("volume.py - INTERNAL - subclass %s must "
+            "implement record method" % (self.__class__.__name__))
+        
+    def vdb_record(self,data,reclist=[],debug=False):
+        # Add the physical record corresponding to the VDBR to 'reclist'
+        raise NotImplementedError("volume.py - INTERNAL - subclass %s must "
+            "implement vdb_record method" % (self.__class__.__name__))
+        
+    def vdbr_create(self,vdbro,debug=False):
+        # Returns a physical media record for the DASD Volume VDBR
+        raise NotImplementedError("volume.py - INTERNAL - subclass %s must "
+            "implement vdbr_create method" % (self.__class__.__name__))
+
+class CKD_BLOCKS(BLOCKS):
+    # Blocks per track:
+    #            512  1024  2048  4096
+    ckd={"2305":[15,  10,   5,    3],
+         "2311":[6,   3,    1,    0],
+         "2314":[11,  6,    3,    1],
+         "3330":[20,  11,   6,    3],
+         "3350":[27,  15,   8,    4],
+         "3375":[40,  25,   14,   8],
+         "3380":[35,  23,   14,   7],
+         "3390":[49,  33,   21,   12],
+         "9345":[41,  28,   17,   9]}
+    def __init__(self,dtype,blksize,debug=False):
+        if debug:
+            print("volume.py - CKD_BLOCKS(%s,%s,debug=%s)" \
+                % (repr(dtype),repr(blksize),debug))
+        self.init()
+        dt=dtype[:4]
+        if debug:
+            print("volume.py - CKD_BLOCKS - trying CKD_BLOCKS.ckd[%s]" \
+                    % (repr(dt)))
+        self.block_factors=CKD_BLOCKS.ckd[dt]
+        if debug:
+            print("volume.py - CKD_BLOCKS - self.block_factors=%s" \
+                % self.block_factors)
+        self.cylinders_per_volume=ckdutil.ckd.size(dtype)
+        self.tracks_per_cylinder=ckdutil.ckd.tracks(dtype)
+        self.ckd=True
+        self.dasdcls=CKD_DASD  # Class used to create DASD instance
+        super(CKD_BLOCKS,self).__init__(dtype,blksize,debug=debug)
+        self.blocks_per_track=self.block_factor
+    def __str__(self):
+        return "CKD %s BLOCKS: blksize=%s, cyls=%s, tracks/cyl=%s, blocks/track=%s" \
+            % (self.dtype,self.blksize,self.cylinders_per_volume,\
+            self.tracks_per_cylinder,self.block_factor)
+    def cylinders(self,n):
+        # Returns the number of blocks corresponding to the number of cylinders (n)
+        return self.tracks(n*self.tracks_per_cylinder)
+    def tracks(self,n):
+        # Returns the number of blocks corresponding to the number tracks (n)
+        return n*self.block_factor
+     
+    # Methods required of subclasses
+    def blk2phys(self,block,debug=False):
+        # Returns a tuple (cc,hh,r) corresponding to numbered 'block'
+        rel_trk,r = divmod(block,self.blocks_per_track)
+        if debug:
+            print("volume.py - CKD_BLOCKS.blk2phys - \n" 
+                "   rel_trk=%s,r=%s = divmod(block=%s,blocks_per_track=%s)"
+                % (rel_trk,r,block,self.blocks_per_track))
+        r+=1
+        cc,hh = divmod(rel_trk,self.tracks_per_cylinder)
+        if debug:
+            print("volume.py - CKD_BLOCKS.blk2phys - \n" 
+                "   cc=%s,hh=%s = divmod(rel_trk=%s,tracks_per_cylinder=%s)"
+                % (cc,hh,rel_trk,self.tracks_per_cylinder))
+        return (cc,hh,r)
+    def capacity(self):
+        return self.cylinders_per_volume\
+            *self.tracks_per_cylinder\
+            *self.blocks_per_track
+    def minrsrv(self):
+        return 4  # Ensure each physical record including (0,0,4) is reserved.
+    def record(self,block,data,reclist=[],debug=False):
+        # Create a single CKD record for a block and concatenate it to 'reclist'
+        cc,hh,r = self.blk2phys(block,debug=debug)
+        rec=recsutil.ckd(data=data,cc=cc,hh=hh,r=r)
+        if debug:
+            print("volume.py - CKD_BLOCKS.record - %s" % rec)
+        reclist.append(rec)
+        return reclist
+    def vdb_record(self,vdbro,reclist=[],debug=False):
+        # Add the physical record corresponding to the VDBR to 'reclist'
+        reclist.append(self.vdbr_create(vdbro,debug=debug))
+        return reclist
+    def vdbr_create(self,vdbro,debug=False):
+        data=vdbro.binary(debug=debug)
+        rec=recsutil.ckd(key=data[:4],data=data,cc=0,hh=0,r=4)
+        if debug:
+            print("volume.py - CKD_BLOCKS.vdbr_create - %s" % rec)
+        return rec
+
+class FBA_BLOCKS(BLOCKS):
+    def __init__(self,dtype,blksize,debug=False):
+        if debug:
+            print("volume.py - FBA_BLOCKS(%s,%s,debug=%s)" \
+                % (repr(dtype),repr(blksize),debug))
+        self.init()
+        self.block_factors=[1,2,4,8]
+        if debug:
+            print("volume.py FBA_BLOCKS - self.block_factors=%s" \
+                % self.block_factors)
+        self.sectors_per_volume=fbautil.fba.size(dtype)
+        self.fba=True
+        self.dasdcls=FBA_DASD  # Class used to create DASD instance
+        super(FBA_BLOCKS,self).__init__(dtype,blksize,debug=debug)
+        self.sectors_per_block=self.block_factor
+    def __str__(self):
+        return "FBA %s BLOCKS: blksize=%s, sectors/block=%s" \
+            % (self.dtype,self.blksize,self.block_factor)
+    def sectors(self,n,debug=False):
+        # Returns the number of blocks corresponding to a number of sectors (n)
+        if debug:
+            print("FBA_BLOCKS.sectors - self.block_factor=%s" % self.block_factor)
+        return (n+self.block_factor-1)//self.block_factor
+
+    # Methods required of subclasses
+    def blk2phys(self,block):
+        # Returns the starting sector number of 'block'
+        return block*self.sectors_per_block
+    def capacity(self):
+        # Returns the total capacity in blocks for the volume
+        return self.sectors_per_volume/self.sectors_per_block
+    def minrsrv(self):
+        # Return the number of blocks to reserve sectors 0 and 1.
+        return self.sectors(2)
+    def record(self,block,data,reclist=[],debug=False):
+        # return a list of sectors with sector numbers for block
+        sec=self.blk2phys(block)
+        secs=chunk(data,512,pad=True)
+        sectors=[]
+        for x in secs:
+            sectors.append(recsutil.fba(data=x,sector=sec))
+            sec+=1
+        if debug:
+            for x in sectors:
+                print("volume.py - FBA_BLOCKS.record - %s" % x)
+        reclist.extend(sectors)
+        return reclist
+    def vdb_record(self,vdbro,reclist=[],debug=False):
+        # Add the physical record corresponding to the VDBR to 'reclist'
+        reclist.append(self.vdbr_create(vdbro,debug=debug))
+        return reclist
+    def vdbr_create(self,vdbro,debug=False):
+        data=vdbro.binary(debug=debug)
+        rec=recsutil.fba(data=data,sector=1)
+        if debug:
+            print("volume.py - FBA_BLOCKS.vdbr_create - %s" % rec)
+        return rec
+
+# This class manages the physcial DASD volume and the placing of content on
+# volume.
+class DASD(object):
+    def __init__(self,vdbr,device,debug=False):
+        if debug:
+            print("volume.py - \n   DASD(vdbr=<%s>,\n   device=<%s>,"
+                "\n   debug=%s)" % (vdbr,device,debug))
+        self.vdbr=vdbr            # VDBR instance (contains FDS list and VCF FDS)
+        self.device=device        # media.py device instance
+        self.debug=debug
+        
+        # Provided by vdbr.records method
+        self.recs=[]              # List of medium physical records
+        # When constructed, self.recs will contain medium records in this sequence:
+        #   1.  The Volume Definition Block Record, self.recs[0]
+        #   2.  records for each of the DASD Volume files
+        #   3.  records for the Volume Content File (pointed to by the VDBR)
+        # The last record of the list represents the volume's high water mark
+        # used to determine its minimum size.
+
+        # Determine the number of blocks to allocate for each file.  The size may
+        # be explicitly set by the FILE or VOLUME statement.
+        
+        if debug:
+            print("\nvolume.py - DASD.__init__ - DASD file sizing: started")
+        self.vdbr.required_sizes(self.debug)
+        if debug:
+            print("volume.py - DASD.__init__ - DASD file sizing: completed")
+        # The required number of blocks for the VCF and each FDS is now known.
+        
+        if debug:
+            print("\nvolume.py - DASD.__init__ - DASD file allocations: started")
+        self.vdbr.allocate(self.debug)
+        if debug:
+            print("volume.py - DASD.__init__ - DASD file allocations: completed")
+            
+        # Convert the files' content into DASD Volume blocks
+        if debug:
+            print("\nvolume.py - DASD.__init__ - DASD block content: started")
+        self.vdbr.content(debug=self.debug)
+        if debug:
+            print("volume.py - DASD.__init__ - DASD block content: completed")
+    
+        # Convert the files' DASD volume blocks into physical medium records:
+        # VDBR.records               Creates records for each file and the VCF
+        #     FDS.records            Returns the records for its file's content
+        #         BLOCKS.dasd_file   Returns each block as medium record(s) list
+        #             BLOCKS.record  Adds individual medium record(s) to a list
+        if debug:
+            print("\nvolume.py - DASD.__init__ - medium content creation: started")
+        self.recs=self.vdbr.records(debug=self.debug)
+        if self.debug:
+            print("volume.py - %s - volume content physical records: %s\n" \
+                % (self.__class__.__name__,len(self.recs)))
+            self.display()
+        if debug:
+            print("volume.py - DASD.__init__ - medium content creation: completed")
+    # These methods must NOT be overriden by any subclass
+    
+    def display(self):
+        # Output volume content information
+        self.vdbr.display()
+    
+    def minimize(self,comp=False):
+        # Based upon existing medium records, minimize the size and reflect it
+        # in an updated VDB record
+        last_rec=self.recs[-1]
+        size=self.device.query_size(last=self.recs[-1],comp=comp)
+        rec=self.vdb_update(size,debug=self.debug)
+        if self.debug:
+            print("volume.py - DASD.minimize - updated VDBR: %s" % rec)
+        self.recs[0]=rec
+        if self.debug:
+            print("volume.py - %s - VDBR updated for minimized volume" \
+                % self.__class__.__name__)
+
+    def records2device(self,debug=False):
+        # Pass the records to the device instance
+        index=0
+        for x in self.recs:
             try:
-                statement=STATEMENT(lineno,line,self.relpath)
-                # Successfully instantiating the STATEMENT instance means a 
-                # syntactically valid statement has been encountered
-                if statement.command=="comment":
-                    # Drop comment statements from the list
-                    continue
-                if statement.command=="cd":
-                    self.relpath=statement.path
-                    continue
-                if statement.command=="volume":
-                    self.volid=statement.volid
-                    self.vol_ascii=statement.ascii
-                    continue
-                if statement.command=="owner":
-                    self.owner=statement.owner
-                    continue
-                if statement.command=="system":
-                    self.system=statement.system
-                    continue
-                try:
-                    statement.process=process_dict[statement.command]
-                except KeyError:
-                    print("volume.py - error - '%s' statement not implemented" \
-                        % statement.command)
-                    raise ValueError
-                self.statements.append(statement)
-            except ValueError:
-                print("volume.py - ignored [%s] %s" % (lineno,line))
-        fo.close()
+                if debug:
+                    print(x.dump())
+                self.device.record(x)
+            except TypeError:
+                raise TypeError("record index %s, not a valid device record: %s"\
+                    % (index,x))
+            index+=1
 
-# The STATEMENT class accepts a single line of the specfile as one of its 
-# instantiation arguments.  The line is generally parsed.  The statement contained
-# on the line is recognized by the parse method and each argument is processed 
-# by a process_xxxx() instance method.  The process_xxxx() method will convert
-# strings into integer, detect length problems and any other edits appropriate to
-# the argument.  If the argument passes all tests it will be set as its value in
-# self.argument.  Successful handling of a statement results in an instantiated
-# STATEMENT instance.  Errors will trigger a ValueError caught by the CONTENT
-# class initializer the results in a general message that the statement is ignored.
-class STATEMENT(object):
-    address_re=re.compile("[a-fA-F0-9]+")
-    def __init__(self,lineno,line,relpath=""):
-        self.line=line         #  Command line
-        self.lineno=lineno     #  Line no of command in file
+    # This method must be supplied by subclasses
+    
+    def vdb_update(self,size,debug=False):
+        # Return an updated VDBR instance based upon 'size'
+        raise NotImplementedError("volume.py - INTERNAL - subclass %s must "
+            "implement vdb_update method" % (self.__class__.__name__))
+
+class CKD_DASD(DASD):
+    def __init__(self,vdbr,device,debug=False):
+        super(CKD_DASD,self).__init__(vdbr,device,debug=debug)
+    # Required subclass method
+    def vdb_update(self,size,debug=False):
+        # Return arecord instance containing an update CKD VDBR
+        return self.vdbr.update_ckd(size)
+        
+class FBA_DASD(DASD):
+    def __init__(self,vdbr,device,debug=False):
+        super(FBA_DASD,self).__init__(vdbr,device,debug=debug)
+    # Required subclass method
+    def vdb_update(self,size,debug=False):
+        # Return arecord instance containing an update FBA VDBR
+        return self.vdbr.update_fba(size)
+        
+
+# This class defines the volume's content.  When used by another utility,
+# the class instantiation arguments that override the specification file are
+# provided by the utility when creating this class instance.  When used locally
+# this class must only be instantiated with the command line supplied specification
+# file without overrides.
+# 
+# Errors in the specification file will result in a ValueError exception
+# being thrown during instantiation of the DASDDEFN class instance.
+#
+# A user of the DASDDEFN class will utilize one of two instance methods:
+#   contruct() - Establishes the DASD Standard structures as class instances and
+#                returns a set of recsutil record instances that can be used to
+#                build the DASD volume content.  The externally supplied handler
+#                is used to add records to the device.
+#   create()   - Output a DASD image with the specified content.  This method is
+#                used by this utility to build a DASD image itself with just the
+#                content specified in the specification file.  It will instantiate
+#                its own handler and create the DASD image.
+class DASDDEFN(object):
+    def __init__(self,specfile,filename=None,reserve=None,cyl=None,trk=None,\
+       sec=None,minimize=None,compress=None,device=None,debug=False):
+        self.specpath=specfile  # Specification file path
+        self.filename=filename  # Emulated device file name overrides specfile
+        self.reserve=reserve    # External override of volume reserved blocks
+        self.minimize=minimize  # External override of the volume creation size
+        self.compress=compress  # External override to force compressability
+        self.cyl=cyl            # External override of reserved CKD cylinders
+        self.trk=trk            # External override of reserved CKD tracks
+        self.sec=sec            # External override of reserved FBA sectors
+        self.debug=debug        # Generate debug output if True
+        
+        self.device=device      # Externally supplied media.device instance
+        # If None is supplied a media.py device instance will be provided by
+        # the device_type method.
+        
+        # Validate that a valide media.py device instance was provided.
+        if self.device is not None:
+            if not isinstance(media.device,self.device):
+                raise ValueError("volume.py - INTERNAL - media.device instance "
+                    "required, encountered %s" % self.device)
+        
+        # Specification file statement information as Python class instances
+        self.content=None       # A CONTENT instance
+        self.volume=None        # The VOLUME instance
+        self.files=[]           # List of a volume's FILE instances
+        # DASD creation instance
+        self.blocks=None        # BLOCKS subclass instance
+        self.dasd=None          # DASD subclass instance as created by BLOCKS.dasd
+
+        if self.debug:
+            print("volume.py - DEBUG - DASDDEFN(%s,filename=%s,reserve=%s,"\
+                "minimize=%s,device=%s,debug=%s)" % \
+                (specfile,filename,reserve,device,minimize,debug))
+        
+        try:
+            if debug:
+                print("\nvolume.py - DASDDEFN.__init__ - specfile.py subclass "
+                    "initialization: starting")
+            self.content=CONTENT(debug=self.debug)
+            if debug:
+                print("volume.py - DASDDEFN.__init__ - specfile.py subclass "
+                    "initialization: completed")
+            
+            if debug:
+                print("\nvolume.py - DASDDEFN.__init__ - specification file "
+                    "processing: started")
+            self.content.process(self.specpath,debug=self.debug)
+            if debug:
+                print("volume.py - DASDDEFN.__init__ - specification file "
+                    "processing: completed")
+        except IOError:
+            print("volume.py - ERROR - could not read specification file: %s" \
+                % self.specpath)
+            raise ValueError   # DASDDEFN instantiation failed
+
+        self.volume=self.content.volume
+        self.files=self.content.files
+        self.program=self.content.program
+        
+        if self.volume is None:
+            print("volume.py - ERROR - required specification statement missing: "\
+                "VOLUME")
+            raise ValueError
+
+        # Update the specifications with external overrides
+        if self.debug:
+            print("%s" % self.volume)
+        
+        # Validate device type and block size
+        if debug:
+            print("\nvolume.py - DASDDEFN.__init__ - device and block size "
+                "validation: started")
+        self.blocks=self.device_type(debug=self.debug)
+        if self.debug:
+            print("volume.py - DASDDEFN.__init__ - %s" % self.blocks)
+            print("volume.py - DASDDEFN.__init__ - device and block size "
+                "validation: completed")
+            
+        self.override("file",self.filename)
+        self.override("reserve",self.reserve)
+        self.override("cyl",self.cyl)
+        self.override("trk",self.trk)
+        self.override("sec",self.sec)
+        self.override("minimize",self.minimize)
+        self.override("compress",self.compress)
+        # Supply the specfile path for use in creating VCF FDS instance
+        self.override("source",self.specpath)
+        # Calculate blocks specified for reserve based upon the input values.
+        # 'reserve' is set to the maximum blocks indicated.
+        self.volume.reserve_update(self.blocks)
+        
+        # Specification file processing is now complete
+        if self.debug:
+            print("\nvolume.py - VOLUME and FILE instance values:")
+            print("%s" % self.volume)
+            for x in self.files:
+                print("%s" % x)
+        # Specification file processing is now complete
+            
+    def construct(self,debug=False):
+        # Build the DASD Volume Standard structures as Python instances used by the
+        # construct method to build the DASD class instance.
+        vcf=[]
+        blksize=self.volume.values["blksize"]
+        for x in self.files:
+            fds=FDS(x.values,blksize)
+            try:
+                fds.host()
+            except ValueError:
+                print("volume.py - WARNING - problem accessing host file, "
+                    "ignoring: %s" % fds.source)
+                continue
+            vcf.append(fds)
+        # Merge PROGRAM statement values with the VOLUME statement
+        self.volume.values["data"]=None     # Indicate no program data
+        self.volume.values["struct"]=None   # Indicate no struct data
+        if not self.program is  None:
+            for x in self.program.values.keys():
+                self.volume.values[x]=self.program.values[x]
+        vdbr=VDBR(self.volume.values,self.blocks,vcf)
+        if debug:
+            print("\nvolume.py - DASDDEFN.construct - VBDR:\n%s" % vdbr)
+            
+        # The instantiation of the DASD subclass instance by BLOCKS.dasd does all 
+        # of the heavy lifting of the volume creation process.  Within the DASD
+        # subclass, the VDBR instance actually does the work.
+        
+        if debug:
+            print("\nvolume.py - DASDDEFN.contruct - DASD volume content "
+                "creation: started")
+        self.dasd=self.blocks.dasd(vdbr,self.device,debug=debug)
+
+        if self.volume.values["minimize"]:
+            self.dasd.minimize(comp=self.volume.values["compress"])
+        if debug:
+            print("\nvolume.py - DASDDEFN.contruct - DASD volume content "
+                "creation: completed")
+        
+        # At this point, all of the content block allocations have been made.
+        # The FDS entries contain all of the information for their content.
+        # All of the content of the DASD Volume files has been coverted into block 
+        # images.  The VDBR has been updated if necesary
+        
+        # Pass the final content to media.py device
+        if debug:
+            print("\nvolume.py - DASDDEFN.construct - medium record processing: "
+                "started")
+        self.dasd.records2device(debug)
+        if debug:
+            print("\nvolume.py - DASDDEFN.construct - medium record processing: "
+                "completed")
+        
+        if debug:
+            print("\nvolume.py - DASDDEFN.construct - Volume content summary:")
+        self.dasd.display()
+
+    def create(self,debug=False):
+        self.construct(debug=debug)
+        if debug:
+            print("\nvolume.py - DASDDEFN.create - physical volume creation: "
+                "started")
+        path=self.volume.values["file"]
+        minimize=self.volume.values["minimize"]
+        compress=self.volume.values["compress"]
+        
+        if path is None:
+            print("volume.py - ERROR - device emulation file path missing")
+            return
+
+        if self.debug:
+            print("volume.py - DASDDEFN.create - "
+                "%s.create(path=%s,mimimize=%s,comp=%s,progress=%s,debug=%s)" \
+                % (self.device.__class__.__name__,path,minimize,compress,\
+                debug,self.debug))
+        self.device.create(path=path,minimize=minimize,comp=compress,\
+            progress=debug,debug=self.debug)
+        if debug:
+            print("volume.py - DASDDEFN.create - physical volume creation: "
+                "completed\n")
+        print("volume.py - DASD Volume successfully created: %s" % path)
+        
+    # Process the device type either from a supplied handler or create one from
+    # the VOLUME statement's device type.  Validate blocksize.
+    def device_type(self,debug=False):
+        if not isinstance(self.device,media.device):
+            try:
+                dtype=self.volume.values["type"]
+                if debug:
+                    print("volume.py - DASDDEFN.device_type - trying media.device"
+                        "(%s,%s)" % (dtype,debug))
+                self.device=media.device(dtype,debug=debug)
+            except ValueError:
+                print("volume.py - ERROR - unrecognized device type: %s" \
+                    % dtype)
+                raise ValueError
+        dtype=self.device.dtype
+        blksize=self.volume.values["blksize"]
+        try:
+            if debug:
+                print("volume.py - DASDDEFN.device_type - trying BLOCKS.new"
+                    "(%s,%s,debug=%s)" % (dtype,blksize,debug))
+            return BLOCKS.new(dtype,blksize,debug=debug)
+        except ValueError:
+            print("volume.py - ERROR - unsupported device, %s, or block size, %s" \
+                % (dtype,blksize))
+            raise ValueError
+        
+    # Overrides or adds an argument and its value in the VOLUME instance
+    def override(self,arg,value):
+        if value is None:
+            return
+        self.volume.values[arg]=value
+
+# DASD Standard File Description Structure (FDS).  It also provides the interface
+# to the host system containing the DASD Volume file content source.
+class FDS(object):
+    name_pad=36*"\x00"
+    def __init__(self,vdict,blksize):
+        # Externally supplied parameters from FILE statement
+        #print("volume.py - FDS.__init__ - vdict: %s" % vdict)
+        self.name=vdict["name"][0]     # DASD volume name (ASCII or EBCDIC)
+        self.isEBCDIC=vdict["name"][1] # EBCDIC flag
+        self.load=vdict["load"]        # Default load address or None
+        self.relo=vdict["relo"]        # Relocation requested, True/False
+        self.enter=vdict["enter"]      # Passing of control requested, True/False
+        self.size=vdict["size"]        # Explicit size in blockd from FILE statement
+        self.source=vdict["source"]    # Host file name of file's content
+        self.recsize=vdict["recsize"]  # Logical record size of source file
+        self.card=vdict["card"]        # Treat source text lines as card images
+
+        self.blksize=blksize           # DASD Volume's block size
+        self.error=False               # This is set if an error occurs
+
+        # Values set by the allocation method
+        self.first_block=None  # First DASD volume block allocated to this file
+        self.last_block=None   # Last DASD volume block allocated to this file
+        self.last_written=None # Last DASD volume block containing content
+        
+        # Values set by the content method
+        self.volblks=[]        # A list of the volume blocks containing content
+
+        # Values created by the host method
+        self.hostfile=None     # hostfile instance for use when reading the file.
+
+        # Values set by the required method
+        self.allocate=None     # Number of blocks to allocate to the file
+        self.blocks=None       # Number of blocks required for file content
+        self.last_used=None    # Number of bytes used in the last block written
+        self.truncated=None    # Whether host file content was truncated
+        
+        
+    def __str__(self):
+        load=self.load
+        if self.load is not None:
+            load=hex(self.load)
+        return "FDS Entry: name=%s,load=%s,relo=%s,blocks=%s,\nsource=%s" \
+            % (repr(self.name),load,self.relo,self.size,self.source)
+
+    # These methods may be overriden by a subclass depending upon the source of the
+    # file's content
+    def content(self,debug=False):
+        # Saves the host file's content as a list of volume blocks. (self.volblks)
+        try:
+            self.volblks=self.hostfile.create_blocks(self.blksize,debug=debug)
+            if debug:
+                print("volume.py - FDS.content - len(self.volblks)=%s" \
+                    % len(self.volblks))
+        except IOError:
+            print("volume.py - WARNING - Error reading host file: %s" \
+                % self.source)
+            self.error=True
+        if len(self.volblks)!=self.blocks:
+            print("volume.py - WARNING - inconsistency between FDS blocks (%s)" \
+                "and number of blocks created for volume (%s)" \
+                % (self.blocks,len(self.volblks)))
+            self.error=True
+        if debug:
+            print("volume.py - FDS.content - "
+                "File: %s - created volume blocks: %s" \
+                % (repr(self.name),len(self.volblks)))
+    def content_size(self,debug=False):
+        # Returns the size in bytes of the actual file's content
+        #return self.hostfile.hostlen
+        size=self.hostfile.allocate_length(self.blksize,debug=debug)
+        if debug:
+            print("volume.py - FDS.content_size - allocate_length(%s)=%s" \
+                % (self.blksize,size))
+        return size
+    def host(self):
+        # Create a hostfile instance
+        if self.card is not None:
+            self.hostfile=cardfile(self.source,self.recsize,\
+                ebcdic=self.card=="ebcdic")
+        else:
+            self.hostfile=hostfile(self.source,self.recsize)
+        
+    # These methods must not be overridden by a subclass
+    
+    def allocation(self,start,debug=False):
+        # Returns the next available DASD volume block based upon the supplied
+        # starting block for this FDS.
+        if debug:
+            print("volume.py - FDS.allocation - File %s start=%s" \
+                % (repr(self.name),start))
+        self.first_block=start
+        if debug:
+            print("volume.py - FDS.allocation - File %s first_block=%s" \
+                % (repr(self.name),self.first_block))
+            print("volume.py - FDS.allocation - File %s blocks=%s" \
+                % (repr(self.name),self.blocks))
+        self.last_written=start+self.blocks-1
+        if debug:
+            print("volume.py - FDS.allocation - File %s last_written=%s" \
+                % (repr(self.name),self.last_written))
+        # Allocated blocks
+        next=self.first_block+self.allocate
+        self.last_block=next-1
+        if debug:
+            print("volume.py - FDS.allocation - File %s last_block=%s" \
+                % (repr(self.name),start))
+        # Adjust for truncation
+        if self.truncated:
+            self.last_used=self.blksize
+            self.last_written=self.last_block
+            if debug:
+                print("volume.py - FDS.allocation - File %s truncated "
+                    "last_used=%s, last_written=%s" \
+                    % (repr(self.name),self.last_used,self.last_written))
+        if debug:
+            print("volume.py - FDS.allocation - next block=%s" % next)
+        return next
+        
+    def binary(self):
+        # This method returns a string corresponding to the binary contents 
+        # of a DASD Volume File Descriptor Structure.
+        if self.recsize is None:
+            recsz=0
+            recflag=0x00
+        else:
+            recsz=self.recsize
+            recflag=0x04
+        flag=0x80|recflag
+        if self.isEBCDIC:
+            flag|=0x40
+        if self.load is None:
+            load=0
+        else:
+            flag|=0x20
+            load=self.load
+        if self.relo:
+            flag|=0x10
+        if self.enter:
+            flag|=0x08
+        if self.truncated:
+            flag|=0x01
+        string=self.name+FDS.name_pad
+        string=string[:36]                   # [0:36]  DASD Volume file name
+        string+="\x00"                       # [36:37] reserved
+        string+=chr(flag)                    # [37:38] flag byte
+        string+=halfwordb(self.last_used)    # [38:40] Bytes used in last block
+        string+=halfwordb(recsz)             # [30:42] Blocked file record size
+        string+=halfwordb(0)                 # [42:44] reserved
+        string+=fullwordb(self.last_written) # [44:48] Last written block
+        string+=fullwordb(self.first_block)  # [48:52] First allocated block
+        string+=fullwordb(self.last_block)   # [52:56] Last allocated block
+        string+=dblwordb(load)               # [56:64] Default load address
+        if len(string)!=64:
+            raise ValueError("volume.py - INTERNAL - "
+                "FDS structure not 64 bytes: %s" % len(string))
+        return string
+        
+    def display(self,pad=""):
+        string="%s: %s" % (self.__class__.__name__,repr(self.name))
+        string="%s Allocated blocks: %s-%s" \
+            % (string,self.first_block,self.last_block)
+        string="%s Content blocks: %s-%s" \
+            % (string,self.first_block,self.last_written)
+        string="%s Used in last block: %s" % (string,self.last_used)
+        if self.recsize is not None:
+            string="%s Record size: %s" % (string,self.recsize)
+        if self.truncated:
+            string="%s TRUNCATED!" % string
+        print("%s%s" % (pad,string))
+        
+        
+    def records(self,blko,debug=False):
+        # Returns the physical media records corresponding to the file content.
+        # This is a fairly complex process that spans many elements of the module.
+        if debug:
+            print("volume.py - FDS.records - File: %s - "
+                "blko.dasd_file(%s,%s,%s,debug=%s)" \
+                % (repr(self.name),self.first_block,self.allocate,\
+                    len(self.volblks),debug))
+        return blko.dasd_file(self.first_block,self.allocate,self.volblks,\
+            debug=debug)
+        
+    def required(self,blocks,used):
+        # Specifies the required blocks and last block used value for this file,
+        # taking into consideration that an explicit size may have been specified.
+        self.blocks=blocks
+        self.last_used=used
+        if self.size is None:
+            self.allocate=blocks
+        else:
+            self.allocate=self.size
+        if self.allocate < self.blocks:
+            self.truncated=True
+        else:
+            self.truncated=False
+        
+# This class allows the Volume Content File (VCF) to be treated as a volume file.
+# It provides the File Description Structure embedded within the Volume
+# Description Block record (VDBR)
+class VCF(FDS):
+    @staticmethod
+    def new(vcflist,name=None,load=None,relo=False,enter=False,size=None,\
+        source=None,blksize=None):
+        # This static method creates a VCF subclass instance.  This is used by the 
+        # VDB class to create the FDS embedded in the VDB record.
+        vdict={"name":name,
+               "load":load,
+               "relo":relo,
+               "enter":enter,
+               "size":size,
+               "source":source,
+               "recsize":None,
+               "card":None}
+        return VCF(vdict,vcflist,blksize)
+    def __init__(self,vdict,vcflist,blksize):
+        self.vcf=vcflist    # This is the same instance as used by DASDDEFN.VCF
+        super(VCF,self).__init__(vdict,blksize)
+    # These methods override the corresponding super class FDS methods
+    def content(self,blksize,debug=False):
+        string=""
+        for x in self.vcf:
+            string+=x.binary()
+        self.volblks=chunk(string,blksize,pad=True)
+    def content_size(self,debug=False):
+        size=64*len(self.vcf)   # Total size of FDS entries in the VCF
+        if debug:
+            print("volume.py - VCF.content_size - returning %s" % size)
+        return size
+    def host(self):
+        raise NotImplementedError("volume.py - INTERNAL - VCF class does not "
+            "support host method")
+
+# DASD Standard Volume Definition Block Record
+# This class manages the DASD Volume Standard content of the VDBR and VCF
+class VDBR(object):
+    def __init__(self,vdict,blocks,vcflist):
+        self.blocks=blocks              # BLOCKS subclass instance
+        # Externally supplied parameters from VOLUME statement
+        self.dtype=vdict["type"]
+        self.name=vdict["name"]         # VCF FDS name value
+        self.filepath=vdict["file"]     # VCF FDS source value
+        self.vcfsize=vdict["vcfsize"]   # VCF FDS size value
+        # Externally supplied parameters from PROGRAM statement
+        self.vdb_data=vdict["data"]     # The program data
+        self.vdb_struct=vdict["struct"] # struct mask to build data (To be done)
+        self.vdb_ebcdic=vdict["ebcdic"] # Whether data is to be EBCDIC
+        
+        # Embedded Volume Content File's File Description Structure
+        self.vcf=vcflist
+        self.vcffds=VCF.new(self.vcf,\
+            name=self.name,source=vdict["source"],size=self.vcfsize,\
+            blksize=self.blocks.blksize)
+        
         #
-        #  Command arguments   Used by commands:
-        self.command=None      #  all
-        self.process=None      #  all  (The external method for the statement)
+        # Values destined for binary VDBR content:
+        #
         
-        self.path=None         #  cards, cd, direct, stream  This is absolute path
-        self.dataset=None      #  cards, direct, seq, stream
-        self.blksize=None      #  direct, stream, seq
-        self.ascii=False       #  cards
-        self.owner=None        #  owner
-        self.address=None      #  stream
-        self.system=None       #  system
-        self.volid=None        #  volume
-        
-        self.display=None      # My display routine
-        
-        self.parse(lineno,line,relpath)
+        self.vdbr_lit="\xE5\xC4\xC2\xF1"  # 'VDB1' in EBCDIC
+        # Bit-level flags:
+        self.flags1=0x00
+        self.volblks=self.blocks.capacity()  # Total storabelDASD volulme blocks
+
+        # Specify CKD related content
+        self.ckd_cyls=self.blocks.cylinders_per_volume   # minimize=True updates
+        self.ckd_tracks=self.blocks.tracks_per_cylinder
+        self.ckd_blocks=self.blocks.blocks_per_track
+        if self.blocks.ckd:
+            self.volblks=self.blocks_ckd()               # minimime=True updates
+            self.flags1|=0x80
+            
+        # Specify FBA related content
+        self.fba_sectors=self.blocks.sectors_per_volume  # minimize=True updates
+        self.fba_secs=self.blocks.sectors_per_block
+        if self.blocks.fba:
+            self.volblks=self.blocks_fba()               # minimize=True updates
+            self.flags1|=0x40
+
+        # Specify Volume related content
+        self.blksize=self.blocks.blksize     # DASD Volume block size
+        self.reserved=vdict["reserve"]       # Number of initial reserved blocks
+        self.flags1|=0x20
+            
+        self.next_available=self.reserved    # Next available block on the volume
 
     def __str__(self):
-        return self.display()
+        string="VDB Record: type=%s,blksize=%s" \
+            % (self.dtype,self.blksize)
+        string="%s\nVCF %s" % (string,self.vcffds)
+        return string
 
-    def display_ascii(self):
-        if self.ascii:
-            return " ascii"
-        return ""
-    
-    def display_cards(self):
-        return "[%s] %s %s %s%s" \
-            % (self.lineno,self.command,self.dataset,self.path,self.display_ascii)
+    def allocate(self,debug=False):
+        # Allocates blocks to DASD volume files.  The Volume Content File is
+        # allocated last placing it after all other content.
+        for x in self.vcf:
+            self.next_available=x.allocation(self.next_available,debug=debug)
+        self.next_available=self.vcffds.allocation(self.next_available,debug=debug)
+        if debug:
+            print("volume.py - VDBR.allocate - next available block=%s" \
+                % self.next_available)
 
-    def display_cd(self):
-        return "[%s] %s %s" % (self.lineno,self.command,self.path)
+    def binary(self,debug=False):
+        self.flags1|=0x10
+        string=self.vdbr_lit                    # [0:4]     VDB1 in EBCDIC
+        string+=chr(self.flags1)                # [4:4]     flags
+        string+="\x00\x00\x00"                  # [5:8]     reserved
+        string+=fullwordb(self.ckd_cyls)        # [8:12]    Number of cylinders
+        string+=halfwordb(self.ckd_tracks)      # [12:14]   Tracks/cylinder
+        string+=halfwordb(self.ckd_blocks)      # [14:16]   Blocks/track
+        string+=fullwordb(self.fba_sectors)     # [16:20]   FBA sectors
+        string+=halfwordb(self.fba_secs)        # [20:22]   sectors/block
+        string+=halfwordb(self.blksize)         # [22:24]   DASD volume block size
+        string+=fullwordb(self.reserved)        # [24:28]   Reserved blocks
+        string+=fullwordb(self.volblks)         # [28:32]   Blocks on the volume
+        string+=self.vcffds.binary()            # [32:96]   VCF FDS
+        string+=160*"\x00"                      # [96:256]  padding
+        string+=self.program_data(debug=debug)  # [256:512] program data
+        if len(string)!=512:
+            raise ValueError("volume.py - VDBR record not 512 bytes: %s" \
+                % len(string))
+        return string
 
-    def display_direct(self):
-        return "[%s] %s %s %s 0x%X" \
-            % (self.lineno,self.command,self.dataset,self.path,self.address)
+    def blocks_ckd(self):
+        # Calculate the number of blocks storable on the CKD volume
+        return self.ckd_cyls*self.ckd_tracks*self.ckd_blocks
+        
+    def blocks_fba(self):
+        # Calculate the number of blocks storable on the FBA volume
+        return self.fba_sectors/self.fba_secs
 
-    def display_owner(self):
-        return "[%s] %s %s" % (self.lineno,self.command,self.owner)
+    def display(self,pad=""):
+        # Provide console description of VDBR
+        dasd_type="?"
+        if self.blocks.ckd:
+            dasd_type="CKD"
+        if self.blocks.fba:
+            dasd_type="FBA"
+        
+        string="VDBR: %s %s volume" % (self.dtype,dasd_type)
+        string="%s Total Blocks=%s" % (string,self.volblks)
+        string="%s blocksize=%s" % (string,self.blksize)
+        string="%s reserved blocks=%s" % (string,self.reserved)
+        string="%s\n      CKD cyl/vol=%s" % (string,self.ckd_cyls)
+        string="%s trk/cyl=%s" % (string,self.ckd_tracks)
+        string="%s blk/trk=%s" % (string,self.ckd_blocks)
+        string="%s\n      FBA sec/vol=%s" % (string,self.fba_sectors)
+        string="%s sec/blk=%s" % (string,self.fba_secs)
+        string="%s\n      Flags=%s" % (string,hex(self.flags1))
+        string='%s\n      Data="%s"' % (string,self.vdb_data)
+        
+        print("%s%s" % (pad,string))
+        for x in self.vcf:
+            x.display()
+        self.vcffds.display(pad=pad)
 
-    def display_seq(self):
-        return "[%s] %s %s %s %s %s" % (self.lineno,self.command,\
-            self.dataset,self.path,self.lrecl,self.blksize)
+    def content(self,debug=False):
+        # Read each of the file's content and convert the content to full DASD
+        # Volume blocks
+        for x in self.vcf:
+            x.content(debug)
 
-    def display_stream(self):
-        return "[%s] %s %s %s %s" \
-            % (self.lineno,self.command,self.dataset,self.path,self.blksize)
+    def program_data(self,debug=False):
+        # This method returns a 256 byte string constituting program data
+        # The data is supplied via the PROGRAM statement
+        pad=256*"\x00"
+        if self.vdb_data is None:
+            return pad
+        if self.vdb_struct is None:
+            if self.vdb_ebcdic:
+                data=self.vdb_data.translate(A2E)+pad
+            else:
+                data=self.vdb_data+pad
+        else:
+            pack="struct.pack('%s',%s)" % (self.vdb_struct,self.vdb_data)
+            try:
+                data=eval(pack)+pad
+            except Exception,error:
+                print("volume.py - WARNING - evaluating: %s" % pack)
+                print("volume.py - WARNING - %s" %error)
+                print("volume.py - WARNING - ignoring failed program struct data")
+                data=pad
+        data=data[:256]
+        if debug:
+            print("volume,py - VDBR.program_data - Program data:\n%s" \
+                % dump(data,indent="   "))
+        return data
 
-    def display_system(self):
-        return "[%s] %s %s" % (self.lineno,self.command,self.system)
+    def records(self,debug=False):
+        # Returns a list of physical volume records corresponding to volume 
+        # content
+        
+        # Create the DASD record for myself.  It will always be the first record
+        recs=self.blocks.vdb_record(self,debug=debug)
+        
+        # Create the DASD records for the files
+        lst=[]
+        for x in self.vcf:
+            lst=x.records(self.blocks,debug=debug)
+            if debug:
+                print("volume.py - VDBR.records - len of lst=%s" % len(lst))
+            recs.extend(lst)
+            
+        # Create the DASD records for the Volume Content File
+        self.vcffds.content(self.blksize,debug=debug)
+        recs.extend(self.vcffds.records(self.blocks,debug=debug))
+        return recs
 
-    def display_volume(self):
-        return "[%s] %s %s" % (self.lineno,self.command,self.volid)
+    def required(self,vcf,debug=False):
+        # Determine the number of blocks for a file and its last block used value
+        blocks,used=self.blocks.blocks(vcf.content_size(debug=debug))
+        vcf.required(blocks,used)
+        
+    def required_sizes(self,debug=False):
+        # Apply file size overrides from the specification file
+        for x in self.vcf:
+            self.required(x,debug=debug)
+        self.required(self.vcffds,debug=debug)
+   
+    def update_ckd(self,size,debug=False):
+        # Update with a new CKD device size
+        self.ckd_cyls=size
+        self.volblks=self.blocks_ckd()
+        return self.blocks.vdbr_create(self)
+        
+    def update_fba(self,size,debug=False):
+        # Update with a new FBA device size
+        self.fba_sectors=size
+        self.volblks=self.blocks_fba()
+        return self.blocks.vdbr_create(self)
+        
+        
+class hostfile(object):
+    def __init__(self,name,recsize=None):
+        self.hostname=name
+        self.recsize=recsize
+        try:
+            self.hostlen=os.path.getsize(self.hostname)
+        except OSError:
+            raise ValueError
+            
+        self.recs_block=None  # For 'blocked' files, records per volume block
+        self.fo=None          # File object for readin source file
+            
+    def allocate_length(self,blksize,debug=False):
+        clength=self.content_length()
+        if debug:
+            print("volume.py - hostfile.allocate_length - clength: %s " % clength)
+        if self.recsize is None:
+            if debug:
+                print("volume.py - hostfile.allocate_length - returning for "
+                    "stream file %s bytes" % clength)
+            return clength
+        # Calculate the number of logical records in a DASD volume block
+        if debug:
+            print("volume.py - hostfile.allocate_length - processing block file")
+        self.recs_block,rem=divmod(blksize,self.recsize)
+        if debug:
+            print("volume.py - hostfile.allocate_length - self.recs_blocks: %s" \
+                % self.recs_block)
+        if self.recs_block==0:
+            raise ValueError
+            
+        # Calculate the number of whole DASD Volume blocks needed and number of
+        # records in the last DASD Volume block
+        block_size=self.recs_block*self.recsize
+        if debug:
+            print("volume.py - hostfile.allocate_length - source content in each "
+                "volume block %s (%s)" % (block_size,hex(block_size)))
+        blocks,last=divmod(clength,block_size)
+        if debug:
+            print("volume.py - hostfile.allocate_length - block file equivalent "
+                "stream blocks %s with last bl0ck containing %s (%s) bytes" \
+                % (blocks,last,hex(last)))
+        # Convert content length into the equivalent stream file content length
+        block_clength=(blocks*blksize)+last
+        if debug:
+            print("volume.py - hostfile.allocate_length - returning equvalent "
+                "steam file content for block file: %s bytes" % block_clength)
+        return block_clength
 
-    def parse(self,lineno,line,relpath):
-        syntax_msg="statement syntax invalid or incomplete"
-        line_work=line.strip()
-        if len(line_work)==0 or line_work[0]=="#":
-            self.command="comment"
-            return
-        line_work=line_work.split()  # Separate into argument strings
-
-        # Remove any comment at the end of the line
-        arguments=[]
-        for arg in line_work:
-            if arg[0]=="#":
+    def create_blocks(self,blksize,debug=False):
+        # Reads a file from the host file system turning it into a list of DASD
+        # Volume blocks.  The last block will be padded.  An IOError is thrown
+        # if there is a problem reading the file.
+        pad=blksize*"\x00"
+        if debug:
+            print("volume.py - hostfile.create_blocks - record size: %s" \
+                % self.recsize)
+            print("volume.py - hostfile.create_blocks - records per block: %s" \
+                % self.recs_block)
+        if self.recsize is None:
+            read_size=blksize
+        else:
+            read_size=self.recsize*self.recs_block
+        if debug:
+            print("volume.py - hostfile.create_blocks - content read size: %s" \
+                % read_size)
+        blocks=[]
+        fo=open(self.hostname,"rb")
+        self.open_file()
+        while True:
+            block=self.read_file(read_size)
+            if len(block)==0:
+                # End-of-file reached without any partial block, we are done
                 break
-            arguments.append(arg)
+            if len(block)==blksize:
+                # we read a whole block from the file
+                blocks.append(block)
+                continue
+            # Partial block read
+            block=block+pad
+            blocks.append(block[:blksize])
+        self.close_file()
+        if debug:
+            print("volume.py - hostfile.create_blocks - blocks created: %s" \
+                % len(blocks))
+        return blocks
         
-        # Process the individual statements
-        statement=arguments[0]
+    # These methods may be overridden by a subclass
+    
+    def close_file(self):
+        self.fo.close()
+    
+    def content_length(self):
+        return self.hostlen
         
-        #     cards  dataset path [ascii]
-        if statement=="cards":
-            if len(arguments)<3 or len(arguments)>4:
-                print("volume.py - error - cards  %s" % syntax_msg)
-                raise ValueError
-            self.process_dataset(arguments[1])
-            self.process_path(arguments[2],relpath)
-            if len(arguments)==4:
-                self.process_ascii(arguments[3])
-            self.command="cards"
-            self.display=self.display_cards
-            return
-
-        #     cd path
-        if statement=="cd":
-            if len(arguments)!=2:
-                print("volume.py - error - cd %s" % syntax_msg)
-                raise ValueError
-            self.process_path(arguments[1],relpath)
-            self.command="cd"
-            self.display=self.display_cd
-            return
-            
-        #     direct dataset path address [blksize]
-        if statement=="direct":
-            if len(arguments)>5 or len(arguments)<4:
-                print("volume.py - error - direct  %s" % syntax_msg)
-                raise ValueError
-            self.process_dataset(arguments[1])
-            self.process_path(arguments[2],relpath)
-            self.process_address(arguments[3])
-            if len(arguments)==4:
-                self.process_blksize(arguements[4])
-            else:
-                self.blksize=512
-            self.command="direct"
-            self.display=self.display_direct
-            return
-
-        #     owner owner_name
-        if statement=="owner":
-            if len(arguments)!=2:
-                print("volume.py - error - owner  %s" % syntax_msg)
-            self.owner=arguments[1]
-            self.command="owner"
-            self.display=self.display_owner
-            return
-            
-        #     seq dataset path lrecl blksize
-        if statement=="seq":
-            if len(arguments)!=5:
-                print("volume.py - error - seq  %s" % syntax_msg)
-                raise ValueError
-            self.process_dataset(arguement[1])
-            self.process_path(argument[2])
-            self.process_lrecl(argument[3])
-            self.process_blksize(argument[4])
-            if self.blksize<self.lrecl:
-                print("volume.py - error - 'blksize' %s less than 'lrecl'" \
-                    % (self.blksize,self.lrecl))
-                raise ValueError
-            (recs,remainder)=divmod(self.blocksize,self.lrecl)
-            if remainder!=0:
-                self.blocksize=recs*self.lrecl
-                print("volume.py - warning - 'blksize' set to %s for accomodation of"
-                    " %s records per block" % (self.blocksize,recs))
-            self.display=self.display_seq
-            return
-
-        #   stream dataset path [blksize]
-        if statement=="stream":
-            if len(arguments)>4 or len(arguments)<3:
-                print("volume.py - error - stream  %s" % syntax_msg)
-                raise ValueError
-            self.process_dataset(arguments[1])
-            self.process_path(arguments[2],relpath)
-            if len(arguments)==4:
-                self.process_blksize(arguments[3])
-            else:
-                self.blksize=512
-            self.command="stream"
-            self.display=self.display_stream
-            return
-
-        #     system system_name
-        if statement=="system":
-            if len(arguments)!=2:
-                print("volume.py - error - system  %s" % syntax_msg)
-                raise ValueError
-            self.system=arguments[1]
-            self.command="system"
-            self.display=self.display_system
-            return
-
-        #     volume volid [ascii]
-        if statement=="volume":
-            if len(arguments)>3 or len(arguments)<2:
-                print("volume.py - error - 'volume'  %s" % syntax_msg)
-                raise ValueError
-            if len(arguments[1])>6:
-                print("volume.py - error - 'volume' id longer than six " \
-                    "characters: %s" % len(arguments[1]))
-                raise ValueError
-            self.volid=arguments[1]
-            if len(arguments)==3:
-                self.process_ascii(argument[2])
-            self.command="volume"
-            self.display=self.display_volume
-            return
-            
-        # unrecognized statement
-        print("volume.py - error - unrecognized statement '%s'" % statement)
-        raise ValueError
-
-    def process_address(self,addr):
-        addr_string=addr
-        if len(addr_string)>2:
-            if addr_string[:2]=="0x":
-                addr_string=addr_string[2:]
-            else:
-                if addr_string[:2]=="X'" and addr_string[-1]=="'":
-                    addr_string=addr_string[2:-1]
-                else:
-                    pass
-        match=STATEMENT.address_re.match(addr_string)
-        if match is None:
-            print("volume.py - error - 'address' is not a valid hexadecimal string")
-            raise ValueError
-        self.address=int(addr_string,16)
+    def open_file(self):
+        self.fo=open(self.hostname,"rb")
         
-    def process_ascii(self,ascii):
-        if ascii=="ascii":
-            self.ascii=True
-            return
-        print("volume.py - error - 'ascii' argument invalid: '%s'" % ascii)
-        raise ValueError
+    def read_file(self,length):
+        return self.fo.read(length)
+    
         
-    def process_blksize(self,blksize):
+class cardfile(hostfile):
+    spaces=80*" "
+    def __init__(self,name,recsize=None,ebcdic=False):
+        super(cardfile,self).__init__(name,recsize)
+        self.ebcdic=ebcdic   # Whether to translate ASCII to EBCDIC
+        images=[]
         try:
-            size=int(blksize,10)
-        except IndexError:
-            print("volume.py - error - 'blksize' invalid: %s" % blksize)
-            raise ValueError
-        if size>65535 or size<1:
-            print("volume.py - error - 'blksize' not in range (1-65535): %s" % size)
-            raise ValueError
-        self.blksize=size
-        
-    def process_dataset(self,dataset):
-        if len(dataset)>44:
-            print("volume.py - error - 'dataset' name longer than 44 characters")
-            raise ValueError
-        self.dataset=dataset.upper()
-
-    def process_lrecl(self,lrecl):
-        try:
-            recl=int(lrecl,10)
-        except IndexError:
-            print("volume.py - error - 'lrecl' invalid: %s" % lrecl)
-            raise ValueError
-        if recl>65535 or recl<1:
-            print("volume.py - error - 'lrecl' not in range (1-65535): %s" % recl)
-            raise ValueError
-        self.lrecl=recl
-        
-            
-    def process_path(self,string,relpath):
-        trial_path=os.path.expandvars(string)
-        if not os.path.isabs(trial_path):
-            trial_path=os.path.abspath(os.path.join(relpath,trial_path))
-        self.path=trial_path
-
-class EXTENT(object):
-    # This class defines an extent
-    # 
-    # Structure:
-    #    Name    Disp       Length     Format       Description
-    #  xttype     +0          1        binary       Extent type (see below)
-    #  xtseqn     +1          1        binary       Extent sequence number
-    #  xtbcyl     +2          2        binary       Beginning logical cylinder
-    #  xtbtrk     +2          2        binary       Beginning logical track
-    #  xtecyl     +2          2        binary       Ending logical cylinder
-    #  xtetrk     +2          2        binary       Ending logical track
-    #
-    # Extent types:
-    #  X'00'  -  unused
-    #  X'01'  -  data
-    #  X'02'  -  overflow
-    #  X'04'  -  index
-    #  X'40'  -  User label
-    #  X'80'  -  shared cylinders
-    #  X'81'  -  Extend on cylinder boundary
-    def __init__(self,beg,end):
-        # beg = a (cylinder, track) tuple
-        # end = a (cylinder, track) tuple
-        self.xtbcyl=beg[0]
-        self.xtbtrk=beg[1]
-        self.xtecyl=end[0]
-        self.xtetrk=end[1]
-        self.xttype=chr(1)       # Extent type is always data
-        self.xtseqn=chr(0)       # Extend sequence always 0
-
-    def create(self):
-        # Convert the extent into a binary string
-        rec=self.xttype+self.xtseqn
-        rec+=halfwordb(self.xtbcyl)
-        rec+=halfwordb(self.xtbtrk)
-        rec+=halfwordb(self.xtecyl)
-        rec+=halfwordb(self.xtetrk)
-        if len(rec)!=10:
-            raise ValueError("Extent not 10 bytes: %s" % len(rec))
-        return rec
-
-class DSCB1(object):
-    # This class manages the format 1 DSCB, the dataset descripter
-    #
-    # Structure:
-    #    Name    Disp       Length     Format       Description
-    #  ds1dsnam   +0          44       EBCDIC       Dataset name (space padded)
-    #  ds1fmtid   +44          1       EBCDIC       '1' or X'F1'
-    #  ds1dssn    +45          6       EBCDIC       Volume serial number
-    #  ds1volsq   +51          2       binary       Volume sequence number
-    #  ds1creyr   +53          1       binary       Creation Year minus 1900
-    #  ds1credy   +54          2       binary       Creation Julian day of year
-    #  ds1expyr   +56          1       binary       Expiration year
-    #  ds1expdy   +57          2       binary       Expiration julian day
-    #  ds1noepv   +59          1       binary       number of extents
-    #  ds1bodbd   +60          1       binary       bytes used in last dir. block
-    #  ds1satk    +61          1       binary       SATK options (normally reserved)
-    #  ds1syscd   +62         13       ECBDIC       System code
-    #  reserved   +75          7       EBCDIC       spaces (X'40')
-    #  ds1dsorg1  +82          1       binary       Dataset organization
-    #  ds1dsorg2  +83          1       binary       Dataset organization
-    #  ds1recfm   +84          1       binary       Record format
-    #  ds1optcd   +85          1       binary       option codes
-    #  ds1blkl    +86          2       binary       block length
-    #  ds1lrecl   +88          2       binary       logical record length
-    #  ds1keyl    +90          1       binary       key length
-    #  ds1rkp     +91          2       binary       relative key position
-    #  ds1dsind   +93          1       binary       dataset indicators
-    #  ds1scalu   +94          1       binary       secondary allocation units
-    #  ds1scalq   +95          3       binary       quantity of allocation units
-    #  ds1lstar   +98          3       ttr          Last used
-    #  ds1ltrbal  +101         2       binary       bytes used on last track
-    #  reserved   +103         2       EBCDIC       spaces (X'40')
-    #  ds1ext1    +105        10       EXTENT       First extent
-    #  ds1ext2    +115        10       EXTENT       Second extent
-    #  ds1ext3    +125        10       EXTENT       Third extent
-    #  ds1ptrds   +135         5       cchhr        CCHHR of F2 or F3 DSCB
-    # Total length: 140
-    #
-    # Values for ds1dsind:
-    #   X'80'  -  Last volume of the dataset
-    #   X'40'  -  RACF indicated
-    #   X'20'  -  Blocksize multiple of 8
-    #   X'10'  -  Password protected
-    #   X'04'  -  Write protected
-    #   X'02'  -  Updated since last backup
-    #   X'01'  -  Secure checkpoint dataset
-    #
-    # Value for ds1optcd:
-    #   X'80'  -  Dataset in ICF catalog
-    #   X'40'  -  ICF catalog
-    #
-    # Values for ds1scalo byte 0:
-    #   X'00'  -  Absolute track allocation units
-    #   X'40'  -  block allocation units
-    #   X'80'  -  track allocation units
-    #   X'C0'  -  cylinder allocation units
-    #   X'08'  -  Contiguous space
-    #   X'04'  -  Maximum contiguour extents
-    #   X'02'  -  Upto 5 largest extents
-    #   X'01'  -  Round to cylinders
-    #
-    # Values for ds1dsorg byte 0:
-    #   X'80'  -  IS Indexed sequential
-    #   X'40'  -  PS Physically sequential
-    #   X'20'  -  DA Direct Access
-    #   X'02'  -  PO Partitioned organization
-    #   X'01'  -  U  Unmovable
-    #
-    # Values for ds1dsorg byte 1:
-    #   X'08'  -  VSAM dataset
-    #
-    # Values for ds1recfm:
-    #   X'40'  -  V  Variable length 
-    #   X'80'  -  F  Fixed length
-    #   X'C0'  -  U  Undefined length
-    #   X'20'  -  Track overflow
-    #   X'10'  -  Blocked
-    #   X'08'  -  Spanned or standard
-    #   X'04'  -  A  ANSI carriage control
-    #   X'02'  -  M  Machine carriage control
-    #
-    # Values for ds1satk:
-    #   X'01'  -  Stream dataset
-    #   X'02'  -  Directed dataset
-    dsorgs={"IS":0x80,"PS":0x40,"DA":0x20,"PO":0x02,"DAU":0x21}
-    recfms={"F":0x80,"FB":0x90,"V":0x40,"VB":0x50,"U":0xC0}
-    satk={None:0x40,"stream":0x01,"direct":0x02}
-    def __init__(self,name,volser,blklen=0,lrecl=0,dsorg="DA",recfm="U",satk=None,\
-                 system="SATK"):
-        try:
-            self.ds1satk=DSCB1.satk[satk]
-        except KeyError:
-            self.ds1satk=DSCB1.satk[None]
-        try:
-            self.ds1dsorg1=DSCB1.dsorgs[dsorg]
-        except KeyError:
-            self.ds1dsorg1=DSCB1.dsorgs["DA"]
-        try:
-            self.ds1recfm=DSCB1.recfms[recfm]
-        except KeyError:
-            self.ds1recfm=DSCB1.recfms["U"]
-        self.ds1dsnam=name
-        self.ds1dssn=volser
-        self.ds1syscd=system
-        self.ds1blkl=blklen
-        self.ds1lrecl=lrecl
-        self.ds1ltrbal=None        # set by dtf method
-        self.ds1ext1=None          # set by dtf method
-        
-    def create(self,ascii=False):
-        # Returns a string corresponding to the Format 1 DSCB
-        dataset=self.ds1dsnam+44*" "
-        dataset=dataset[:44]
-        if ascii:                             #  Bytes 0-43  ds1dsnam 
-            rec=dataset
-        else:
-            rec=dataset.translate(A2E)
-        if ascii:                             #  Bytes 0-44  ds1fmtid
-            rec=+"\x21"
-        else:
-            rec+="\xF1"
-        volser=ds1dssn+6*" "
-        volser=volser[:6]
-        if ascii:                             #  Bytes 0-50  ds1dssn
-            rec+=volser
-        else:
-            rec+=volser.translate(A2E)
-        rec+="\x00\x00"                       #  Bytes 0-52  ds1volsq
-        time_tuple=time.localtime()
-        year=time_tuple[0]
-        day=time_tuple[7]
-        rec+=chr(year-2000)                   # Bytes 0-53   ds1creyr
-        rec+=halfwordb(day)                   # Bytes 0-55   ds1credy
-        rec+=chr(255)                         # Bytes 0-56   ds1expyr
-        rec+=halfwordb(367)                   # Bytes 0-58   ds1expyr
-        rec+="\x01"                           # Bytes 0-59   ds1noepv
-        rec+="\x00"                           # Bytes 0-60   ds1bodbd
-        rec+=chr(self.ds1satk)                # Bytes 0-61   ds1satk
-        syscode=system+13*" "
-        syscode=syscode[:13]
-        if ascii:                             # Bytes 0-74   ds1syscd
-            rec+=syscode
-        else:
-            rec+=syscode.translate(A2E)
-        rec+=spaces(7,ascii)                  # Bytes 0-81   reserved
-        rec+=chr(self.ds1dsorg1)              # Bytes 0-82   ds1dsorg1
-        rec+="\x00"                           # Bytes 0-83   ds1dsorg2
-        rec+=chr(self.ds1recfm)               # Bytes 0-84   ds1recfm
-        rec+="\x00"                           # Bytes 0-85   ds1optcd
-        rec+=halfwordb(self.ds1blkl)          # Bytes 0-87   ds1blkl
-        rec+=halfwordb(self.ds1lrecl)         # Bytes 0-89   ds1lrecl
-        rec+="\x00"                           # Bytes 0-90   ds1keyl
-        rec+="\x00\x00"                       # Bytes 0-92   ds1rkp
-        rec+="\x80"                           # Bytes 0-93   ds1dsind
-        rec+="\x00"                           # Bytes 0-94   ds1scalu
-        rec+=3*"\x00"                         # Bytes 0-97   ds1scalq
-        rec+=3*"\x00"                         # Bytes 0-100  ds1lstar
-        rec+=halfwordb(self.ds1ltrbal)        # Bytes 0-102  ds1ltrbal
-        rec+=spaces(2,ascii)                  # Bytes 0-104  reserved
-        rec+=self.ds1ext1.create()            # Bytes 0-114  ds1ext1
-        rec+=10*"\x00"                        # Bytes 0-124  ds1ext2
-        rec+=10*"\x00"                        # Bytes 0-134  ds1ext3
-        rec+=5*"\x00"                         # Bytes 0-139  ds1ptrds
-        if len(rec)!=140:
-            raise ValueError("Format 1 DSCB not 140 bytes: %s" % len(rec))
-        return rec
-
-class DSCB4(object):
-    # This class manages the format 4 DSCB, the VTOC descripter
-    #
-    # Structure:
-    #    Name    Disp       Length     Format       Description
-    # ds4keyid   +0         44         binary       44 bytes of X'04'
-    # ds4fmtid   +44        1          EBDCIC       '4' or X'F4'
-    # ds4hpchr   +45        5          cchhr        Location of highest F1 DSCB
-    # ds4dsrec   +50        2          binary       Number of Format 0 DSCB's
-    # ds4hcchh   +52        4          cchh         Next available alternate track
-    # ds4noatk   +56        2          binary       Number of alternate tracks
-    # ds4vtoci   +58        1          bits         See below
-    # ds4noext   +59        1          binary       Number of extents in VTOC
-    # reserved   +60        2          EBCDIC       spaces (X'40')
-    # ds4dscyl   +62        2          binary       Number of logical cylinders.
-    # ds4dstrk   +64        2          binary       Logical tracks in a logical cyl.
-    # ds4devtk   +66        2          binary       Device logical track length
-    # ds4devi    +68        1          binary       Non-last keyed blk overhead
-    # ds4devl    +69        1          binary       Last keyed blk overhead
-    # ds4devk    +70        1          binary       Non-keyed block overhead
-    # ds4devfg   +71        1          binary       Device flags
-    # ds4devtl   +72        2          binary       Device tolerance
-    # ds4devdt   +74        1          binary       Number of DSCB's per track
-    # ds4devdb   +75        1          binary       Number of dirblks/track
-    # ds4amtim   +76        8          binary       VSAM timestamp
-    # ds4vsind   +84        1          binary       VSAM indicators
-    # ds4vscra   +85        2          binary       CRA track location
-    # ds4r2tim   +87        8          binary       VSAM vol/cat timestamp
-    # reserved   +95        5          EBCDIC       spaces (X'40')
-    # ds4f6ptr   +100       5          cchhr        First Format 6 DSCB
-    # ds4vtoce   +105       10         Extent fmt   VTOC Extent (see EXTENT class)
-    # reserved   +115       25         EBCDIC       spaces
-    # Total length: 140
-    #
-    # ds4vtoci indicators:
-    #  0x80  -  Format 5 DSB's are not valid (DOS)
-    #  0x10  -  DOS stacked pack
-    #  0x08  -  DOS converted pack
-    #  0x40  -  VTOC contains errors
-    #  0x20  -  DIRF reclaimed
-    def __init__(self,cyls,trkpercyl,trksize):
-        #  sectors is the number of sectors supported by the device
-        #  bpg is the fbautil.py value for blocks per cyclical group (log. trk.)
-        #  bpp is the fbaulti.py value for blocks per access position (log. cyl.)
-        self.ds4dscyl=cyls              # Number of logical cylinders
-        self.ds4dstrk=trkpercyl         # Logical tracks per logical cylinder
-        self.ds4devtk=trksize           # Size of a logical track
-        self.extent=None                # VTOC Extent
-        
-    def create(self,ascii=False):
-        # Return a string corresponding to the Format 4 DSCB
-        rec=44*"\x04"                   # Bytes 0-43   ds4keyid
-        if ascii:                       # Bytes 0-44   ds4fmtid
-            rec+="\x41"
-        else:
-            rec+="\xF4"
-        rec+=5*"\x00"                   # Bytes 0-49   ds4hpchr
-        rec+=2*"\x00"                   # Bytes 0-51   ds4dsrec
-        rec+=4*"\x00"                   # Bytes 0-55   ds4hcchh
-        rec+=2*"\x00"                   # Bytes 0-57   ds4noatk
-        rec+="\x80"                     # Bytes 0-58   ds4vtoci DOS
-        rec+="\x01"                     # Bytes 0-59   ds4noext 1
-        rec+=spaces(2,ascii)            # Bytes 0-61   reserved
-        rec+=halfwordb(self.ds4dscyl)   # Bytes 0-63   ds4dscyl
-        rec+=halfwordb(self.ds4dstrk)   # Bytes 0-65   ds4dstrk
-        rec+=halfwordb(self.ds4devtk)   # Bytes 0-67   ds4devtk
-        rec+="\x00"                     # Bytes 0-68   ds4devi
-        rec+="\x00"                     # Bytes 0-69   ds4devl
-        rec+="\x00"                     # Bytes 0-70   ds4devk
-        rec+="\x00"                     # Bytes 0-71   ds4devfg
-        rec+="\x00\x00"                 # Bytes 0-73   ds4devtl
-        rec+="\x00"                     # Bytes 0-74   ds4devdt
-        rec+="\x00"                     # Bytes 0-75   ds4devdb
-        rec+=8*"\x00"                   # Bytes 0-83   ds4amtim
-        rec+="\x00"                     # Bytes 0-84   ds4vsind
-        rec+="\x00\x00"                 # Bytes 0-86   ds4vscra
-        rec+=8*"\x00"                   # Bytes 0-94   ds4r2tim
-        rec+=spaces(5,ascii)            # Bytes 0-99   reserved
-        rec+=self.extent.create()       # Bytes 0-114  ds4vtoce
-        rec+=spaces(25,ascii)           # Bytes 0-139  reserved
-        if len(rec)!=140:
-            raise ValueError("Format 4 DSCB not 140 bytes: %s" % len(rec))
-        return rec
-
-class VOL1(object):
-    # This class manages the volume label in sector 1
-    #
-    # Structure:
-    #    Name    Disp       Length     Format       Description
-    #  volkey     +0           4       EBCDIC       'VOL1'
-    #  vollbl     +4           4       EBDCIC       'VOL1'
-    #  volid      +8           6       EBCDIC       Volume label
-    #  security   +14          1       binary       Security byte
-    #  vtoccyl    +15          2       binary       Logical cylinder of Format 4
-    #  vtoctrk    +17          2       binary       Logical track of Format 4
-    #  vtocrec    +19          1       binary       sector of track of first CI
-    #  reserved   +20          5       EBCDIC       spaces (X'40')
-    #  cisize     +25          4       binary       VTOC CI size in bytes
-    #  blkperci   +29          4       binary       Sectors per CI
-    #  labperci   +33          4       binary       Number of labels per CI
-    #  reserved   +37          4       EBCDIC       spaces (X'40')
-    #  owner      +41         14       EBCDIC       Volume owner
-    #  reserved   +55         29       EBCDIC       spaces (X'40')
-    #  Total length: 84
-    def __init__(self,volid="IPL001",owner="STAND-ALONE TK"):
-        self.volid=volid
-        self.owner=owner
-        self.vtoccyl=None    # Set by the vtoc method
-        self.vtoctrk=None    # Set by the vtoc method
-        self.vtocrec=None    # Set by the vtoc method
-        self.cisize=None     # Set by the defvtoc method
-        self.blkperci=None   # Set by the defvtoc method
-        self.labperci=None   # Set by the defvtoc method
-     
-    def create(self,ascii=False):
-        # Returns a string corresponding the specified VOL1 record
-        if ascii:
-            vol1="VOL1"                # ASCII 'VOL1'
-        else:
-            vol1="\xE5\xD6\xD3\xF1"    # EBCDIC 'VOL1'
-        rec=vol1+vol1                  # Bytes 0-7       Volume key and label
-        volid=self.volid+6*" "
-        volid=volid[:6]
-        if ascii:                      # Bytes 0-13      Volume label
-            rec+=volid
-        else:
-            rec+=volid.translate(A2E)
-        rec+=chr(0)                    # Bytes 0-14      Security byte
-        rec+=halfwordb(self.vtoccyl)   # Bytes 0-16      vtoccyl
-        rec+=halfwordb(self.vtoctrl)   # Bytes 0-18      vtoctrk
-        rec+=chr(self.vtocrec)         # Bytes 0-19      vtocrec
-        rec+=spaces(5,ascii)           # Bytes 0-24      reserved
-        rec+=fullwordb(self.cisize)    # Bytes 0-28      cisize
-        rec+=fullwordb(self.blkperci)  # Bytes 0-32      blkperci
-        rec+=fullwordb(self.labperci)  # Bytes 0-36      labperci
-        rec+=spaces(4,ascii)           # Bytes 0-40      reserved
-        owner=self.owner+14*" "
-        owner=owner[:14]
-        if ascii:                      # Bytes 0-54      owner
-            rec+=owner
-        else:
-            rec+=owner.translate(A2E)
-        rec+=spaces(29,ascii)          # Bytes 0-83      reserved
-        if len(rec)!=84:
-            raise ValueError(\
-                "volume.py - INTERNAL - VOL1 not 84-bytes: %s" % len(rec))
-        return rec
-        
-class DATASET(object):
-    def __init__(self,statement):
-        self.ddname=statement.dataset
-        self.filepath=statement.path
-        if not os.path.isfile(statement.path):
-            print("volume.py - error %s source file %s does not exist" \
-                % (self.ddname,statement.path))
-            raise ValueError
-        self.filepath=statement.path
-        self.size=os.path.getsize(self.filepath)
-        if self.size==0:
-            print("volume.py - error %s source file %s has zero length" \
-                % (self.ddname,statement.path))
-            raise ValueError
-            
-        self.stream=False      # Subclass must set to True for a stream file
-        self.directed=False    # Subclass must set to True for a directed stream
-        self.lrecs=None        # The subclass must initialize
-        self.lrecl=None        # The subclass must initialize
-        self.extent=None       # The extent is established during allocation
-        
-        # variables established by method block
-        self.blocks=None       # The number of blocks required by the dataset
-        self.lastused=None     # The number of bytes used in the last block
-        self.blksize=None      # The subclass must initialize
-        
-        # variables established by allocate method
-        self.extent=None       # EXTENT instance for allocated space
-        self.tracks=None       # Tracks required for the dataset
-        self.last_used=None    # Bytes used on last track
-        
-        # variable established by the dtf method
-        self.dscb1=None        # The DSCB1 instance associated with this dataset
-
-    def allocate(self,spacemgr):
-        # This method defines the space requirements for the dataset using
-        # the supplied space manager instance.
-        self.tracks,self.last_used=spacemgr.space(\
-            self.blocks,self.blksize,self.lastused)
-        self.extent=spacemgr.allocate(self.tracks)
-
-    def blocks(self):
-        # This method calculates the number of blocks required by the dataset and
-        # the number of bytes used in the last block
-        raise NotImplementedError("volume.py - internal error - " \
-            "blocks method must be implemented by subclass: %s" \
-            % self.__class__.__name__)
-
-    def dtf(self,volser):
-        # This method creates a DSCB1 instance for this dataset
-        raise NotImplementedError("volume.py - internal error - " \
-            "dtf method must be implemented by subclass: %s" \
-            % self.__class__.__name__)
-
-class CARDS(DATASET):
-    # A CARDS dataset it a contiguous stream of cards stored on the FBA device.
-    # Blocks are actually 512 bytes in length.  The intent is the entire dataset
-    # will be read into contiguous storage locations.  This allows the stand-alone
-    # program to process the cards in a simple loop.
-    def __init__(self,statement):
-        super(CARDS,self).__init__(statement)
-        self.ascii=statement.ascii     # Whether to leave cards as ASCII data
-        try:
-            fo=open(self.filepath,"rt")
-        except IOError:
-            print("volume.py - error opening %s source file %s" \
-                % (self.ddname,self.filepath))
-            raise ValueError
-        lineno=0
-        self.cards=[]
-        try:
+            fo=open(self.hostname,"rt")
             for line in fo:
-                lineno+=1
-                if line[-1]=="\n":
-                    line=line[:-1]
-                if len(line)>80:
-                    print("volume.py - warning truncating line %s in %s source file"\
-                        % (self.lineno,self.ddname,self.filepath))
-                else:
-                    line=line+80*" "
+                line=line[:-1]  # Remove end of line 
+                line=line+cardfile.spaces
                 line=line[:80]
-                if not self.ascii:
-                    line.translate(A2E)
-                self.cards.append(line)
-        except IOError:
-            print("volume.py - error reading %s source file %s" \
-                % (self.ddname,self.filepath))
-            raise ValueError
-        try:
+                images.append(line)
             fo.close()
         except IOError:
-            print("volume.py - error closing %s source file %s" \
-                % (self.ddname,self.filepath))
+            raise ValueError
+        self.cards="".join(images)
+        self.next=None
+        
+    # Overridden methods
+    def close_file(self):
+        self.next=None
+
+    def content_length(self):
+        return len(self.cards)
+        
+    def read_file(self,length):
+        if self.next>=len(self.cards):
+            return ""
+        true_length=min(self.content_length()-self.next,length)
+        data=self.cards[self.next:self.next+length]
+        if self.ebcdic:
+            data=data.translate(A2E)
+        self.next+=length
+        return data
+        
+    def open_file(self):
+        self.next=0
+
+# These classes use specfile.py to define the statements used by the DASD Volume
+# specification file.  Processing of the file if performed by the instance method
+# SPECFILE.process.
+
+class BLKSIZE(DEC):
+    def __init__(self,keyword):
+        super(BLKSIZE,self).__init__(keyword)
+    def parse(self,string,debug=False):
+        bsize=super(BLKSIZE,self).parse(string)
+        try:
+            return {512:512,1024:1024,2048:2048,4096:4096}[bsize]
+        except KeyError:
             raise ValueError
 
-        self.lrecs=len(self.cards)
-        self.lrecl=80
-        #self.blklen=6*self.lrecl     # This fits in one sector
-        #self.stream=True
+class CONTENT(SPECFILE):
+    def __init__(self,debug=False):
+        super(CONTENT,self).__init__(module="volume.py",debug=debug)
+        self.define_statements(debug=debug)
+        self.volume=None      # Initial VOLUME statements encountered
+        self.program=None     # The last PROGRAM statement encountered
+        self.files=[]         # List of FILE statements encountered
         
-    def blocks(self):
-        total_bytes=self.lrecs*self.lrecl
-        self.blocks,self.lastused=divmod(total_bytes,512)
-        if self.lastused=0:
-            self.lastused=512
+    def define_statements(self,debug=False):
+       #if debug:
+       #     print("\nvolume.py - CONTENT.define_statements - specfile.py "
+       #         "subclass initialization: starting")
+        self.register("VOLUME",VOLUME,debug=debug)
+        self.register("FILE",FILE,debug=debug)
+        self.register("PROGRAM",PROGRAM,debug=debug)
+        #if debug:
+        #    print("volume.py - CONTENT.define_statements - specfile.py "
+        #        "subclass initialization: completed")
+        
+    def post_process(self,stmt):
+        if isinstance(stmt,VOLUME):
+            if self.volume is None:
+                self.volume=stmt
+            else:
+                print("volume.py - ERROR - additional 'VOLUME' statement "
+                    "encountered in line [%s]" % self.lineno)
+                return
+        if isinstance(stmt,FILE):
+            self.files.append(stmt)
+        if isinstance(stmt,PROGRAM):
+            self.program=stmt
+        return stmt
+
+class FILE(STATEMENT):
+    @classmethod
+    def define(cls,debug=False):
+        if debug:
+            print("FILE.define - cls=%s" % cls)
+        cls.required(AorE("name"),debug=debug)
+        cls.required(PATH("source"),debug=debug)
+        cls.default(Y_N("relo"),False,debug=debug)
+        cls.default(Y_N("enter"),False,debug=debug)
+        cls.default(HEX("load"),debug=debug)
+        cls.default(DEC("size"),debug=debug)
+        cls.default(STRING_LIST("card",["ascii","ebcdic"]),debug=debug)
+        cls.default(DEC("recsize"),debug=debug)
+        # WARNING: when adding or deleting keyword arguments, ensure the VCF.new
+        # method is adjusted appropriately.
+        
+    def __init__(self,lineno,args,debug=False):
+        super(FILE,self).__init__(lineno,args,module="volume.py",debug=debug)
+
+class PROGRAM(STATEMENT):
+    @classmethod
+    def define(cls,debug=False):
+        if debug:
+            print("PROGRAM.define - cls=%s" % cls)
+        cls.required(QSTRING("data"),debug=debug)
+        cls.default(QSTRING("struct"),None,debug=debug)
+        cls.default(Y_N("ebcdic"),False,debug=debug)
+    def __init__(self,lineno,args,debug=False):
+        super(PROGRAM,self).__init__(lineno,args,module="volume.py",debug=debug)
+
+class VOLUME(STATEMENT):
+    @classmethod
+    def define(cls,debug=False):
+        if debug:
+            print("VOLUME.define - cls=%s" % cls)
+        cls.required(AorE("name"),debug=debug)
+        cls.default(STRING("type"),debug=debug)
+        cls.default(BLKSIZE("blksize"),512,debug=debug)
+        cls.default(PATH("file"),debug=debug)
+        cls.default(Y_N("minimize"),True,debug=debug)
+        cls.default(Y_N("compress"),False,debug=debug)
+        cls.default(DEC("reserve"),debug=debug)
+        cls.default(DEC("cyl"),debug=debug)
+        cls.default(DEC("trk"),debug=debug)
+        cls.default(DEC("sec"),debug=debug)
+        cls.default(DEC("vcfsize"),debug=debug)
+    def __init__(self,lineno,args,debug=False):
+        super(VOLUME,self).__init__(lineno,args,module="volume.py",debug=debug)
+
+    def fetch_value(self,name):
+        # This method returns zero for None values
+        val=self.values[name]
+        if val is None:
+            return 0
+        return val
+
+    def reserve_update(self,block):
+        rsv=self.fetch_value("reserve")
+        if block.ckd:
+           rsv=max(rsv,block.cylinders(self.fetch_value("cyl")))
+           rsv=max(rsv,block.tracks(self.fetch_value("trk")))
         else:
-            self.blocks+=1
-        self.blocksize=512
-        
-    def dtf(self,volser,system):
-        dscb1=DSCB1(self.ddname,volser,blklen=512,lrecl=512,dsorg="DA",recfm="U",\
-            satk="stream",system=system)
-        dscb1.ds1ext1=self.extent
-        dscb1.ds1ltrbal=self.last_used
-        self.dscb1=dscb1
-        
-class STREAM(DATASET):
-    def __init__(self,statement):
-        super(STREAM,self).__init__(statement)
-        self.stream=True    # This dataset is allocated contiguously
-        self.lrecs=self.
-        
-class SPACEMGR(object):
-    # Space is managed based upon relative track.  For CKD, this corresponds to
-    # a physical track.  For FBA this corresponsd to a set of sectors within an
-    # access position.  Cylinders are derived from relative track for both FBA and
-    # CKD devices.  For CKD devices, the number of tracks per cylinder is 
-    # determined by the disk geometry.  For an FBA device the number of access
-    # positions within a cyclical group determines this relationship.
-    #
-    # How data blocks are allocated on the volume is device specific.  Each 
-    # subclass has the responsibility to manage these allocations.
-    def __init__(self,devinfo):
-        self.devinfo=devinfo
-        
-        self.next_rel_trk=None      # This is the next relative track available
-        # It will be set by the reserve method
+           rsv=max(rsv,block.sectors(self.fetch_value("sec")))
+        self.values["reserve"]=max(rsv,block.reserve)
 
-    def allocate(self,tracks):
-        # Returns an extent instance of the allocated tracks
-        raise NotImplementedError("volume.py - internal error - " \
-            "defautl_reserve method must be implemented by subclass: %s" \
-            % self.__class__.__name__)
-
-    def default_reserve(self):
-        # Returns the number of volume units to reserve by default.  The unit
-        # is device type specific
-        raise NotImplementedError("volume.py - internal error - " \
-            "defautl_reserve method must be implemented by subclass: %s" \
-            % self.__class__.__name__)
-
-    def reserve(self,units):
-        # Reserves the specified units and establishes the starting relative track
-        # for allocations.
-        raise NotImplementedError("volume.py - internal error - " \
-            "reserve method must be implemented by subclass: %s" \
-            % self.__class__.__name__)
-        
-    def space(self,blocks,blocksize,last_used_block):
-        # Calculates the number of tracks required for the blocks and the number
-        # bytes used on the last track.  Returns a tuple (tracks,last_track_used).
-        raise NotImplementedError("volume.py - internal error - " \
-            "space method must be implemented by subclass: %s" \
-            % self.__class__.__name__)
-        
-class CKDSPACE(SPACEMGR):
-    def __init__(self,devinfo):
-        super(CKDSPACE,self).__init__(devinfo)
-    # Implement the remaining interface classes to complete CKD device support
-    def default_reserve(self):
-        # By default reserve the first track for volume information
-        return 1  # Track (0,0) reserved for IPL records and VOL1 label
-    def reserve(self,tracks):
-        # The next relative track that can be assigned is the number of tracks
-        # being reserved
-        self.next_rel_trk=tracks
-
-class FBASPACE(SPACEMGR):
-    # This class manages the allocation of data blocks to sectors and sectors to
-    # tracks that can be managed by the super class.
-    #
-    # For standard blocked files:
-    #
-    # FBA devices can only read and write complete sectors (512-bytes of data).
-    # For example, a block that contain 10 80-byte logical records (or 800 bytes
-    # of data in the block) will require two sectors to allow full blocks to be
-    # read or written.  10 blocks will therefore consume 20 sectors.
-    #
-    # Let's also assume in this example that a logical track contains 6 sectors.
-    # These 10 blocks of logical data will therefore consume 4 logical tracks.  The
-    # first two sectors of the last track will contain the last block of the file
-    # and the remaining four sectors of the last track are unused.  Also the
-    # number of bytes used in the last track will be 800 corresponding to the actual
-    # end of the last block of the actual data in the file.  This value is required
-    # to understand where the end of the file actually resides.
-    #
-    # Currently, it is unclear whether "last_track_used" relates to dataset bytes,
-    # a logical measure, or physical track capacity consumed by dataset on
-    # the last track.  The definition used below assumes physical consumption.  It
-    # is really dependent upon the algorithm used to calculate the end of the 
-    # logical file.
-    # 
-    # "last_track_used" is assumed to mean physical track capacity consumed by the 
-    # dataset on the last logical track.  This translates to number of bytes in the 
-    # sectors consumed by the complete blocks on the track plus the number of bytes 
-    # consumed by the logical records in the last block.  
-    #
-    # Another interpretation of this definition is "last_track_used" is the 
-    # relative byte following the last incomplete block otherwise it is the 
-    # relative byte following the last sector of the last complete block.
-    #
-    # For stream files:
-    #
-    # While stream files conform to the logical track boundaries, they are written 
-    # to use each sector completely by storing the stream in contiguous whole
-    # sectors until the last sector is encountered.  The last sector may contain
-    # unused areas.  And the last sector may not completely utilize the last track.
-    # So portions of the last track may also be unused.  Stream files eliminate the
-    # unused space resulting from incomplete track usage required by the blocking
-    # process.  Stream files use the track length as the block size and logical
-    # record length.  Stream files are read in units of entire tracks.  The total
-    # length of the stream is determined by the combined length of all of the 
-    # tracks read and the last track used value.
-    def __init__(self,devinfo):
-        super(FBASPACE,self).__init__(devinfo)
-        self.sectors=self.devinfo.sectors      # sectors on the volume
-        self.logtrk=self.devinfo.logtrk        # sectors per logical track
-        self.logcyl=self.devinfo.logcyl        # sectors per logical cylinder
-        self.logcyls=self.sectors/self.logcyl  # number of logical cylinders
-        self.track_size=self.logtrk*512        # Size of a logical track
-        self.tracks_per_cyl=self.logcyl/self.logtrk  # Tracks per cylinder
-
-    def __str__(self):
-        return "%s track size: %s, tracks/cyl: %s, cyl/vol: %s" \
-            % (self.dtype,self.track_size,self.tracks_per_cyl,self.logcyls)
-
-    def allocate(self,tracks):
-        begin_rel_track=self.next_rel_trk
-        end_rel_track=begin_rel_track+tracks-1
-        begin=divmod(begin_rel_track,self.tracks_per_cyl)
-        end=divmod(end_rel_track,self.tracks_per_cyl)
-        self.next_rel_trk=end_rel_track+1
-        return EXTENT(begin,end)
-
-    def default_reserve(self):
-        # By default reserve the first two sectors for volume information
-        return 2  # sector 0 = IPL PSW and CCW chain, sector 2 = VOL1 label
-    
-    def reserve(self,sectors):
-        # Round reserved sectors to the start of the next logical track
-        self.next_rel_trk=(sectors+self.logtrk-1)/self.logtrk
-        
-    def space(self,blocks,blocksize,last_used):
-        sectors_per_block=(blocksize+511)/512
-        last_used_sectors=(last_used+511)/512
-        unused_last_sector=(last_used_sectors*512)-last_used
-        sectors_needed=(blocks*sectors_per_block)+last_used_sectors
-        tracks,last_track_sectors_used=divmod(sectors_needed,self.logtrk)
-        if last_track_sectors_used>0:
-            tracks+=1
-        if last_track_sectors_used<last_used_sectors:
-            last_used_data_in_sectors=\
-                ((last_used_sectors-last_track_sectors_used)*512)-unused_last_sector
-        else:
-            last_used_data_in_sectors=\
-                (last_track_sectors_used*512)-unused_last_sector
-        space_bytes=tracks*self.track_size
-        last_track_not_used=space_bytes-bytes_needed
-        last_track_used=self.track_size-track_not_used
-        return (tracks,last_used_data_in_sectors)
-        
-class VOLUME(object):
-    # This class manages the creation of the volume content.  It is designed to
-    # operate as a class used by another utility or on its own.  The staticmethod
-    # process() will process and create the volume.  The staticmethod records() 
-    # returns a list of recsutil.fba or recsutil.ckd instances that the caller 
-    # accepts responsibility for delivery to the medium.
-    @staticmethod
-    def process(dtype,content):
-        v=VOLUME(dtype,content)
-        if v.rc()!=0:
-            print("volume.py - device creation aborted")
-            sys.exit(2)
-        v.allocate(dtype)
-    @staticmethod
-    def records(dtype,content,reserve=None):
-        v=VOLUME(dtype,content,reserve)
-        if v.rc()!=0:
-            return []
-        v.allocate()
-    def __init__(self,dtype,content,reserve=None):
-        self.status=0           # returned via rc method to indicate success
-        self.dds=[]             # Datasets being created on volume
-        self.filename=content   # Content specification file
-        self.process_dict={"cards":self.process_cards,
-                           "direct":self.process_direct,
-                           "stream":self.process_stream}
-         
-        try:
-            self.spacemgr=self.manager(dtype)
-        except ValueError:
-            self.status=1
-            return
-            
-        # Reserve any necessary space
-        if reserve is None:
-            self.reserve=self.spacemgr.default_reserve()
-        else:
-            self.reserve=reserve
-        self.spacemgr.reserve(self.reserve)
-                           
-        # Process the specification file                  
-        self.content=CONTENT(content,self.process_dict)
-        self.volid=self.content.volid
-        self.owner=self.content.owner
-        self.system=self.content.system
-        
-        for dataset in self.content.statements:
-            try:
-                dd=dataset.process(dataset)
-            except ValueError:
-                print("volume.py - ignored %s" % dataset)
-                continue
-            self.dds.append(dd)
-            
-        self.vtoc=None          # The VTOC instance is create during allocation
-        
-    def allocate(self,spacemgr):
-        # This method allocates volume space to the individual datasets, creates
-        # extent information
-        self.vtoc=VTOC(spacemgr,self.dds,self.volid,self.system,self.owner)
-        
-    def manager(self,dtype):
-        # Identify the device type and return a volume space manager
-        try:
-            devinfo=fbautil.fba.sectors[self.dtype]
-            return FBASPACE(devinfo)
-        except KeyError:
-            pass
-        try:
-            devinfo=ckdutil.ckd.geometry[self.dtype]
-            return CKDSPACE(devinfo)
-        except KeyError:
-            pass
-        print("volume.py - error - unrecognized device type: %s" % self.dtype)
-        raise ValueError
-        
-    def process_cards(self,statement):
-        dd=CARDS(statement)
-    def process_direct(self,statement):
-        dd=DATASET(statement)
-    def process_stream(self,statement):
-        dd=DATASET(statement)
-        
-    def rc(self):
-        # return the return code
-        return self.status
-        
-class VTOC(object):
-    def __init__(self,spacemgr,dds,volser,system,owner):
-        self.spacemgr=spacemgr
-        self.dds=dds         # List of dataset instances destined for VTOC
-        self.volser=volser   # Volume serial number
-        self.system=system   # Owning system
-        self.owner=owner     # Ownner
-        
-        # Allocate the space on the volume
-        for dd in self.dds:
-            dd.allocate(self.spacemgr)
-            dd.dtf(self.volser,self.system)
-
-def copyright()
-    print("volume.py Copyright, Harold Grovesteen, 2011, 2012")
+def copyright():
+    print("volume.py Copyright, Harold Grovesteen, 2012")
 
 def usage(n):
-    print "Usage: ./volume.py dtype spec_file device_file"
+    print "Usage: ./volume.py spec_file [device_file] [debug]"
+    #     sys.argv   [0]        [1]          [2]        [3]
     sys.exit(n)
+
+# Checks command line arguments and instantiates the DASDDEFN instance
+def check_args():
+    global debugsw
+    debugsw=False
+    filepath=None
+    if len(sys.argv)==4 and sys.argv[3]=="debug":
+        filepath=sys.argv[2]
+        if sys.argv[3]=="debug":
+            debugsw=True
+        else:
+            print("volume.py - unrecognized argument '%s'" % sys.argv[3])
+            usage(1)
+    if len(sys.argv)==3:
+        if sys.argv[2]=="debug":
+            debugsw=True
+        else:
+            filepath=sys.argv[2]
+    if len(sys.argv)==2 and sys.argv[1]=="debug":
+        debugsw=True
+        
+    if len(sys.argv)<2:
+        print("volume.py - command-line missing required spec_file argument")
+        usage(1)
+    if debugsw:
+        print("volume.py - DEBUG - sys.argv: %s" % sys.argv)
+    try:
+        return DASDDEFN(sys.argv[1],filename=filepath,debug=debugsw)
+    except ValueError:
+        print("volume.py - Volume creation terminated due to specification error")
+        sys.exit(1)
 
 if __name__ == "__main__":
     copyright()
-    if len(sys.argv)!=4:
-        print("volume.py - error in command-line syntax")
-        usage(1)
-    VOLUME.local(sys.argv[1],sys.argv[2],sys.argv[3])
+    d=check_args()  # returns an instantiated and valid DASD content specification
+    d.create(debugsw)   # create and write out the emulation file
+    
    
