@@ -427,6 +427,12 @@ class DASD(object):
                     % (index,x))
             index+=1
 
+    def records2external(self,debug=False):
+        if debug:
+            print("volume.py - DASD.records2external - returning medium "
+                "records: %s" % len(self.recs))
+        return self.recs
+
     # This method must be supplied by subclasses
     
     def vdb_update(self,size,debug=False):
@@ -488,7 +494,7 @@ class DASDDEFN(object):
         
         # Validate that a valide media.py device instance was provided.
         if self.device is not None:
-            if not isinstance(media.device,self.device):
+            if not isinstance(self.device,media.device):
                 raise ValueError("volume.py - INTERNAL - media.device instance "
                     "required, encountered %s" % self.device)
         
@@ -570,7 +576,7 @@ class DASDDEFN(object):
                 print("%s" % x)
         # Specification file processing is now complete
             
-    def construct(self,debug=False):
+    def construct(self,external=False,debug=False):
         # Build the DASD Volume Standard structures as Python instances used by the
         # construct method to build the DASD class instance.
         vcf=[]
@@ -614,24 +620,29 @@ class DASDDEFN(object):
         # All of the content of the DASD Volume files has been coverted into block 
         # images.  The VDBR has been updated if necesary
         
-        # Pass the final content to media.py device
-        if debug:
-            print("\nvolume.py - DASDDEFN.construct - medium record processing: "
-                "started")
-        self.dasd.records2device(debug)
-        if debug:
-            print("\nvolume.py - DASDDEFN.construct - medium record processing: "
-                "completed")
-        
         if debug:
             print("\nvolume.py - DASDDEFN.construct - Volume content summary:")
-        self.dasd.display()
+            self.dasd.display()
+        
+        # Return the final content to external source
+        if external:
+            return self.dasd.records2external(debug=debug)
 
     def create(self,debug=False):
         self.construct(debug=debug)
         if debug:
             print("\nvolume.py - DASDDEFN.create - physical volume creation: "
                 "started")
+
+        # Pass the final content to media.py device
+        if debug:
+             print("volume.py - DASDDEFN.create - medium record "
+                 "processing: started")
+        self.dasd.records2device(debug)
+        if debug:
+            print("volume.py - DASDDEFN.create - medium record "
+                "processing: completed")
+
         path=self.volume.values["file"]
         minimize=self.volume.values["minimize"]
         compress=self.volume.values["compress"]

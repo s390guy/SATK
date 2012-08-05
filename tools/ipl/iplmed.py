@@ -25,7 +25,7 @@ from   hexdump  import *    # Access hex dump utility methods/functions
 from   recsutil import *    # Access record utility classes
 import media                # Access the Hercules device emulation support
 import PyELF                # ELF utility
-import repo                 # Access the repository support classes
+import volume               # Access the DASD Standard Volume support classes
 # Python imports
 import argparse             # command line argument parser
 import os.path              # path manipulation tools
@@ -362,7 +362,7 @@ class device_class(object):
     # content and stream or directed datasets.
     #  Methods       Description
     #
-    #  dataset       Creates a list stream or directed records. The list is
+    #  dataset       Creates a list of stream or directed records. The list is
     #                managed by the device_mgr.  This method needs to replace
     #                the deblock method.  Uses directed, stream and next methods
     #
@@ -505,15 +505,10 @@ class device_class(object):
         raise NotImplementedError(\
             "iplmed.py: class must provide records method: %s"\
             % self.__class__.__name__)
-    def reposup(self,*args,**kwds):
-        # Defines whether a repository is supported by the device class.  Returns
-        # either a list.  If the support is non-existent, then the list is of length
-        # zero, otherwise it is a list of the classes used by the device for 
-        # repository creation: [repo.repository_subclass,repo.specstmt_subclass]
-        # By default a repository is not enabled.  To enable repository support
-        # for a device, override this method with one that returns the required
-        # list of classes.
-        return []
+    def volsup(self,*args,**kwds):
+        # Defines whether a DASD Standard Volume is supported by the device class.
+        # Returns True if the standard is supported, False otherwise
+        return False
 
 class CARD(device_class):
     # Note: Loaders must be used for program and LOWC segments
@@ -646,8 +641,8 @@ class CARD(device_class):
         return ccw0(READ,ccwbeg,self.ipllen,CC+SLI).binary()
     def iplccw2(self,ccwbeg):
         return ccw0(TIC,ccwbeg).binary()    
-    def records(self,mgr,iplrecs=[],repo=None,arch=None,ioarch=None,noboot=False,\
-            debug=False):
+    def records(self,mgr,iplrecs=[],vol=None,arch=None,ioarch=None,noboot=False,\
+            dmgr=None,debug=False):
         dev_recs=[]
         
         if debug:
@@ -717,8 +712,8 @@ class CDROM(device_class):
         return CDROM.zeros
     def iplccw2(self,ccwbeg):
         return CDROM.zeros
-    def records(self,mgr,iplrecs=[],repo=None,arch=None,ioarch=None,noboot=False,\
-            debug=False):
+    def records(self,mgr,iplrecs=[],vol=None,arch=None,ioarch=None,noboot=False,\
+            dmgr=None,debug=False):
         # Convert a list of iplmed records instances into a list of cdrom_record
         # instances
         dev_recs=[]
@@ -846,9 +841,8 @@ class CKD(device_class):
         return this.binary()
     def dataset(self,sego,size,pad=False,directed=False,eof=False,start=None,\
             debug=False):
-        # Convert a segment's content into a list of directed or stream card
-        # images.  The start argument specifies the initial record id for
-        # the device records.  For CKD devices this is a CKDID instance. 
+        # Convert a segment's content into a list of directed or stream records.
+        # The start argument specifies the initial record id for the device records.  For CKD devices this is a CKDID instance. 
         # For directed block format, the eof argument determines if the last 
         # directed record will have the last block indicator set in the block's
         # header.  For stream blocks, eof has no meaning.
@@ -887,10 +881,11 @@ class CKD(device_class):
         return ccw0(CKD_RDATA,ccwbeg,ccwlen,CC).binary()
     def iplccw2(self,ccwbeg):
         return ccw0(TIC,"tic").binary()
-    def records(self,mgr,iplrecs=[],repo=None,arch=None,ioarch=None,noboot=False,\
-            debug=False):
+    def records(self,mgr,iplrecs=[],vol=None,arch=None,ioarch=None,noboot=False,\
+            dmgr=None,debug=False):
         fba.strict=False
         dev_recs=[]
+        pgm_id=None
         
         if debug:
             for x in range(len(iplrecs)):
@@ -962,6 +957,12 @@ class CKD(device_class):
                 dev_recs.extend(lodr.records(self,\
                     program=iplrecs[4],start=pgm_id,debug=debug))
         
+        # pgm_id contains the cchhr of the next record that would be written on
+        # the volume.  It can be used to determine how much space to reserve on a
+        # DASD Standard Volume.  If pgm_id is None then the first two tracks only
+        # should be reserved.  DASD Volume Blocks should be added to dev_recs
+        # before returning.
+        
         return dev_recs
 
 class CKDID(object):
@@ -1005,6 +1006,17 @@ class CKDID(object):
         self.hh=res[1]
         self.r=res[2]
         return self
+    def reserve(self,next=False):
+        # This method returns the number of tracks that should be reserved on a
+        # DASD Standard Volume based upon the current cc,hh,r information.  
+        #
+        # If called with next=True, the current information represents the next
+        # record that would be written.  In this case, r==1 indicates the current
+        # track does not need to be reserved
+        tracks=((self.cc)*self.heads)+self.hh+1
+        if next and self.r==1:
+            tracks-=1
+        return tracks
 
 class ECKD(CKD):
     def __init__(self):
@@ -1014,6 +1026,7 @@ class FBA(device_class):
     # Note: Loaders may only be used for an additional program, not LOWC segment
     def __init__(self):
         device_class.__init__(self,"fba",iplmask=0x20)
+        self.dasd=None         # volume.DASDDEFN instance for DASD Standard Volume
         self.last_sector=-1
     def addrecs(self,lst,recs):
         # Adds a list of fba instances (recs) to a list (lst) keeping track of the
@@ -1115,8 +1128,8 @@ class FBA(device_class):
     def iplccw2(self,ccwbeg):
         self.this.target()
         return ccw0(TIC,"tic").binary()
-    def records(self,mgr,iplrecs=[],repo=None,arch=None,ioarch=None,noboot=False,\
-            debug=False):
+    def records(self,mgr,iplrecs=[],vol=None,arch=None,ioarch=None,noboot=False,\
+            dmgr=None,debug=False):
         fba.strict=False
         dev_recs=[]
         
@@ -1149,31 +1162,17 @@ class FBA(device_class):
                 fbasize=directed_blocks*(recsize+4)
                 fbasectors=self.sectors(fbasize)
                 fbamap.allocate("ELF",fbasectors)
-        if repo is not None:
-            fbamap.allocate("REPO",repo.sectors)
-            fbamap.allocate("INV",self.sectors(32*repo.entries))
-            
+
         if debug:
             print("iplmed.py: debug: FBA Volume Content Sector Allocations")
             fbamap.display(prefix="iplmed.py: debug:    ")
 
-        # Build the repository
-        if repo is not None:
-            repo.starting_sector = fbamap.areas["REPO"].sector
-            repo.inventory_sector = fbamap.areas["INV"].sector
-            repo.step3(strict=True)  # drives FBAREPO.prep() method
-            repo.step4(strict=True)  # drives FBAENTRY.medium() method
-            if debug:
-                repo.debug=True       
-            repo.step5(display=False)             # drives FBAREPO.finish() method
-            repo.step6(strict=True, dryrun=False) # drives FBAREPO.store() method
-        
         # FBA IPL Rec 0 - 24-bytes of IPL data
         # FBA IPL Rec 1 - CCW segment 
         # Note: IPL record 0 and IPL record 1 merged into a single FBA sector
         dev_recs.append(\
             fba(data=iplrecs[0].content()+iplrecs[1].content(),sector=0))
-        
+
         # FBA IPL Rec 2 - loader or program segment
         pgm=False
         lodr=None
@@ -1204,9 +1203,9 @@ class FBA(device_class):
 
         # FBA IPL Rec 3 - LOWC segment
         if iplrecs[3] is not None:
-            if repo is not None:
-                inv=fbamap.areas["INV"]
-                iplrecs[3].repo(inv.sector, repo.inv_len)
+            # Update the LOWC segment if building a DASD Volume Standard device
+            if vol is not None:
+                iplrecs[3].vol(1, 512)
             recs=self.dataset(iplrecs[3],512,pad=True,start=2,debug=debug)
             dev_recs.extend(recs)
             
@@ -1218,21 +1217,30 @@ class FBA(device_class):
             else:
                 vol_sect=fbamap.areas["ELF"]
                 vol_sect=vol_sect.sector
-                #dev_recs.extend(lodr.records(self,program=iplrecs[4],\
-                #    start=pgm_sector,
-                #    debug=debug))
                 dev_recs.extend(lodr.records(self,program=iplrecs[4],\
                     start=vol_sect, debug=debug))
 
-        # FBA Additional Repostory records
-        if repo is not None:
-            dev_recs.extend(repo.recs)
-
+        # FBA DASD VOlume Standard content added to records
+        #
+        # fbamap.pos is the number of sectors that must be reserved on an FBA
+        # DASD Standard Volume for the IPL medium preparation processor data.
+        if vol is not None:
+            dasd_recs=[]
+            try:
+                self.dasd=volume.DASDDEFN(vol,sec=fbamap.pos,\
+                    device=dmgr.med_device,\
+                    minimize=dmgr.trunc,compress=dmgr.compress,\
+                    debug=debug)
+                dasd_recs=self.dasd.construct(external=True,debug=debug)
+            except ValueError:
+                print("iplmed.py: ERROR: could not construct DASD Volume content, "
+                    "content not added to volume")
+            dev_recs.extend(dasd_recs)
         return dev_recs
     
-    def reposup(self):
-        # Identify the classes FBA devices use for building a repository
-        return (FBAREPO, FBAENTRY)
+    def volsup(self):
+        # Identify the DASD Volume Standard is supported by this class
+        return True
 
     def sectorize(self,start,data):
         # This method converts a block into individual sectors and returns a list
@@ -1250,14 +1258,14 @@ class FBA(device_class):
         # return the number of sectors required to contain supplied bytes
         return (bytes+511)//512
 
-# Classes the manage the FBA volume content
-
+# Classes that manage the FBA volume IPL Medium Preparation Processor content
 class FBAMAP(object):
     def __init__(self):
-        self.areas={}
-        self.arealist=[]
-        self.pos=0
+        self.areas={}      # Allocated area, FBAMAPE instance, accessed by name
+        self.arealist=[]   # List of allocated areas
+        self.pos=0         # The next available sector or number of sectors used
     def allocate(self, name, size=0):
+        # Allocate an area of 'size' sectors with 'name'
         entry=FBAMAPE(name,self.pos,size)
         self.areas[entry.name]=entry
         self.arealist.append(entry)
@@ -1265,7 +1273,11 @@ class FBAMAP(object):
     def display(self, prefix=""):
         for x in self.arealist:
             print("%s%s" % (prefix,x))
+    def reserve(self):
+        # Returns the number of sectors to reserve on a DASD Standard Volume.
+        return self.pos
     def start(self,name):
+        # Return the starting sector number of an area by its name
         entry=self.areas[name]
         return entry.sector
 
@@ -1279,125 +1291,6 @@ class FBAMAPE(object):
         name=name[:8]
         return "%s %s-%s sectors=%s" \
             % (name, self.sector, self.sector+self.sectors-1, self.sectors)
-        
-# Support for repository on FBA devices
-
-class FBAREPO(repo.repository):
-    def __init__(self, dmgr, specfile, start):
-        self.dmgr = dmgr             # The device manager
-        self.dclsso = dmgr.devclso   # The device class instance
-        super(FBAREPO,self).__init__(specfile, True, start, script="iplmed.py: ")
-        
-        self.debug = False           # Set to True to force display in finish
-        # Step 2 supplied value
-        self.sectors = 0             # Number of sectors for whole repository
-        self.entries = 0             # Number of inventory entries
-        # Value supplied before Step 3 initiated
-        self.starting_sector = None  # Starting sector of repository on FBA volume
-        self.inventory_sector = None # Starting sector of the inventory
-        # Value supplied by Step 5
-        self.inv_len = 0             # Size in bytes of the inventory
-        self.recs = []               # List of FBA records for repository content
- 
-    def finish(self, inventory, statements):
-        # Used to force display of spec statments and entry content
-        # Called by step 5 of the repository creation process
-        self.inv_len = len(inventory)
-        if self.debug:
-            print("iplmed.py: debug: Repository Inventory")
-            for entry in statements:
-                print(entry.display(indent="   "))
-                if not entry.parm: 
-                    print(entry.device_data(indent="   "))
-                print(entry.entry(indent="      "))
-        return inventory
-        
-    def prep(self, entries):
-        # Accumulate total size of repository (without the inventory)
-        # Called in step3 of repository creation process
-        final_list = []
-        next_sector = self.starting_sector
-        for entry in entries:
-            if entry.error:        # Drop error entries from the list, if any
-                continue
-            if isinstance(entry, repo.bootparm):  # Pass bootparm entries on
-                final_list.append(entry)
-                continue
-            entry.sector = next_sector     # Identify where this entry starts
-            #self.sectors += entry.sectors  # Accumulate repository size
-            next_sector += entry.sectors   # Identify where next exntry starts
-            final_list.append(entry)       # Add the entry to the final list
-        assert len(final_list)==self.entries,\
-            "self.entries (%s) and list length (%s) do not match" \
-            % (self.entries, len(final_list))
-        return final_list
-        
-    def store(self, inventory, statements):
-        for entry in statements:
-            if isinstance(entry, repo.bootparm):
-                continue
-            recs = self.dclsso.sectorize(entry.sector, entry.entry_data)
-            if self.debug:
-                print("iplmed.py: debug: repository entry '%s' at sector %s for "\
-                    "sectors: %s" % (entry.name,entry.sector,len(recs)))
-            self.recs.extend(recs)
-        
-        recs = self.dclsso.sectorize(self.inventory_sector, inventory)
-        if self.debug:
-            print("iplmed.py: debug: repository inventory at sector %s for " \
-                "sectors: %s" % (self.inventory_sector, len(recs)))
-        self.recs.extend(recs)
-        return inventory
-        
-class FBAENTRY(repo.specstmt):
-    def __init__(self):
-        super(FBAENTRY,self).__init__()
-        self.record_size = 512
-        self.sectors_per_record = (self.record_size+511)//512
-        # step 2 supplied value
-        self.sectors = 0         # Number of sectors required to store content
-        # step 3 supplied value
-        self.sector  = 0         # Starting sector on volume of this entry's content
-        # Step 4 supplied value
-        self.dev_data= 11*"\x00" # FBA repository entry device data
-
-    def device_data(self, indent=""):
-        s = "%sstarting sector %s, stream record size %s, sectors per record %s"\
-            % (indent, self.sector, self.record_size, self.sectors_per_record)
-        return s
-
-    def medium(self, repo):
-        # This method is called to provide the device specific information for
-        # a repository inventory entry (bytes 11-30) of the binary entry
-        # Called in step4 of the repository creation process
-        #
-        # Bytes 20-23  -  Starting sector of content
-        # Bytes 24,25  -  Size of a logical stream record
-        # Byte  26     -  Number of sectors per logical stream record
-        # Bytes 27-30  -  Binary zeros
-        data  = fullwordb(self.sector)  # Starting sector of content
-        data += halfwordb(self.record_size)   # Use each sector as a stream record
-        data += chr(self.sectors_per_record)  # Number of sectors per record is 1
-        data += 4*"\x00"                # Unused binary zeros
-        assert len(data)==11, "FBA repository entry device data not 11 bytes: %s" \
-            % len(data)
-        self.dev_data = data
-        return self.dev_data
-
-    def store(self, repo, dryrun=False):
-        # This is where I get the content for the repository and determine the
-        # information needed for the repository inventory entry.
-        #
-        # Called in step2 of repository creation process
-        
-        # read the file content for future storing into repository. Return if an
-        # error occurred
-        if not self.content(repo, script="iplmed.py: "):
-            return
-        self.sectors = repo.dclsso.sectors(self.size)
-        repo.sectors += self.sectors
-        repo.entries += 1
-        
 
 class TAPE(device_class):
     # Note: Loaders may only be used for an additional program, not LOWC segment
@@ -1464,8 +1357,8 @@ class TAPE(device_class):
     def iplccw2(self,ccwbeg):
         self.this.target()
         return ccw0(TIC,"tic").binary()
-    def records(self,mgr,iplrecs=[],repo=None,arch=None,ioarch=None,noboot=False,\
-            debug=False):
+    def records(self,mgr,iplrecs=[],vol=None,arch=None,ioarch=None,noboot=False,\
+            dmgr=None,debug=False):
         dev_recs=[]
 
         if debug:
@@ -1546,7 +1439,6 @@ class device_mgr(object):
             sys.exit(1) 
         mh=device_mgr.handlers[mdcls.__name__]
         hndlr=media.device.handlers[mh]
-        #hndlr=media.device.handlers[device_mgr.handlers[mdcls.__name__]]
         mod=hndlr.model(option)
         device=mod[0]
         model=mod[1] 
@@ -1588,41 +1480,47 @@ class device_mgr(object):
         self.mtype=dtype      # media.py device type string
         self.med_device=None  # media.py device instance created by device method
         self.med_file=None    # media.py device path name
+        # Values supplied by the options method
+        self.trunc=False      # Should the device size be minimized or not
+        self.compress=False   # If minimizing, should the device be compressable
     def __eq__(self,other):
         return self.devclso==other.devclso
     def __str__(self):
         return "%s %04X-%X (%s)" \
              % (self.dclass,self.dev,self.model,self.mtype)
-    def create(self,trunc=False,compressable=True,debug=False):
-        self.med_device.create(self.med_file,\
-            minimize=trunc,comp=compressable,progress=debug,debug=debug)        
+    def create(self,debug=False):
+        self.med_device.create(self.med_file,minimize=self.trunc,\
+            comp=self.compress,progress=debug,debug=debug)        
     def device(self,filename,debug=False):
         self.med_device=media.device(self.mtype)
         self.med_file=filename
         if debug:
             print("iplmed.py: debug: media device: %s" % self.med_device)
             print("iplmed.py: debug: file name: %s" % self.med_file)
+    def options(self,trunc=False,compress=False):
+        self.trunc=trunc
+        self.compress=compress
     def queue(self,iplrecs=[]):
         # Queues device records for output
         for x in iplrecs:
             self.med_device.record(x)
-    def records(self,iplrecs=[],repo=None,arch=None,ioarch=None,noboot=False,\
+    def records(self,iplrecs=[],vol=None,arch=None,ioarch=None,noboot=False,\
                 debug=False):
         # This method calls the appropriate device_class instance to convert
         # the iplmed.record instances into recsutil.rec instances (or 
         # cdrom_record instances).
         recs=self.devclso.records(\
-            self,iplrecs=iplrecs,repo=repo,arch=arch,ioarch=ioarch,noboot=noboot,\
-                debug=debug)
+            self,iplrecs=iplrecs,vol=vol,arch=arch,ioarch=ioarch,noboot=noboot,\
+                dmgr=self,debug=debug)
         if debug:
             print("iplmed.py: debug: device_mgr.records: processing %s iplrecs" \
                 % len(recs))
         return recs
 
-    def reposup(self):
+    def volsup(self):
         # This method is called to determine whether the device supports a
         # repository.
-        return self.devclso.reposup()
+        return self.devclso.volsup()
         
 device_mgr.init()
 
@@ -1634,7 +1532,7 @@ class cdrom_mgr(device_mgr):
         self.mtype="CDROM"
     def __str__(self):
         return "CDROM"
-    def create(self,trunc=False,compressable=True,debug=False):
+    def create(self,debug=False):
         # Create the files associated with the CDROM list directed load
         fil=os.path.basename(self.med_file)
         (fil,ext)=os.path.splitext(fil)
@@ -1753,7 +1651,7 @@ class iplelf(object):
     #   archso=  archs instance for the build
     #   debug=   If True output debug information
     def __init__(self,pyelf,devmgr=None,extlodr=None,lodr=True,lowcore=True,\
-                 bootelf=False,archso=None,debug=False):
+                 bootelf=False,vol=False,archso=None,debug=False):
         if debug:
             print("iplmed.py: iplelf(pyelf=%s,"    % pyelf)
             print("                  devmgr=%s,"   % devmgr)
@@ -1761,6 +1659,7 @@ class iplelf(object):
             print("                  lodr=%s,"     % lodr)
             print("                  lowcore=%s,"  % lowcore)
             print("                  bootelf=%s,"  % bootelf)
+            print("                  vol=%s,"      % vol)
             print("                  archso=%s,"   % archso)
             print("                  debug=%s)"    % debug)
         self.elf=pyelf                # PyELF instance
@@ -1846,7 +1745,7 @@ class iplelf(object):
         
         # Create the LOWC segment. May be suppressed by the command line
         if lowcore:
-            self.LOWC=lowc(self.segnames["LOWC"],self.elf,debug=debug)
+            self.LOWC=lowc(self.segnames["LOWC"],self.elf,vol,debug=debug)
         else:
             print("iplmed.py: warning: LOWC segment suppressed")
         
@@ -1930,10 +1829,10 @@ class IPLMED(object):
             self.archs.hierarchy()
         
         # Repository related variables
-        self.repo=None             # Repository instance if requested and supported
-        self.spec=self.options.repo  # Path to repository specification file
-        self.repoload=self.options.repoload  # Repository loading start address
-        self.repostmts=[]          # List of specstmt instances
+        self.vol=None               # Volume instance if requested and supported
+        self.spec=None              # Path to DASD Volume specification file
+        #self.repoload=self.options.repoload  # Repository loading start address
+        #self.repostmts=[]          # List of specstmt instances
         
         # I/O and device type management
         self.medium=self.options.medium       # emulated device file name
@@ -1980,46 +1879,27 @@ class IPLMED(object):
             lowcore=self.options.nolowc,\
             extlodr=self.external,\
             bootelf=self.options.bootelf,\
+            vol=self.options.volume!=None,
             archso=self.archs,\
             debug=self.debug)
         # The iplelf instance has the real device manager.  It could be mine or
         # built its own.  I need to access the real one.
-        # WARNING: this needs testing
         self.dmgr=self.iplelf.target()
+        # Set the device build options from the command line
+        self.dmgr.options(trunc=self.options.trunc,\
+            compress=self.options.compressable)
 
-        # Process the --repo option
-        #
-        # The repository and specstmt subclasses are provided by the device manager.
-        # The device manager creation may not occur until the IPL ELF has been
-        # analyzed.  Hence we have to wait until this point to process the
-        # repository statements.
-        #
-        # repo.repository subclasses must have a single parameter for the instance,
-        # the load starting address.  Each must be defined as follows:
-        #
-        #   class subcls(repo.repository):
-        #      def __init__(self,specfile,loadstart):
-        #         super(subcls,self).__init__(specfile,False,loadstart,"iplmed.py")
-        if self.options.repo is not None:
-            repo_classes = self.iplelf.devmgr.reposup()
-            if repo_classes is None:
-                print("iplmed.py: error: repository may not be specified for device")
+        # Process the --vol option
+        if self.options.volume is not None:
+            isVolumeSupported=self.iplelf.devmgr.volsup()
+            if self.debug:
+                print("volume.py: debug: DASD Volume support: %s" \
+                    % isVolumeSupported)
+            if not isVolumeSupported:
+                print("iplmed.py: error: DASD Volume may not be specified for "
+                    "device")
                 sys.exit(1)
-            repo_class    = repo_classes[0]
-            repo_stmtcls  = repo_classes[1]  
-            assert issubclass(repo_class,repo.repository),\
-                "%s is not a repo.repository instance" % repo_class
-            assert issubclass(repo_stmtcls,repo.specstmt),\
-                "%s is not a repo.specstmt instance" % repo_stmtcls
-            
-            if self.repoload is None:
-                print("iplmed.py: error: repository load invalid: %s" \
-                    % self.reploload)
-                sys.exit(1)
-            specfile=repo.repository.readspec(self.spec,script="iplmed.py: ")
-            self.repo=repo_class(self.dmgr,specfile,self.repoload)
-            self.repo.step1(repo_stmtcls,strict=True)
-            self.repo.step2(strict=True)
+            self.spec=self.options.volume
 
         if self.debug:
             print("iplmed.py: debug: targeted device: %s" \
@@ -2035,7 +1915,7 @@ class IPLMED(object):
         self.dmgr.device(self.medium,self.debug)
         self.device_records=self.dmgr.records(\
             iplrecs=self.iplelf.records(),\
-            repo=self.repo,\
+            vol=self.spec,\
             arch=self.iplelf.arch,\
             ioarch=self.iplelf.ioarch,\
             noboot=self.options.noboot,\
@@ -2045,10 +1925,8 @@ class IPLMED(object):
                 print("iplmed.py: debug: %s" % x.dump())
         self.dmgr.queue(self.device_records)
         # Create the IPL medium
-        self.dmgr.create(\
-            trunc=self.options.trunc,\
-            compressable=self.options.compressable,
-            debug=self.debug)
+        self.dmgr.create(debug=self.debug)
+        
         print("iplmed.py: %s IPL device created: %s" \
             % (self.dmgr.mtype,self.dmgr.med_file))
 
@@ -2102,7 +1980,7 @@ class ccw(record):
                 " at: %06X" % ccwbeg)
         # Call the device class to build CCW chain
         # FBA requires IPL PSW for lowc because it can not data chain within
-        # a physical block.
+        # a physical sector.
         ccws=devcls.ccwseg(ccwbeg,pgmo,lowc=lowco,iplpsw=iplo.iplpsw,debug=debug)
         if iplo.iplccw1 is None:
             iplo.iplccw1=devcls.iplccw1(ccwbeg,len(ccws))
@@ -2517,11 +2395,11 @@ class loader_cap(object):
         return self.pgm_loc=="Y"
 
 class lowc(record):
-    def __init__(self,sego,elf,debug=False):
+    def __init__(self,sego,elf,vol,debug=False):
         if sego is None:
             # There is no LOWC segment in the IPL ELF, 
             # so create the default content
-            seg=self.dftlowc(elf,debug=debug)
+            seg=self.dftlowc(elf,vol,debug=debug)
             if debug:
                 print("iplmed.py: debug: generated segment: %s" % seg) 
         else:
@@ -2530,7 +2408,7 @@ class lowc(record):
         self.entry=None
     def content(self):
         return self.seg.content
-    def dftlowc(self,elf,debug=False):
+    def dftlowc(self,elf,vol,debug=False):
         zeros=8*"\x00"
         pfx=zeros              # 0x0   restart new PSW
         pfx+=zeros             # 0x8   restart old PSW
@@ -2564,6 +2442,8 @@ class lowc(record):
         pfx+=deade(code=0x150) # 0x1D0 program new PSW
         pfx+=deade(code=0x160) # 0x1E0 machine-check new PSW
         pfx+=deade(code=0x170) # 0x1F0 input-output new PSW
+        if vol:
+            pfx+="\x00" * 512
         if debug:
             print("iplmed.py: debug: LOWC segment content:")
             print(dump(pfx,indent="   "))
@@ -2602,24 +2482,28 @@ class lowc(record):
         if len(self.seg.content)>=length:
             return self.seg.content[:length]==length*"\x00"
         return False
-    def repo(self, sector=0, size=0):
-        # This method supports use of LOWC segment for repository information
-        # used with FBA devices.  The starting sector number of repository
-        # inventory is stored in bytes 256-259 and the size of the repository
-        # inventory in bytes is stored in bytes 260-263.  This method will 
-        # extend the LOWC segment content if needed to accommodate this information
-        # or, if already large enough, set the specified values.
-        # There locations must be reworked.
-        sec_bin = fullwordb(sector)
-        siz_bin = fullwordb(size)
-        repo_bin = sec_bin+siz_bin
+    def vol(self, block=0, size=0):
+        # This method supports use of LOWC segment for DASD Standard Volume 
+        # information used with FBA devices.  The block number of the Volume 
+        # Description Block is provided by the 'block' argument.  The DASD volume
+        # block size of the Volume Descriptor block is provided by the size
+        # argument.
+        #
+        # The block number is stored in bytes 256-259. 
+        # the block size is stored in bytes 260-263.  
+        # 
+        # This method will extend the LOWC segment content if needed to accommodate 
+        # this information or, if already large enough, set the specified values.
+        vdbr_block_bin = fullwordb(block)
+        vdbr_size_bin = fullwordb(size)
+        vdbr_bin = vdbr_block_bin+vdbr_size_bin
         content = self.seg.content
         if len(content)<1024:
             content = content+1024*"\x00"
             content = content[:1024]
         first_half = content[:0x244]
         second_half = content[0x24C:]
-        content = first_half + repo_bin + second_half
+        content = first_half + vdbr_bin + second_half
         self.seg.content = content
         
 class text(record):
@@ -2700,10 +2584,8 @@ def parse_args():
         help="media truncated to minimal size")
     parser.add_argument("--compressable",action="store_true",default=False,\
         help="size media for compression")
-    parser.add_argument("--repo",default=None,\
-        help="path to repository specification file")
-    parser.add_argument("--repoload",type=repo.parse_arg_hex,default="0x10000",\
-        help="loading of repository content starts at this default address")
+    parser.add_argument("--volume",default=None,\
+        help="path to DASD Volume Standard specification file")
     return parser.parse_args()   
 
 if __name__=="__main__":
