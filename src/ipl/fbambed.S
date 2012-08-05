@@ -113,26 +113,8 @@
            b       .Lloop-0b(12)             # Process next program block
 
  # Enter program - Read subroutine passes control here when EOF encountered
-.Lenter:
-           mvc      0x200(64),.Liplparms-0b(12) # Restore IPL parameters
 
-   .ifdef __s390x__      # Only include if z/Architecture is supported
-    # Enter architecture mode required by bootstrapped program
-           cli      .Lreqarch-0b(12),0x64    # Is z/Architecture required?
-           bne      .Lenter32-0b(12)         # ..No, enter ELF in ESA/390 mode        
-           zarch     10,13,error=.Lexitarch,br=12  # ..Yes, enter z/Architecture
-    # Now in z/Architetecture mode
-           sam64                             # Set address mode to 64
-
-           enterz   2,4,.Lexitpgm
-
-.Lenter32: 
-    .endif # .ifdef __s390x__ 
-
-    # Pass control to bootstrapped program in ESA/390 mode
-           sam31                             # Set amode to 31
-
-           enter    2,4,.Lexitpgm
+           elfenter 2,4,.Liplparms
 
  # Read FBA sector subroutine
 .Lread:    

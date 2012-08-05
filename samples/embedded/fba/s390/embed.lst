@@ -7,7 +7,7 @@ GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 1
  input file    	: /home/harold/SATK/src/ipl/embed.S
  output file   	: /home/harold/SATK/samples/embedded/fba/s390/embed.o
  target        	: s390-ibm-linux-gnu
- time stamp    	: 2012-08-05T12:14:23.000-0500
+ time stamp    	: 2012-08-05T16:36:12.000-0500
 
 GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 2
 IPL ELF Embedded Boot Loader Sample
@@ -1284,81 +1284,119 @@ FBA DASD Embedded Loader - Macros
   17                       	 #     You should have received a copy of the GNU General Public License
   18                       	 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
   19                       	
-  20                       	 # These macros enter the booted program.
-  21                       	 #   enterz  enters in z/Architecture
-  22                       	 #   enter   enters in ESA/390 or System/370
-  23                       	 # Arguments:
-  24                       	 #   loadr  = Register pointing to start of loaded boot content (required)
-  25                       	 #   entryr = Register used to enter booted program (required)
-  26                       	 #   error  = Lable of where to pass control on an error (required)
-  27                       	 #   er     = Register pointing to point of error (defaults to 15)
-  28                       	 #   br     = Base register (defaults to 12)
-  29                       	 #   b      = Lable of the current base (defaults to 0b)
+  20                       	 # This macro provides standard entry for booted ELF executables
+  21                       	 #   elfenter Generate the logic to enter a 64- or 32-bit ELF executable
+  22                       	 # Arguments:
+  23                       	 #   loadr  = Register pointing to start of loaded boot content (required)
+  24                       	 #   entryr = Register used to enter booted program (required)
+  25                       	 #   parms  = Lable where IPL parms were saved (required)
+  26                       	 #   error  = Lable of where to pass control on an error (defaults to .Lexitpgm)
+  27                       	 #   zerr   = Lable of where to pass control on z/Architecture failure
+  28                       	 #            (Defaults to .Lexitarch)
+  29                       	 #   sym    = Lable prefix of generated symbols (defaults to .Lenter)
 GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 24
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Macros
-  30                       	
-  31                       	           .macro enterz loadr:req entryr:req error:req er=15 br=12 b=0b
-  32                       	           clc      0(4,\loadr),4f+12-\b(\br)       # Did we load an ELF header?
-  33                       	           bne      2f-\b(\br)                      # ..No, enter TEXT segment
-  34                       	           clc      18(2,\loadr),4f+10-\b(\br)      # s370 ELF? (9 or 0x0009)
-  35                       	           be       3f-\b(\br)                      # ..Yes, enter it.
-  36                       	           clc      18(2,\loadr),4f+8-\b(\br)       # s390 ELF? (22 or 0x0016)
-  37                       	           be       .+8-\b(\br)                     # ..Yes, see how to enter it
-  38                       	           bas      \er,\error-\b(\br)              # ..No, I don't know what to do
-  39                       	           cli      4(\loadr),0x02                  # 64-bit ELF?
-  40                       	           be       .+8-\b(\br)                     # ..Yes, enter 64-bit ELF
-  41                       	           b        3f-\b(\br)                      # ..No, ender 32-bit ELF
-  42                       	    # Enter 64-bit ELF in z/Architecture mode
-  43                       	           lg       \entryr,24(\loadr)              # Load the 64-bit entry
-  44                       	           br       \entryr                         # Enter bootstrapped 64-bit ELF   
-  45                       	    # Enter TEXT segment in z/Architecture mode
-  46                       	2:         ng       \entryr,4f-\b(12)        # Make sure high-order bits are zero
-  47                       	           bnzr     \entryr                  # Have an entry, so go...
-  48                       	           bas      \er,\error-\b(12)        # ..DIE: No entry for TEXT segment
-  49                       	    # Enter 32-bit ELF in z/Architecture mode
-  50                       	3:         l        \entryr,24(\loadr)       # Get entry point from ELF header
-  51                       	           ng       \entryr,4f-\b(12)        # Make sure high-order bits are zero
-  52                       	           br       \entryr                  # and go...
-  53                       	           .align   8
-  54                       	4:         .quad    0x000000007FFFFFFF       # Clear bits 0-33 of 64-bit register
-  55                       	           .hword   22                       # s390 ELF machine type
-  56                       	           .hword   9                        # s370 ELF machine type
-  57                       	           .ascii   "\x7F"                   # ELF header magic
-  58                       	           .ascii   "ELF"
-  59                       	           .endm
-  60                       	
-  61                       	           .macro enter loadr:req entryr:req error:req er=15 br=12 b=0b
-  62                       	           clc      0(4,\loadr),4f-4-\b(\br)          # Did we load an ELF header?
-  63                       	           bne      4f-\b(\br)                        # ..No, enter TEXT segment
-  64                       	           clc      18(2,\loadr),4f-6-\b(\br)         # Is this a s370 ELF?
-  65                       	           be       2f-\b(\br)                        # ..Yes, enter it.
-  66                       	           clc      18(2,\loadr),4f-8-\b(\br)         # Is this a s390 ELF?
-  67                       	           be       2f-\b(\br)                        # ..Yes, enter it.
-  68                       	           bas      \er,\error-\b(\br)                # ..No, don't know what to do
-  69                       	           cli      4(\loadr),0x02                    # Is it a 64-bit ELF?
-  70                       	           be       3f-\b(\br)                        # ..Yes, enter ELF
-  71                       	    # Enter 32-bit ELF in ESA/390 mode
-  72                       	2:         l        \entryr,24(\loadr)      # Get entry point from ELF header
-  73                       	           br       \entryr                 # Enter the ELF
-  74                       	    # Enter 64-bit ELF in ESA/390 mode
-  75                       	3:         l        \entryr,28(\loadr)      # Get entry point from ELF header
-  76                       	           br       \entryr                 # Enter the ELF
-  77                       	           .hword   22                      # s390 ELF machine type
-  78                       	           .hword   9                       # s370 ELF machine type
-  79                       	           .ascii   "\x7F"                  # ELF header magic
-  80                       	           .ascii   "ELF"
-  81                       	    # Enter TEXT segment in ESA/390 mode
-  82                       	4:         ltr      \loadr,\loadr           # Did we actually read any blocks?
-  83                       	           bnzr     \loadr                  # ..Yes, beginning of text is entry
-  84                       	           bas      \er,\error-\b(\br)      # ..DIE: not entry point
-  85                       	
-  86                       	           .endm
+  30                       	 #   er     = Register pointing to point of error (defaults to 15)
+  31                       	 #   br     = Base register (defaults to 12)
+  32                       	 #   b      = Lable of the current base (defaults to 0b)
+  33                       	 # Notes:
+  34                       	 #  The macro assumes the loaderif macro has been used to generate loader I/F
+  35                       	 #  symbols.  Error defaults assume that the exits macro has been used to generate
+  36                       	 #  standard disabled wait states.  Entering z/Architecture requires use of
+  37                       	 #  registers 10,11 and 13.
+  38                       	 
+  39                       	           .macro elfenter loadr:req entryr:req parms:req error=.Lexitpgm zerr=.Lexitarch sym=.Lent
+  40                       	\sym:
+  41                       	           mvc      0x200(64),\parms-0b(12) # Restore IPL parameters
+  42                       	.ifdef __s390x__      # Only include if z/Architecture is supported
+  43                       	    # Enter architecture mode required by bootstrapped program
+  44                       	           cli      .Lreqarch-0b(12),0x64     # Is z/Architecture required?
+  45                       	           bne      \sym\()32-0b(12)          # ..No, enter ELF in ESA/390 mode        
+  46                       	           zarch     10,13,error=\zerr,br=\b  # ..Yes, enter z/Architecture
+  47                       	    # Now in z/Architetecture mode
+  48                       	           sam64                              # Set address mode to 64
+  49                       	           enterz   \loadr,\entryr,\error,er=\er,br=\br,b=\b
+  50                       	\sym\()32: 
+  51                       	.endif # .ifdef __s390x__ 
+  52                       	.ifndef __s370__
+  53                       	           sam31                              # Set amode to 31
+  54                       	.endif # .ifndef __s370__
+  55                       	           enter    \loadr,\entryr,\error,er=\er,br=\br,b=\b
+  56                       	           .endm
+  57                       	 
+  58                       	 # These macros enter the booted program.
+  59                       	 #   enterz  enters in z/Architecture
+  60                       	 #   enter   enters in ESA/390 or System/370
+  61                       	 # Arguments:
+  62                       	 #   loadr  = Register pointing to start of loaded boot content (required)
+  63                       	 #   entryr = Register used to enter booted program (required)
+  64                       	 #   error  = Lable of where to pass control on an error (required)
+  65                       	 #   er     = Register pointing to point of error (defaults to 15)
+  66                       	 #   br     = Base register (defaults to 12)
+  67                       	 #   b      = Lable of the current base (defaults to 0b)
+  68                       	
+  69                       	           .macro enterz loadr:req entryr:req error:req er=15 br=12 b=0b
+  70                       	           clc      0(4,\loadr),4f+12-\b(\br)       # Did we load an ELF header?
+  71                       	           bne      2f-\b(\br)                      # ..No, enter TEXT segment
+  72                       	           clc      18(2,\loadr),4f+10-\b(\br)      # s370 ELF? (9 or 0x0009)
+  73                       	           be       3f-\b(\br)                      # ..Yes, enter it.
+  74                       	           clc      18(2,\loadr),4f+8-\b(\br)       # s390 ELF? (22 or 0x0016)
+  75                       	           be       .+8-\b(\br)                     # ..Yes, see how to enter it
+  76                       	           bas      \er,\error-\b(\br)              # ..No, I don't know what to do
+  77                       	           cli      4(\loadr),0x02                  # 64-bit ELF?
+  78                       	           be       .+8-\b(\br)                     # ..Yes, enter 64-bit ELF
+  79                       	           b        3f-\b(\br)                      # ..No, ender 32-bit ELF
+  80                       	    # Enter 64-bit ELF in z/Architecture mode
+  81                       	           lg       \entryr,24(\loadr)              # Load the 64-bit entry
+  82                       	           br       \entryr                         # Enter bootstrapped 64-bit ELF   
+  83                       	    # Enter TEXT segment in z/Architecture mode
+  84                       	2:         ng       \entryr,4f-\b(12)        # Make sure high-order bits are zero
+  85                       	           bnzr     \entryr                  # Have an entry, so go...
+  86                       	           bas      \er,\error-\b(12)        # ..DIE: No entry for TEXT segment
 GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 25
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Macros
-  87                       	
-  88                       	.endif # .ifndef .Lbootnter_S scope
+  87                       	    # Enter 32-bit ELF in z/Architecture mode
+  88                       	3:         l        \entryr,24(\loadr)       # Get entry point from ELF header
+  89                       	           ng       \entryr,4f-\b(12)        # Make sure high-order bits are zero
+  90                       	           br       \entryr                  # and go...
+  91                       	           .align   8
+  92                       	4:         .quad    0x000000007FFFFFFF       # Clear bits 0-33 of 64-bit register
+  93                       	           .hword   22                       # s390 ELF machine type
+  94                       	           .hword   9                        # s370 ELF machine type
+  95                       	           .ascii   "\x7F"                   # ELF header magic
+  96                       	           .ascii   "ELF"
+  97                       	           .endm
+  98                       	
+  99                       	           .macro enter loadr:req entryr:req error:req er=15 br=12 b=0b
+ 100                       	           clc      0(4,\loadr),4f-4-\b(\br)          # Did we load an ELF header?
+ 101                       	           bne      4f-\b(\br)                        # ..No, enter TEXT segment
+ 102                       	           clc      18(2,\loadr),4f-6-\b(\br)         # Is this a s370 ELF?
+ 103                       	           be       2f-\b(\br)                        # ..Yes, enter it.
+ 104                       	           clc      18(2,\loadr),4f-8-\b(\br)         # Is this a s390 ELF?
+ 105                       	           be       2f-\b(\br)                        # ..Yes, enter it.
+ 106                       	           bas      \er,\error-\b(\br)                # ..No, don't know what to do
+ 107                       	           cli      4(\loadr),0x02                    # Is it a 64-bit ELF?
+ 108                       	           be       3f-\b(\br)                        # ..Yes, enter ELF
+ 109                       	    # Enter 32-bit ELF in ESA/390 mode
+ 110                       	2:         l        \entryr,24(\loadr)      # Get entry point from ELF header
+ 111                       	           br       \entryr                 # Enter the ELF
+ 112                       	    # Enter 64-bit ELF in ESA/390 mode
+ 113                       	3:         l        \entryr,28(\loadr)      # Get entry point from ELF header
+ 114                       	           br       \entryr                 # Enter the ELF
+ 115                       	           .hword   22                      # s390 ELF machine type
+ 116                       	           .hword   9                       # s370 ELF machine type
+ 117                       	           .ascii   "\x7F"                  # ELF header magic
+ 118                       	           .ascii   "ELF"
+ 119                       	    # Enter TEXT segment in ESA/390 mode
+ 120                       	4:         ltr      \loadr,\loadr           # Did we actually read any blocks?
+ 121                       	           bnzr     \loadr                  # ..Yes, beginning of text is entry
+ 122                       	           bas      \er,\error-\b(\br)      # ..DIE: not entry point
+ 123                       	
+ 124                       	           .endm
+ 125                       	
+ 126                       	.endif # .ifndef .Lbootnter_S scope
   59                       	
   60                       	           .include "iortn.S"
    1                       	.ifndef .Liortn_S
@@ -1376,6 +1414,9 @@ FBA DASD Embedded Loader - Macros
   13                       	 #     but WITHOUT ANY WARRANTY; without even the implied warranty of
   14                       	 #     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   15                       	 #     GNU General Public License for more details.
+GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 26
+IPL ELF Embedded Boot Loader Sample
+FBA DASD Embedded Loader - Macros
   16                       	 #
   17                       	 #     You should have received a copy of the GNU General Public License
   18                       	 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
@@ -1414,9 +1455,6 @@ FBA DASD Embedded Loader - Macros
   23                       	
   24                       	 #   Macro       Description
   25                       	 #  bchanio      Branch on channel-based I/O
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 26
-IPL ELF Embedded Boot Loader Sample
-FBA DASD Embedded Loader - Macros
   26                       	 #  ccw0         Format 0 Channel Command Word
   27                       	 #  ccw1         Format 1 Channel Command Word
   28                       	 #  clrio        System/370 CLEAR IO instruction
@@ -1436,6 +1474,9 @@ FBA DASD Embedded Loader - Macros
   42                       	 #  tch          System/370 TEST CHANNEL instruction
   43                       	 #  tio          System/370 TEST IO instruction
   44                       	 #  vrdcblok     Virtual/Real Device Block
+GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 27
+IPL ELF Embedded Boot Loader Sample
+FBA DASD Embedded Loader - Macros
   45                       	 #  wrd          System/370 WRITE DIRECT instruction
   46                       	
   47                       	
@@ -1474,9 +1515,6 @@ FBA DASD Embedded Loader - Macros
   80                       	 #   bd2      Base-displacement operand 2, d2(b2) (required)
   81                       	
   82                       	         .macro hio d=0,b=0
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 27
-IPL ELF Embedded Boot Loader Sample
-FBA DASD Embedded Loader - Macros
   83                       	         .insn s,0x9E000000,\bd2
   84                       	         .endm
   85                       	
@@ -1496,6 +1534,9 @@ FBA DASD Embedded Loader - Macros
   99                       	         .macro sio bd2:req
  100                       	         .insn s,0x9C000000,\bd2
  101                       	         .endm
+GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 28
+IPL ELF Embedded Boot Loader Sample
+FBA DASD Embedded Loader - Macros
  102                       	
  103                       	 # siof - START IO FAST RELEASE instruction in S/370 architecture
  104                       	 # Macro Parameters:
@@ -1534,9 +1575,6 @@ FBA DASD Embedded Loader - Macros
  137                       	 #   bd1      Base-displacement operand 1, d1(b1) (required)
  138                       	 #   i2       Immediate operand 2, i2 (required)
  139                       	
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 28
-IPL ELF Embedded Boot Loader Sample
-FBA DASD Embedded Loader - Macros
  140                       	         .macro wrd bd1:req i2:req
  141                       	         .insn si,0x94000000,\bd1,\i2
  142                       		     .endm
@@ -1556,6 +1594,9 @@ FBA DASD Embedded Loader - Macros
  156                       	.LIO_csw_ds  = 0x44  # .byte   CSW Device status
  157                       	.LIO_csw_cs  = 0x45  # .byte   CSW Channel status
  158                       	.LIO_csw_cnt = 0x46  # .hword  CSW byte count
+GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 29
+IPL ELF Embedded Boot Loader Sample
+FBA DASD Embedded Loader - Macros
  159                       	.LIO_caw     = 0x48  # .long   Channel I/O - Channel Address Word
  160                       	.LIO_chanid  = 0xA8  # .long   Channel I/O - Channel identification
  161                       	.LIO_chantyp = 0xA8  # .byte   Channel I/O - Channel type
@@ -1594,9 +1635,6 @@ FBA DASD Embedded Loader - Macros
  194                       	.LCS_pci    = 0x80   # Program-controlled interrupt
  195                       	.LCS_ic     = 0x40   # Incorrect length
  196                       	.LCS_pck    = 0x20   # Program check
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 29
-IPL ELF Embedded Boot Loader Sample
-FBA DASD Embedded Loader - Macros
  197                       	.LCS_protck = 0x10   # Protection check
  198                       	.LCS_datack = 0x08   # Channel-data check
  199                       	.LCS_ccck   = 0x04   # Channel-control check
@@ -1616,6 +1654,9 @@ FBA DASD Embedded Loader - Macros
  213                       	 # Format 0 Channel Command Word (CCW)
  214                       	 # Alignment: .align 8
  215                       	
+GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 30
+IPL ELF Embedded Boot Loader Sample
+FBA DASD Embedded Loader - Macros
  216                       	.LCCW0_cmd  =  0
  217                       	.LCCW0_addr =  1
  218                       	.LCCW0_flags=  4
@@ -1654,9 +1695,6 @@ FBA DASD Embedded Loader - Macros
  251                       	.LIRB_ESW_csense = 0x01  # Flag in ERW byte 0 that concurrent sense is present
  252                       	.LIRB_ESW_fsa = 20   # ESW-Failing-Storage Address
  253                       	.LIRB_ESW_csa = 28   # ESW-Secondary-CCW Address
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 30
-IPL ELF Embedded Boot Loader Sample
-FBA DASD Embedded Loader - Macros
  254                       	.LIRB_ECW     = 32   # Extended-Control Word
  255                       	.LIRB_EMW     = 64   # Extended-Measurement Word
  256                       	.LIRB_EMW_dct = 64   # EMW-Device-Connect Time
@@ -1676,6 +1714,9 @@ FBA DASD Embedded Loader - Macros
  270                       	           .endm
  271                       	
  272                       	 # Operation-Request Block (ORB)
+GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 31
+IPL ELF Embedded Boot Loader Sample
+FBA DASD Embedded Loader - Macros
  273                       	 # Alignment: .align 4
  274                       	
  275                       	.LORB_intp = 0      # .long  Interruption parameter
@@ -1714,9 +1755,6 @@ FBA DASD Embedded Loader - Macros
  308                       	           .byte  (((\key)&0xF)<<4)|((\f1)&0xF)
  309                       	           .byte  (\f2)&0xFB
  310                       	           .byte  \lpm
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 31
-IPL ELF Embedded Boot Loader Sample
-FBA DASD Embedded Loader - Macros
  311                       	           .byte  ((\f3)&0x81)
  312                       	           .long  (\pgm)&0x7FFFFFFF
  313                       	           .byte  \css,0,\cu,0
@@ -1736,6 +1774,9 @@ FBA DASD Embedded Loader - Macros
  327                       	\name      .set   \name|(((\i)&1)*0x20)
  328                       	\name      .set   \name|(((\a)&1)*0x10)
  329                       	\name      .set   \name|(((\u)&1)*0x08)
+GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 32
+IPL ELF Embedded Boot Loader Sample
+FBA DASD Embedded Loader - Macros
  330                       	\name      .set   \name|(((\h)&1)*0x02)
  331                       	\name      .set   \name|((\t)&1)
  332                       	           .endm
@@ -1774,9 +1815,6 @@ FBA DASD Embedded Loader - Macros
  365                       	.LSCSW_uc    =  0x02  # Unit Check (sense required)
  366                       	.LSCSW_uex   =  0x01  # Unit Exception
  367                       	
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 32
-IPL ELF Embedded Boot Loader Sample
-FBA DASD Embedded Loader - Macros
  368                       	.LSCSW_cs    =  9     # .byte Channel status
  369                       	.LSCSW_pci   =  0x80  # Program-controlled interruption
  370                       	.LSCSW_il    =  0x40  # Incorrect length
@@ -1796,6 +1834,9 @@ FBA DASD Embedded Loader - Macros
  384                       	
  385                       	 # Subchannel-Information Block (SCHIB)
  386                       	 # Alignment: .align 4
+GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 33
+IPL ELF Embedded Boot Loader Sample
+FBA DASD Embedded Loader - Macros
  387                       	
  388                       	.LSCHIB_PMCW =  0
  389                       	.LPMCW_intp  =  0
@@ -1834,9 +1875,6 @@ FBA DASD Embedded Loader - Macros
  422                       	.LMDA1       =  40
  423                       	.LMBA        =  40
  424                       	.LMDA2       =  44
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 33
-IPL ELF Embedded Boot Loader Sample
-FBA DASD Embedded Loader - Macros
  425                       	.LSCHIB_len  =  52
  426                       	
  427                       	           .macro schib
@@ -1856,6 +1894,9 @@ FBA DASD Embedded Loader - Macros
  441                       	
  442                       	           .macro testsccs schibr:req status:req
  443                       	           tm     37(\schibr),\status
+GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 34
+IPL ELF Embedded Boot Loader Sample
+FBA DASD Embedded Loader - Macros
  444                       	           .endm
  445                       	
  446                       	           .macro testscds schibr:req status:req
@@ -1894,9 +1935,6 @@ FBA DASD Embedded Loader - Macros
   29                       	           .include "interrupt.S" # For in-line interrupt wait macros
   30                       	
   31                       	 # iosch - Perform a subchannel-based I/O operation.
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 34
-IPL ELF Embedded Boot Loader Sample
-FBA DASD Embedded Loader - Macros
   32                       	 #
   33                       	 # A START SUBCHANNEL instruction is issued to the device SSID identified in general
   34                       	 # register R1 with the ORB identified by the orb parameter.  Any condition code 
@@ -1916,6 +1954,9 @@ FBA DASD Embedded Loader - Macros
   48                       	 # should not be included in the derr parameter's mask.
   49                       	 #
   50                       	 # Status checks follow the following sequence:
+GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 35
+IPL ELF Embedded Boot Loader Sample
+FBA DASD Embedded Loader - Macros
   51                       	 #
   52                       	 #  - cerr, if present and an error detected, pass control to error parameter 
   53                       	 #          location
@@ -1954,9 +1995,6 @@ FBA DASD Embedded Loader - Macros
   86                       	            mvc      \iostatus-\b(4,\br),5f-4-\b(\br)  # Clear accumulated status
   87                       	2:          ssch     \orb-\b(\br)             # Start Subchannel
   88                       	            bc       0b1000,3f-\b(\br)        # If start function initiated, wait
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 35
-IPL ELF Embedded Boot Loader Sample
-FBA DASD Embedded Loader - Macros
   89                       	            bas      \er,\error-\b(\br)       # ..otherwise, an error condition
   90                       	3:          
   91                       	            iowait   s=0,br=\br,b=\b          # Wait for the I/O interrupt
@@ -1976,6 +2014,9 @@ FBA DASD Embedded Loader - Macros
  105                       	            bz       .+8-\b(\br)              # ..No, check how I/O went
  106                       	            bas      \er,\error-\b(\br)       # ..DIE: Channel program error
  107                       	    .endif # .ifnb \cerr
+GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 36
+IPL ELF Embedded Boot Loader Sample
+FBA DASD Embedded Loader - Macros
  108                       	    .ifnb \derr
  109                       	            tm       \iostatus-\b(\br),\derr  # Any device errors?
  110                       	            bz       .+8-\b(\br)              # ..No, check how I/O went
@@ -2014,9 +2055,6 @@ FBA DASD Embedded Loader - Macros
  143                       	 # peof370 should not follow the iochan macro.  Rather, the boot loader should 
  144                       	 # examine the directed block header before calling issuing iochan to read the 
  145                       	 # next directed block.
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 36
-IPL ELF Embedded Boot Loader Sample
-FBA DASD Embedded Loader - Macros
  146                       	
  147                       	           .macro   peof eof:req iostatus:req status=0x01 br=13 b=0b
  148                       	           tm       \iostatus-\b(\br),\status  # Did we hit end-of-file?
@@ -2111,220 +2149,220 @@ FBA DASD Embedded Loader - Boot Program
  113 008e 47F0C072          	           b       .Lloop-0b(12)             # Process next program block
  114                       	
  115                       	 # Enter program - Read subroutine passes control here when EOF encountered
- 116                       	.Lenter:
- 117 0092 D23F0200 C218     	           mvc      0x200(64),.Liplparms-0b(12) # Restore IPL parameters
+ 116                       	
+ 117                       	           elfenter 2,4,.Liplparms
+ 117                       	> .Lenter:
+ 117 0092 D23F0200 C218     	>  mvc 0x200(64),.Liplparms-0b(12)
+ 117                       	> .ifdef __s390x__
+ 117                       	> .endif 
+ 117                       	> .ifndef __s370__
+ 117 0098 010D              	>  sam31 
+ 117                       	> .endif 
+ 117                       	>  enter 2,4,.Lexitpgm,er=15,br=12,b=0b
+ 117 009a D5032000 C0D4     	>>  clc 0(4,2),4f-4-0b(12)
+ 117 00a0 4770C0D8          	>>  bne 4f-0b(12)
+ 117 00a4 D5012012 C0D2     	>>  clc 18(2,2),4f-6-0b(12)
+ 117 00aa 4780C0C4          	>>  be 2f-0b(12)
+ 117 00ae D5012012 C0D0     	>>  clc 18(2,2),4f-8-0b(12)
+ 117 00b4 4780C0C4          	>>  be 2f-0b(12)
+ 117 00b8 4DF0C1D4          	>>  bas 15,.Lexitpgm-0b(12)
+ 117 00bc 95022004          	>>  cli 4(2),0x02
+ 117 00c0 4780C0CA          	>>  be 3f-0b(12)
+ 117                       	>>  
+ 117 00c4 58402018          	>> 2:l 4,24(2)
+ 117 00c8 07F4              	>>  br 4
+ 117                       	>>  
+ 117 00ca 5840201C          	>> 3:l 4,28(2)
+ 117 00ce 07F4              	>>  br 4
+ 117 00d0 0016              	>>  .hword 22
+ 117 00d2 0009              	>>  .hword 9
+ 117 00d4 7F                	>>  .ascii "\x7F"
+ 117 00d5 454C46            	>>  .ascii "ELF"
+ 117                       	>>  
+ 117 00d8 1222              	>> 4:ltr 2,2
+ 117 00da 0772              	>>  bnzr 2
+ 117 00dc 4DF0C1D4          	>>  bas 15,.Lexitpgm-0b(12)
+ 117                       	>> 
  118                       	
- 119                       	   .ifdef __s390x__      # Only include if z/Architecture is supported
- 130                       	    .endif # .ifdef __s390x__ 
- 131                       	
- 132                       	    # Pass control to bootstrapped program in ESA/390 mode
- 133 0098 010D              	           sam31                             # Set amode to 31
- 134                       	
- 135                       	           enter    2,4,.Lexitpgm
- 135 009a D5032000 C0D4     	>  clc 0(4,2),4f-4-0b(12)
- 135 00a0 4770C0D8          	>  bne 4f-0b(12)
- 135 00a4 D5012012 C0D2     	>  clc 18(2,2),4f-6-0b(12)
- 135 00aa 4780C0C4          	>  be 2f-0b(12)
- 135 00ae D5012012 C0D0     	>  clc 18(2,2),4f-8-0b(12)
- 135 00b4 4780C0C4          	>  be 2f-0b(12)
- 135 00b8 4DF0C1D4          	>  bas 15,.Lexitpgm-0b(12)
- 135 00bc 95022004          	>  cli 4(2),0x02
- 135 00c0 4780C0CA          	>  be 3f-0b(12)
- 135                       	>  
- 135 00c4 58402018          	> 2:l 4,24(2)
- 135 00c8 07F4              	>  br 4
- 135                       	>  
- 135 00ca 5840201C          	> 3:l 4,28(2)
- 135 00ce 07F4              	>  br 4
- 135 00d0 0016              	>  .hword 22
- 135 00d2 0009              	>  .hword 9
- 135 00d4 7F                	>  .ascii "\x7F"
- 135 00d5 454C46            	>  .ascii "ELF"
- 135                       	>  
- 135 00d8 1222              	> 4:ltr 2,2
- 135 00da 0772              	>  bnzr 2
- 135 00dc 4DF0C1D4          	>  bas 15,.Lexitpgm-0b(12)
- 135                       	> 
- 136                       	
- 137                       	 # Read FBA sector subroutine
+ 119                       	 # Read FBA sector subroutine
 GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 39
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Boot Program
- 138                       	.Lread:    
- 139                       	           # Define the extent to start with the first sector to read
- 140 00e0 5070C19C          	           st       7,.Lfirstsec-0b(12) 
- 141                       	            
- 142                       	           iosch    .Lorb,.Lirb,.Liostatus,.Lexitio,cerr=0xFF,derr=0x03,br=12
- 142 00e4 D203C18C C178     	>  mvc .Liostatus-0b(4,12),5f-4-0b(12)
- 142 00ea B233C1F8          	> 2:ssch .Lorb-0b(12)
- 142 00ee 4780C0F6          	>  bc 0b1000,3f-0b(12)
- 142 00f2 4DF0C1CC          	>  bas 15,.Lexitio-0b(12)
- 142                       	> 3:
- 142                       	>  iowait s=0,br=12,b=0b
- 142                       	>>  .ifeq .L__psw_arch-3
- 142                       	>>  .else 
- 142 00f6 D207C110 0078     	>>  mvc 1f-0b(8,12),.LPSW_newio(0)
- 142 00fc D2070078 C118     	>>  mvc .LPSW_newio(8,0),1f+8-0b(12)
- 142 0102 D4010078 C120     	>>  nc .LPSW_newio(2,0),1f+16-0b(12)
- 142 0108 8200C118          	>>  lpsw 1f+8-0b(12)
- 142 010c 00000000          	>>  .align 8
- 142 0110 00000000 00000000 	>> 1:.quad 0
- 142                       	>>  .ifeq .L__psw_arch
- 142                       	>>  .else 
- 142                       	>>  psw s=(0)&0x0001|0x0202,a=1b+18
- 142                       	>>>  .ifeq .L__psw_arch
- 142                       	>>>  .else 
- 142 0118 020A0000          	>>>  .hword (((0)&0x0001|0x0202)&0x47FF)|8,((0)&0xFF)<<8
- 142 011c 00000000          	>>>  .long .L__psw_amode+(1b+18)
- 142                       	>>>  .endif
- 142 0120 45FD              	>>  .hword 0x45FD
- 142                       	>>  .endif
- 142 0122 D2070078 C110     	>>  mvc .LPSW_newio(8,0),1b-0b(12)
- 142                       	>>  .endif
- 142 0128 551000B8          	>  cl 1,.LIO_ssid(0)
- 142 012c 4770C0F6          	>  bne 3b-0b(12)
- 142 0130 B235C258          	>  tsch .Lirb-0b(12)
- 142 0134 4740C0F6          	>  bc 0b0100,3b-0b(12)
- 142 0138 4780C140          	>  bc 0b1000,4f-0b(12)
- 142 013c 4DF0C1CC          	>  bas 15,.Lexitio-0b(12)
- 142                       	> 4:
- 142 0140 D601C18C C260     	>  oc .Liostatus-0b(2,12),.Lirb+.LSCSW_ds-0b(12)
- 142 0146 D600C18E C25B     	>  oc .Liostatus+2-0b(1,12),.Lirb+.LSCSW_sc-0b(12)
- 142 014c 9104C18E          	>  tm .Liostatus+2-0b(12),.LSCSW_primary
- 142 0150 47E0C0F6          	>  bno 3b-0b(12)
- 142                       	>  .ifnb 0xFF
- 142 0154 91FFC18D          	>  tm .Liostatus+1-0b(12),0xFF
- 142 0158 4780C160          	>  bz .+8-0b(12)
- 142 015c 4DF0C1CC          	>  bas 15,.Lexitio-0b(12)
- 142                       	>  .endif 
- 142                       	>  .ifnb 0x03
- 142 0160 9103C18C          	>  tm .Liostatus-0b(12),0x03
- 142 0164 4780C16C          	>  bz .+8-0b(12)
- 142 0168 4DF0C1CC          	>  bas 15,.Lexitio-0b(12)
- 142                       	>  .endif 
- 142                       	>  .ifnb 
- 142                       	>  .endif 
- 142 016c 910CC260          	>  tm .Lirb+8-0b(12),0x0C
- 142 0170 4710C17C          	>  bo 5f-0b(12)
- 142 0174 4DF0C1CC          	>  bas 15,.Lexitio-0b(12)
+ 120                       	.Lread:    
+ 121                       	           # Define the extent to start with the first sector to read
+ 122 00e0 5070C19C          	           st       7,.Lfirstsec-0b(12) 
+ 123                       	            
+ 124                       	           iosch    .Lorb,.Lirb,.Liostatus,.Lexitio,cerr=0xFF,derr=0x03,br=12
+ 124 00e4 D203C18C C178     	>  mvc .Liostatus-0b(4,12),5f-4-0b(12)
+ 124 00ea B233C1F8          	> 2:ssch .Lorb-0b(12)
+ 124 00ee 4780C0F6          	>  bc 0b1000,3f-0b(12)
+ 124 00f2 4DF0C1CC          	>  bas 15,.Lexitio-0b(12)
+ 124                       	> 3:
+ 124                       	>  iowait s=0,br=12,b=0b
+ 124                       	>>  .ifeq .L__psw_arch-3
+ 124                       	>>  .else 
+ 124 00f6 D207C110 0078     	>>  mvc 1f-0b(8,12),.LPSW_newio(0)
+ 124 00fc D2070078 C118     	>>  mvc .LPSW_newio(8,0),1f+8-0b(12)
+ 124 0102 D4010078 C120     	>>  nc .LPSW_newio(2,0),1f+16-0b(12)
+ 124 0108 8200C118          	>>  lpsw 1f+8-0b(12)
+ 124 010c 00000000          	>>  .align 8
+ 124 0110 00000000 00000000 	>> 1:.quad 0
+ 124                       	>>  .ifeq .L__psw_arch
+ 124                       	>>  .else 
+ 124                       	>>  psw s=(0)&0x0001|0x0202,a=1b+18
+ 124                       	>>>  .ifeq .L__psw_arch
+ 124                       	>>>  .else 
+ 124 0118 020A0000          	>>>  .hword (((0)&0x0001|0x0202)&0x47FF)|8,((0)&0xFF)<<8
+ 124 011c 00000000          	>>>  .long .L__psw_amode+(1b+18)
+ 124                       	>>>  .endif
+ 124 0120 45FD              	>>  .hword 0x45FD
+ 124                       	>>  .endif
+ 124 0122 D2070078 C110     	>>  mvc .LPSW_newio(8,0),1b-0b(12)
+ 124                       	>>  .endif
+ 124 0128 551000B8          	>  cl 1,.LIO_ssid(0)
+ 124 012c 4770C0F6          	>  bne 3b-0b(12)
+ 124 0130 B235C258          	>  tsch .Lirb-0b(12)
+ 124 0134 4740C0F6          	>  bc 0b0100,3b-0b(12)
+ 124 0138 4780C140          	>  bc 0b1000,4f-0b(12)
+ 124 013c 4DF0C1CC          	>  bas 15,.Lexitio-0b(12)
+ 124                       	> 4:
+ 124 0140 D601C18C C260     	>  oc .Liostatus-0b(2,12),.Lirb+.LSCSW_ds-0b(12)
+ 124 0146 D600C18E C25B     	>  oc .Liostatus+2-0b(1,12),.Lirb+.LSCSW_sc-0b(12)
+ 124 014c 9104C18E          	>  tm .Liostatus+2-0b(12),.LSCSW_primary
+ 124 0150 47E0C0F6          	>  bno 3b-0b(12)
+ 124                       	>  .ifnb 0xFF
+ 124 0154 91FFC18D          	>  tm .Liostatus+1-0b(12),0xFF
+ 124 0158 4780C160          	>  bz .+8-0b(12)
+ 124 015c 4DF0C1CC          	>  bas 15,.Lexitio-0b(12)
+ 124                       	>  .endif 
+ 124                       	>  .ifnb 0x03
+ 124 0160 9103C18C          	>  tm .Liostatus-0b(12),0x03
+ 124 0164 4780C16C          	>  bz .+8-0b(12)
+ 124 0168 4DF0C1CC          	>  bas 15,.Lexitio-0b(12)
+ 124                       	>  .endif 
+ 124                       	>  .ifnb 
+ 124                       	>  .endif 
+ 124 016c 910CC260          	>  tm .Lirb+8-0b(12),0x0C
+ 124 0170 4710C17C          	>  bo 5f-0b(12)
+ 124 0174 4DF0C1CC          	>  bas 15,.Lexitio-0b(12)
 GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 40
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Boot Program
- 142 0178 00000000          	>  .long 0
- 142                       	> 5:
- 143 017c 07FE              	           br       14                      # Return from block-read routine
- 144                       	
- 145 017e 0000              	           .align  4
- 146 0180 00000026          	.Lbaseadj: .long   .Llodrtemp-.Llodr        # Adjustment to base
- 147 0184 FF000000          	.Lctlr6:   .long   0xFF000000               # CR 6 - I/O Int Sub Class Mask
- 148 0188 00000001          	.Lone:     .long   1                        # Constant of one
- 149 018c 00000000          	.Liostatus:.long   0                        # Word for accumulating I/O status
- 150 0190 0004              	.Ldirhdr:  .hword  4                        # Size of directed block header
- 151                       	
- 152                       	 #
- 153                       	 # CCW1 Channel Program
- 154                       	 #
- 155                       	 #     program define extent parameters
- 156                       	 #     program block locate parameters
- 157                       	 # +0  DEFINE EXTENT CCW for the program block
- 158                       	 # +0  LOCATE CCW for program block
- 159                       	 # +8  READ CCW for program block
- 160 0192 00000000 0000     	            .align  8
- 161 0198 40000000          	.Lextent:   .byte   0x40,0,0,0              # File mask: inhibit all writes
- 162 019c 00000000          	.Lfirstsec: .long   0                       # First sector to be read
- 163 01a0 00000000          	.Ldsstart:  .long   0                       # Extent starts with 0 and
- 164 01a4 00000000          	.Ldsend:    .long   0                       # ...ends with number of sectors-1
- 165                       	.Lextlen    =       .-.Lextent              # Size of extent data
- 166                       	
- 167 01a8 06                	.Llocate:   .byte   0x06                    # Read sector operation
- 168 01a9 00                	            .byte   0                       # Replication count ignored for read
- 169 01aa 0000              	.Lsectors:  .hword  0                       # Number of sectors to read
- 170 01ac 00000000          	            .long   0                       # First sector always 0 (rel to extent)
- 171                       	.Lloclen    =       .-.Llocate              # Size of the locate data
- 172                       	
- 173 01b0 63                	.Lccwpgm0:  .byte   0x63                    # DEFINE EXTENT command
- 174 01b1 40                	            .byte   0x40                    # Flags - CC
- 175 01b2 0010              	            .hword  .Lextlen                # Size of the EXTENT data
- 176 01b4 00000000          	            .long   .Lextent                # Location of the EXTENT data
- 177                       	
- 178 01b8 43                	.Lccwpgm1:  .byte   0x43                    # LOCATE command
- 179 01b9 40                	            .byte   0x40                    # Flags - CC
- 180 01ba 0008              	            .hword  .Lloclen                # Size of the LOCATE data
- 181 01bc 00000000          	            .long   .Llocate                # Location of the LOCATE data
- 182                       	
- 183 01c0 42                	.Lccwpgm2:  .byte   0x42                    # READ command
- 184 01c1 00                	            .byte   0x00                    # Flags - none
- 185 01c2 0200              	.Lblklen:   .hword  .Lrecsize               # Size of the program block
- 186 01c4 00000000          	            .long   .Lblock                 # Address where the block is being read
- 187                       	
- 188                       	 #
- 189                       	 #  Standard Loader Disabled Wait States
- 190                       	 #
- 191                       	            exits
- 191 01c8 8200C1F0          	> .Lexit:lpsw .Lpswfff-0b(12)
- 191 01cc 8200C1E8          	> .Lexitio:lpsw .Lpswffe-0b(12)
- 191 01d0 8200C1E0          	> .Lexitarch:lpsw .Lpswffd-0b(12)
- 191 01d4 8200C1D8          	> .Lexitpgm:lpsw .Lpswffc-0b(12)
- 191                       	>  .align 8
- 191                       	> .Lpswffc:psw s=0x0002,p=0,a=0x0ffc
+ 124 0178 00000000          	>  .long 0
+ 124                       	> 5:
+ 125 017c 07FE              	           br       14                      # Return from block-read routine
+ 126                       	
+ 127 017e 0000              	           .align  4
+ 128 0180 00000026          	.Lbaseadj: .long   .Llodrtemp-.Llodr        # Adjustment to base
+ 129 0184 FF000000          	.Lctlr6:   .long   0xFF000000               # CR 6 - I/O Int Sub Class Mask
+ 130 0188 00000001          	.Lone:     .long   1                        # Constant of one
+ 131 018c 00000000          	.Liostatus:.long   0                        # Word for accumulating I/O status
+ 132 0190 0004              	.Ldirhdr:  .hword  4                        # Size of directed block header
+ 133                       	
+ 134                       	 #
+ 135                       	 # CCW1 Channel Program
+ 136                       	 #
+ 137                       	 #     program define extent parameters
+ 138                       	 #     program block locate parameters
+ 139                       	 # +0  DEFINE EXTENT CCW for the program block
+ 140                       	 # +0  LOCATE CCW for program block
+ 141                       	 # +8  READ CCW for program block
+ 142 0192 00000000 0000     	            .align  8
+ 143 0198 40000000          	.Lextent:   .byte   0x40,0,0,0              # File mask: inhibit all writes
+ 144 019c 00000000          	.Lfirstsec: .long   0                       # First sector to be read
+ 145 01a0 00000000          	.Ldsstart:  .long   0                       # Extent starts with 0 and
+ 146 01a4 00000000          	.Ldsend:    .long   0                       # ...ends with number of sectors-1
+ 147                       	.Lextlen    =       .-.Lextent              # Size of extent data
+ 148                       	
+ 149 01a8 06                	.Llocate:   .byte   0x06                    # Read sector operation
+ 150 01a9 00                	            .byte   0                       # Replication count ignored for read
+ 151 01aa 0000              	.Lsectors:  .hword  0                       # Number of sectors to read
+ 152 01ac 00000000          	            .long   0                       # First sector always 0 (rel to extent)
+ 153                       	.Lloclen    =       .-.Llocate              # Size of the locate data
+ 154                       	
+ 155 01b0 63                	.Lccwpgm0:  .byte   0x63                    # DEFINE EXTENT command
+ 156 01b1 40                	            .byte   0x40                    # Flags - CC
+ 157 01b2 0010              	            .hword  .Lextlen                # Size of the EXTENT data
+ 158 01b4 00000000          	            .long   .Lextent                # Location of the EXTENT data
+ 159                       	
+ 160 01b8 43                	.Lccwpgm1:  .byte   0x43                    # LOCATE command
+ 161 01b9 40                	            .byte   0x40                    # Flags - CC
+ 162 01ba 0008              	            .hword  .Lloclen                # Size of the LOCATE data
+ 163 01bc 00000000          	            .long   .Llocate                # Location of the LOCATE data
+ 164                       	
+ 165 01c0 42                	.Lccwpgm2:  .byte   0x42                    # READ command
+ 166 01c1 00                	            .byte   0x00                    # Flags - none
+ 167 01c2 0200              	.Lblklen:   .hword  .Lrecsize               # Size of the program block
+ 168 01c4 00000000          	            .long   .Lblock                 # Address where the block is being read
+ 169                       	
+ 170                       	 #
+ 171                       	 #  Standard Loader Disabled Wait States
+ 172                       	 #
+ 173                       	            exits
+ 173 01c8 8200C1F0          	> .Lexit:lpsw .Lpswfff-0b(12)
+ 173 01cc 8200C1E8          	> .Lexitio:lpsw .Lpswffe-0b(12)
+ 173 01d0 8200C1E0          	> .Lexitarch:lpsw .Lpswffd-0b(12)
+ 173 01d4 8200C1D8          	> .Lexitpgm:lpsw .Lpswffc-0b(12)
+ 173                       	>  .align 8
+ 173                       	> .Lpswffc:psw s=0x0002,p=0,a=0x0ffc
 GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 41
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Boot Program
- 191                       	>>  .ifeq .L__psw_arch
- 191                       	>>  .else 
- 191 01d8 000A0000          	>>  .hword ((0x0002)&0x47FF)|8,((0)&0xFF)<<8
- 191 01dc 80000FFC          	>>  .long .L__psw_amode+(0x0ffc)
- 191                       	>>  .endif
- 191                       	> .Lpswffd:psw s=0x0002,p=0,a=0x0ffd
- 191                       	>>  .ifeq .L__psw_arch
- 191                       	>>  .else 
- 191 01e0 000A0000          	>>  .hword ((0x0002)&0x47FF)|8,((0)&0xFF)<<8
- 191 01e4 80000FFD          	>>  .long .L__psw_amode+(0x0ffd)
- 191                       	>>  .endif
- 191                       	> .Lpswffe:psw s=0x0002,p=0,a=0x0ffe
- 191                       	>>  .ifeq .L__psw_arch
- 191                       	>>  .else 
- 191 01e8 000A0000          	>>  .hword ((0x0002)&0x47FF)|8,((0)&0xFF)<<8
- 191 01ec 80000FFE          	>>  .long .L__psw_amode+(0x0ffe)
- 191                       	>>  .endif
- 191                       	> .Lpswfff:psw s=0x0002,p=0,a=0x0fff
- 191                       	>>  .ifeq .L__psw_arch
- 191                       	>>  .else 
- 191 01f0 000A0000          	>>  .hword ((0x0002)&0x47FF)|8,((0)&0xFF)<<8
- 191 01f4 80000FFF          	>>  .long .L__psw_amode+(0x0fff)
- 191                       	>>  .endif
- 192                       	
- 193                       	 #
- 194                       	 #  Command Mode Operation Request Block
- 195                       	 #
- 196                       	           .align   4   # ORB must be on a word boundary
- 197                       	.Lorb:
- 198 01f8 AAAAAAAA          	.Lorbintp: .long   0xAAAAAAAA               # Word 0: Interrupt parameter
- 199 01fc 00                	.Lorbflg0: .byte   0                        # Flags
- 200 01fd 80                	.Lorbflg1: .byte   0x80                     # Using Format-1 CCW's
- 201 01fe FF                	.Lorbflg2: .byte   0xFF                     # ... Logical path mask X'FF'
- 202 01ff 00                	.Lorbflg3: .byte   0
- 203 0200 00000000          	.Lorbcpa:  .long   .Lccwpgm0                # Word 2: Address of channel program
- 204 0204 00000000          	           .long   0                        # Word 3
- 205 0208 00000000 00000000 	           .quad   0                        # Words 4, 5
- 206 0210 00000000 00000000 	           .quad   0                        # Words 6, 7
- 207                       	 #
- 208                       	 # From this point forward, uninitialized storage is used
- 209                       	 #
- 210                       	.Liplparms  =      .                        # IPL parameter save area 
- 211                       	
- 212                       	.Lirb       =      .+64
- 213                       	.Lirbword1  =      .Lirb                    # SCSW Word 0
- 214                       	.Lirbddwad  =      .Lirb+4                  # SCSW Word 1 - CCW Address
- 215                       	.Lirbdstat  =      .Lirb+8                  # SCSW Word 2 - Device Status
- 216                       	.Lirbsstat  =      .Lirb+9                  # SCSW Word 2 - Subchannel Status
- 217                       	.Lirbcount  =      .Lirb+10                 # SCSW Word 2 - Residual count
- 218                       	.Lirbesw    =      .Lirb+12                 # ESW
- 219                       	.Lirbecs    =      .Lirb+32                 # ECW 
- 220                       	
- 221                       	.Lblock     =      .Lirb+64                 # FBA physical sector/block read here  
- 222                       	
- 223                       	.endif # .ifndef .Lfbambed_S scope
+ 173                       	>>  .ifeq .L__psw_arch
+ 173                       	>>  .else 
+ 173 01d8 000A0000          	>>  .hword ((0x0002)&0x47FF)|8,((0)&0xFF)<<8
+ 173 01dc 80000FFC          	>>  .long .L__psw_amode+(0x0ffc)
+ 173                       	>>  .endif
+ 173                       	> .Lpswffd:psw s=0x0002,p=0,a=0x0ffd
+ 173                       	>>  .ifeq .L__psw_arch
+ 173                       	>>  .else 
+ 173 01e0 000A0000          	>>  .hword ((0x0002)&0x47FF)|8,((0)&0xFF)<<8
+ 173 01e4 80000FFD          	>>  .long .L__psw_amode+(0x0ffd)
+ 173                       	>>  .endif
+ 173                       	> .Lpswffe:psw s=0x0002,p=0,a=0x0ffe
+ 173                       	>>  .ifeq .L__psw_arch
+ 173                       	>>  .else 
+ 173 01e8 000A0000          	>>  .hword ((0x0002)&0x47FF)|8,((0)&0xFF)<<8
+ 173 01ec 80000FFE          	>>  .long .L__psw_amode+(0x0ffe)
+ 173                       	>>  .endif
+ 173                       	> .Lpswfff:psw s=0x0002,p=0,a=0x0fff
+ 173                       	>>  .ifeq .L__psw_arch
+ 173                       	>>  .else 
+ 173 01f0 000A0000          	>>  .hword ((0x0002)&0x47FF)|8,((0)&0xFF)<<8
+ 173 01f4 80000FFF          	>>  .long .L__psw_amode+(0x0fff)
+ 173                       	>>  .endif
+ 174                       	
+ 175                       	 #
+ 176                       	 #  Command Mode Operation Request Block
+ 177                       	 #
+ 178                       	           .align   4   # ORB must be on a word boundary
+ 179                       	.Lorb:
+ 180 01f8 AAAAAAAA          	.Lorbintp: .long   0xAAAAAAAA               # Word 0: Interrupt parameter
+ 181 01fc 00                	.Lorbflg0: .byte   0                        # Flags
+ 182 01fd 80                	.Lorbflg1: .byte   0x80                     # Using Format-1 CCW's
+ 183 01fe FF                	.Lorbflg2: .byte   0xFF                     # ... Logical path mask X'FF'
+ 184 01ff 00                	.Lorbflg3: .byte   0
+ 185 0200 00000000          	.Lorbcpa:  .long   .Lccwpgm0                # Word 2: Address of channel program
+ 186 0204 00000000          	           .long   0                        # Word 3
+ 187 0208 00000000 00000000 	           .quad   0                        # Words 4, 5
+ 188 0210 00000000 00000000 	           .quad   0                        # Words 6, 7
+ 189                       	 #
+ 190                       	 # From this point forward, uninitialized storage is used
+ 191                       	 #
+ 192                       	.Liplparms  =      .                        # IPL parameter save area 
+ 193                       	
+ 194                       	.Lirb       =      .+64
+ 195                       	.Lirbword1  =      .Lirb                    # SCSW Word 0
+ 196                       	.Lirbddwad  =      .Lirb+4                  # SCSW Word 1 - CCW Address
+ 197                       	.Lirbdstat  =      .Lirb+8                  # SCSW Word 2 - Device Status
+ 198                       	.Lirbsstat  =      .Lirb+9                  # SCSW Word 2 - Subchannel Status
+ 199                       	.Lirbcount  =      .Lirb+10                 # SCSW Word 2 - Residual count
+ 200                       	.Lirbesw    =      .Lirb+12                 # ESW
+ 201                       	.Lirbecs    =      .Lirb+32                 # ECW 
+ 202                       	
+ 203                       	.Lblock     =      .Lirb+64                 # FBA physical sector/block read here  
+ 204                       	
+ 205                       	.endif # .ifndef .Lfbambed_S scope
   31                       	    .else  # 
   49                       	    .endif # .ifdef __FBA__
 GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 42

@@ -17,6 +17,44 @@
  #     You should have received a copy of the GNU General Public License
  #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
+ # This macro provides standard entry for booted ELF executables
+ #   elfenter Generate the logic to enter a 64- or 32-bit ELF executable
+ # Arguments:
+ #   loadr  = Register pointing to start of loaded boot content (required)
+ #   entryr = Register used to enter booted program (required)
+ #   parms  = Lable where IPL parms were saved (required)
+ #   error  = Lable of where to pass control on an error (defaults to .Lexitpgm)
+ #   zerr   = Lable of where to pass control on z/Architecture failure
+ #            (Defaults to .Lexitarch)
+ #   sym    = Lable prefix of generated symbols (defaults to .Lenter)
+ #   er     = Register pointing to point of error (defaults to 15)
+ #   br     = Base register (defaults to 12)
+ #   b      = Lable of the current base (defaults to 0b)
+ # Notes:
+ #  The macro assumes the loaderif macro has been used to generate loader I/F
+ #  symbols.  Error defaults assume that the exits macro has been used to generate
+ #  standard disabled wait states.  Entering z/Architecture requires use of
+ #  registers 10,11 and 13.
+ 
+           .macro elfenter loadr:req entryr:req parms:req error=.Lexitpgm zerr=.Lexitarch sym=.Lenter er=15 br=12 b=0b
+\sym:
+           mvc      0x200(64),\parms-0b(12) # Restore IPL parameters
+.ifdef __s390x__      # Only include if z/Architecture is supported
+    # Enter architecture mode required by bootstrapped program
+           cli      .Lreqarch-0b(12),0x64     # Is z/Architecture required?
+           bne      \sym\()32-0b(12)          # ..No, enter ELF in ESA/390 mode        
+           zarch     10,13,error=\zerr,br=\b  # ..Yes, enter z/Architecture
+    # Now in z/Architetecture mode
+           sam64                              # Set address mode to 64
+           enterz   \loadr,\entryr,\error,er=\er,br=\br,b=\b
+\sym\()32: 
+.endif # .ifdef __s390x__ 
+.ifndef __s370__
+           sam31                              # Set amode to 31
+.endif # .ifndef __s370__
+           enter    \loadr,\entryr,\error,er=\er,br=\br,b=\b
+           .endm
+ 
  # These macros enter the booted program.
  #   enterz  enters in z/Architecture
  #   enter   enters in ESA/390 or System/370
