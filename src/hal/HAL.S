@@ -70,15 +70,15 @@
  # +-------------------+
 
  #    Code   Module       Description
- #   0x0001  hal.S        Unsupported I/O architecture encountered
- #   0x0002  hal.S        DIAGNOSE X'08' error return
- #   0x0003  hal.S        STORE SYSTEM INFORMATION failure
- #   0x0004  hal.S        SERVICE CALL failure
- #   0x0005  hal.S        SERVICE CALL failed to return data
+ #   0x0001  hals.S       Unsupported I/O architecture encountered
+ #   0x0002  hals.S       DIAGNOSE X'08' error return
+ #   0x0003  hals.S       STORE SYSTEM INFORMATION failure
+ #   0x0004  hals.S       SERVICE CALL failure
+ #   0x0005  hals.S       SERVICE CALL failed to return data
  #   0x0006  ioal.S       IDAW2 area required, but not provided (z/Architecture)
  #   0x0007  ioal.S       IDAW2 area not addressable by CCW1    (z/Architecture)
  #   0x0008  ioal.S       Unsupported I/O Abstraction Layer function
- #   0x0009  hal.S        Unsupported architecture initialization attempted
+ #   0x0009  hals.S       Unsupported architecture initialization attempted
  #   0x000A  ioal.S       Abstract CCW has both IDA and MIDA flags set
  #   0x000B  ioal.S       Abstract CCW 31-bit address will not convert to 24-bit
  #   0x000C  ioal.S       Required interrupt abstractions not initialized

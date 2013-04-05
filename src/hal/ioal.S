@@ -19,7 +19,7 @@
 
  # This module contains the I/O Hardware Abstraction Layer ABI-compliant functions
  #
- # ioal.S is automatically included by hal.S if io=yes or io=0x000x was
+ # ioal.S is automatically included by hals.S if io=yes or io=0x000x was
  # specified on the halfeat macro.
  #
  # Functions:

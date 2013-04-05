@@ -1,5 +1,5 @@
-.ifndef .Lhal_S
-.Lhal_S = 1
+.ifndef .Lhals_S
+.Lhals_S = 1
 
 .ifdef .Lhal_options
 
@@ -51,7 +51,7 @@
  #  |  Notes  |
  #  +---------+
  #
- #  1.  Assembly of hal.S requires s390x as its architecture because of the
+ #  1.  Assembly of hals.S requires s390x as its architecture because of the
  #      presence of z/Architecture instructions and 64-bit address constants.
  #
            .nolist
@@ -1348,7 +1348,7 @@
 .Lhal_det_cons_dnum:  # Default console device number from hal macro
             .hword .Lhal_cons   # Default console device
   .else  # .ifdef .Lhal_cons
-            .warning "hal.S can not identify the console on S/370"
+            .warning "hals.S can not identify the console on S/370"
             .warning "Specify a default console device number on the hal macro"
             br     11
   .endif # .ifdef .Lhal_cons
@@ -1667,9 +1667,9 @@
 .endif
 
 .if .Lhal_plat_common_inc
-  # +--------------------------------------------------------+
-  # |  Storage Areas Used by multiple routines within hal.S  |
-  # +--------------------------------------------------------+
+  # +---------------------------------------------------------+
+  # |  Storage Areas Used by multiple routines within hals.S  |
+  # +---------------------------------------------------------+
 
              .align 8
  # The .Lck_pgm PSW is used pass control to a specific location if a program 
@@ -1735,7 +1735,7 @@
 .endif # .if .Lhal_io scope
 
 .else
-            .error "hal.S suppressed due to missing hal macro options"
+            .error "hals.S suppressed due to missing hal macro options"
 .endif # ifdef .Lhal_options scope
 
-.endif # ifndef .Lhal_S scope
+.endif # ifndef .Lhals_S scope

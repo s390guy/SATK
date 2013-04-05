@@ -230,7 +230,7 @@
  #      stgfeat              #   O  halfeat ih=yes uses the permanent memory allocator
  #      probe                #   O  Pass control based upon the running architecture
  #      .include "archal.S"  #   O  Actual probe processing (required for probe)
- #      .include "hal.S"     #   R  Include the Hardware Abstraction Layer itself
+ #      .include "hals.S"    #   R  Include the Hardware Abstraction Layer itself
  #      .include "storage.S" #   O  halfeat ih=yes uses the permanent memory allocator
 
         .macro probe s370bc s370 s390 s390x br=13 b=0b

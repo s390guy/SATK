@@ -25,7 +25,7 @@
  # 
  # Underlying platform detection and creation of the IPL Environment Initialization 
  # Block (IEIB), starting at real storage location 0x250, is provided by the 
- # architecture initializaiton functions in hal.S.
+ # architecture initializaiton functions in hals.S.
  #
  # The logic in this module is called by means of a BRANCH AND SAVE instruction
  # in the probe or setarch macro's found in IEIB.S.  For considerations on using 
