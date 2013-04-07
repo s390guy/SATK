@@ -1,5 +1,5 @@
-.ifndef .Ldriver_S
-.Ldriver_S = 1
+.ifndef .Ldrivers_S
+.Ldrivers_S = 1
  # Copyright (C) 2012 Harold Grovesteen
  #
  # This file is part of SATK.
@@ -28,7 +28,7 @@
  #      DRIVER.S   - Macros and symbols used by programs that call drivers
  #      DRVUTIL.S  - Macros and symbols used by drivers participating in the Driver
  #                   Framework
- #   *  driver.S   - Implements the Driver Framework.  Included by a program that
+ #   *  drivers.S  - Implements the Driver Framework.  Included by a program that
  #                   provides the framework with which drivers are registered or
  #                   called by users of the drivers themselves.
  #
@@ -1696,4 +1696,4 @@
             lm     8,9,0(5)                 # Setup data address for FORMAT CCW
             br     11                       # Return to caller
 
-.endif # .ifndef .Ldriver_S
+.endif # .ifndef .Ldrivers_S

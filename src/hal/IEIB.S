@@ -223,15 +223,15 @@
  #                           Optional/
  #                           Required
  #
- #      .include "HAL.S"     #   R  Include the HAL macros and structures
- #      .include "STORAGE.S" #   O  halfeat ih=yes requires the storage subsystem
- #      hal                  #   R  Establish the HAL supported architectures
- #      halfeat              #   R  HAL features required by the program
- #      stgfeat              #   O  halfeat ih=yes uses the permanent memory allocator
- #      probe                #   O  Pass control based upon the running architecture
- #      .include "archal.S"  #   O  Actual probe processing (required for probe)
- #      .include "hals.S"    #   R  Include the Hardware Abstraction Layer itself
- #      .include "storage.S" #   O  halfeat ih=yes uses the permanent memory allocator
+ #      .include "HAL.S"      #  R  Include the HAL macros and structures
+ #      .include "STORAGE.S"  #  O  halfeat ih=yes requires the storage subsystem
+ #      hal                   #  R  Establish the HAL supported architectures
+ #      halfeat               #  R  HAL features required by the program
+ #      stgfeat               #  O  halfeat ih=yes uses the permanent memory allocator
+ #      probe                 #  O  Pass control based upon the running architecture
+ #      .include "archal.S"   #  O  Actual probe processing (required for probe)
+ #      .include "hals.S"     #  R  Include the Hardware Abstraction Layer itself
+ #      .include "storages.S" #  O  halfeat ih=yes uses the permanent memory allocator
 
         .macro probe s370bc s370 s390 s390x br=13 b=0b
         bas   14,.Lhal_arch_probe-\b(\br)

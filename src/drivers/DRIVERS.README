@@ -112,7 +112,7 @@ Calling the DAF on 32-bit CPU Architectures
 
 The DAF uses the following general register calling conventions for device drivers.
 The Common Driver may have different arguments depending upon the action.  See the
-file common_driver.S in src/drivers for details.
+file drivers.S in src/drivers for details.
 
 At Call:
    R2     The driver Action Token for the requested action.
@@ -140,7 +140,7 @@ Calling the DAF on 64-bit CPU Architectures
 
 The DAF uses the following general register calling conventions for device drivers.
 The Common Driver may have different arguments depending upon the action.  See the
-file common_driver.S in src/drivers for details.
+file drivers.S in src/drivers for details.
 
 On Entry:
    R2     The driver Action Token for the requested action.
@@ -163,10 +163,10 @@ On Exit:
 +-------------------------+
 
 A driver is simply a set of ABI compliant functions that communicate with the
-driver management framework provided by common_driver.S.  The driver management
-framework is embodied in the Driver Specification Block (DSB).  The DSB defines
-the driver to the Driver Framework.   Depending upon the type of device supported
-by the driver, the Driver Framework will record the location of a driver's DSB
+driver management framework provided by drivers.S.  The driver management
+framework is embodied in the Driver Specification Block (DSB).  The DSB defines the 
+driver to the Driver Framework.   Depending upon the type of device supported by 
+the driver, the Driver Framework will record the location of a driver's DSB
 in DMB managed slot that corresponds with the device type.  The device type 
 is treated as displacement.  On 64-bit architectures the device type is doubled.
 By defining a DSB, a driver automatically adds itself to the list of embedded
@@ -174,7 +174,7 @@ drivers.
 
 Drivers must include DRVUTIL.S for access to driver related macros and structures.
 These include the DDB, DSB, the CCW Specification Block (CSB), slot macros.
-DRVUTIL will automatically include driver.S and DRIVER.S.
+DRVUTIL will automatically include drivers.S and DRIVER.S.
 
 
 The Device Definition Block

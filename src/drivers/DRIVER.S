@@ -21,8 +21,8 @@
  #   *  DRIVER.S   - Macros and symbols used by programs that call drivers
  #      DRVUTIL.S  - Macros and symbols used by drivers participating in the Driver
  #                   Framework
- #      driver.S   - Implements the Driver Framework.  Included by a program that
- #                   provides the framework with which drivers are registers or
+ #      drivers.S  - Implements the Driver Framework.  Included by a program that
+ #                   provides the framework with which drivers are registered or
  #                   called by users of the drivers themselves.
  #
  #   * This source module
@@ -127,7 +127,7 @@
 \name       = .L_drvid
             .endm
 
-       drvid name=.LDRV_CMN   # driver.S  - Common Driver
+       drvid name=.LDRV_CMN   # drivers.S - Common Driver
        drvid name=.LDRV_CON   # dev3215.S - Line Console Driver
        drvid name=.LDRV_UI    # console.S - Generic Console Driver
        drvids name=.LDRV_IDS  # number of assigned driver ID's (defines DMT size)

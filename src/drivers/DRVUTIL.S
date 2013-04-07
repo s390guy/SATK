@@ -25,7 +25,7 @@
  #   *  DRVUTIL.S  - Macros and symbols used by drivers participating in the Driver
  #                   Framework
  #      XXX_driver.S Various drivers
- #      driver.S   - Implements the Driver Framework.  Included by a program that
+ #      drivers.S  - Implements the Driver Framework.  Included by a program that
  #                   provides the framework with which drivers are registered or
  #                   called by users of the drivers themselves.
  #
@@ -133,17 +133,17 @@
 
             .macro att name:req id:req embed
     .ifb \embed
-    .ifndef .Ldriver_S
+    .ifndef .Ldrivers_S
     .if .Latt_debug
            .warning "generating 32-bit embedded driver: \name, ID=\id"
     .endif # .if .Latt_debug
            .text 7
            .long  \name
            .text 0
-    .else  # .ifndef .Ldriver_S
+    .else  # .ifndef .Ldrivers_S
            .error "the 32-bit embedded driver list (subsection 7) had been terminated"
-           .print "reposition driver.S following this driver"
-    .endif # .ifndef .Ldriver_S
+           .print "reposition drivers.S following this driver"
+    .endif # .ifndef .Ldrivers_S
     .endif # .ifb \embed
             .align 8
             table  name=\name len=16 hdr=8
@@ -152,17 +152,17 @@
 
             .macro attg name:req id:req embed
     .ifb \embed
-    .ifndef .Ldriver_S
+    .ifndef .Ldrivers_S
     .if .Latt_debug
            .warning "generating 64-bit embedded driver: \name, ID=\id"
     .endif # .if .Latt_debug
            .text 8
            .quad  \name
            .text 0
-    .else  # .ifndef .Ldriver_S
+    .else  # .ifndef .Ldrivers_S
            .error "the 64-bit embedded driver list (subsection 7) had been terminated"
-           .print "reposition driver.S following this driver"
-    .endif # .ifndef .Ldriver_S
+           .print "reposition drivers.S following this driver"
+    .endif # .ifndef .Ldrivers_S
     .endif # .ifb \embed
             .align 8
             tableg name=\name len=24 hdr=8
@@ -182,7 +182,7 @@
  #              request results (default 0)
  #     cpt      Symbol associated with the Channel Program Table driver framework
  #              uses to process the I/O operation directly (default 0)
- #     proc     DAF process model used for this entry (default 0) - see driver.S
+ #     proc     DAF process model used for this entry (default 0) - see drivers.S
  #
  # Note: Both func and cpt defaulting or set to zero will cause an run-time abort
 

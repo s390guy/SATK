@@ -1,5 +1,5 @@
-.ifndef .Lstorage_S
-.Lstorage_S = 1
+.ifndef .Lstorages_S
+.Lstorages_S = 1
  # Copyright (C) 2012 Harold Grovesteen
  #
  # This file is part of SATK.
@@ -25,7 +25,7 @@
 .endif # .if .Lstg_perm
 
 .else
-            .error "storage.S suppressed due to missing stgfeat macro options"
+            .error "storages.S suppressed due to missing stgfeat macro options"
 .endif # .ifdef .Lstg_features
 
-.endif # .ifndef .Lstorage_S scope
+.endif # .ifndef .Lstorages_S scope
