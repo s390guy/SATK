@@ -24,6 +24,7 @@
 #    med_env   Establishes the run time environment for IPL ELF construction
 #    path      Manages paths for a specific IPL ELF and medium build instance
 #    ipl_elf   The run-time processing for building IPL ELF's and a IPL medium
+#    py_env    Establish the PYTHONPATH for use of SATK Python tools 
 #
 # When sourcing the file, optional arguments may be utilized.  Otherwise certain 
 # variables are expected by the sourced file or esablished by the sourcing script
@@ -65,7 +66,7 @@ for arg in $*
             *) echo "medfun: ignoring unrecognized argument: ${arg}" ;;
         esac
     done
-# If SATK_dir is provided export it, otherwise abort if it isn't
+# If SATK_DIR is provided export it, otherwise abort if it isn't
 if [ -n "${SATK_DIR}" ]
 then
     export SATK_DIR
@@ -137,7 +138,7 @@ source ${SATK_DIR}/tools/xtoolfun
 med_env()
 {
     case ${1} in
-        arch)
+        "arch")
             case ${2} in
                 "s370bc")  med_arch="--arch=24" ; med_tools_arch="s370bc" ;;
                 "s370")    med_arch="--arch=24" ; med_tools_arch="s370"   ;;
@@ -147,36 +148,36 @@ med_env()
                 "implied") med_arch="" ;;
                 *)  echo "med_env: invalid arch value: ${2}"; exit 1 ;;
             esac ;;
-        bootelf)
+        "bootelf")
             case ${2} in
                 "noforce")  med_bootelf=""   ;;
                 "force")    med_bootelf="--bootelf" ;;
                 *)  echo "med_env: invalid bootelf value: ${2}"; exit 1 ;;
             esac ;;
-        build)    med_build="${2}"   ;;
-        compress)
+        "build")    med_build="${2}"   ;;
+        "compress")
             case ${2} in
                 "ineligible")  med_compress=""   ;;
                 "eligible")    med_compress="--compressable" ;;
                 *)  echo "med_env: invalid compress value: ${2}"; exit 1 ;;
             esac ;;
-        debug)
+        "debug")
             case ${2} in
                 "disable")  med_debug=""   ;;
                 "enable")   med_debug="--debug" ;;
                 *)  echo "med_env: invalid debug value: ${2}"; exit 1 ;;
             esac ;;
-        entry)
+        "entry")
             case ${2} in
                 "default")  med_entry="--entry=_start"   ;;
                 *)          med_entry="--entry=${2}" ;;
             esac ;;
-        external)
+        "external")
             case ${2} in
                 "disable")  med_extlodr=""  ;;
                 *)          med_extlodr="--external=${2}" ;;
             esac ;;
-        init)     med_env debug disable           # create and ipl_elf link option
+        "init")   med_env debug disable           # create and ipl_elf link option
                   med_env compress ineligible     # create option
                   med_env entry default           # ipl_elf link option
                   med_env external disable        # create option
@@ -190,33 +191,33 @@ med_env()
                   med_env tools ${med_tools_arch} # ipl_elf assemble and link option
                   med_env trunc enable            # create option
                   ;;
-        install)  med_install="${2}" ;;
-        ioarch)
+        "install")  med_install="${2}" ;;
+        "ioarch")
             case ${2} in
                 "channel")    med_ioarch="--ioarch=channel"   ;;
                 "subchannel") med_ioarch="--ioarch=subch" ;;
                 "any")        med_ioarch="" ;;
                 *)  echo "med_env: invalid ioarch value: ${2}"; exit 1 ;;
             esac ;;
-        load)     
+        "load")     
             case ${2} in
                 "default")  med_load="--load=2000"   ;;
                 *)          med_load="--load=${2}" ;;
             esac ;;
-        lowc)
+        "lowc")
             case ${2} in
                 "suppress")  med_lowc="--nolowc" ;;
                 "allow")     med_lowc="" ;;
                 *)  echo "med_env: invalid lowc value: ${2}"; exit 1 ;;
             esac ;;
-        loader)
+        "loader")
             case ${2} in
                 "suppress")  med_loader="--nolodr" ;;
                 "allow")     med_loader="" ;;
                 *)  echo "med_env: invalid loader value: ${2}"; exit 1 ;;
             esac ;;
-        logs) med_logs=${2} ;;
-        model)    
+        "logs") med_logs=${2} ;;
+        "model")    
             case ${2} in
                 "3505") med_cls="3525" ; med_ext=""     ; med_dev="card"
                         ipl_cls="3505"
@@ -240,13 +241,10 @@ med_env()
                         ;;
                 *) echo "med_env: invalid device model number: ${2}"; exit 1 ;;
             esac ;;
-        module) med_mod="${2}"  ;;
-        python) PYTHONPATH=${SATK_DIR}/tools/ipl
-                PYTHONPATH=${PYTHONPATH}:${SATK_DIR}/tools
-                PYTHONPATH=${PYTHONPATH}:${SATK_DIR}/tools/argparse-1.1
-                export PYTHONPATH
+        "module") med_mod="${2}"  ;;
+        "python") py_env python
                 ;;
-        reloc)
+        "reloc")
             case ${2} in
                 "disable")  med_reloc=""
                             ld_env reloc disable
@@ -258,19 +256,19 @@ med_env()
                             ;;
                 *)  echo "med_env: invalid reloc value: ${2}"; exit 1 ;;
             esac ;;
-        repoload)
+        "repoload")
             case ${2} in
                 "default")  med_repoload="10000"  ;;
                 *)          med_repoload="${2}"   ;;
             esac ;;
-        s370bc)
+        "s370bc")
             case ${2} in
                 "enable")  med_s370bc="--s370bc" ;;
                 "disable") med_s370bc=""         ;;
                 *)  echo "med_env: invalid s370bc value: ${2}"; exit 1 ;;
             esac ;;
-        source)   med_src="${2}"  ;;
-        tools)
+        "source")   med_src="${2}"  ;;
+        "tools")
             # Set up cross-tool chain environments
             bin_tools dir ${XBUILD}/run/bin
             if [ -n "${med_pfx}" ]
@@ -323,7 +321,7 @@ med_env()
             tools set
             med_env python
             ;;
-        trunc)
+        "trunc")
             case ${2} in
                 "disable")  med_trunc=""   ;;
                 "enable")   med_trunc="--trunc" ;;
@@ -511,7 +509,7 @@ datetime()
 ipl_elf()
 {
     case ${1} in
-        assemble)
+        "assemble")
             if [ "${2}" = "default" ]
             then 
                 path source default
@@ -527,7 +525,7 @@ ipl_elf()
             med_tool=${SATK_DIR}/tools/ckaslst.py 
             ${med_tool} ${LISTING}
             ;;
-        dump)
+        "dump")
             if [ "${3}" = "default" ]
             then 
                 path exe default
@@ -561,13 +559,13 @@ ipl_elf()
                      ;;
                 *)  echo "ipl_elf: invalid dump target: ${2}"; exit 1 ;;
             esac ;;
-        help)
+        "help")
             case ${2} in
                 "ipldpp")  ${SATK_DIR}/tools/ipl/ipldpp.py --help ;;
                 "iplmed")  ${SATK_DIR}/tools/ipl/iplmed.py --help ;;
                 *)  echo "ipl_elf: invalid help target: ${2}"; exit 1 ;;
             esac ;;
-        include)
+        "include")
             case ${2} in
                 "drv")  as_env include ${SATK_DIR}/src/drivers ;;
                 "hal")  as_env include ${SATK_DIR}/src/hal ;;
@@ -577,7 +575,7 @@ ipl_elf()
                 "src")  as_env include ${SATK_DIR}/src     ;;
                 *)  echo "ipl_elf: invalid include value: ${2}"; exit 1 ;;
             esac ;;
-        link)
+        "link")
             if [ "${2}" = "default" ]
             then 
                 path lds default
@@ -592,7 +590,7 @@ ipl_elf()
             ld_env script ${LDS}
             lnk ${MAP} ${EXE} ${OBJECT}
             ;;
-        repo)
+        "repo")
             if [ "${2}" = "default" ]
             then
                 path spec default
@@ -601,7 +599,7 @@ ipl_elf()
             med_tool=${SATK_DIR}/tools/ipl/repo.py
             ${med_tool} -a -v -s -c ${med_repoload} -i ${INV} ${SPEC}
             ;;
-        rmlog)
+        "rmlog")
             if [ -z ${med_logs} ]
             then
                 echo "ipl_elf: med_env logs directory not set, aborting"
@@ -610,7 +608,7 @@ ipl_elf()
             cd ${med_logs} && \
             rm *.log
             ;;
-        s370)
+        "s370")
             if [ "${2}" = "default" ]
             then 
                 path exe default
@@ -622,4 +620,31 @@ ipl_elf()
             ;;
          *) echo "ipl_elf: invalid action: ${1}" ; exit 1 ;;
      esac
+}
+
+# Usage: py_env options
+# Options:
+#     2        Python version 2 is in use. Implies py_env python and py_env argparse
+#     3        Python version 3 is in use. Implies py_env python
+#     python   Adds SATK tools to the PYTHONPATH environment variable
+#     argparse Adds argparse to the PYTHONPATH environment variable
+py_env()
+{
+    case ${1} in
+        "2") py_env python
+             py_env argparse
+             ;;
+        "3") py_env python
+             ;;
+        "python")
+             PYTHONPATH=${SATK_DIR}/tools/ipl
+             PYTHONPATH=${PYTHONPATH}:${SATK_DIR}/tools
+             export PYTHONPATH
+             ;;
+        "argparse")
+             PYTHONPATH=${PYTHONPATH}:${SATK_DIR}/tools/argparse-1.1
+             export PYTHONPATH
+             ;;
+        *) echo "py_env: invalid option: ${1}" ; exit 1 ;;
+    esac
 }
