@@ -44,7 +44,7 @@
  # time primary status is provided, an error condition is recognized.
  #
  # For a program detecting physical end-of-file, the peof370 macro should be issued 
- # following the iochan macro and the status used to detect the end-of-file condition
+ # following the iosch macro and the status used to detect the end-of-file condition
  # should not be included in the derr parameter's mask.
  #
  # Status checks follow the following sequence:
