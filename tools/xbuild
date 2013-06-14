@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (C) 2012 Harold Grovesteen
+# Copyright (C) 2012,2013 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -33,8 +33,7 @@ fi
 
 # Tool chain components - update when releases change:
 # Current Executable Versions:
-#VERBIN=2.21.51.0.7
-VERBIN=2.22
+VERBIN=2.23.1
 # Source Versions
 BIN=binutils-${VERBIN}
 CLOOG=cloog-ppl-0.15.9
@@ -46,7 +45,7 @@ MPFR=mpfr-3.0.0
 PPL=ppl-0.10.2
 
 # Directory structure:
-XBUILD=${HOME}/crossbuild
+XBUILD=${HOME}/crossbuild    # Change this to match your environment
 #  ${XBUILD}/
 #      src/
 #          ${BIN}/
@@ -69,13 +68,13 @@ XBUILD=${HOME}/crossbuild
 
 usage()
 {
-     echo "Usage: ./xbuild all        - build the complete toolchain"
-     echo "       ./xbuild chelp tool - generate configuration help"
-     echo "       ./xbuild get tool [bz2|gz] - download source tarball"
-     echo "       ./xbuild tool|bin64|gcc64  - build the tool"
-     echo "       ./xbuild untar tool - extract tarball into src dir"
-     echo "       ./xbuild help       - xbuild usage information"
-     echo " tool: bin, gcc, gcc64, gmp, mpc, mpfr"
+     echo "Usage: ./xbuild all                 - build the complete toolchain"
+     echo "       ./xbuild chelp <tool>        - generate configuration help"
+     echo "       ./xbuild get <tool> [bz2|gz] - download source tarball"
+     echo "       ./xbuild <tool>|bin64|gcc64  - build the tool"
+     echo "       ./xbuild untar <tool>        - extract tarball into src dir"
+     echo "       ./xbuild help                 - xbuild usage information"
+     echo " <tool>: bin, gcc, gcc64, gmp, mpc, mpfr"
 }
 
 buildall()
@@ -91,8 +90,7 @@ buildall()
 }
 
 buildbinutils()
-{    cd ${XBUILD}/build
-     rm -rf binutils
+{    cd ${XBUILD}/build && rm -rf binutils
      mkdir binutils
      cd binutils
      ${XBUILD}/src/${BIN}/configure  \
