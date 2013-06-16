@@ -1,0 +1,649 @@
+GAS LISTING /home/harold/SATKREPO/SATK/samples/iplelf/iplelf.S 			page 1
+
+
+ GNU assembler version 2.23.1 (s390x-linux)
+	 using BFD version (GNU Binutils) 2.23.1.
+ options passed	: -m64 -march=z196 -mzarch --listing-lhs-width=2 --listing-cont-lines=16 -acghlms=/home/harold/SATKREPO/SATK/samples/iplelf/fba/s390x/build/iplelf.lst -I -I -I -I -I -I -I --defsym --defsym 
+	--defsym 
+ input file    	: /home/harold/SATKREPO/SATK/samples/iplelf/iplelf.S
+ output file   	: /home/harold/SATKREPO/SATK/samples/iplelf/fba/s390x/build/iplelf.o
+ target        	: s390x-ibm-linux-gnu
+ time stamp    	: 2013-06-16T14:38:19.000-0500
+
+GAS LISTING /home/harold/SATKREPO/SATK/samples/iplelf/iplelf.S 			page 2
+IPL ELF Boot Loader Sample
+
+   1                       	          .title "IPL ELF Boot Loader Sample"
+   2                       	 # Copyright (C) 2012 Harold Grovesteen
+   3                       	 #
+   4                       	 # This file is part of SATK.
+   5                       	 #
+   6                       	 #     SATK is free software: you can redistribute it and/or modify
+   7                       	 #     it under the terms of the GNU General Public License as published by
+   8                       	 #     the Free Software Foundation, either version 3 of the License, or
+   9                       	 #     (at your option) any later version.
+  10                       	 #
+  11                       	 #     SATK is distributed in the hope that it will be useful,
+  12                       	 #     but WITHOUT ANY WARRANTY; without even the implied warranty of
+  13                       	 #     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  14                       	 #     GNU General Public License for more details.
+  15                       	 #
+  16                       	 #     You should have received a copy of the GNU General Public License
+  17                       	 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+  18                       	 
+  19                       	 # This is a test source module to develop support for the 
+  20                       	 # IPL ELF ABI Supplement.  It uses an embedded loader to load the program and 
+  21                       	 # the default LOWC content.  The booted program is nothing more than a hello world
+  22                       	 # program.
+  23                       	          
+  24                       	          .sbttl "IPL Program"
+  25                       	          
+  26                       	    .ifdef __s390x__
+  27                       	          .include "psw.S"
+   1                       	.ifndef .Lpsw_S
+   2                       	.Lpsw_S = 1
+   3                       	 # Copyright (C) 2012 Harold Grovesteen
+   4                       	 #
+   5                       	 # This file is part of SATK.
+   6                       	 #
+   7                       	 #     SATK is free software: you can redistribute it and/or modify
+   8                       	 #     it under the terms of the GNU General Public License as published by
+   9                       	 #     the Free Software Foundation, either version 3 of the License, or
+  10                       	 #     (at your option) any later version.
+  11                       	 #
+  12                       	 #     SATK is distributed in the hope that it will be useful,
+  13                       	 #     but WITHOUT ANY WARRANTY; without even the implied warranty of
+  14                       	 #     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  15                       	 #     GNU General Public License for more details.
+  16                       	 #
+  17                       	 #     You should have received a copy of the GNU General Public License
+  18                       	 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+  19                       	
+  20                       	 # This module contains macros that generate PSW's in various formats,
+  21                       	 # sets symbols related to interrupt handling and provides interrupt
+  22                       	 # handling assist macros.
+  23                       	 #
+  24                       	 #   Macro       Description
+  25                       	 #  isk          System/370 INSERT STORAGE KEY instruction
+  26                       	 #  psw          Generate a 64-bit PSW based upon psw_amode and psw_arch
+  27                       	 #  pswe         Generate a 128-bit PSW based upon psw_amode
+  28                       	 #  psw_amode    Specify addressing mode for psw(e) macros
+  29                       	 #  psw_arch     Specify the PSW format for psw(e) macros
+  30                       	 #  rrb          System/370 RESET REFERENCE BIT instruction
+GAS LISTING /home/harold/SATKREPO/SATK/samples/iplelf/iplelf.S 			page 3
+IPL ELF Boot Loader Sample
+IPL Program
+  31                       	 #  s370pswbc    Generate a System/370 Basic Control Mode PSW
+  32                       	 #  s370psw      Generate a System/370 Extended Control Mode PSW
+  33                       	 #  s390psw24    Generate a ESA/390 24-bit addressing mode PSW
+  34                       	 #  s390psw      Generate a ESA/390 31-bit addressing mode PSW
+  35                       	 #  s390xpsw24   Generate a z/Architecture 24-bit addressimg mode PSW
+  36                       	 #  s390xpsw31   Generate a z/Architecture 31-bit addressing mode PSW
+  37                       	 #  s390xpsw     Generate a z/Architecture 64-bit addressing mode PSW
+  38                       	 #  ssk          System/370 STORE STORAGE KEY instructin
+  39                       	 #  traps64      Generate a set of 64-bit interrupt trap PSW's
+  40                       	 #  traps128     Generate a set of 128-bit interrupt trap PSW's
+  41                       	 #  zarch        Enter z/Architecture mode from ESA/390 mode
+  42                       	
+  43                       	 # Required PSW alignment is assumed
+  44                       	
+  45                       	 # System/370 and ESA/390 interrupt handling assigned storage locations
+  46                       	.LPSW_newrst = 0x000
+  47                       	.LPSW_oldrst = 0x008
+  48                       	.LPSW_oldext = 0x018
+  49                       	.LPSW_oldsvc = 0x020
+  50                       	.LPSW_oldpgm = 0x028
+  51                       	.LPSW_oldmck = 0x030
+  52                       	.LPSW_oldio  = 0x038
+  53                       	.LPSW_newext = 0x058
+  54                       	.LPSW_newsvc = 0x060
+  55                       	.LPSW_newpgm = 0x068
+  56                       	.LPSW_newmck = 0x070
+  57                       	.LPSW_newio  = 0x078
+  58                       	
+  59                       	 # z/Architecture interrupt handling assigned storage locations
+  60                       	.LPSW_oldrstg= 0x120
+  61                       	.LPSW_oldextg= 0x130
+  62                       	.LPSW_oldsvcg= 0x140
+  63                       	.LPSW_oldpgmg= 0x150
+  64                       	.LPSW_oldmckg= 0x160
+  65                       	.LPSW_oldiog = 0x170
+  66                       	.LPSW_newrstg= 0x1A0
+  67                       	.LPSW_newextg= 0x1B0
+  68                       	.LPSW_newsvcg= 0x1C0
+  69                       	.LPSW_newpgmg= 0x1D0
+  70                       	.LPSW_newmckg= 0x1E0
+  71                       	.LPSW_newiog = 0x1F0
+  72                       	
+  73                       	 # Assigned Storage locations associated with Interrupts
+  74                       	.LINT_extparm= 0x080  # .long   External interrupt parameter
+  75                       	.LINT_extproc= 0x084  # .hword  External processor address
+  76                       	.LINT_extcode= 0x086  # .hword  External interrupt code
+  77                       	.LINT_svcilc = 0x088  # .hword  SVC ILC
+  78                       	.LINT_svccode= 0x08A  # .hword  SVC interruption code
+  79                       	.LINT_pgmilc = 0x08C  # .hword  Program ILC
+  80                       	.LINT_pgmcode= 0x08E  # .hword  Program interruption code
+  81                       	.LINT_pgmtran= 0x090  # .long   Program interruption translation / data exception id
+  82                       	.LINT_pgmmcls= 0x094  # .hword  Program monitor class
+  83                       	.LINT_pgmmcod= 0x09C  # .long   Program monitor code (32-bit)
+  84                       	.LINT_pgmai  = 0x0A0  # .byte   Program exception access identification
+  85                       	.LINT_pgmoi  = 0x0A2  # .byte   Program exception operand acces identification
+  86                       	.LINT_pgmtrnx= 0x0A8  # .quad   Program translation exception (64-bit)  
+  87                       	.LINT_pgmmcdx= 0x0B0  # .quad   Program monitor code (64-bit)
+GAS LISTING /home/harold/SATKREPO/SATK/samples/iplelf/iplelf.S 			page 4
+IPL ELF Boot Loader Sample
+IPL Program
+  88                       	.LINT_mckcode= 0x0E8  # .quad   Machine check interruption code
+  89                       	 # S/370 I/O assigned storage locations
+  90                       	.Ls370bcipl  = 0x002  # .hword  Device address of the IPL device for S/370 BC-mode
+  91                       	.Ls370bcext  = .LPSW_oldext+2   # .hword  S/370 BC-mode external interrupt code
+  92                       	.Ls370bcsvc  = .LPSW_oldsvc+2   # .hword  S/370 BC-mode SVC interrupt code
+  93                       	.Ls370bcpgm  = .LPSW_oldpgm+2   # .hword  S/370 BC-mode program interrupt code
+  94                       	
+  95                       	 # Machine-Check / Store-Status Save Areas
+  96                       	.LMCKAR = 0x120  # 0x120-0x15F - 32-bit Access Registers 0-15
+  97                       	.LMCKFR = 0x160  # 0x160-0x17F - 64-bit Floating Point Registers 0, 2, 4, 6 
+  98                       	.LMCKGR = 0x180  # 0x180-0x1BF - 32-bit General Registers 0-15
+  99                       	.LMCKCR = 0x1C0  # 0x1C0-0x1FF - 32-bit Control Registers 0-15
+ 100                       	
+ 101                       	.LSSAFR = 0x1200 # 0x1200-0x127F - 64-bit Floating Point Registers 0-15
+ 102                       	.LSSAGR = 0x1280 # 0x1280-0x12FF - 64-bit General Registers 0-15
+ 103                       	.LSSAAR = 0x1340 # 0x1340-0x137F - 32-bit Access Registers 0-15
+ 104                       	.LSSACR = 0x1380 # 0x1380-0x13FF - 64-bit Control Registers 0-15
+ 105                       	
+ 106                       	 # Other Assigned Storage Locations
+ 107                       	.Lstfl       = 0xC8   # .long   Store Facility List
+ 108                       	.Lstflzins   = 0x40   # Indicates z/Architecture is installed
+ 109                       	.Lnotas370   = 0xF0   # This location is not used on System/370
+ 110                       	
+ 111                       	 # Control Registers
+ 112                       	.Lcr0_ssm    = 0x80000000   # SSM-suppression control
+ 113                       	.Lcr0_tod    = 0x40000000   # TOD-clock sync control
+ 114                       	.Lcr0_lowadr = 0x20000000   # Low-address-protection control
+ 115                       	.Lcr0_extauth= 0x10000000   # Extraction-authority control
+ 116                       	.Lcr0_secspc = 0x08000000   # Secondary-space control
+ 117                       	.Lcr0_fpovrd = 0x04000000   # Storage-protection-override control
+ 118                       	.Lcr0_tf390  = 0x00B00000   # Translation format (ESA/390 or z/Architecture)
+ 119                       	.Lcr0_afpreg = 0x00040000   # AFP-register control
+ 120                       	.Lcr0_vectrl = 0x00020000   # Vector control
+ 121                       	.Lcr0_aspfunc= 0x00010000   # Address-space function control
+ 122                       	.Lcr0_malalrt= 0x00008000   # Malfunction-alert subclass mask
+ 123                       	.Lcr0_emrsgnl= 0x00004000   # Emergency-signal subclass mask
+ 124                       	.Lcr0_extcall= 0x00002000   # External-call subclass mask
+ 125                       	.Lcr0_todsync= 0x00001000   # TOD-clock sync-check subclass mask
+ 126                       	.Lcr0_clkcomp= 0x00000800   # Clock-comparator subclass mask
+ 127                       	.Lcr0_cputimr= 0x00000400   # CPU-timer subclass mask
+ 128                       	.Lcr0_srvsgnl= 0x00000200   # Service-signal subclass mask
+ 129                       	 #             0x00000100   # Not defined
+ 130                       	 #             0x00000800   # Not used
+ 131                       	.Lcr0_intrkey= 0x00000040   # Interrupt-key subclass mask
+ 132                       	 #             0x00000020   # Not used
+ 133                       	.Lcr0_etrmask= 0x00000010   # ETR subclass mask
+ 134                       	.Lcr0_pcfast = 0x00000008   # Program-call-fast control
+ 135                       	.Lcr0_crypto = 0x00000004   # Crypto control
+ 136                       	
+ 137                       	 # Specify the addressing mode recognized by the psw and pswe macros.  If the am 
+ 138                       	 # parameter is missing the assembler symbol __amode__ is used.  If neither the
+ 139                       	 # am argument is specified nor the __amode__ symbol is defined, the default
+ 140                       	 # addressing modes for ESA/390 and z/Architecture are set, 31-bit and 64-bit
+ 141                       	 # respectively.
+ 142                       	
+ 143                       	       .macro psw_amode am
+ 144                       	       .ifb \am                                      # Use __amode__ if parm missing
+GAS LISTING /home/harold/SATKREPO/SATK/samples/iplelf/iplelf.S 			page 5
+IPL ELF Boot Loader Sample
+IPL Program
+ 145                       	           .ifdef __amode__
+ 146                       	                .ifeq __amode__-24                   # __amode__ is 24
+ 147                       	.L__psw_amode  = 0
+ 148                       	.L__pswe_amode = 0
+ 149                       	                .else  # .ifeq __amode__-24          # __amode__ might be 31 or 64
+ 150                       	                    .ifeq __amode__-31               # __amode__ is 31
+ 151                       	.L__psw_amode  = 0x80000000
+ 152                       	.L__pswe_amode = 0x00008000
+ 153                       	                    .else  # .ifeq __amode__-31      # __amode__ might be 64
+ 154                       	                         .ifeq __amode__-64          # __amode__ is 64
+ 155                       	.L__psw_amode  = 0x80000000
+ 156                       	.L__pswe_amode = 0x00018000
+ 157                       	                         .else  # .ifeq __amode__-64 # Invalid __amode__ value
+ 158                       	                             .warning "psw_amode: __amode__ value invalid, setting defaults"
+ 159                       	.L__psw_amode  = 0x80000000 # Set the default ESA/390 addressing mode, 31-bit
+ 160                       	.L__pswe_amode = 0x00018000 # Set the default z/Architecture addressing mode, 64-bit
+ 161                       	                         .endif # .ifeq __amode__-64
+ 162                       	                    .endif # .ifeq __amode__-31
+ 163                       	                .endif # .ifeq __amode__-24
+ 164                       	           .else  # .ifdef __amode__                 # Use arch symbol for default
+ 165                       	              .ifdef __s370__             # If S/370, default amode is 24
+ 166                       	.L__psw_amode  = 0
+ 167                       	              .else  # .ifdef __s370__    # otherwise ESA/390 default 31
+ 168                       	.L__psw_amode  = 0x80000000 # Set the default ESA/390 addressing mode, 31-bit
+ 169                       	              .endif # .ifdef __s370__
+ 170                       	.L__pswe_amode = 0x00018000 # Set the default z/Architecture addressing mode, 64-bit
+ 171                       	           .endif # .ifdef __amode__
+ 172                       	       .else  # .ifb \am                  # Use macro parameter for amode
+ 173                       	           .ifc \am,24
+ 174                       	.L__psw_amode  = 0
+ 175                       	.L__pswe_amode = 0
+ 176                       	           .else  # .ifc \am,24
+ 177                       	               .ifc \am,31
+ 178                       	.L__psw_amode  = 0x80000000
+ 179                       	.L__pswe_amode = 0x00008000
+ 180                       	               .else  # .ifc \am,31
+ 181                       	                    .ifc \am,64
+ 182                       	.L__psw_amode  = 0x80000000
+ 183                       	.L__pswe_amode = 0x00018000
+ 184                       	                    .else  # .ifc \am,64
+ 185                       	                          .error "psw_amode: argument am invalid"
+ 186                       	                    .endif # .ifc \am,64
+ 187                       	               .endif # .ifc \am,31
+ 188                       	           .endif # .ifc \am,24
+ 189                       	       .endif # .ifb \am
+ 190                       	       .endm
+ 191                       	
+ 192                       	 # Set the __amode__ specifed addressing mode or defaults if not defined.
+ 193                       	       psw_amode
+ 193                       	>  .ifb 
+ 193                       	>  .ifdef __amode__
+ 193                       	>  .else 
+ 193                       	>  .ifdef __s370__
+ 193                       	>  .else 
+ 193                       	> .L__psw_amode =0x80000000
+ 193                       	>  .endif 
+ 193                       	> .L__pswe_amode =0x00018000
+GAS LISTING /home/harold/SATKREPO/SATK/samples/iplelf/iplelf.S 			page 6
+IPL ELF Boot Loader Sample
+IPL Program
+ 193                       	>  .endif 
+ 193                       	>  .else 
+ 193                       	>  .endif 
+ 194                       	
+ 195                       	 # Set the architecture mode recognized by the pswx macro.  Assembler symbols
+ 196                       	 # recognized: __s390x__, __s390__, __s370__, __bcmode__.  The arch argument
+ 197                       	 # recognizes z, 370, 390 and bc.  An arch argument value overrides a specified
+ 198                       	 # assembler symbol setting.  The default architecture is 370 (extended mode).
+ 199                       	 # The local symbol .L__psw_arch is set to one of the following values:
+ 200                       	 # 0 for System/370 Basic-Control mode, 1 for System/370 Extended Control mode,
+ 201                       	 # 2 for ESA/390 and 3 for z/Architecture
+ 202                       	
+ 203                       	       .macro psw_arch arch
+ 204                       	       .ifnb \arch
+ 205                       	            .ifc \arch,z
+ 206                       	.L__psw_arch = 3
+ 207                       	            .else  # .ifc \arch,z
+ 208                       	                 .ifc \arch,390
+ 209                       	.L__psw_arch = 2
+ 210                       	                 .else  # .ifc \arch,390
+ 211                       	                      .ifc \arch,370
+ 212                       	.L__psw_arch = 1                      
+ 213                       	                      .else  # .ifc \arch,370
+ 214                       	                           .ifc \arch,bc
+ 215                       	.L__psw_arch = 0
+ 216                       	                           .else  # .ifc \arch,bc
+ 217                       	                                .error "psw_arch: argument arch invalid, ignored" 
+ 218                       	                           .endif # .ifc \arch,bc
+ 219                       	                      .endif # .ifc \arch,370
+ 220                       	                 .endif # .ifc \arch,390
+ 221                       	            .endif # .ifc \arch,z
+ 222                       	       .else  # .ifnb \arch
+ 223                       	            .ifdef __s390x__
+ 224                       	.L__psw_arch = 3
+ 225                       	            .else # .ifdef __s390x__
+ 226                       	                 .ifdef __s390__
+ 227                       	.L__psw_arch = 2
+ 228                       	                 .else  # .ifdef __s390__
+ 229                       	                      .ifdef __s370__
+ 230                       	                           .ifdef __bcmode__           # S/370 BC-mode
+ 231                       	.L__psw_arch = 0                           
+ 232                       	                           .else   # .ifdef __s370__   # S/370 EC-mode
+ 233                       	.L__psw_arch = 1
+ 234                       	                           .endif # .ifdef __bcmode__
+ 235                       	                      .else  # .ifdef __s370__
+ 236                       	.L__psw_arch = 2   # Set the default architecture (ESA/390)
+ 237                       	                      .endif # .ifdef __s370__
+ 238                       	                 .endif # .ifdef __s390__
+ 239                       	            .endif # .ifdef __s390x__
+ 240                       	       .endif # .ifnb \arch
+ 241                       	       .endm
+ 242                       	
+ 243                       	 # Set the architecture based upon assembly symbols or the default
+ 244                       	       psw_arch
+ 244                       	>  .ifnb 
+ 244                       	>  .else 
+ 244                       	>  .ifdef __s390x__
+GAS LISTING /home/harold/SATKREPO/SATK/samples/iplelf/iplelf.S 			page 7
+IPL ELF Boot Loader Sample
+IPL Program
+ 244                       	> .L__psw_arch =3
+ 244                       	>  .else 
+ 244                       	>  .endif 
+ 244                       	>  .endif 
+ 245                       	
+ 246                       	 # dwait - Enter a disabled wait state from the current active architecture
+ 247                       	 
+ 248                       	         .macro dwait code=0 program=1 br=13 b=0b
+ 249                       	         lpsw   1f-\b(\br)
+ 250                       	         .align 8
+ 251                       	         psw    s=0x0002,p=0,a=((\program& 0xFF)<<16)+(\code & 0xFFFF)
+ 252                       	         .endm
+ 253                       	
+ 254                       	 # Enter a disabled wait state from any architecture with register
+ 255                       	 # supplied program designation and termination code
+ 256                       	
+ 257                       	         .macro dwaitr coder:req programr:req br=13 b=0b
+ 258                       	         stc    \programr,1f+5-\b(\br)
+ 259                       	         sth    \coder,1f+6-\b(\br)
+ 260                       	         lpsw   1f-\b(\br)
+ 261                       	         .align 8
+ 262                       	1:       .hword 0x000A,0x0000,0x0000,0x0000
+ 263                       	         .endm
+ 264                       	
+ 265                       	 # isk - INSERT STORAGE KEY instruction in S/370
+ 266                       	 # Macro Parameters:
+ 267                       	 #   r1       R1 instruction field (required)
+ 268                       	 #   r2       R2 instruction field (required)
+ 269                       	
+ 270                       	         .macro isk r1:req,r2:req
+ 271                       	         .insn rr,0x0900,\r1,\r2
+ 272                       		     .endm
+ 273                       	
+ 274                       	 # Generate a 64-bit PSW (ESA/390 or System/370) with format and addressing mode
+ 275                       	 # based upon the psw_arch and psw_amode settings respectively.
+ 276                       	
+ 277                       	       .macro psw s=0,p=0,a=0
+ 278                       	    .ifeq .L__psw_arch       # If S/370 BC-mode
+ 279                       	       .hword (\s)&0xFFF7,0
+ 280                       	       .long  (((\p)&0xFF)<<8)+(\a)
+ 281                       	    .else                    # If S/370 EC-mode, ESA/390 of z/Architecture
+ 282                       	       .hword ((\s)&0x47FF)|8,((\p)&0xFF)<<8
+ 283                       	       .long  .L__psw_amode+(\a)
+ 284                       	    .endif
+ 285                       	       .endm
+ 286                       	
+ 287                       	 # Generate a 128-bit PSW (z/Architecture) with addressing mode based upon the 
+ 288                       	 # psw_amode macro.
+ 289                       	
+ 290                       	       .macro pswe s=0,p=0,a=0
+ 291                       	       .hword (\s)&0x47F7
+ 292                       	       .long  (((\p)&0xFF)<<24)|.L__pswe_amode
+ 293                       	       .hword 0
+ 294                       	       .quad  \a
+ 295                       	       .endm
+ 296                       	
+ 297                       	 # rrb - RESET REFERENCE BIT instruction in S/370 architecture
+GAS LISTING /home/harold/SATKREPO/SATK/samples/iplelf/iplelf.S 			page 8
+IPL ELF Boot Loader Sample
+IPL Program
+ 298                       	 # Macro Parameters:
+ 299                       	 #   bd2      Base-displacement operand 2, d2(b2) (required)
+ 300                       	 
+ 301                       	         .macro rrb bd1:req
+ 302                       	         .insn s,0xB2130000,\bd2
+ 303                       	         .endm
+ 304                       	
+ 305                       	 # Generate a System/370 Basic-control mode PSW
+ 306                       	
+ 307                       	       .macro s370pswbc s=0,p=0,a=0
+ 308                       	       .hword (\s)&0xFFF7,0
+ 309                       	       .long  (((\p)&0xFF)<<8)+(\a)
+ 310                       	       .endm
+ 311                       	
+ 312                       	 # Generate a System/370 Extended-control mode PSW
+ 313                       	
+ 314                       	       .macro s370psw s=0,p=0,a=0
+ 315                       	       .hword (\s)&0x47FF|8,((\p)&0xFF)<<8
+ 316                       	       .long  \a
+ 317                       	       .endm
+ 318                       	
+ 319                       	 # Genreate a ESA/390 mode 24-bit addressing PSW
+ 320                       	
+ 321                       	       .macro s390psw24 s=0,p=0,a=0
+ 322                       	       .hword (\s)&0x47FF|8,((\p)&0xFF)<<8
+ 323                       	       .long  \a
+ 324                       	       .endm
+ 325                       	
+ 326                       	 # Generate a ESA/390 mode 31-bit addressing PSW
+ 327                       	
+ 328                       	       .macro s390psw s=0,p=0,a=0
+ 329                       	       .hword (\s)&0x47FF|8,((\p)&0xFF)<<8
+ 330                       	       .long  0x80000000+(\a)
+ 331                       	       .endm
+ 332                       	
+ 333                       	 # Generate a z/Architecture mode 24-bit addressing PSW
+ 334                       	
+ 335                       	       .macro s390xpsw24 s=0,p=0,a=0
+ 336                       	       .hword (\s)&0x47F7,((\p)&0xFF)<<8,0,0
+ 337                       	       .quad  \a
+ 338                       	       .endm
+ 339                       	
+ 340                       	 # Generate a z/Architecture mode 31-bit addressing PSW
+ 341                       	
+ 342                       	       .macro s390xpsw31 s=0,p=0,a=0
+ 343                       	       .hword (\s)&0x47F7,((\p)&0xFF)<<8,0x8000,0
+ 344                       	       .quad  \a
+ 345                       	       .endm
+ 346                       	
+ 347                       	 # Generate a z/Architecture mode 64-bit addressing PSW
+ 348                       	
+ 349                       	         .macro s390xpsw s=0,p=0,a=0
+ 350                       	         .hword (\s)&0x47F7,(((\p)&0xFF)<<8)|1,0x8000,0
+ 351                       	         .quad  \a
+ 352                       	         .endm
+ 353                       	
+ 354                       	 # ssk - SET STORAGE KEY instruction in S/370
+GAS LISTING /home/harold/SATKREPO/SATK/samples/iplelf/iplelf.S 			page 9
+IPL ELF Boot Loader Sample
+IPL Program
+ 355                       	 # Macro Parameters:
+ 356                       	 #   r1       R1 instruction field (required)
+ 357                       	 #   r2       R2 instruction field (required)
+ 358                       	
+ 359                       	         .macro ssk r1=0,r2=0
+ 360                       	         .insn rr,0x0800,\r1,\r2
+ 361                       	         .endm
+ 362                       	       
+ 363                       	 # Intercept a Program Interrupt
+ 364                       	 #
+ 365                       	 # These macros are intended to be used where an instruction is executed
+ 366                       	 # to detect available functionality and a program operation exception will
+ 367                       	 # indicate absence of the functionality.  They are used like this:
+ 368                       	 #
+ 369                       	 #          insttrap wrkr:req br=15 b=0b
+ 370                       	 #          [instruction being tested]
+ 371                       	 #          insttest fail=.Lfail,succeed=.Lsucceed
+ 372                       	
+ 373                       	       .macro insttrap wrkr:req br=13 b=0b
+ 374                       	       .ifdef __zarch__
+ 375                       	          la   \wrkr,1f-\b(\br)     # Locate the interrupt intercept
+ 376                       	          stg  \wrkr,2f+24-\b(\br)  # Set it in the new PSW
+ 377                       	          mvc  2f-\b(16,\br),.LPSW_newpgmg(0) # Save the current new PSW
+ 378                       	          mvc  .LPSW_newpgmg(16,0),2f+16-\b(\br) # Set new one
+ 379                       	       .endif
+ 380                       	       .ifdef __s390__
+ 381                       	          la   \wrkr,1f-\b(\br)     # Locate the interrupt intercept
+ 382                       	          o    \wrkr,2f+16-\b(\br)  # Make it 31-bit addressing
+ 383                       	          st   \wrkr,2f+12-\b(\br)  # Set it in the new PSW
+ 384                       	          mvc  2f-\b(8,\br),.LPSW_newpgm(0) # Save the current new PSW
+ 385                       	          mvc  .LPSW_newpgm(8,0),2f+8-\b(\br) # Set new one
+ 386                       	       .else
+ 387                       	          la   \wrkr,1f-\b(\br)     # Locate the interrupt intercept
+ 388                       	          stcm \wrkr,0x7,2f+13-\b(\br)  # Set it in the new PSW
+ 389                       	          mvc  2f-\b(8,\br),.LPSW_newpgm(0) # Save the current new PSW
+ 390                       	          mvc  .LPSW_newpgm(8,0),2f+8-\b(\br) # Set new one
+ 391                       	       .endif
+ 392                       	       .endm
+ 393                       	
+ 394                       	       .macro insttest wrkr:req fail:req succeed:req br=15 b=0b
+ 395                       	       .ifdef __zarch__
+ 396                       	          mvc   .LPSW_newpgmg(16,0),1f-\b(\br) # Restore PGM new PSW
+ 397                       	          j     \succeed                  # Go to success
+ 398                       	1:        la    \wrkr,\fail-\b(\br)       # Locate failed location
+ 399                       	          mvc   .LPSW_newpgmg(16,0),2f-\b(\br) # Restore PGM new PSW
+ 400                       	          stg   \wrkr,.LPSW_oldpgmg+8(0)  # Set the fail address
+ 401                       	          lpswe .LPSW_oldpgmg+8(0)        # Go there
+ 402                       	          .align 8
+ 403                       	2:        .octa  0  # Current PGM new PSW
+ 404                       	          s390xpsw  # Intercept new PGM new PSW
+ 405                       	          .endif
+ 406                       	       .ifdef __s390__
+ 407                       	          mvc   .LPSW_newpgm(8,0),1f-\b(\br) # Restore PGM new PSW
+ 408                       	          b     \succeed-\b(\br)
+ 409                       	1:        la    \wrkr,\fail-\b(\br)     # Locate failed location
+ 410                       	          mvc   .LPSW_newpgm(8,0),2f-\b(\br) # Restore PGM new PSW
+ 411                       	          tm    .LPSW_oldpgm+4,0x80     # 31-bit addressing?
+GAS LISTING /home/harold/SATKREPO/SATK/samples/iplelf/iplelf.S 			page 10
+IPL ELF Boot Loader Sample
+IPL Program
+ 412                       	          bno   .+8-\b(\br)             # ..No, leave bit off
+ 413                       	          o     \wrkr,2f+16-\b(\br)     # Make it 31-bit addressing
+ 414                       	          st    \wrkr,.LPSW_oldpgm+4(0) # Set the fail address
+ 415                       	          lpsw  .LPSW_oldpgmg+8(0)      # Go there
+ 416                       	          .align 8
+ 417                       	2:        .quad  0   # Current PGM new PSW
+ 418                       	          s390psw    # Intercept new PGM new PSW
+ 419                       	          .long  0x80000000
+ 420                       	       .else
+ 421                       	          mvc   .LPSW_newpgm(8,0),1f-\b(\br) # Restore PGM new PSW
+ 422                       	          b     \succeed-\b(\br)
+ 423                       	1:        la    \wrkr,\fail-\b(\br)          # Locate failed location
+ 424                       	          mvc   .LPSW_newpgm(8,0),2f-\b(\br) # Restore PGM new PSW
+ 425                       	          stcm  \wrkr,0x7,.LPSW_oldpgm+5(0)  # Set the fail address
+ 426                       	          lpsw  .LPSW_oldpgmg+8(0)           # Go there
+ 427                       	          .align 8
+ 428                       	2:        .quad  0   # Current PGM new PSW
+ 429                       	          s370psw    # Intercept new PGM new PSW
+ 430                       	       .endif
+ 431                       	       .endm
+ 432                       	
+ 433                       	 # trap64 - Enable a set of 64-bit interrupt PSW's (see traps64)
+ 434                       	 #
+ 435                       	 # Macro Parameters:
+ 436                       	 #   psws     Symbol associated with the 6 interrupt PSW's to be enabled (required)
+ 437                       	 #   br       base register (defaults to 13)
+ 438                       	 #   b        able of the current base (defaults to 0b)
+ 439                       	
+ 440                       	           .macro trap64 psws:req br=13 b=0b
+ 441                       	           mvc    0x00(8,0),\psws-\b(\br)     # Enable Restart New PSW
+ 442                       	           mvc    0x58(56,0),\psws+8-\b(\br)  # Enable all of the other PSW's
+ 443                       	           .endm
+ 444                       	
+ 445                       	 # trap128 - Enable a set of 128-bit interrupt PSW's (see traps128)
+ 446                       	 #
+ 447                       	 # Macro Parameters:
+ 448                       	 #   psws     Symbol associated with the 6 interrupt PSW's to be enabled (required)
+ 449                       	 #   br       base register (defaults to 13)
+ 450                       	 #   b        able of the current base (defaults to 0b)
+ 451                       	
+ 452                       	           .macro trap128 psws:req br=13 b=0b
+ 453                       	           mvc    0x1A0(96,0),\psws-\b(\br)  # Enable all of the PSW's
+ 454                       	           .endm
+ 455                       	
+ 456                       	 # traps64 - Create a set of 64-bit interrupt trap PSW's
+ 457                       	 #
+ 458                       	 # Macro Parameters: none
+ 459                       	
+ 460                       	           .macro traps64
+ 461                       	           psw    s=0x0002,a=0x008        # Restart Trap PSW
+ 462                       	           psw    s=0x0002,a=0x018        # External Trap PSW
+ 463                       	           psw    s=0x0002,a=0x020        # Supervisor Call Trap PSW
+ 464                       	           psw    s=0x0002,a=0x028        # Program Trap PSW
+ 465                       	           psw    s=0x0002,a=0x030        # Machine-Check Trap PSW
+ 466                       	           psw    s=0x0002,a=0x038        # Input-Output Trap PSW
+ 467                       	           .endm
+ 468                       	
+GAS LISTING /home/harold/SATKREPO/SATK/samples/iplelf/iplelf.S 			page 11
+IPL ELF Boot Loader Sample
+IPL Program
+ 469                       	 # traps128 - Create a set of 128-bit interrupt trap PSW's
+ 470                       	 #
+ 471                       	 # Macro Parameters: none
+ 472                       	
+ 473                       	           .macro traps128
+ 474                       	           pswe   s=0x0002,a=0x120        # Restart Trap PSW
+ 475                       	           pswe   s=0x0002,a=0x130        # External Trap PSW
+ 476                       	           pswe   s=0x0002,a=0x140        # Supervisor Call Trap PSW
+ 477                       	           pswe   s=0x0002,a=0x150        # Program Trap PSW
+ 478                       	           pswe   s=0x0002,a=0x160        # Machine-Check Trap PSW
+ 479                       	           pswe   s=0x0002,a=0x170        # Input-Output Trap PSW
+ 480                       	           .endm
+ 481                       	           
+ 482                       	 # zarch - Enters z/Architecture mode from ESA/390 mode
+ 483                       	 #
+ 484                       	 # Macro Parameters:
+ 485                       	 #   statr    an even/odd register pair used by SIGP (required)
+ 486                       	 #   cpur     register to be used for the CPU address (required)
+ 487                       	 #   error    lable to which control is passed on a error (required)
+ 488                       	 #   er       register to contain the point at which error occurred (defaults to 15)
+ 489                       	 #   br       base register (defaults to 13)
+ 490                       	 #   b        able of the current base (defaults to 0b)
+ 491                       	
+ 492                       	           .macro   zarch statr:req cpur:req error:req er=15 br=13 b=0b
+ 493                       	           stap     2f-\b(\br)               # Save my CPU address
+ 494                       	           sr       \statr,\statr            # Clear status register
+ 495                       	           la       \statr+1,1               # All CPU's set to z/Architecture
+ 496                       	           lh       \cpur,2f-\b(\br)         # Specify myself as being signaled
+ 497                       	           sigp     \statr,\cpur,0x12        # Set architecture order
+ 498                       	           bc       8,.+10-\b(\br)           # ..If successful, continue
+ 499                       	           bas      \er,\error-\b(\br)       # ..DIE, architecture change failed
+ 500                       	2:         .hword   0                        # CPU address
+ 501                       	           .endm
+ 502                       	
+ 503                       	.endif # .ifndef .Lpsw_S
+  28                       	    .endif
+  29                       	
+  30                       	 # TXT Segment
+  31                       	          .text
+  32                       	.L_ipl:
+  33                       	# The loader frees itself from the shackles of the IPL environment of CCW0 24-bit 
+  34                       	# addressing mode.  Because only this segment is loaded by the embedded
+  35                       	# loader it will remain is ESA/390 mode.  It will only enter z/Archtecture mode
+  36                       	# if it loads a s390 64-bit ELF in its entirety.
+  37                       	
+  38                       	_start:   .global _start
+  39 0000 0DF0              	          basr    15,0
+  40                       	0:        
+  41                       	    .ifdef __s390x__
+  42                       	          zarch   statr=10,cpur=12,error=.Lendbad,er=13,br=15
+  42 0002 B212F01A          	>  stap 2f-0b(15)
+  42 0006 1BAA              	>  sr 10,10
+  42 0008 41B00001          	>  la 10+1,1
+  42 000c 48C0F01A          	>  lh 12,2f-0b(15)
+  42 0010 AEAC0012          	>  sigp 10,12,0x12
+  42 0014 4780F01C          	>  bc 8,.+10-0b(15)
+  42 0018 4DD0F066          	>  bas 13,.Lendbad-0b(15)
+GAS LISTING /home/harold/SATKREPO/SATK/samples/iplelf/iplelf.S 			page 12
+IPL ELF Boot Loader Sample
+IPL Program
+  42 001c 0000              	> 2:.hword 0
+  43                       	    .endif
+  44 001e 9825F032          	          lm      2,5,.Lparms-0b(15)
+  45 0022 83240008          	          diag    2,4,0x8          # Issue command containing the message
+  46 0026 1244              	          ltr     4,4              # Did an error occur?
+  47 0028 4780F02E          	          bz      .Lendok-0b(15)   # ..No, end OK
+  48 002c 8200F066          	          lpsw    .Lendbad-0b(15)  # ..Yes, end BAD
+  49 0030 8200F05E          	.Lendok:  lpsw    .Lendpsw-0b(15)  # End with a disabled wait (code 0)
+  50 0034 00000000          	.Lparms:  .long   .Lmsg       # Rx = command string address
+  51 0038 00000000          	          .long   0           # Rx+1 = response buffer address
+  52 003c 00000015          	          .long   .Lmsglen    # Ry = command string length and flags (no response)
+  53 0040 00000000          	          .long   0           # Ry+1 = response buffer length
+  54 0044 D4E2C7D5 D6C840   	.Lmsg:    .byte   0xD4,0xE2,0xC7,0xD5,0xD6,0xC8,0x40  # 'MSGNOH'  in EBCDIC
+  55 004b 405C40            	          .byte   0x40,0x5C,0x40                      # ' * '     in EBCDIC
+  56 004e C8859393 9640     	          .byte   0xC8,0x85,0x93,0x93,0x96,0x40       # 'Hello '  in EBCDIC
+  57 0054 A6969993 84       	          .byte   0xA6,0x96,0x99,0x93,0x84            # 'world'   in EBCDIC
+  58                       	.Lmsglen  =       .-.Lmsg
+  59 0059 07070707 070707   	          .align  8
+  60 0060 000A0000          	.Lendpsw: .hword  0x000A,0
+  61 0064 00000000          	          .long   0
+  62 0068 000A0000          	.Lendbad: .hword  0x000A,0
+  63 006c 00000BAD          	          .long   0xbad
+  64                       	
+  65                       	          .end
+GAS LISTING /home/harold/SATKREPO/SATK/samples/iplelf/iplelf.S 			page 13
+IPL ELF Boot Loader Sample
+IPL Program
+DEFINED SYMBOLS
+                            *ABS*:0000000000000001 __s390x__
+                            *ABS*:0000000000000003 __ARCH__
+                            *ABS*:0000000000000001 __FBA__
+/home/harold/SATKREPO/SATK/samples/iplelf/iplelf.S:38     .text:0000000000000000 _start
+
+NO UNDEFINED SYMBOLS
