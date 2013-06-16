@@ -28,45 +28,47 @@ class elfbin(object):
     def __init__(self,flnm):
         self.flnm=flnm
         if not os.path.exists(self.flnm):
-            print "File does not exist: %s" % self.flnm
+            print("File does not exist: %s" % self.flnm)
             sys.exit(1)
         if not os.access(self.flnm,os.R_OK):
-            print "Permissions do not allow reading: %s" % self.flnm
+            print("Permissions do not allow reading: %s" % self.flnm)
             sys.exit(2)
         if not os.access(self.flnm,os.W_OK):
-            print "Permissions do not allow writing: %s" % self.flnm
+            print("Permissions do not allow writing: %s" % self.flnm)
             sys.exit(2)
         self.e=open(self.flnm,"r+b")
         fd=self.e.fileno()
         size=os.fstat(fd)[7]
         if size<16:
-            print "Incomplete ELF header: %s" % self.flnm
+            print("Incomplete ELF header: %s" % self.flnm)
             self.close()
             sys.exit(2)
         self.header=self.e.read(16)
         self.elftyp=self.e.read(2)
         self.elfmach=self.e.read(2)
         magic=self.header[0:4]
-        if magic!="\x7FELF":
-            print "Invalid ELF magic: %02X%02X%02X%02X" % \
-	            (ord(magic[0]),ord(magic[1]),ord(magic[2]),ord(magic[3]))
+        if magic!=b"\x7FELF":
+            print("Invalid ELF magic: %02X%02X%02X%02X" % \
+	            (ord(magic[0]),ord(magic[1]),ord(magic[2]),ord(magic[3])))
             self.close()
             sys.exit(2)
-        if self.header[4]!="\x01":
-            print "Not a 32-bit ELF: %s" % self.flnm
+        #if self.header[4]!=b"\x01":
+        if self.header[4]!=1:
+            print("Not a 32-bit ELF: %s" % self.flnm)
             self.close()
             sys.exit(2)
-        if self.header[5]!="\x02":
-            print "Not MSB (Big-endian) encoding: %s" % self.flnm
+        #if self.header[5]!=b"\x02":   
+        if self.header[5]!=2:
+            print("Not MSB (Big-endian) encoding: %s" % self.flnm)
             self.close()
             sys.exit(2)
-        if self.elftyp!="\x00\x02":
-            print "Not an ELF executable: %s" % self.flnm
+        if self.elftyp!=b"\x00\x02":
+            print("Not an ELF executable: %s" % self.flnm)
             self.close()
             sys.exit(2)
-        if self.elfmach!="\x00\x16":
-            print "Not a s390 ELF (0016): found %02X%02X in %s" % \
-	            (ord(self.elfmach[0]),ord(self.elfmach[1]),self.flnm)
+        if self.elfmach!=b"\x00\x16":
+            print("Not a s390 ELF (0016): found %02X%02X in %s" % \
+	            (ord(self.elfmach[0]),ord(self.elfmach[1]),self.flnm))
             self.close()
             sys.exit(2)
     def close(self):
@@ -76,7 +78,7 @@ class elfbin(object):
         self.e.write(mach)
 
 def usage():
-    print "Usage: elfs370.py executable [print]"
+    print("Usage: elfs370.py executable [print]")
       
 if __name__ == "__main__":
     if len(sys.argv)<2 or len(sys.argv)>3:
@@ -84,8 +86,8 @@ if __name__ == "__main__":
         sys.exit(1)
     filename=sys.argv[1]
     e=elfbin(filename)
-    e.setmach("\x00\x09")
-    print "elfs370.py: Changed ELF executable from s390 to s370: %s" % sys.argv[1]
+    e.setmach(b"\x00\x09")
+    print("elfs370.py: Changed ELF executable from s390 to s370: %s" % sys.argv[1])
     e.close()
     if len(sys.argv)==3 and sys.argv[2]=="print":
         elf=PyELF.elf(filename)

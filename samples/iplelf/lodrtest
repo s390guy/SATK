@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (C) 2012 Harold Grovesteen
+# Copyright (C) 2012,2013 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -16,7 +16,9 @@
 #     You should have received a copy of the GNU General Public License
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
-SATK_DIR=${HOME}/SATK
+# Adjust to your environment
+SATK_REPO=${HOME}/SATKREPO
+SATK_DIR=${SATK_REPO}/SATK
 SAMPLE_DIR=${SATK_DIR}/samples/iplelf
 
 # Bring in the iml function for launching Hercules
@@ -24,7 +26,7 @@ source ${SATK_DIR}/samples/imlfun
 
 # Tool chain components - update when releases change:
 source ${SATK_DIR}/tools/medfun \
-    xtools=${HOME}/crossbuild sfx="-2.21.51.0.7" module="iplelf"
+    xtools=${HOME}/crossbuild sfx="-2.23.1" module="iplelf"
 
 med_env source ${SAMPLE_DIR}    # Establish where the source file is found
 ipl_elf include src             # include the basic SATK/src file
@@ -47,8 +49,8 @@ usage()
 }
 
 # Set the Hercules environment
-herc_env svn
-env="svn"
+env="sand"
+herc_env ${env}
 
 #  +------------------------------------------------------------+
 #  |                                                            | 
@@ -195,7 +197,8 @@ case $2 in
         exit 1
 esac
 
-med_env build   ${ARCHDIR}      # Establish where to build the object and executable
+# Establish where to build the object and executable
+med_env build   ${ARCHDIR}/build
 med_env install ${ARCHDIR}      # Establish where to install the IPL device medium
 med_env logs    ${ARCHDIR}      # Establish where logs are placed
 
@@ -233,4 +236,3 @@ case $3 in
 	     usage
 	     exit 1
 esac
-

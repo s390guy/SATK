@@ -31,12 +31,9 @@ The following directories are provided:
                images.  The object contains the usual TXT records, etc.  The TXT
                records contain the ELF executable itself.
      embedded  Builds and tests various device type images created from an IPL ELF
-               executable.
+               executable that includes an embedded boot loader.
                The device image contains
-                  - just a program loaded by the IPL process and targeting various 
-                    CPU architectures.
-               or contains
-                  - an boot loader targeting various CPU architectures that  
+                  - a boot loader targeting various CPU architectures that  
                   - enters a program it loads from the device.
      external  Builds and tests various device type images created from:
                   - an IPL ELF executable targeting various CPU architectures and 
@@ -44,10 +41,12 @@ The following directories are provided:
                     found in the embedded directory.
      ihandlers Builds an IPL ELF that tests the HAL interrupt handler processes in
                different CPU architectures loaded from an FBA device.
-     iplelf    Builds IPL ELF executables.
+     iplelf    Builds and tests various device type images containing:
+                   - an IPL ELF executable and 
+                   - its direct IPL in various CPU architectures.
      textseg   Builds and tests various device type images containing:
                    - a TEXT segment from an IPL ELF executable and 
-                   - its loader targeting various CPU architectures.
+                   - its direct IPL in various CPU architectures.
 
 Common code and any bash scripts are in the samples/xxxx directory to which they 
 apply.  Each class of devices will have its own sub-directory.  Each CPU 
@@ -87,7 +86,7 @@ embedded directory
 
 The embedded directory uses the module name 'default'.
 Devices built to directly IPL the program without a loader use the name 
-'devault.<device_type>'.
+'default.<device_type>'.
 Devices built to IPL a boot loader which then loads the program from the device use
 the name 'embed.<device_type>'.
 
@@ -108,6 +107,33 @@ Test/availability matrix for IPL ELF loaded directly by the IPL function.
 +------------+-----------+---------+------------+----------+
 |    tape    |     --    |   --    |   tested   |     --   |
 +------------+-----------+---------+------------+----------+
+
+
+iplelf directory
+----------------
+
+The textseg directory uses the module name 'iplelf'.
+Devices built to directly IPL the program's complete IPL ELF uses the name
+'iplelf.<device_type>'.
+
+Test/availability matrix for IPL ELF loaded directly by the IPL function.
+
++----------------------------------------------------------+
+|   Device   |                CPU architecture             |
+|    Type    |---------------------------------------------+
+|            |   s370bc  |  s370   |    s390    |   s390x  |
++------------+-----------+---------+------------+----------+
+|    card    |     --    |   --    |     --     |    --    |
++------------+-----------+---------+------------+----------+
+|   cdrom    |     --    |   --    |     --     |    --    |
++------------+-----------+---------+------------+----------+
+|    ckd     |     --    |   --    |     --     |    --    |
++------------+-----------+---------+------------+----------+
+|    fba     |     --    |  SATK   |     --     |    --    |
++------------+-----------+---------+------------+----------+
+|    tape    |     --    |   --    |     --     |    --    |
++------------+-----------+---------+------------+----------+
+
 
 textseg directory
 -----------------

@@ -16,6 +16,7 @@
 #     You should have received a copy of the GNU General Public License
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
+# Adjust to your environment
 SATK_REPO=${HOME}/SATKREPO
 SATK_DIR=${SATK_REPO}/SATK
 SAMPLE_DIR=${SATK_DIR}/samples/textseg

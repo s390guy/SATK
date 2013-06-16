@@ -16,7 +16,9 @@
 #     You should have received a copy of the GNU General Public License
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
-SATK_DIR=${HOME}/SATK
+# Adjust to your environment
+SATK_REPO=${HOME}/SATKREPO
+SATK_DIR=${SATK_REPO}/SATK
 SAMPLE_DIR=${SATK_DIR}/samples/embedded
 
 # Bring in the iml function for launching Hercules
@@ -47,8 +49,8 @@ usage()
 }
 
 # Set the Hercules environment
-herc_env svn
-env="svn"
+env="sand"
+herc_env ${env}
 
 #  +------------------------------------------------------------+
 #  |                                                            | 
@@ -189,7 +191,7 @@ esac
 # Establish where to build the object and executable
 med_env build   ${ARCHDIR}/build 
 med_env install ${ARCHDIR}       # Establish where to install the IPL device medium
-med_env logs    ${ARCHDIR}/test  # Establish where logs are placed
+med_env logs    ${ARCHDIR}       # Establish where logs are placed
 
 # Create log file path
 datetime
