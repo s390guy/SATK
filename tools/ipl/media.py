@@ -1,5 +1,5 @@
-#!/usr/bin/python
-# Copyright (C) 2012 Harold Grovesteen
+#!/usr/bin/python3.3
+# Copyright (C) 2012,2013 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -462,7 +462,9 @@ def usage():
     print("./media.py dtype image_file")
 
 if __name__=="__main__":
-    print("media.py command line arguments intended for test purposes only")
+    raise NotImplementedError("media.py - intended for import only")
+    # Comment out the preceding statement to run the following tests.
+    
     if len(sys.argv)!=3:
         usage()
         sys.exit(1)

@@ -1,5 +1,5 @@
-#!/usr/bin/python
-# Copyright (C) 2012 Harold Grovesteen
+#!/usr/bin/python3.3
+# Copyright (C) 2012,2013 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -1380,7 +1380,7 @@ class VOLUME(STATEMENT):
         self.values["reserve"]=max(rsv,block.reserve)
 
 def copyright():
-    print("volume.py Copyright, Harold Grovesteen, 2012")
+    print("volume.py Copyright, Harold Grovesteen, 2012, 2013")
 
 def usage(n):
     print("Usage: ./volume.py spec_file [device_file] [debug]")

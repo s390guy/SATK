@@ -1,5 +1,5 @@
-#!/usr/bin/python
-# Copyright (C) 2012 Harold Grovesteen
+#!/usr/bin/python3.3
+# Copyright (C) 2012,2013 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -360,4 +360,4 @@ def register_devices(dtypes):
         dtypes.dndex(dtypes.number(x.devtyp,x.model),x.dtype)
 
 if __name__=="__main__":
-    print("awsutil.py is only intended for import")
+    raise NotImplementedError("awsutil.py - only intended for import")

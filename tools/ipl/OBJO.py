@@ -1,4 +1,20 @@
-#!/usr/bin/python
+#!/usr/bin/python3.3
+# Copyright (C) 2012,2013 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
 # Utility to handle IBM object decks
 
@@ -8,7 +24,7 @@ import sys                # Access to command line arguments
 from translate import *   # ASCII/EBCDIC translate tables
 from hexdump import   *   # Access to hexdump methods
 
-# Note: this module requires Python 2.6 or greater
+# Note: this module requires Python 3.3 or greater
 
 # Data relationships
 #

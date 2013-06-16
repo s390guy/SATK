@@ -1,4 +1,20 @@
-#!/usr/bin/python
+#!/usr/bin/python3.3
+# Copyright (C) 2013 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
 # Utility to handle object code transformations in a standardized way 
 # This module is imported by to provide the standard interface.  Each of the
@@ -878,5 +894,5 @@ formats={"objo":OBJO.objo,
          "elfx":ELFXO.elfx}
 
 if __name__=="__main__":
-   raise NotImplementedError("objutil.py is only imported")
+   raise NotImplementedError("objutil.py - is intended only for import")
        

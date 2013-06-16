@@ -1,5 +1,5 @@
-#!/usr/bin/python
-# Copyright (C) 2012 Harold Grovesteen
+#!/usr/bin/python3.3
+# Copyright (C) 2012,2013 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -1237,7 +1237,9 @@ def usage():
     print("/ckdutil.py image_file")
 
 if __name__=="__main__":
-    print("ckdutil.py is only intended for import")
+    raise NotImplementedError("ckdutil.py - only intended for import")
+    # Comment out the preceding statement to run these tests
+
     if len(sys.argv)!=2:
         usage()
         sys.exit(1)

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (C) 2012 Harold Grovesteen
+# Copyright (C) 2012,2013 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -1024,6 +1024,9 @@ def write_section(infile,section,outfile,pad=1):
    
 
 if __name__ == "__main__":
+   raise NotImplementedError("PyELF.py - must only be imported")
+   # Comment out the preceding statement to run these tests.
+   
    #ELF=elf(r"/home/harold/SATK/samples/embedded/fba/s370bc/embed.o")
    ELF=elf(r"/home/harold/SATK/samples/embedded/fba/s370bc/embed")
    print(ELF)
