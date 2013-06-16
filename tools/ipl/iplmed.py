@@ -1785,7 +1785,7 @@ class iplelf(object):
         self.iplrecs[self.IPL.rec]=self.IPL
         self.iplrecs[self.PGM.rec]=self.PGM
         if self.LOWC is not None:
-            self.LOWC.pgmload(lowc_program)
+            self.LOWC.pgmload(lowc_program,debug=debug)
             self.iplrecs[self.LOWC.rec]=self.LOWC
             
         self.iplrecs[self.CCW.rec]=self.CCW
@@ -2492,7 +2492,7 @@ class lowc(record):
         
     # Add the start and end address information (0x24C-0x253) to the LOWC segment
     # Input is an instance of record
-    def pgmload(self,reco):
+    def pgmload(self,reco,debug=False):
         segment=reco.seg
         start=fullwordb(segment.p_vaddr)
         end=fullwordb(segment.segend)
@@ -2501,6 +2501,13 @@ class lowc(record):
         second_half=content[0x254:]
         new_content=first_half+start+end+second_half
         self.seg.content=new_content
+        if debug:
+            print("iplmed.py: debug: "
+                "Updated LOWC at address 0x24C with program start: %s" \
+                % fullwordf(segment.p_vaddr))
+            print("iplmed.py: debug: "
+                "Updated LOWC at address 0x250 with program end+1: %s" \
+                % fullwordf(segment.segend))
         
     def vol(self, block=0, size=0):
         # This method supports use of LOWC segment for DASD Standard Volume 
