@@ -18,7 +18,7 @@
 
 # Utility to handle the emulation of "records" and "sequential files" 
 # in Python.  The utility includes a class that encapsulates and provides the
-# utility functions provided.
+# utility functions provided.  This module requires Python 3.3 or greater.
 #
 # A set of records is a list consisting of a series of string or bytearray 
 # instances.
@@ -66,11 +66,10 @@ class rec(object):
     rectypes={}   # Maps record id types to a rec subclass. Set by rec.init()
     devtypes={}   # Maps record class names to class objects
     def check(rec):
-        # Check that a record content is a string
-        # Bytearrays must be converted to strings before being used with
-        # recsutil.py
-        if type(rec)!=type(""):
-            raise TypeError("not a string: %s" % type(rec))
+        # Check that a record content is a bytes sequence
+        if not isinstance(rec,bytes):
+            raise TypeError("not a bytes sequence: %s" % rec.__class__.__name__)
+        
     check=staticmethod(check)
     def hex_string(hdr="",string="",append="",end="",header=True):
         linindent=" "*(len(append))
@@ -140,7 +139,7 @@ class rec(object):
                 % type(rectuple[0]))
         return cls.detuple(rectuple)
     instance=staticmethod(instance)
-    def pad_trunc(data,length,pad="\x00"):
+    def pad_trunc(data,length,pad=b"\x00"):
         # Pad or truncate a string
         if len(data)<length:
             return data+(length-len(data))*pad
@@ -226,15 +225,18 @@ class tm(tape):
 
 class fba(rec):
     strict=True    # Global switch for padding or truncating fba sectors
+    @staticmethod
+    def compare(a,b):
+        return a.__cmp__(b)
+    @staticmethod
     def detuple(rectuple):
         # Convert a fba record-tuple into a fba instance
         return fba(block=rectuple[0],data=rectuple[1])
-    detuple=staticmethod(detuple)
-    def __init__(self,data="",sector=0):
+    def __init__(self,data=b"",sector=0):
         rec.check(data)
         if fba.strict and len(data)!=512:
             raise ValueError("fba sector must be 512 bytes: %s" % len(data))
-        rec.__init__(self,recid=sector,data=rec.pad_trunc(data,512,"\x00"))
+        rec.__init__(self,recid=sector,data=rec.pad_trunc(data,512,pad=b"\x00"))
         self.sector=sector
     def __cmp__(self,other):
         # Compare two fba instances
@@ -443,7 +445,7 @@ def convert(filename,modfile,listname,display=False):
     modname=sep[1]
     rec=rec.pythonize(modname,listname)
     if display:
-        print rec
+        print(rec)
     fo=open(modname,"wb")
     fo.write(rec)
     fo.close()
@@ -452,14 +454,14 @@ def test_formats():
     fba.strict=False
     fba_recs=recs([fba(data="some fba data",sector=10)])
     fba_mod=fba_recs.pythonize("fbamod","fbarecs")
-    print fba_mod
+    print(fba_mod)
     r=[]
     r.append(ckd(data="some ckd data",cc=0,hh=0,r=1))
     r.append(ckd(data="a vol1 lable",key="VOL1",cc=0,hh=0,r=2))
     r.append(eof(cc=0,hh=1,r=1))
     ckd_recs=recs(r)
     ckd_mod=ckd_recs.pythonize("ckdmod","ckdrecs")
-    print ckd_mod
+    print(ckd_mod)
 
 def usage():
     return "./recsutil.py infile outmodule outlist"
@@ -474,5 +476,5 @@ if __name__=="__main__":
     if len(sys.argv)!=4:
         convert(sys.argv[1],sys.argv[2],sys.argv[3])
         sys.exit(0)
-    print usage()
+    print(usage())
     sys.exit(1)

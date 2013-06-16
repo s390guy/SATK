@@ -1071,7 +1071,7 @@ class VDBR(object):
             pack="struct.pack('%s',%s)" % (self.vdb_struct,self.vdb_data)
             try:
                 data=eval(pack)+pad
-            except Exception,error:
+            except Exception as error:
                 print("volume.py - WARNING - evaluating: %s" % pack)
                 print("volume.py - WARNING - %s" %error)
                 print("volume.py - WARNING - ignoring failed program struct data")
@@ -1383,7 +1383,7 @@ def copyright():
     print("volume.py Copyright, Harold Grovesteen, 2012")
 
 def usage(n):
-    print "Usage: ./volume.py spec_file [device_file] [debug]"
+    print("Usage: ./volume.py spec_file [device_file] [debug]")
     #     sys.argv   [0]        [1]          [2]        [3]
     sys.exit(n)
 

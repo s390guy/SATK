@@ -16,7 +16,8 @@
 #     You should have received a copy of the GNU General Public License
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
-SATK_DIR=${HOME}/SATK
+SATK_REPO=${HOME}/SATKREPO
+SATK_DIR=${SATK_REPO}/SATK
 SAMPLE_DIR=${SATK_DIR}/samples/textseg
 
 # Bring in the iml function for launching Hercules
@@ -24,7 +25,7 @@ source ${SATK_DIR}/samples/imlfun
 
 # Tool chain components - update when releases change:
 source ${SATK_DIR}/tools/medfun \
-    xtools=${HOME}/crossbuild sfx="-2.21.51.0.7" module="textseg"
+    xtools=${HOME}/crossbuild sfx="-2.23.1" module="textseg"
 
 med_env source ${SAMPLE_DIR}    # Establish where the source file is found
 ipl_elf include src             # include the basic SATK/src file
@@ -47,8 +48,8 @@ usage()
 }
 
 # Set the Hercules environment
-herc_env svn
-env="svn"
+env="sand"
+herc_env ${env}
 
 #  +------------------------------------------------------------+
 #  |                                                            | 
@@ -195,9 +196,9 @@ case $2 in
         exit 1
 esac
 
-med_env build   ${ARCHDIR}      # Establish where to build the object and executable
-med_env install ${ARCHDIR}      # Establish where to install the IPL device medium
-med_env logs    ${ARCHDIR}      # Establish where logs are placed
+med_env build   ${ARCHDIR}/build  # Where to build the object and executable
+med_env install ${ARCHDIR}        # Where to install the IPL device medium
+med_env logs    ${ARCHDIR}        # Where logs are placed
 
 # Create log file path
 datetime
@@ -229,7 +230,7 @@ case $3 in
 	     exit 0
 	     ;;
     *)
-	     echo "lodrtest: Error: unavailable option: $3"
+	     echo "textseg/lodrtest: Error: unavailable option: $3"
 	     usage
 	     exit 1
 esac

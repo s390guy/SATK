@@ -17,11 +17,17 @@
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
 # This module is intended to be imported for use by other modules
+
+# Python modules:
 import struct
 import sys
 
-# This modules can not be migrated to Python 3.0 or greater until
-# a 3.0+ struct module exists.
+# SATK modules:
+from hexdump import dump
+
+PyVER=2
+if sys.hexversion>=0x03030000:
+    PyVER=3
 
 # The ABI and its two subclasses, ABI32 and ABI64, understand the structure 
 # of the two different ELF formats: 32-bit and 64-bit.
@@ -123,6 +129,14 @@ class ABI(object):
       fo.close()
    gen_formats=staticmethod(gen_formats)
    def ident(elf_file):
+      if PyVER == 3:
+          return [elf_file[:4],
+                  elf_file[4],
+	              elf_file[5],
+	              elf_file[6],
+                  elf_file[7],
+	              elf_file[8]]
+                
       return [elf_file[:4],
               ord(elf_file[4]),
 	          ord(elf_file[5]),
@@ -286,7 +300,7 @@ class display(object):
       try:
           return fmt % (self.name,self.value)
       except TypeError as err:
-          print "Problem printing %s" % self.name
+          print("Problem printing %s" % self.name)
           raise err
 
 class elf(object):
@@ -304,12 +318,12 @@ class elf(object):
    executable=2
    shared=3
    core=4
+   @staticmethod
    def hexchar(s):
       x=""
       for c in s:
           x="%s %s" % (x,hex(ord(c)))
       return x
-   hexchar=staticmethod(hexchar)
    def __init__(self,flnm,ostypes=None,proctypes=None):
       self.name=flnm
       self.segtyps={0:"NULL",1:"LOAD",2:"DYNAMIC",3:"INTERP",4:"NOTE",\
@@ -368,15 +382,15 @@ class elf(object):
    def is64(self):
       return self.ident.arch==elf.bit64
    def prt(self,details=False):
-      print "--Ident--"
-      print self.ident
-      print "--Header--"
-      print self.header
-      print "--Section Table--"
+      print("--Ident--")
+      print(self.ident)
+      print("--Header--")
+      print(self.header)
+      print("--Section Table--")
       self.SctTbl.prtNumbers()
       if details:
           self.SctTbl.prtDetail()
-      print "--Program Table--"
+      print("--Program Table--")
       self.PgmTbl.prtSegments()
       if details:
           self.PgmTbl.prtDetail()
@@ -481,7 +495,10 @@ class Header(object):
       return display.string(fields)
 
 class Ident(object):
-   magic="\x7fELF"
+   if PyVER == 3:
+       magic=b"\x7fELF"
+   else:
+       magic="\x7fELF"
    def __init__(self,elf_file):
       if len(elf_file)<ABI.ident_size:
          raise ValueError("Not ELF - Too small") 
@@ -501,8 +518,12 @@ class Ident(object):
          return False
      return True
    def __str__(self):
+      if PyVER==2:
+          magic=ord(self.magic[0])
+      else:
+          magic=self.magic[0]
       fields=\
-        [display("MAG0",       "X",ord(self.magic[0])),
+        [display("MAG0",       "X",magic),
          display("MAG1",       "s",self.magic[1]),
 	     display("MAG2",       "s",self.magic[2]),
 	     display("MAG3",       "s",self.magic[3]),
@@ -708,18 +729,26 @@ class StringTable(object):
    def __init__(self,data):
       self.data=data
    def getString(self,index):
-      x=index
-      name=""
-      if index>=len(self.data):
-         raise ValueError("index beyond end of string table (%s): %s" % \
-	                  (len(self.data),index))
-      while x<len(self.data):
-         byte=self.data[x]
-         if byte=="\x00":
-            return name
-         x+=1
-         name+=byte
-      return name
+       x=index
+       name=""
+       if index>=len(self.data):
+           raise ValueError("index beyond end of string table (%s): %s" % \
+	           (len(self.data),index))
+       if PyVER==3:
+           while x<len(self.data):
+               byte=self.data[x]
+               if byte==0:
+                   return name
+               x+=1
+               name+=chr(byte)
+       else:
+           while x<len(self.data):
+               byte=self.data[x]
+               if ord(byte)==0:
+                   return name
+               x+=1
+               name+=byte
+       return name
 	 
 class Table(object):
    def __init__(self,elf,offset,entries,entsize):
@@ -790,13 +819,13 @@ class ProgTbl(Table):
       segment=self.getSegment(n)
       return segment.load()
    def prtDetail(self):
-      print "--Program Table Detail--" 
+      print("--Program Table Detail--")
       for x in range(len(self.entries)):
-         print "--Program Table Entry %s--" % x 
+         print("--Program Table Entry %s--" % x)
          pgm=self.entries[x]
-         print pgm 
-         print "--Program Table Content %s--" % x 
-         print pgm.prtContent() 
+         print(pgm) 
+         print("--Program Table Content %s--" % x) 
+         print(pgm.prtContent()) 
    def prtSegments(self):
       for x in range(len(self.entries)):
          pgm=self.entries[x]
@@ -805,7 +834,7 @@ class ProgTbl(Table):
             end=pgm.virt_addr+pgm.mem_size-1
          else:
             end=begin
-         print "%s %s %X-%X" % (x,pgm.typs(),begin,end) 
+         print("%s %s %X-%X" % (x,pgm.typs(),begin,end)) 
 
 class RelaEntry(object):
      def __init__(self,rela,resndx,abi,exe=False):
@@ -865,18 +894,18 @@ class SectTbl(Table):
    def getStringTable(self):
       return self.entries[self.strndx]
    def prtDetail(self):
-      print "--Section Table Detail--" 
+      print("--Section Table Detail--") 
       for x in range(len(self.entries)):
-         print "--Section Table Entry %s--" % x 
-         print self.entries[x]
+         print("--Section Table Entry %s--" % x) 
+         print(self.entries[x])
    def prtNames(self):
       names=self.names.keys()
       names.sort()
       for x in names:
-         print "%s %s" % (self.names[x],x)
+         print("%s %s" % (self.names[x],x))
    def prtNumbers(self):
       for x in range(len(self.entries)):
-         print "%s %s" % (x,self.entries[x].name)
+         print("%s %s" % (x,self.entries[x].name))
    def setNames(self,str_sect):
       names={}
       for x in range(len(self.array)):
@@ -981,23 +1010,24 @@ def write_section(infile,section,outfile,pad=1):
    try:
       bytes=elf_file.write(section,outfile,pad)
    except KeyError:
-      print "Input file does not contain section: %s" % section 
+      print("Input file does not contain section: %s" % section) 
       return 1
    except ValueError:
-      print "Problem with padding, input file or input not ELF: %s" % infile
+      print("Problem with padding, input file or input not ELF: %s" % infile)
       return 1
    except IOError:
-      print "Problem outputing file: %s" % outfile
+      print("Problem outputing file: %s" % outfile)
       return 1
-   print "%s section of ELF %s" % (section,infile)
-   print "%s bytes written to file: %s" % (bytes,outfile)
+   print("%s section of ELF %s" % (section,infile))
+   print("%s bytes written to file: %s" % (bytes,outfile))
    return 0
    
 
 if __name__ == "__main__":
-   #ELF=elf(sys.argv[1])
-   #print ELF
-   #ELF.prt(True)
+   #ELF=elf(r"/home/harold/SATK/samples/embedded/fba/s370bc/embed.o")
+   ELF=elf(r"/home/harold/SATK/samples/embedded/fba/s370bc/embed")
+   print(ELF)
+   ELF.prt(details=True)
    #ret=write_section(sys.argv[1],sys.argv[2],sys.argv[3],padding)
    #sys.exit(ret)
-   ABI.gen_formats("big","abi_formats.py")
+   #ABI.gen_formats("big","abi_formats.py")

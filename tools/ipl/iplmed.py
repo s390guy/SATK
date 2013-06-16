@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3.3
 # Copyright (C) 2012 Harold Grovesteen
 #
 # This file is part of SATK.
@@ -28,6 +28,7 @@ import PyELF                # ELF utility
 import volume               # Access the DASD Standard Volume support classes
 # Python imports
 import argparse             # command line argument parser
+#import functools            # Access compare to key function for sorting
 import os.path              # path manipulation tools
 import struct               # access binary structures
 import sys                  # system values
@@ -65,19 +66,19 @@ def deade(code=0):
 
 def psw(sysmsk=0x0008,pgmmsk=0,addr=0,mode=24,debug=False):
     if debug:
-        print "psw(sysmsk=0x%04X,pgmmsk=0x%04X,addr=0x%08X,mode=%s)" \
-            % (sysmsk,pgmmsk,addr,mode)
+        print("psw(sysmsk=0x%04X,pgmmsk=0x%04X,addr=0x%08X,mode=%s)" \
+            % (sysmsk,pgmmsk,addr,mode))
     # return a S/370 EC-mode or 24-bit addressing mode ESA/390 64-bit PSW
     if mode==31:
         return halfwordb(sysmsk)+byteb(pgmmsk)+"\x00"+addr31b(addr,bit0=1)
-    return halfwordb(sysmsk)+byteb(pgmmsk)+"\x00\x00"+addr24b(addr)
+    return halfwordb(sysmsk)+byteb(pgmmsk)+b"\x00\x00"+addr24b(addr)
     
 def pswe(sysmsk=0x0000,pgmmsk=0,addr=0,debug=False):
     if debug:
-        print "pswe(sysmsk=0x%04X,pgmmsk=0x%04X,addr=0x%016X)" \
-            % (sysmsk,pgmmsk,addr)
+        print("pswe(sysmsk=0x%04X,pgmmsk=0x%04X,addr=0x%016X)" \
+            % (sysmsk,pgmmsk,addr))
     # return a z/Architecture 24-bit addressin mode z/Architecture 128-bit PSW
-    return halfwordb(sysmsk)+byteb(pgmmsk)+"\x00\x00\x00\x00\x00"+dblwordb(addr)
+    return halfwordb(sysmsk)+byteb(pgmmsk)+b"\x00\x00\x00\x00\x00"+dblwordb(addr)
     
 def roundup(value,rnd):
     # return the value rounded up to the next rnd increment
@@ -429,7 +430,7 @@ class device_class(object):
     def pad(data,size):
         if len(data)==size:
             return data
-        padded="%s%s" % (data,size*"\x00")
+        padded=data + size*b"\x00"
         return padded[:size]
     @staticmethod
     def stream(sego,size,pad=False):
@@ -933,7 +934,7 @@ class CKD(device_class):
                     prep_data=halfwordb(0)+halfwordb(2)+byteb(1)
                     prep_data+=byteb(pgm_id.recs)+halfwordb(pgm_id.cyls)
                     prep_data+=halfwordb(pgm_id.heads)
-                    prep_data+=4*"\x00"
+                    prep_data+=4*b"\x00"
                     prep_data+=chr(arch)
                     prep_data+=chr(self.iplmask|ioarch)
                     lodr.update(prep_data)
@@ -1052,7 +1053,7 @@ class FBA(device_class):
                 % (self.__class__.__name__,ccwbeg))
         this=chain(ccwbeg)
         self.this=this
-        pgmsecs=align(len(pgmo.seg.content),512)/512
+        pgmsecs=align(len(pgmo.seg.content),512)//512
         if debug:
             print ("iplmed.py: debug: %s IPL program resides in %s sectors" \
                 % (self.__class__.__name__,pgmsecs))
@@ -1067,7 +1068,7 @@ class FBA(device_class):
                 % (self.__class__.__name__,self.this.value("pl")))
         pgmflag=0
         if lowc!=None:
-            lowcsecs=align(len(lowc.seg.content),512)/512
+            lowcsecs=align(len(lowc.seg.content),512)//512
             if debug:
                 print("iplmed.py: debug: %s IPL lowc resides in %s sectors" \
                     % (self.__class__.__name__,lowcsecs))
@@ -1191,7 +1192,7 @@ class FBA(device_class):
                 pgm_sector=pgm_allocate.sector
                 if pgm and lodr.pgm.update:
                     prep_data=fullwordb(pgm_sector)
-                    prep_data+=10*"\x00"
+                    prep_data+=10*b"\x00"
                     prep_data+=chr(arch)
                     prep_data+=chr(self.iplmask|ioarch)
                     lodr.update(prep_data)
@@ -1745,7 +1746,9 @@ class iplelf(object):
         
         # Create the LOWC segment. May be suppressed by the command line
         if lowcore:
-            self.LOWC=lowc(self.segnames["LOWC"],self.elf,vol,debug=debug)
+            # Note: the vol argument is no longer needed 1024 byte LOWC is
+            # always created now because of the IPL program address info.
+            self.LOWC=lowc(self.segnames["LOWC"],self.elf,True,debug=debug)
         else:
             print("iplmed.py: warning: LOWC segment suppressed")
         
@@ -1754,6 +1757,7 @@ class iplelf(object):
             self.PGM=text(self.segnames["TEXT"])
         else:
             self.PGM=elf(self.segnames["ELF"])
+        lowc_program=self.PGM
         if ldr is not None:
             # A LODR segment is present
             if lodr:
@@ -1764,6 +1768,7 @@ class iplelf(object):
                     self.additional=elf(self.segnames["ELF"])
                 else:
                     self.additional=self.PGM
+                lowc_program=self.additional
 
                 self.PGM=loader(ldr,self.elf,archso=self.archs,debug=debug)
 
@@ -1780,7 +1785,9 @@ class iplelf(object):
         self.iplrecs[self.IPL.rec]=self.IPL
         self.iplrecs[self.PGM.rec]=self.PGM
         if self.LOWC is not None:
+            self.LOWC.pgmload(lowc_program)
             self.iplrecs[self.LOWC.rec]=self.LOWC
+            
         self.iplrecs[self.CCW.rec]=self.CCW
         self.iplrecs[4]=self.additional
         
@@ -2409,7 +2416,7 @@ class lowc(record):
     def content(self):
         return self.seg.content
     def dftlowc(self,elf,vol,debug=False):
-        zeros=8*"\x00"
+        zeros=8*b"\x00"
         pfx=zeros              # 0x0   restart new PSW
         pfx+=zeros             # 0x8   restart old PSW
         pfx+=zeros             # 0x10  
@@ -2426,8 +2433,8 @@ class lowc(record):
         pfx+=dead(code=0x28)   # 0x68  program new PSW
         pfx+=dead(code=0x30)   # 0x70  machine-check new PSW
         pfx+=dead(code=0x38)   # 0x78  input-output new PSW
-        pfx+=128*"\x00"        # 0x80-0xFF
-        pfx+=32*"\x00"         # 0x100-0x11F
+        pfx+=128*b"\x00"       # 0x80-0xFF
+        pfx+=32*b"\x00"        # 0x100-0x11F
         pfx+=zeros+zeros       # 0x120 restart old PSW
         pfx+=zeros+zeros       # 0x130 external old PSW
         pfx+=zeros+zeros       # 0x140 supervisor call old PSW
@@ -2443,7 +2450,7 @@ class lowc(record):
         pfx+=deade(code=0x160) # 0x1E0 machine-check new PSW
         pfx+=deade(code=0x170) # 0x1F0 input-output new PSW
         if vol:
-            pfx+="\x00" * 512
+            pfx+=b"\x00" * 512
         if debug:
             print("iplmed.py: debug: LOWC segment content:")
             print(dump(pfx,indent="   "))
@@ -2458,7 +2465,7 @@ class lowc(record):
         if len(iplccw2)!=8:
             print("iplmed.py: internal: IPL CCW2 for low core not 8 bytes: %s" \
                 % len(iplccw2)) 
-        nullquad=8*"\x00"
+        #nullquad=8*b"\x00"
         if self.overwrite(24):
             self.seg.content=iplpsw+iplccw1+iplccw2+self.seg.content[24:]
         else:
@@ -2480,8 +2487,21 @@ class lowc(record):
             self.seg.content=psw+self.seg.content[8:]
     def overwrite(self,length=8):
         if len(self.seg.content)>=length:
-            return self.seg.content[:length]==length*"\x00"
+            return self.seg.content[:length]==length*b"\x00"
         return False
+        
+    # Add the start and end address information (0x24C-0x253) to the LOWC segment
+    # Input is an instance of record
+    def pgmload(self,reco):
+        segment=reco.seg
+        start=fullwordb(segment.p_vaddr)
+        end=fullwordb(segment.segend)
+        content=self.seg.content
+        first_half=content[:0x24C]
+        second_half=content[0x254:]
+        new_content=first_half+start+end+second_half
+        self.seg.content=new_content
+        
     def vol(self, block=0, size=0):
         # This method supports use of LOWC segment for DASD Standard Volume 
         # information used with FBA devices.  The block number of the Volume 
@@ -2528,6 +2548,7 @@ class segment(object):
         self.content=content
         self.bit64=bit64
         self.elfentry=entry
+        self.segend=self.p_vaddr+len(content)
         if pflags is not None:
             flag=self.p_flags & 0xF0000000
         else:
@@ -2540,16 +2561,18 @@ class segment(object):
         name="%-5s" % self.name
         if self.bit64:
             vaddr="0x%016X" % self.p_vaddr
+            vend="0X%016X" % self.segend
         else:
             vaddr="0x%08X" % self.p_vaddr
+            vend="0X%08X" % self.segend
         if self.p_flags is None:
             flag="None,"
         else:
             flag="0x%08X," % self.p_flags
         return "%s p_vaddr=%s, p_flags=%-11s p_offset=%s (0x%X)," \
-            " size=%s (0x%X)" \
+            " size=%s (0x%X) end=%s" \
             % (name,vaddr,flag,self.p_offset,self.p_offset,\
-            len(self.content),len(self.content))
+            len(self.content),len(self.content),vend)
 
 cdrom_record.init()
 

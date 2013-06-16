@@ -80,7 +80,7 @@ class fba(object):
         #"0671-04":624456,   #   624,456  319,721,472   130E9000  312,228K
         #"0671-08":513072}   #   513,072  262,692,864    FA86000  256,536K
     record=["fba"]    # recsutil class name of fba records
-    pad=512*"\x00"  # Sector pad
+    pad=512*b"\x00"   # Sector pad
     @staticmethod
     def attach(filename,ro=True):
         # Access an existing FBA emulating media file for reading or writing.
@@ -110,7 +110,7 @@ class fba(object):
             else:
                 sectors=size
         fo.truncate()
-        for x in xrange(sectors):
+        for x in range(sectors):
             try:
                 fo.write(fba.pad)
             except IOError:
@@ -360,4 +360,4 @@ def register_devices(dtypes):
         dtypes.dndex(dtypes.number(x.devtyp,x.model),x.dtype)
 
 if __name__=="__main__":
-    print "awsutil.py is only intended for import"
+    print("awsutil.py is only intended for import")

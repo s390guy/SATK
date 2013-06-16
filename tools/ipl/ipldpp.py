@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3.3
 # Copyright (C) 2012 Harold Grovesteen
 #
 # This file is part of SATK.
@@ -108,6 +108,7 @@ from lds_factory import *   # GNU ld script generator
 import PyELF                # ELF utility
 # Python imports
 import argparse             # command line argument parser
+import functools            # Access the compare to key function method for sorting
 import re                   # access to regular expression utility
 import sys                  # system values
 
@@ -397,7 +398,8 @@ class lds(object):
         
         #
         # Assign output sections to segments and sequence the input sections
-        for x in self.sections_out.itervalues():
+        #for x in self.sections_out.itervalues():
+        for x in iter(self.sections_out.values()):
             self.sequence(x)
             seg=iplelf.segments[x.segment]
             x.sego=seg
@@ -408,7 +410,8 @@ class lds(object):
             seg.present=True
         #
         # Assign segments to storage areas
-        for x in iplelf.segments.itervalues():
+        #for x in iplelf.segments.itervalues():
+        for x in iter(iplelf.segments.values()):
             if x.present:
                 if x.name!="/DISCARD/":
                     tar_area=targets[x.name]
@@ -424,7 +427,8 @@ class lds(object):
                 self.segments.append(x)
         #
         # Identify the areas needed in the IPL ELF executable
-        for x in iplelf.areas.itervalues():
+        #for x in iplelf.areas.itervalues():
+        for x in iter(iplelf.areas.values()):
             if x.present:
                 self.areas.append(x)
         #
@@ -474,9 +478,13 @@ class lds(object):
     # Create linker script
         
         # Instantiate lds_factory objects
+        sects_out=[]
+        for x in iter(self.sections_out.values()):
+            sects_out.append(x)
         create_lds=[self.areas,\
                     self.segments,\
-                    self.sections_out.itervalues(),\
+                    #self.sections_out.itervalues(),\
+                    sects_out,\
                     self.sections_in]
         for x in create_lds:
             for y in x:
@@ -587,13 +595,25 @@ class lds(object):
                 return x
         raise ValueError
     def sequence(self,out_section):
+        # This method uses the old way of sorting using decorator-sort-undecorate
+        # method.  The object and its sort key values are encapsulated in a 
+        # class instance.  These class instances are sorted and the embedded object
+        # is extracted and placed in its own sequence.  For version 3, the 
+        # decorator has been maintained, but the sorting mechanism uses a key
+        # function instead of the instance compare method.
         seq=[]
+        # Create the decorated list
         for x in range(len(out_section.in_sections)):
             insect=out_section.in_sections[x]
+            #print("sequence: insect=%s" % insect.__class__)
             seq.append(sort(insect.seq,x,insect))
-        seq.sort()
+        #seq.sort()
+        # For Version 3, the seq.sort() statement is replaced with the built-in
+        # function sorted.  It uses a key function that is a staticmethod in the
+        # decorator class.  The staticmethod was added to support Version 3.
+        sorted_seq=sorted(seq,key=functools.cmp_to_key(sort.compare))
         newseq=[]
-        for x in seq:
+        for x in sorted_seq:
             newseq.append(x.obj)
         out_section.in_sections=newseq
 
@@ -995,6 +1015,17 @@ class segment(object):
         self.ldso=lds_phdr(self.name,type=self.p_type,flags=self.p_flag)
 
 class sort(object):
+    @staticmethod
+    def compare(a,b):
+        if a.seq<b.seq:
+            return -1
+        if a.seq>b.seq:
+            return 1
+        if a.pos<b.pos:
+            return -1
+        if a.pos>b.pos:
+            return 1
+        return 0
     def __init__(self,seq,pos,obj):
         self.seq=seq
         self.pos=pos

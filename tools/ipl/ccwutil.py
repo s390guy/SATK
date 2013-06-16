@@ -70,7 +70,7 @@ class chain(object):
         itm.chanpgm=self
         return self.update(itm.length)
     def binary(self):
-        ccws=""
+        ccws=b""
         for x in self.items:
             ccws+=x.binary()
         return ccws
@@ -129,7 +129,7 @@ class ccw0(item):
         addr=self.chanpgm.value(self.address)
         fl=self.chanpgm.value(self.flags)
         cnt=self.chanpgm.value(self.count)
-        return byteb(cmd)+addr24b(addr)+byteb(fl)+"\x00"+halfwordb(cnt)
+        return byteb(cmd)+addr24b(addr)+byteb(fl)+b"\x00"+halfwordb(cnt)
         
         
 class ckdid(item):
@@ -172,11 +172,14 @@ class fbaloc(item):
         self.repl=repl
         item.__init__(self,8)
     def binary(self):
-        opr=self.chanpgm.value(self.opr)
-        sec=self.chanpgm.value(self.sector)
-        secs=self.chanpgm.value(self.sectors)
-        repl=self.chanpgm.value(self.repl)
-        return byteb(opr)+byteb(repl)+halfwordb(secs)+fullwordb(sec)
+        # Turn values into bytes
+        opr=byteb( self.chanpgm.value(self.opr) )
+        repl=byteb( self.chanpgm.value(self.repl) )
+        secs=halfwordb( self.chanpgm.value(self.sectors) )
+        sec=fullwordb( self.chanpgm.value(self.sector) )
+        # Return concatenated bytes
+        return opr+repl+secs+sec
+        #return byteb(opr)+byteb(repl)+halfwordb(secs)+fullwordb(sec)
 
 class symbol(object):
     def __init__(self,lable,value=None):

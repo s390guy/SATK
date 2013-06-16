@@ -33,6 +33,7 @@
 #
 # See media.py for usage of CKD image filed
 
+import functools   # Access compare to key function for sorting
 import hexdump     # Access dump utility
 import os          # Access OS functions
 import stat        # Access to file stat data
@@ -108,11 +109,11 @@ class ckd(object):
                     raise IOError("writing track image: (%s,%s)" % (x,y))
             init_cyls+=1
             if progress and ((x%100)==0):
-                print "Cylider initialized: %s" % x
+                print("Cylider initialized: %s" % x)
         fo.flush()
         if progress:
-            print "%s CKD image initialized with %s cylinders: %s" \
-                % (dev.edtype,init_cyls,fo.name)
+            print("%s CKD image initialized with %s cylinders: %s" \
+                % (dev.edtype,init_cyls,fo.name))
         return cyls
     #
     # ckd Static Methods
@@ -134,8 +135,8 @@ class ckd(object):
         filesize=stat.st_size           # Get the file size from the stat data
         tracks,excess=divmod(filesize-512,trksize)
         if excess!=0:
-            print "WARNING: malformed CKD image file, incomplete track: %s" \
-                % self.fo.name
+            print("WARNING: malformed CKD image file, incomplete track: %s" \
+                % self.fo.name)
         cyls,excess=divmod(tracks,heads)
         if excess!=0:
             raise ValueError(\
@@ -144,7 +145,7 @@ class ckd(object):
         try:
             dev=ckdev.extract(devtyp,cyls)
             if debug:
-                print dev
+                print(dev)
         except KeyError:
             raise TypeError("CKD header device type unrecognized: 0x%02X" \
                 % ord(devtyp))
@@ -264,9 +265,9 @@ class ckd(object):
                             % (cc,hh))
                     self.dev.write(self.fo,self.cache,debug=debug,dump=dodump)
                 if debug:
-                    print "ckdutil.py: debug: ckd.seek(%s,%s) - " \
+                    print("ckdutil.py: debug: ckd.seek(%s,%s) - " \
                         "reading track" \
-                        % (cc,hh)
+                        % (cc,hh))
                 self.cache=self.dev.read(self.fo,cc,hh,debug=debug,dump=dodump)
     def update(self,recno,data=""):
         # Trys to update a cached track image record's data.  
@@ -297,6 +298,7 @@ class ckd_info(object):
     K=1024
     M=1024*1024
     G=1024*1024*1024
+    @staticmethod
     def KMG(value):
         if value>=ckd_info.G:
             unit="G"
@@ -311,7 +313,6 @@ class ckd_info(object):
         units,excess=divmod(value,unit_metric)
         tenths=excess*10 / unit_metric
         return "%s.%s%s" % (units,tenths,unit)
-    KMG=staticmethod(KMG)
     # This class gives access to the information managed by the ckdev class 
     # and devcap subclasses.  Once created, a ckd_info instance is read only.
     def __init__(self,dtype,keylen=0,datalen=0):
@@ -474,19 +475,23 @@ class ckdev(object):
     hdrdev={}          # This maps the device header type field to instances
     hdrID="CKD_P370"   # Constant in a Hercules CKD device header
     hdrsize=20         # Size of device image header
+    @staticmethod
     def ckfmt(fmt,field,length):
         size=struct.calcsize(fmt)
         if size!=length:
             raise ValueError("ckdev.%s structure not %s bytes: %s" \
                 % (field,length,size))
-    ckfmt=staticmethod(ckfmt)
+    @staticmethod
+    def compare(a,b):
+        return a.__cmp__(b)
+    @staticmethod
     def extract(devtyp,cyls):
         type_list=ckdev.hdrdev[devtyp]
         for x in type_list:
             if cyls<=x.ecyl:
                 return x
         return type_list[0]
-    extract=staticmethod(extract)
+    @staticmethod
     def parse(header,debug=False):
         if len(header)!=ckdev.hdrsize:
             raise IndexError("CKD header size not %s: %s" \
@@ -500,13 +505,13 @@ class ckdev(object):
             string="%s\nCKD.devtyp: 0x%02X" % (string,ord(devtyp))
             string="%s\nCKD.seq: %s" % (string,ord(seq))
             string="%s\nCKD.highcyl: %s" % (string,highcyl)
-            print string
+            print(string)
         if ID!=ckdev.hdrID:
             raise TypeError("invalid CKD device header")
         if highcyl!=0:
             raise TypeError("multi-image file CKD volumes not supported")
         return (heads,devtyp,etrksize)
-    parse=staticmethod(parse)
+    @staticmethod
     def register(inst):
         # Register myself with the ckd class
         ckd.geometry[inst.edtype]=inst
@@ -516,9 +521,8 @@ class ckdev(object):
         except KeyError:
             type_list=[]
         type_list.append(inst)
-        type_list.sort()
+        type_list=sorted(type_list,key=functools.cmp_to_key(ckdev.compare))
         ckdev.hdrdev[inst.devtyp]=type_list
-    register=staticmethod(register)
     #
     # ckdev Instance Methods
     def __init__(self,dtype,devtyp,model,clas,code,prime,alt,heads,\
@@ -672,7 +676,7 @@ class ckdev(object):
             if dump:
                 string="%s\n%s" % (string,\
                     hexdump.dump(trk,start=0,indent="    "))
-            print string
+            print(string)
         return track.parse(trk,self,debug=debug)
     def records(self,keylen,datalen):
         # Returns the number of records of this size that will fit on a track
@@ -695,7 +699,7 @@ class ckdev(object):
             if dump:
                 string="%s\n%s" % (string,\
                     hexdump.dump(data,start=0,indent="    "))
-            print string
+            print(string)
         try:
             fo.seek(pos)
         except IOError:
@@ -887,9 +891,9 @@ class home(object):
         header=trkimg[:home.hdrsize]
         bin,cyl,head=struct.unpack(ckdev.trkfmt,header)
         if debug:
-            print "ckdutil.py: debug: home.parse: " \
+            print("ckdutil.py: debug: home.parse: " \
                 "HOME BIN=0x%02X CYL=%s HEAD=%s" \
-                % (ord(bin),cyl,head)
+                % (ord(bin),cyl,head))
         if bin!="\x00":
             raise ValueError("invalid home address for track: (%s,%s)" \
                 % (cyl,head))
@@ -921,9 +925,9 @@ class record(object):
         rec=ord(rec)
         klen=ord(klen)
         if debug:
-            print "ckdutil.py: debug: record.parse: " \
+            print("ckdutil.py: debug: record.parse: " \
                 "Record CYL=%s HEAD=%s REC=%s key=%s data=%s" \
-                % (cyl,head,rec,klen,dlen)
+                % (cyl,head,rec,klen,dlen))
         key=""
         data=""
         if klen!=0:
@@ -969,11 +973,12 @@ class track(object):
     # This class abstracts a CKD track image
     eightFF=8*"\xFF"
     r0data=8*"\x00"
+    @staticmethod
     def end_of_track(trkimg):
         if len(trkimg)<8:
             raise IndexError("track image truncated: %s" % len(trkimg))
         return trkimg[:8]==track.eightFF
-    end_of_track=staticmethod(end_of_track)
+    @staticmethod
     def parse(trkimg,dev,debug=False):
         ha,trk=home.parse(trkimg,debug=debug)
         trko=track(dev,ha.cyl,ha.head,debug=debug)
@@ -981,14 +986,13 @@ class track(object):
            r,trk=record.parse(trk,debug=debug)
            trko.add(r,debug=debug)
         return trko
-    parse=staticmethod(parse)
+    @staticmethod
     def sever(trkimg,length):
         if length>len(trkimg):
             raise IndexError(\
                 "sever length exceeds image length of %s bytes: %s" \
                 % (length,len(trkimg)))
         return (trkimg[:length],trkimg[length:])
-    sever=staticmethod(sever)
     def __init__(self,dev,cyl,head,r0=False,debug=False):
         self.dev=dev   # ckdev instance for this volume
         #self.reltrk=self.dev.rel_track(cyl,head)
@@ -1033,18 +1037,18 @@ class track(object):
             rused,fit,rbal=self.dev.capacity(rused,len(rec.key),len(rec.data))
             if not fit:
                 if warn:
-                    print "WARNING: Could not add record %s on track " \
+                    print("WARNING: Could not add record %s on track " \
                          "(%s,%s): real used=%s, real balance=%s" \
-                         % (rec.rec,self.cyl,self.head,rused,rbal)
+                         % (rec.rec,self.cyl,self.head,rused,rbal))
                 if not force:
                     return False
         size=rec.vsize()
         if self.eused+size>self.dev.etrksize:
             if warn:
-                print "WARNING: Could not add record %s on track (%s,%s), " \
+                print("WARNING: Could not add record %s on track (%s,%s), " \
                     "maximum track size %s exceeded: %s" \
                     % (rec.rec,self.cyl,self.head,self.dev.etrksize,\
-                    self.eused+size)
+                    self.eused+size))
             return False
         self.recs.append(rec)
         self.eused+=size
@@ -1230,18 +1234,18 @@ def register_devices(dtypes):
         dtypes.dndex(dtypes.number(x.edevice,x.emodel),x.edtype)
 
 def usage():
-    print "/ckdutil.py image_file"
+    print("/ckdutil.py image_file")
 
 if __name__=="__main__":
-    print "ckdutil.py is only intended for import"
+    print("ckdutil.py is only intended for import")
     if len(sys.argv)!=2:
         usage()
         sys.exit(1)
     dev=ckd.attach(sys.argv[1],debug=True)
-    print dev
-    print "seeking to cyl=1,head=1"
+    print(dev)
+    print("seeking to cyl=1,head=1")
     dev.seek(1,1,debug=True,dump=True)
-    print "seeking to cyl=46,head=7"
+    print("seeking to cyl=46,head=7")
     dev.seek(46,7,debug=True)
     info=ckd_info(dev.dev.edtype,datalen=4096)
-    print info
+    print(info)

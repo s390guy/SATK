@@ -44,6 +44,7 @@
 # The record() method will have different parameters depending upon the device
 #
 
+import functools          # Access compare to key function for sorting
 import objutil            # Access the generic object module classes
 import sys                # Access to command line arguments
 # Media related modules
@@ -256,7 +257,7 @@ class handler(object):
              % (rec.__class__.__name__,self.dtype)
         if strict:
            raise TypeError(msg)
-        print "Warning: %s" % msg
+        print("Warning: %s" % msg)
     def set_path(self,path):
         self.path=path
     def valid(self,rec):
@@ -409,7 +410,8 @@ class fba_handler(handler):
         sorted_list=[]
         for x in reclst:
             sorted_list.append(x)
-        sorted_list.sort()
+        sorted_list=sorted(sorted_list,\
+            key=functools.cmp_to_key(recsutil.fba.compare))
         return sorted_list
     def size(self,devcls,dtype,last=None,comp=False):
         # Return the device size in media specific units
@@ -457,14 +459,14 @@ class tape_handler(handler):
 device.init()  # Setup record to handler mapping
 
 def usage():
-    print "./media.py dtype image_file"
+    print("./media.py dtype image_file")
 
 if __name__=="__main__":
-    print "media.py command line arguments intended for test purposes only"
+    print("media.py command line arguments intended for test purposes only")
     if len(sys.argv)!=3:
         usage()
         sys.exit(1)
-    print ckdutil.ckd.geometry[sys.argv[1]]
+    print(ckdutil.ckd.geometry[sys.argv[1]])
     dev=device(sys.argv[1])
     dev.create(sys.argv[2],progress=True)
     sys.exit(0)

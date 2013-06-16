@@ -335,28 +335,28 @@
  # |  IPL Environment Information Block  |
  # +-------------------------------------+
 
-.LIEIB      =0x250   # Address where IEIB resides
-.LIEIB_run  =0x250   # .byte  The running architecture (see Architecture Flags)
-.LIEIB_avl  =0x251   # .byte  The architectures available from this architecture
-.LIEIB_plt  =0x252   # .byte  The running platform (see Platform Information)
-.LIEIB_dtyp =0x253   # .byte  The IPL device type (see Device Types)
-.LIEIB_ipl  =0x254   # .long  The IPL device id (0x00000000 implies CDROM)
-.LIEIB_LP   =0x258   # .quad  LOADPARM data
-.LIEIB_cpuid=0x260   # .quad  CPU ID
-             halptr  0x268, .LIEIB_st,   .LIEIB_stg    # Highest addressable byte
-             halptr  0x270, .LIEIB_sccb, .LIEIB_sccbg  # Address of the SCCB
-             halptr  0x278, .LIEIB_sys,  .LIEIB_sysg   # Address of SYSIB 1.1.1 data
-             halptr  0x280, .LIEIB_asb,  .LIEIB_asbg   # Address of the ASB
-             halptr  0x288, .LIEIB_dtc,  .LIEIB_dtcg   # Address of the DTC
-             halptr  0x290, .LIEIB_a2e,  .LIEIB_a2eg   # ASCII->EBCDIC translate table
-             halptr  0x298, .LIEIB_e2a,  .LIEIB_e2ag   # EBCDIC->ASCII translate table
-.LIEIB_cpu = 0x2A0   # .hword CPU address
-.LIEIB_idn = 0x2A2   # .hword IPL device number
-.LIEIB_cdi = 0x2A4   # .long  Console device id
-.LIEIB_cdn = 0x2A8   # .hword Console device number
- #.LIEIB_cdo = 0x2AA   # .byte  Console device options (reserved for program use)
- #.LIEIB_cdu = 0x2AB   # .byte  Console option in use  (reserved for program use)
-.LIEIB_len = 0x2AA-.LIEIB   # Length of the IEIB in bytes
+.LIEIB      =0x260   # Address where IEIB resides
+.LIEIB_run  =0x260   # .byte  The running architecture (see Architecture Flags)
+.LIEIB_avl  =0x261   # .byte  The architectures available from this architecture
+.LIEIB_plt  =0x262   # .byte  The running platform (see Platform Information)
+.LIEIB_dtyp =0x263   # .byte  The IPL device type (see Device Types)
+.LIEIB_ipl  =0x264   # .long  The IPL device id (0x00000000 implies CDROM)
+.LIEIB_LP   =0x268   # .quad  LOADPARM data
+.LIEIB_cpuid=0x270   # .quad  CPU ID
+             halptr  0x278, .LIEIB_st,   .LIEIB_stg    # Highest addressable byte
+             halptr  0x280, .LIEIB_sccb, .LIEIB_sccbg  # Address of the SCCB
+             halptr  0x288, .LIEIB_sys,  .LIEIB_sysg   # Address of SYSIB 1.1.1 data
+             halptr  0x290, .LIEIB_asb,  .LIEIB_asbg   # Address of the ASB
+             halptr  0x298, .LIEIB_dtc,  .LIEIB_dtcg   # Address of the DTC
+             halptr  0x2A0, .LIEIB_a2e,  .LIEIB_a2eg   # ASCII->EBCDIC translate table
+             halptr  0x2A8, .LIEIB_e2a,  .LIEIB_e2ag   # EBCDIC->ASCII translate table
+.LIEIB_cpu = 0x2B0   # .hword CPU address
+.LIEIB_idn = 0x2B2   # .hword IPL device number
+.LIEIB_cdi = 0x2B4   # .long  Console device id
+.LIEIB_cdn = 0x2B8   # .hword Console device number
+ #.LIEIB_cdo = 0x2BA   # .byte  Console device options (reserved for program use)
+ #.LIEIB_cdu = 0x2BB   # .byte  Console option in use  (reserved for program use)
+.LIEIB_len = 0x2BA-.LIEIB   # Length of the IEIB in bytes
  # Note: IHCB allocations start at 0x2C0
 
  # Architectue Flags (.LIEIB_run and .LIEIB_avl)

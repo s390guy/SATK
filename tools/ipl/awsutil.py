@@ -320,4 +320,4 @@ def register_devices(dtypes):
     dtypes.dtype("tape",awstape)
 
 if __name__=="__main__":
-    print "awsutil.py is only intended for import"
+    print("awsutil.py is only intended for import")

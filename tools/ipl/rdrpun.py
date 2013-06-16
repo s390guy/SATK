@@ -114,4 +114,4 @@ def register_devices(dtypes):
     dtypes.dtype("pun",punch)
 
 if __name__=="__main__":
-    print "rdrpun.py is only intended for import"
+    print("rdrpun.py is only intended for import")

@@ -24,7 +24,7 @@ source ${SATK_DIR}/samples/imlfun
 
 # Tool chain components - update when releases change:
 source ${SATK_DIR}/tools/medfun \
-    xtools=${HOME}/crossbuild sfx="-2.21.51.0.7" module="embed"
+    xtools=${HOME}/crossbuild sfx="-2.23.1" module="embed"
 
 med_env source ${SAMPLE_DIR}    # Establish where the source file is found
 ipl_elf include src             # include the basic SATK/src file
@@ -62,22 +62,27 @@ case $1 in
     "fba")   med_env model 3310    # FBA Device
              export IPLTYPE="3310"      
              SAMPLE=${SAMPLE_DIR}/fba
+             dev_class="fba"
              ;;
     "ckd")   mod_env model 3380    # CKD Device
              export IPLTYPE="3380"      
              SAMPLE=${SAMPLE_DIR}/ckd
+             dev_class="ckd"
              ;;
     "tape")  mod_env model 3410    # Tape Device
              export IPLTYPE="3410"      
              SAMPLE=${SAMPLE_DIR}/tape
+             dev_class="tape"
              ;;
     "card")  med_env model 3525    # Card Reader Device
              export IPLTYPE="3525"      
              SAMPLE=${SAMPLE_DIR}/card
+             dev_class="card"
              ;;
     "CDROM") mod_env model CDROM   # CDROM
              export IPLTYPE="CDROM"      
              SAMPLE=${SAMPLE_DIR}/cdrom
+             dev_class="cdrom"
              ;;
     *) echo "lodrtest: Error: Unrecognized IPL device type: $1"
 esac
@@ -152,38 +157,39 @@ case $2 in
         med_env arch s370bc         # Causes psw's to be S/370 Bc-mode
         med_env init
         med_env s370bc enable       # Causes IPL PSW's to use S/370 BC-mode
-        rc=${ARCHDIR}/s370bc.rc
-        conf=${ARCHDIR}/s370bc.conf
+        rc=${ARCHDIR}/test/s370bc.rc
+        conf=${ARCHDIR}/test/s370bc.conf
         ;;
     "s370")   
         ARCHDIR=${SAMPLE}/s370
         med_env arch s370
         med_env init
-        rc=${ARCHDIR}/s370.rc
-        conf=${ARCHDIR}/s370.conf
+        rc=${ARCHDIR}/test/s370.rc
+        conf=${ARCHDIR}/test/s370.conf
         ;;
     "s390")   
         ARCHDIR=${SAMPLE}/s390
         med_env arch s390
         med_env init
-        rc=${ARCHDIR}/s390.rc
-        conf=${ARCHDIR}/s390.conf
+        rc=${ARCHDIR}/test/s390.rc
+        conf=${ARCHDIR}/test/s390.conf
         ;;
     "s390x")  
         ARCHDIR=${SAMPLE}/s390x
         med_env arch z
         med_env init
-        rc=${ARCHDIR}/s390x.rc
-        conf=${ARCHDIR}/s390x.conf
+        rc=${ARCHDIR}/test/s390x.rc
+        conf=${ARCHDIR}/test/s390x.conf
         ;;
     *)
         echo "lodrtest: Error: invalid test architecture: $2"
         exit 1
 esac
 
-med_env build   ${ARCHDIR}      # Establish where to build the object and executable
-med_env install ${ARCHDIR}      # Establish where to install the IPL device medium
-med_env logs    ${ARCHDIR}      # Establish where logs are placed
+# Establish where to build the object and executable
+med_env build   ${ARCHDIR}/build 
+med_env install ${ARCHDIR}       # Establish where to install the IPL device medium
+med_env logs    ${ARCHDIR}/test  # Establish where logs are placed
 
 # Create log file path
 datetime
