@@ -70,7 +70,7 @@ def psw(sysmsk=0x0008,pgmmsk=0,addr=0,mode=24,debug=False):
             % (sysmsk,pgmmsk,addr,mode))
     # return a S/370 EC-mode or 24-bit addressing mode ESA/390 64-bit PSW
     if mode==31:
-        return halfwordb(sysmsk)+byteb(pgmmsk)+"\x00"+addr31b(addr,bit0=1)
+        return halfwordb(sysmsk)+byteb(pgmmsk)+b"\x00"+addr31b(addr,bit0=1)
     return halfwordb(sysmsk)+byteb(pgmmsk)+b"\x00\x00"+addr24b(addr)
     
 def pswe(sysmsk=0x0000,pgmmsk=0,addr=0,debug=False):
