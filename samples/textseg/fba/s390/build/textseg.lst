@@ -1,0 +1,94 @@
+GAS LISTING /home/harold/SATKREPO/SATK/samples/textseg/textseg.S 			page 1
+
+
+ GNU assembler version 2.23.1 (s390-linux)
+	 using BFD version (GNU Binutils) 2.23.1.
+ options passed	: -m31 -march=z196 -mesa --listing-lhs-width=2 --listing-cont-lines=16 -acghlms=/home/harold/SATKREPO/SATK/samples/textseg/fba/s390/build/textseg.lst -I -I -I -I -I -I -I --defsym --defsym --defsym 
+ input file    	: /home/harold/SATKREPO/SATK/samples/textseg/textseg.S
+ output file   	: /home/harold/SATKREPO/SATK/samples/textseg/fba/s390/build/textseg.o
+ target        	: s390-ibm-linux-gnu
+ time stamp    	: 2013-06-16T08:25:43.000-0500
+
+GAS LISTING /home/harold/SATKREPO/SATK/samples/textseg/textseg.S 			page 2
+IPL ELF IPL Function Sample
+
+   1                       	          .title "IPL ELF IPL Function Sample"
+   2                       	 # Copyright (C) 2012 Harold Grovesteen
+   3                       	 #
+   4                       	 # This file is part of SATK.
+   5                       	 #
+   6                       	 #     SATK is free software: you can redistribute it and/or modify
+   7                       	 #     it under the terms of the GNU General Public License as published by
+   8                       	 #     the Free Software Foundation, either version 3 of the License, or
+   9                       	 #     (at your option) any later version.
+  10                       	 #
+  11                       	 #     SATK is distributed in the hope that it will be useful,
+  12                       	 #     but WITHOUT ANY WARRANTY; without even the implied warranty of
+  13                       	 #     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  14                       	 #     GNU General Public License for more details.
+  15                       	 #
+  16                       	 #     You should have received a copy of the GNU General Public License
+  17                       	 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+  18                       	 
+  19                       	 # This is a test source module to develop support for the IPL ELF ABI Supplement.  
+  20                       	 # The program's text segment is loaded directly into storage by the IPL function
+  21                       	 # including the default LOWC content.  The booted program is nothing more than a 
+  22                       	 # hello world program.  A boot loader is not used with this program.
+  23                       	 #
+  24                       	 # The lodrtest bash script in this program's directory is used to build and test 
+  25                       	 # the IPL medium containing this program.
+  26                       	          
+  27                       	          .sbttl "IPL Program"
+  28                       	          
+  29                       	    .ifdef __s390x__
+  31                       	    .endif
+  32                       	
+  33                       	 # TXT Segment
+  34                       	          .text
+  35                       	.L_ipl:
+  36                       	 # Because this program is loaded by the IPL function constrained to Format 0 CCW's
+  37                       	 # it may only be loaded into the first 16M of storage. It will be entered in either
+  38                       	 # an S/370 mode or in ESA/390 mode depending upon the hardware architecture. The
+  39                       	 # program must enter z/Architecture mode itself as determined by assembly time
+  40                       	 # defined symbols.
+  41                       	
+  42                       	_start:   .global _start
+  43 0000 0DF0              	          basr    15,0
+  44                       	0:        
+  45                       	    .ifdef __s390x__
+  47                       	    .endif
+  48 0002 9825F016          	          lm      2,5,.Lparms-0b(15)
+  49 0006 83240008          	          diag    2,4,0x8          # Issue command containing the message
+  50 000a 1244              	          ltr     4,4              # Did an error occur?
+  51 000c 4780F012          	          bz      .Lendok-0b(15)   # ..No, end OK
+  52 0010 8200F046          	          lpsw    .Lendbad-0b(15)  # ..Yes, end BAD
+  53 0014 8200F03E          	.Lendok:  lpsw    .Lendpsw-0b(15)  # End with a disabled wait (code 0)
+  54 0018 00000000          	.Lparms:  .long   .Lmsg       # Rx = command string address
+  55 001c 00000000          	          .long   0           # Rx+1 = response buffer address
+  56 0020 00000015          	          .long   .Lmsglen    # Ry = command string length and flags (no response)
+  57 0024 00000000          	          .long   0           # Ry+1 = response buffer length
+  58 0028 D4E2C7D5 D6C840   	.Lmsg:    .byte   0xD4,0xE2,0xC7,0xD5,0xD6,0xC8,0x40  # 'MSGNOH'  in EBCDIC
+  59 002f 405C40            	          .byte   0x40,0x5C,0x40                      # ' * '     in EBCDIC
+GAS LISTING /home/harold/SATKREPO/SATK/samples/textseg/textseg.S 			page 3
+IPL ELF IPL Function Sample
+IPL Program
+  60 0032 C8859393 9640     	          .byte   0xC8,0x85,0x93,0x93,0x96,0x40       # 'Hello '  in EBCDIC
+  61 0038 A6969993 84       	          .byte   0xA6,0x96,0x99,0x93,0x84            # 'world'   in EBCDIC
+  62                       	.Lmsglen  =       .-.Lmsg
+  63 003d 070707            	          .align  8
+  64 0040 000A0000          	.Lendpsw: .hword  0x000A,0
+  65 0044 00000000          	          .long   0
+  66 0048 000A0000          	.Lendbad: .hword  0x000A,0
+  67 004c 00000BAD          	          .long   0xbad
+  68                       	
+  69                       	          .end
+GAS LISTING /home/harold/SATKREPO/SATK/samples/textseg/textseg.S 			page 4
+IPL ELF IPL Function Sample
+IPL Program
+DEFINED SYMBOLS
+                            *ABS*:0000000000000001 __s390__
+                            *ABS*:0000000000000002 __ARCH__
+                            *ABS*:0000000000000001 __FBA__
+/home/harold/SATKREPO/SATK/samples/textseg/textseg.S:42     .text:0000000000000000 _start
+
+NO UNDEFINED SYMBOLS
