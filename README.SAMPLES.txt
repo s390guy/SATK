@@ -84,28 +84,26 @@ The remainder of this file contains notes about specific sample directories.
 embedded directory
 ------------------
 
-The embedded directory uses the module name 'default'.
-Devices built to directly IPL the program without a loader use the name 
-'default.<device_type>'.
+The embedded directory uses the module name 'embed'.
 Devices built to IPL a boot loader which then loads the program from the device use
 the name 'embed.<device_type>'.
 
-Test/availability matrix for IPL ELF loaded directly by the IPL function.
+Test/availability matrix for loading an IPL ELF by its embedded boot strap loader.
 
 +----------------------------------------------------------+
 |   Device   |                CPU architecture             |
 |    Type    |---------------------------------------------+
 |            |   s370bc  |  s370   |    s390    |   s390x  |
 +------------+-----------+---------+------------+----------+
-|    card    |     --    |   --    |   tested   |     --   |
+|    card    |     --    |   --    |     --     |     --   |
 +------------+-----------+---------+------------+----------+
-|   cdrom    |     --    |   --    |   tested   |     --   |
+|   cdrom    |     --    |   --    |     --     |     --   |
 +------------+-----------+---------+------------+----------+
-|    ckd     |     --    |   --    |   tested   |     --   |
+|    ckd     |     --    |   --    |     --     |     --   |
 +------------+-----------+---------+------------+----------+
-|    fba     |     --    |   --    |   tested   |     --   |
+|    fba     |     --    |  SATK   |     --     |     --   |
 +------------+-----------+---------+------------+----------+
-|    tape    |     --    |   --    |   tested   |     --   |
+|    tape    |     --    |   --    |     --     |     --   |
 +------------+-----------+---------+------------+----------+
 
 

@@ -1193,8 +1193,10 @@ class FBA(device_class):
                 if pgm and lodr.pgm.update:
                     prep_data=fullwordb(pgm_sector)
                     prep_data+=10*b"\x00"
-                    prep_data+=chr(arch)
-                    prep_data+=chr(self.iplmask|ioarch)
+                    #prep_data+=chr(arch)
+                    prep_data+=bytes([arch,])
+                    #prep_data+=chr(self.iplmask|ioarch)
+                    prep_data+=bytes([self.iplmask|ioarch,])
                     lodr.update(prep_data)
             vol_sect=fbamap.areas["Program"]
             vol_sect=vol_sect.sector
@@ -2212,11 +2214,11 @@ class loader(record):
         prep_data=content[loader.loader_info:loader.header]
         error=False
         if self.cap[loader.loader_resv:]\
-           !=(loader.loader_info-loader.loader_resv)*"\x00":
+           !=(loader.loader_info-loader.loader_resv)*b"\x00":
             print("iplmed.py: error: loader's reserved interface data not " \
                 "binary zeros:\n%s" % dump(self.cap,indent="    "))
             error=True
-        if prep_data!=((loader.header-loader.loader_info)*"\x00"):
+        if prep_data!=((loader.header-loader.loader_info)*b"\x00"):
             print("iplmed.py: error: medium preparation interface data not " \
                 "binary zeros:\n%s" % dump(prep_data,indent="    "))
             error=True
@@ -2227,25 +2229,28 @@ class loader(record):
         eof_cap=self.cap[4]
         pad_cap=self.cap[5]
         pgm_loc=self.cap[6]
-        boot_dev=ord(self.cap[7])   # All bit combinations valid
-        arch_cap=ord(self.cap[8])
-        if pgm_cap not in "SDN":
+        #boot_dev=ord(self.cap[7])   # All bit combinations valid
+        boot_dev=self.cap[7]         # All bit combinations valid
+        #arch_cap=ord(self.cap[8])
+        arch_cap=self.cap[8]
+        
+        if pgm_cap not in b"SDN":
             print("iplmed.py: error: loader program capability invalid: 0x%02X" \
                 % ord(pgm_cap))
             error=True
-        if lowc_cap not in "SDN":
+        if lowc_cap not in b"SDN":
             print("iplmed.py: error: loader lowc capability invalid: 0x%02X" \
                 % ord(lowc_cap))
             error=True
-        if eof_cap not in "HP":
+        if eof_cap not in b"HP":
             print("iplmed.py: error: loader EOF capability invalid: 0x%02X" \
                 % ord(eof_cap))
             error=True
-        if pad_cap not in "YN":
+        if pad_cap not in b"YN":
             print("iplmed.py: error: loader block pad capability invalid: 0x%02X" \
                 % ord(pad_cap))
             error=True
-        if pgm_loc not in "YN":
+        if pgm_loc not in b"YN":
             print("iplmed.py: error: loader program location update invalid: 0x%02X" \
                 % ord(pgm_loc))
             error=True
@@ -2313,16 +2318,18 @@ class loader(record):
             if eof is not None:
                 dev_recs.append(eof)
         return dev_recs
-    def update(self,data=""):
+    def update(self,data=b""):
         # Prepare supplied data for insertion into the loader segment
         prep_size=loader.header-loader.loader_info
-        pad=prep_size*"\x00"
+        pad=prep_size*b"\x00"
         prep_data=data+pad
         prep_data=prep_data[:prep_size]
-        if ord(prep_data[-2])==0:
+        #if ord(prep_data[-2])==0:
+        if prep_data[-2]==0:
             raise NotImplementedError("iplmed.py: internal: Loader interface "\
                 "data does not contain required architecture support data")
-        if ord(prep_data[-1])==0:
+        #if ord(prep_data[-1])==0:
+        if prep_data[-1]==0:
             raise NotImplementedError("iplmed.py: internal: Loader interface "\
                 "data does not contain required device support data")
         print("iplmed.py: Loader interface data provided to LOADER segment:\n%s" \
@@ -2353,10 +2360,14 @@ class loader_cap(object):
         self.dev=dev
         self.arch=arch
     def __str__(self):
+        pad=chr(self.pad_block)
+        format=chr(self.cap)
+        eof=chr(self.eof)
+        pgm=self.update
         return "supported=%s, size=%s, pad=%s, format=%s, EOF=%s, pgm=%s " \
              "devices=%02X, arch=%02X, ioarch=%02X" \
-             % (self.supported,self.recsize,self.pad_block,self.cap,self.eof,\
-                self.update,(self.dev & 0xF9),self.arch,(self.dev & 0x06))
+             % (self.supported,self.recsize,pad,format,eof,\
+                pgm,(self.dev & 0xF9),self.arch,(self.dev & 0x06))
     def test_arch(self,arch):
         # Returns true if supplied architecture is supported
         #print "mask=%02X, self.arch=%02X" % \
@@ -2375,16 +2386,16 @@ class loader_cap(object):
         return self.dev
     @property
     def directed(self):
-        return self.cap=="D"
+        return self.cap==ord("D")
     @property
     def directed_eof(self):
-        return self.directed and (self.eof=="H")
+        return self.directed and (self.eof==ord("H"))
     @property
     def pad(self):
-        return self.pad_block=="Y"
+        return self.pad_block==ord("Y")
     @property
     def physical_eof(self):
-        return self.eof=="P" or (not self.directed)
+        return self.eof==ord("P") or (not self.directed)
     @property
     def schio(self):
         return (self.dev & 0x02)!=0
@@ -2393,13 +2404,13 @@ class loader_cap(object):
         return self.recsize
     @property
     def stream(self):
-        return self.cap=="S"
+        return self.cap==ord("S")
     @property
     def supported(self):
-        return not self.cap=="N"
+        return not self.cap==ord("N")
     @property
     def update(self):
-        return self.pgm_loc=="Y"
+        return self.pgm_loc==ord("Y")
 
 class lowc(record):
     def __init__(self,sego,elf,vol,debug=False):

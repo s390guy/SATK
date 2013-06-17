@@ -1,5 +1,5 @@
-.ifndef .Lfbambed_S
-.Lfbambed_S=1
+.ifndef .Lfbam370_S
+.Lfbam370_S=1
  # Copyright (C) 2012 Harold Grovesteen
  #
  # This file is part of SATK.
@@ -191,4 +191,4 @@
 .Liplparms  =      .                        # IPL parameter save area
 .Lblock     =      .Liplparms+64            # FBA physical sector/block read here
 
-.endif # .ifndef .Lfbambed_S scope
+.endif # .ifndef .Lfbam370_S scope

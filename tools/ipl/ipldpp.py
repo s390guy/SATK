@@ -165,14 +165,14 @@ class iplelf(object):
         # s370 and s390 areas
         if isinstance(proc,s370) or isinstance(proc,s390):
             area("ELF1",0x1000,0xFFFFFF,attr="rwx")
-            area("TXT0",0x300,0xFFFFFF,attr="rwx")
+            area("TXT0",0x400,0xFFFFFF,attr="rwx")
         # s390x areas
         if isinstance(proc,s390x):
             area("ELF2",0x2000,0xFFFFFF,attr="rwx")
             area("TXT2",0x1400,0xFFFFFF,attr="rwx")
-            area("TXT1",0x300,0x11FF,attr="rwx")
+            area("TXT1",0x400,0x11FF,attr="rwx")
         # Common area
-        area("LOWC",0x0,0x2FF,attr="rw")
+        area("LOWC",0x0,0x3FF,attr="rw")
         area("/DISCARD/",0x0,0x1,attr="")
         #
         # Recognized sections
