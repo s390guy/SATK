@@ -1,6 +1,6 @@
 .ifndef .Lfbam370_S
 .Lfbam370_S=1
- # Copyright (C) 2012 Harold Grovesteen
+ # Copyright (C) 2012,2013 Harold Grovesteen
  #
  # This file is part of SATK.
  #
