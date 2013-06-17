@@ -326,7 +326,7 @@
             .align 8                                 # Doubleword align PSW's
 1:          .quad  0                                 # 1f     new PSW save area
          .ifeq .L__psw_arch  # System/370 Basic Control Mode
-            psw    s=(\s)&0x0001|0xFE00,a=1b+18      # 1f+8   Wait PSW
+            psw    s=(\s)&0x0001|0xFE02,a=1b+18      # 1f+8   Wait PSW
             .hword 0x01F5                            # 1f+16  New PSW run mask
          .else               # System/370 Extended Control Mode or ESA/390
             psw    s=(\s)&0x0001|0x0202,a=1b+18      # 1f+8   Wait PSW
