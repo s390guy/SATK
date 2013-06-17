@@ -43,7 +43,7 @@
     # Enter architecture mode required by bootstrapped program
            cli      .Lreqarch-0b(12),0x64     # Is z/Architecture required?
            bne      \sym\()32-0b(12)          # ..No, enter ELF in ESA/390 mode        
-           zarch     10,13,error=\zerr,br=\b  # ..Yes, enter z/Architecture
+           zarch     10,13,error=\zerr,br=\br # ..Yes, enter z/Architecture
     # Now in z/Architetecture mode
            sam64                              # Set address mode to 64
            enterz   \loadr,\entryr,\error,er=\er,br=\br,b=\b
