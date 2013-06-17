@@ -8,8 +8,8 @@ ENTRY(_start)
 
 MEMORY
 {
+    TXT0 (rwx) : ORIGIN = 0x400, LENGTH = 0xFFFC00
     ELF1 (rwx) : ORIGIN = 0x1094, LENGTH = 0x7FFFEF6C
-    TXT0 (rwx) : ORIGIN = 0x300, LENGTH = 0xFFFD00
 }
 
 PHDRS
@@ -20,6 +20,11 @@ PHDRS
 
 SECTIONS
 {
+    .lodr   :    
+    {
+        *(.loader)
+    } >TXT0  :LODR
+
     .text 0x2094  :    
     {
         . = ALIGN(16) ;
@@ -41,11 +46,6 @@ SECTIONS
         . = ALIGN(16) ;
         *(.bss)
     } >ELF1  :TEXT
-
-    .lodr   :    
-    {
-        *(.loader)
-    } >TXT0  :LODR
 
     /DISCARD/   :    
     {

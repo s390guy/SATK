@@ -22,6 +22,9 @@ t+
 t+0200
 ipl 0200
 pause 2
+r 000.FF
+r 100.FF
+r 200.FF
 r 300.FF
 r 400.FF
 r 500.FF
@@ -30,3 +33,8 @@ r 2000.FF
 r 2100.FF
 r 2200.FF
 r 2300.FF
+r 2400.FF
+r 2500.FF
+r 2600.FF
+r 2700.FF
+r 2800.FF

@@ -1,15 +1,15 @@
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 1
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 1
 
 
- GNU assembler version 2.21.51.0.7 (s390-linux)
-	 using BFD version (Linux/GNU Binutils) 2.21.51.0.7.20110306.
- options passed	: -m31 -march=z196 -mesa --listing-lhs-width=2 --listing-cont-lines=16 -acghlms=/home/harold/SATK/samples/embedded/fba/s390/embed.lst -I -I -I -I -I -I -I --defsym --defsym --defsym 
- input file    	: /home/harold/SATK/src/ipl/embed.S
- output file   	: /home/harold/SATK/samples/embedded/fba/s390/embed.o
+ GNU assembler version 2.23.1 (s390-linux)
+	 using BFD version (GNU Binutils) 2.23.1.
+ options passed	: -m31 -march=z196 -mesa --listing-lhs-width=2 --listing-cont-lines=16 -acghlms=/home/harold/SATKREPO/SATK/samples/embedded/fba/s390/build/embed.lst -I -I -I -I -I -I -I --defsym --defsym --defsym 
+ input file    	: /home/harold/SATKREPO/SATK/samples/embedded/embed.S
+ output file   	: /home/harold/SATKREPO/SATK/samples/embedded/fba/s390/build/embed.o
  target        	: s390-ibm-linux-gnu
- time stamp    	: 2012-08-05T16:36:12.000-0500
+ time stamp    	: 2013-06-17T14:24:01.000-0500
 
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 2
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 2
 IPL ELF Embedded Boot Loader Sample
 
    1                       	          .title "IPL ELF Embedded Boot Loader Sample"
@@ -31,76 +31,47 @@ IPL ELF Embedded Boot Loader Sample
   17                       	 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
   18                       	 
   19                       	 # This is a test source module to develop support for the IPL ELF ABI Supplement.  
-  20                       	 # It uses an embedded loader to load the program and the default LOWC content.  
+  20                       	 # It uses an embedded loader to load the program and  the default LOWC content.  
   21                       	 # The booted program is nothing more than a hello world program.
   22                       	          
-  23                       	          .include "hello.S"      # Include the booted program
-   1                       	.ifndef .Lhello_S
-   2                       	.Lhello_S=1
-   3                       	 # Copyright (C) 2012 Harold Grovesteen
-   4                       	 #
-   5                       	 # This file is part of SATK.
-   6                       	 #
-   7                       	 #     SATK is free software: you can redistribute it and/or modify
-   8                       	 #     it under the terms of the GNU General Public License as published by
-   9                       	 #     the Free Software Foundation, either version 3 of the License, or
-  10                       	 #     (at your option) any later version.
-  11                       	 #
-  12                       	 #     SATK is distributed in the hope that it will be useful,
-  13                       	 #     but WITHOUT ANY WARRANTY; without even the implied warranty of
-  14                       	 #     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  15                       	 #     GNU General Public License for more details.
-  16                       	 #
-  17                       	 #     You should have received a copy of the GNU General Public License
-  18                       	 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
-  19                       	 
-  20                       	 # This is a test source module to develop support for the IPL ELF ABI Supplement.  
-  21                       	 # This IPL program issues a "Hello World" message using DIAGNOSE X'008' on the
-  22                       	 # console.  It is designed to operate in any architecture mode.  It is included
-  23                       	 # by other sample programs to illustrate how their operation.
-  24                       	          
-  25                       	          .sbttl "IPL Program"
-  26                       	 # TXT Segment
-  27                       	          .text
-  28                       	.L_ipl:
-  29                       	
-  30                       	_start:   .global _start
-  31 0000 0DF0              	          basr    15,0
-  32 0002 9825F016          	0:        lm      2,5,.Lparms-0b(15)
-  33 0006 83240008          	          diag    2,4,0x8          # Issue command containing the message
-  34 000a 1244              	          ltr     4,4              # Did an error occur?
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 3
-IPL ELF Embedded Boot Loader Sample
-IPL Program
-  35 000c 4780F012          	          bz      .Lendok-0b(15)   # ..No, end OK
-  36 0010 8200F046          	          lpsw    .Lendbad-0b(15)  # ..Yes, end BAD
-  37 0014 8200F03E          	.Lendok:  lpsw    .Lendpsw-0b(15)  # End with a disabled wait (code 0)
-  38 0018 00000000          	.Lparms:  .long   .Lmsg       # Rx = command string address
-  39 001c 00000000          	          .long   0           # Rx+1 = response buffer address
-  40 0020 00000015          	          .long   .Lmsglen    # Ry = command string length and flags (no response)
-  41 0024 00000000          	          .long   0           # Ry+1 = response buffer length
-  42 0028 D4E2C7D5 D6C840   	.Lmsg:    .byte   0xD4,0xE2,0xC7,0xD5,0xD6,0xC8,0x40  # 'MSGNOH'  in EBCDIC
-  43 002f 405C40            	          .byte   0x40,0x5C,0x40                      # ' * '     in EBCDIC
-  44 0032 C8859393 9640     	          .byte   0xC8,0x85,0x93,0x93,0x96,0x40       # 'Hello '  in EBCDIC
-  45 0038 A6969993 84       	          .byte   0xA6,0x96,0x99,0x93,0x84            # 'world'   in EBCDIC
-  46                       	.Lmsglen  =       .-.Lmsg
-  47 003d 070707            	          .align  8
-  48 0040 000A0000          	.Lendpsw: .hword  0x000A,0
-  49 0044 00000000          	          .long   0
-  50 0048 000A0000          	.Lendbad: .hword  0x000A,0
-  51 004c 00000BAD          	          .long   0xbad
-  52                       	
-  53                       	.endif # .ifndef .Lhello_S scope
-  24                       	          
-  25 0050 436F7079 72696768 	          .ascii   "Copyright (C) 2012 Harold Grovesteen"
-  25      74202843 29203230 
-  25      31322048 61726F6C 
-  25      64204772 6F766573 
-  25      7465656E 
-  26                       	
-  27                       	          .include "loaders.S"    # Select the boot loader based upon symbols
+  23                       	          .sbttl "IPL Program"
+  24                       	 # TXT Segment
+  25                       	          .text
+  26                       	.L_ipl:
+  27                       	# The loader frees itself from the shackles of the IPL environment of CCW0 24-bit 
+  28                       	# addressing mode.  Because only this segment is loaded by the embedded
+  29                       	# loader it will remain is ESA/390 mode.  The embedded loader will only enter 
+  30                       	# z/Archtecture mode if it loads a s390 64-bit ELF in its entirety.
+  31                       	
+  32                       	_start:   .global _start
+  33 0000 0DF0              	          basr    15,0
+  34 0002 9825F016          	0:        lm      2,5,.Lparms-0b(15)
+  35 0006 83240008          	          diag    2,4,0x8          # Issue command containing the message
+  36 000a 1244              	          ltr     4,4              # Did an error occur?
+  37 000c 4780F012          	          bz      .Lendok-0b(15)   # ..No, end OK
+  38 0010 8200F046          	          lpsw    .Lendbad-0b(15)  # ..Yes, end BAD
+  39 0014 8200F03E          	.Lendok:  lpsw    .Lendpsw-0b(15)  # End with a disabled wait (code 0)
+  40 0018 00000000          	.Lparms:  .long   .Lmsg       # Rx = command string address
+  41 001c 00000000          	          .long   0           # Rx+1 = response buffer address
+  42 0020 00000015          	          .long   .Lmsglen    # Ry = command string length and flags (no response)
+  43 0024 00000000          	          .long   0           # Ry+1 = response buffer length
+  44 0028 D4E2C7D5 D6C840   	.Lmsg:    .byte   0xD4,0xE2,0xC7,0xD5,0xD6,0xC8,0x40  # 'MSGNOH'  in EBCDIC
+  45 002f 405C40            	          .byte   0x40,0x5C,0x40                      # ' * '     in EBCDIC
+  46 0032 C8859393 9640     	          .byte   0xC8,0x85,0x93,0x93,0x96,0x40       # 'Hello '  in EBCDIC
+  47 0038 A6969993 84       	          .byte   0xA6,0x96,0x99,0x93,0x84            # 'world'   in EBCDIC
+  48                       	.Lmsglen  =       .-.Lmsg
+  49 003d 070707            	          .align  8
+  50 0040 000A0000          	.Lendpsw: .hword  0x000A,0
+  51 0044 00000000          	          .long   0
+  52 0048 000A0000          	.Lendbad: .hword  0x000A,0
+  53 004c 00000BAD          	          .long   0xbad
+  54                       	
+  55                       	          .include "loaders.S"    # Select the boot loader based upon symbols
    1                       	.ifndef .Lloaders_S
    2                       	.Lloaders_S = 1
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 3
+IPL ELF Embedded Boot Loader Sample
+IPL Program
    3                       	 # Copyright (C) 2012 Harold Grovesteen
    4                       	 #
    5                       	 # This file is part of SATK.
@@ -129,9 +100,6 @@ IPL Program
    7                       	 #     SATK is free software: you can redistribute it and/or modify
    8                       	 #     it under the terms of the GNU General Public License as published by
    9                       	 #     the Free Software Foundation, either version 3 of the License, or
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 4
-IPL ELF Embedded Boot Loader Sample
-IPL Program
   10                       	 #     (at your option) any later version.
   11                       	 #
   12                       	 #     SATK is distributed in the hope that it will be useful,
@@ -161,6 +129,9 @@ IPL Program
   36                       	 #  s390xpsw31   Generate a z/Architecture 31-bit addressing mode PSW
   37                       	 #  s390xpsw     Generate a z/Architecture 64-bit addressing mode PSW
   38                       	 #  ssk          System/370 STORE STORAGE KEY instructin
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 4
+IPL ELF Embedded Boot Loader Sample
+IPL Program
   39                       	 #  traps64      Generate a set of 64-bit interrupt trap PSW's
   40                       	 #  traps128     Generate a set of 128-bit interrupt trap PSW's
   41                       	 #  zarch        Enter z/Architecture mode from ESA/390 mode
@@ -189,9 +160,6 @@ IPL Program
   64                       	.LPSW_oldmckg= 0x160
   65                       	.LPSW_oldiog = 0x170
   66                       	.LPSW_newrstg= 0x1A0
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 5
-IPL ELF Embedded Boot Loader Sample
-IPL Program
   67                       	.LPSW_newextg= 0x1B0
   68                       	.LPSW_newsvcg= 0x1C0
   69                       	.LPSW_newpgmg= 0x1D0
@@ -221,6 +189,9 @@ IPL Program
   93                       	.Ls370bcpgm  = .LPSW_oldpgm+2   # .hword  S/370 BC-mode program interrupt code
   94                       	
   95                       	 # Machine-Check / Store-Status Save Areas
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 5
+IPL ELF Embedded Boot Loader Sample
+IPL Program
   96                       	.LMCKAR = 0x120  # 0x120-0x15F - 32-bit Access Registers 0-15
   97                       	.LMCKFR = 0x160  # 0x160-0x17F - 64-bit Floating Point Registers 0, 2, 4, 6 
   98                       	.LMCKGR = 0x180  # 0x180-0x1BF - 32-bit General Registers 0-15
@@ -249,9 +220,6 @@ IPL Program
  121                       	.Lcr0_aspfunc= 0x00010000   # Address-space function control
  122                       	.Lcr0_malalrt= 0x00008000   # Malfunction-alert subclass mask
  123                       	.Lcr0_emrsgnl= 0x00004000   # Emergency-signal subclass mask
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 6
-IPL ELF Embedded Boot Loader Sample
-IPL Program
  124                       	.Lcr0_extcall= 0x00002000   # External-call subclass mask
  125                       	.Lcr0_todsync= 0x00001000   # TOD-clock sync-check subclass mask
  126                       	.Lcr0_clkcomp= 0x00000800   # Clock-comparator subclass mask
@@ -281,6 +249,9 @@ IPL Program
  150                       	                    .ifeq __amode__-31               # __amode__ is 31
  151                       	.L__psw_amode  = 0x80000000
  152                       	.L__pswe_amode = 0x00008000
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 6
+IPL ELF Embedded Boot Loader Sample
+IPL Program
  153                       	                    .else  # .ifeq __amode__-31      # __amode__ might be 64
  154                       	                         .ifeq __amode__-64          # __amode__ is 64
  155                       	.L__psw_amode  = 0x80000000
@@ -309,9 +280,6 @@ IPL Program
  178                       	.L__psw_amode  = 0x80000000
  179                       	.L__pswe_amode = 0x00008000
  180                       	               .else  # .ifc \am,31
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 7
-IPL ELF Embedded Boot Loader Sample
-IPL Program
  181                       	                    .ifc \am,64
  182                       	.L__psw_amode  = 0x80000000
  183                       	.L__pswe_amode = 0x00018000
@@ -341,6 +309,9 @@ IPL Program
  196                       	 # recognized: __s390x__, __s390__, __s370__, __bcmode__.  The arch argument
  197                       	 # recognizes z, 370, 390 and bc.  An arch argument value overrides a specified
  198                       	 # assembler symbol setting.  The default architecture is 370 (extended mode).
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 7
+IPL ELF Embedded Boot Loader Sample
+IPL Program
  199                       	 # The local symbol .L__psw_arch is set to one of the following values:
  200                       	 # 0 for System/370 Basic-Control mode, 1 for System/370 Extended Control mode,
  201                       	 # 2 for ESA/390 and 3 for z/Architecture
@@ -369,9 +340,6 @@ IPL Program
  224                       	.L__psw_arch = 3
  225                       	            .else # .ifdef __s390x__
  226                       	                 .ifdef __s390__
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 8
-IPL ELF Embedded Boot Loader Sample
-IPL Program
  227                       	.L__psw_arch = 2
  228                       	                 .else  # .ifdef __s390__
  229                       	                      .ifdef __s370__
@@ -401,6 +369,9 @@ IPL Program
  244                       	>  .endif 
  244                       	>  .endif 
  245                       	
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 8
+IPL ELF Embedded Boot Loader Sample
+IPL Program
  246                       	 # dwait - Enter a disabled wait state from the current active architecture
  247                       	 
  248                       	         .macro dwait code=0 program=1 br=13 b=0b
@@ -429,9 +400,6 @@ IPL Program
  271                       	         .insn rr,0x0900,\r1,\r2
  272                       		     .endm
  273                       	
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 9
-IPL ELF Embedded Boot Loader Sample
-IPL Program
  274                       	 # Generate a 64-bit PSW (ESA/390 or System/370) with format and addressing mode
  275                       	 # based upon the psw_arch and psw_amode settings respectively.
  276                       	
@@ -461,6 +429,9 @@ IPL Program
  300                       	 
  301                       	         .macro rrb bd1:req
  302                       	         .insn s,0xB2130000,\bd2
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 9
+IPL ELF Embedded Boot Loader Sample
+IPL Program
  303                       	         .endm
  304                       	
  305                       	 # Generate a System/370 Basic-control mode PSW
@@ -489,9 +460,6 @@ IPL Program
  328                       	       .macro s390psw s=0,p=0,a=0
  329                       	       .hword (\s)&0x47FF|8,((\p)&0xFF)<<8
  330                       	       .long  0x80000000+(\a)
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 10
-IPL ELF Embedded Boot Loader Sample
-IPL Program
  331                       	       .endm
  332                       	
  333                       	 # Generate a z/Architecture mode 24-bit addressing PSW
@@ -521,6 +489,9 @@ IPL Program
  357                       	 #   r2       R2 instruction field (required)
  358                       	
  359                       	         .macro ssk r1=0,r2=0
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 10
+IPL ELF Embedded Boot Loader Sample
+IPL Program
  360                       	         .insn rr,0x0800,\r1,\r2
  361                       	         .endm
  362                       	       
@@ -549,9 +520,6 @@ IPL Program
  385                       	          mvc  .LPSW_newpgm(8,0),2f+8-\b(\br) # Set new one
  386                       	       .else
  387                       	          la   \wrkr,1f-\b(\br)     # Locate the interrupt intercept
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 11
-IPL ELF Embedded Boot Loader Sample
-IPL Program
  388                       	          stcm \wrkr,0x7,2f+13-\b(\br)  # Set it in the new PSW
  389                       	          mvc  2f-\b(8,\br),.LPSW_newpgm(0) # Save the current new PSW
  390                       	          mvc  .LPSW_newpgm(8,0),2f+8-\b(\br) # Set new one
@@ -581,6 +549,9 @@ IPL Program
  414                       	          st    \wrkr,.LPSW_oldpgm+4(0) # Set the fail address
  415                       	          lpsw  .LPSW_oldpgmg+8(0)      # Go there
  416                       	          .align 8
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 11
+IPL ELF Embedded Boot Loader Sample
+IPL Program
  417                       	2:        .quad  0   # Current PGM new PSW
  418                       	          s390psw    # Intercept new PGM new PSW
  419                       	          .long  0x80000000
@@ -609,9 +580,6 @@ IPL Program
  442                       	           mvc    0x58(56,0),\psws+8-\b(\br)  # Enable all of the other PSW's
  443                       	           .endm
  444                       	
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 12
-IPL ELF Embedded Boot Loader Sample
-IPL Program
  445                       	 # trap128 - Enable a set of 128-bit interrupt PSW's (see traps128)
  446                       	 #
  447                       	 # Macro Parameters:
@@ -641,6 +609,9 @@ IPL Program
  471                       	 # Macro Parameters: none
  472                       	
  473                       	           .macro traps128
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 12
+IPL ELF Embedded Boot Loader Sample
+IPL Program
  474                       	           pswe   s=0x0002,a=0x120        # Restart Trap PSW
  475                       	           pswe   s=0x0002,a=0x130        # External Trap PSW
  476                       	           pswe   s=0x0002,a=0x140        # Supervisor Call Trap PSW
@@ -669,9 +640,6 @@ IPL Program
  499                       	           bas      \er,\error-\b(\br)       # ..DIE, architecture change failed
  500                       	2:         .hword   0                        # CPU address
  501                       	           .endm
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 13
-IPL ELF Embedded Boot Loader Sample
-IPL Program
  502                       	
  503                       	.endif # .ifndef .Lpsw_S
   22                       	        .include "interrupt.S"   # In-line interrupt handling macros
@@ -701,6 +669,9 @@ IPL Program
   24                       	 # ESA/390 CPU is running in 31-bit addressing mode and a z/Architecture CPU is 
   25                       	 # running in 64-bit addressing mode.
   26                       	 #
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 13
+IPL ELF Embedded Boot Loader Sample
+IPL Program
   27                       	 #  Provided macros:
   28                       	 #      Macro          Description
   29                       	 #   flih            Install a ESA/390 First-Level Interrupt Handler
@@ -729,9 +700,6 @@ IPL Program
   52                       	 #   flih370_return  Return to the interrupt program from a System/370 First-Level
   53                       	 #                   Interrupt Handler
   54                       	 #   flihx_opsw      Locate the old PSW based upon assembly architecture symbol:
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 14
-IPL ELF Embedded Boot Loader Sample
-IPL Program
   55                       	 #                   __zarch__ (default a 32-bit architecture)
   56                       	 #
   57                       	 # The following macros cause the CPU to enter a wait state.  A First-Level
@@ -761,6 +729,9 @@ IPL Program
   81                       	 # required for proper interrupt recognition.
   82                       	 #
   83                       	 # These macros depend upon the psw_arch and psw_amode macros for proper
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 14
+IPL ELF Embedded Boot Loader Sample
+IPL Program
   84                       	 # settings.  The default is 24-bit addressing in the System/370 Extended Control
   85                       	 # mode architecture.  These defaults are established when psw.S is included in
   86                       	 # the assembly.
@@ -789,9 +760,6 @@ IPL Program
  109                       	            mvc   \npswg(16),1f-\b(\br)     # Move the New PSW
  110                       	            j     1f+16                     # Branch around New PSW
  111                       	1:          s390xpsw s=\s,a=\handler        # New PSW to be installed
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 15
-IPL ELF Embedded Boot Loader Sample
-IPL Program
  112                       	            .endm
  113                       	
  114                       	            .macro flih370  handler:req npsw:req s=0 br=13 b=0b
@@ -821,6 +789,9 @@ IPL Program
  138                       	            basr \br,0
  139                       	\base:
  140                       	            .ifc \call,yes
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 15
+IPL ELF Embedded Boot Loader Sample
+IPL Program
  141                       	               initsar sar=\sar,br=\br,b=\b
  142                       	            .endif
  143                       	            .endm
@@ -849,9 +820,6 @@ IPL Program
  166                       	
  167                       	 # Locate the old PSW depending upon the architecture
  168                       	
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 16
-IPL ELF Embedded Boot Loader Sample
-IPL Program
  169                       	            .macro flihx_opswr reg:req opsw:req opswg:req
  170                       	            .ifdef __zarch__
  171                       	               la    \reg,\opswg
@@ -881,6 +849,9 @@ IPL Program
  195                       	
  196                       	            .macro wait370 s:req wrkr:req br=13 b=0b
  197                       	            la    \wrkr,1f+8-\b(\br)    # Locate where we continue
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 16
+IPL ELF Embedded Boot Loader Sample
+IPL Program
  198                       	            st    \wrkr,1f+4-\b(\br)    # Place it in the wait PSW
  199                       	            lpsw  1f-\b(\br)            # And wait
  200                       	            .align 8
@@ -909,9 +880,6 @@ IPL Program
  223                       	
  224                       	            .macro wait_io wrkr:req br=13 b=0b
  225                       	            waitx s=0x0200,wrkr=\wrkr,br=\br,b=\b
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 17
-IPL ELF Embedded Boot Loader Sample
-IPL Program
  226                       	            .endm
  227                       	
  228                       	 # Return from a First Level Interrupt Handler
@@ -941,6 +909,9 @@ IPL Program
  252                       	 # Set the condition code before returning
  253                       	
  254                       	            .macro flihx_cc opswr:req cc:req br=13 b=0b
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 17
+IPL ELF Embedded Boot Loader Sample
+IPL Program
  255                       	            ni   2(\opswr),0xCF          # Clear the condition code in old PSW
  256                       	            oi   2(\opswr),(0x3&\cc)<<4  # Set the condition code
  257                       	            .endm
@@ -969,9 +940,6 @@ IPL Program
  280                       	       .ifeq .L__psw_arch-3  # 64-bit architecture
  281                       	            mvc    1f-\b(16,\br),.LPSW_newextg(0)     # Save current new PSW
  282                       	            mvc    .LPSW_newextg(16,0),1f+16-\b(\br)  # Set the return PSW
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 18
-IPL ELF Embedded Boot Loader Sample
-IPL Program
  283                       	            nc     .LPSW_newextg(2,0),1f+18-\b(\br)   # New PSW must run
  284                       	            lpswe  1f+16-\b(\br)                      # Wait for interrupt
  285                       	            .align 8                                  # Doubleword align PSW's
@@ -1001,6 +969,9 @@ IPL Program
  309                       	
  310                       	            .macro iowait s=0,br=13 b=0b
  311                       	       .ifeq .L__psw_arch-3  # 64-bit architecture
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 18
+IPL ELF Embedded Boot Loader Sample
+IPL Program
  312                       	            mvc    1f-\b(16,\br),.LPSW_newiog(0)     # Save current new PSW
  313                       	            mvc    .LPSW_newiog(16,0),1f+16-\b(\br)  # Set the return PSW
  314                       	            nc     .LPSW_newiog(2,0),1f+32-\b(\br)   # New PSW must run
@@ -1018,7 +989,7 @@ IPL Program
  326                       	            .align 8                                 # Doubleword align PSW's
  327                       	1:          .quad  0                                 # 1f     new PSW save area
  328                       	         .ifeq .L__psw_arch  # System/370 Basic Control Mode
- 329                       	            psw    s=(\s)&0x0001|0xFE00,a=1b+18      # 1f+8   Wait PSW
+ 329                       	            psw    s=(\s)&0x0001|0xFE02,a=1b+18      # 1f+8   Wait PSW
  330                       	            .hword 0x01F5                            # 1f+16  New PSW run mask
  331                       	         .else               # System/370 Extended Control Mode or ESA/390
  332                       	            psw    s=(\s)&0x0001|0x0202,a=1b+18      # 1f+8   Wait PSW
@@ -1029,9 +1000,6 @@ IPL Program
  337                       	            .endm
  338                       	
  339                       	    # This macro performs an in-line wait for either an I/O or external interrupt
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 19
-IPL ELF Embedded Boot Loader Sample
-IPL Program
  340                       	
  341                       	            .macro iowait_ext ext:req,s=0,br=13 b=0b
  342                       	       .ifeq .L__psw_arch-3  # 64-bit architecture
@@ -1061,6 +1029,9 @@ IPL Program
  366                       	         .ifeq .L__psw_arch   # System/370 Basic Control Mode 
  367                       	            oi     .LPSW_newext+4(0),0x10            # cc = 1 for external int.
  368                       	         .else
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 19
+IPL ELF Embedded Boot Loader Sample
+IPL Program
  369                       	            oi     .LPSW_newext+2(0),0x10            # cc = 1 for external int.   
  370                       	         .endif
  371                       	            lpsw   1f+16-\b(\br)                     # Wait for an interrupt
@@ -1089,9 +1060,6 @@ IPL Program
   24                       	.ifndef __s370__
   25                       	 # Set the IPL architecture mode
   26                       	        psw_arch 390
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 20
-IPL ELF Embedded Boot Loader Sample
-IPL Program
   26                       	>  .ifnb 390
   26                       	>  .ifc 390,z
   26                       	>  .else 
@@ -1121,6 +1089,9 @@ IPL Program
    2                       	.Lfbambed_S=1
    3                       	 # Copyright (C) 2012 Harold Grovesteen
    4                       	 #
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 20
+IPL ELF Embedded Boot Loader Sample
+IPL Program
    5                       	 # This file is part of SATK.
    6                       	 #
    7                       	 #     SATK is free software: you can redistribute it and/or modify
@@ -1137,7 +1108,7 @@ IPL Program
   18                       	 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
   19                       	
   20                       	           .eject
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 21
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 21
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader
   21                       	           .sbttl "FBA DASD Embedded Loader"
@@ -1174,7 +1145,7 @@ FBA DASD Embedded Loader
   52                       	
   53                       	            .sbttl "FBA DASD Embedded Loader - Macros"
   54                       	           .eject
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 22
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 22
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Macros
   55                       	
@@ -1234,7 +1205,7 @@ FBA DASD Embedded Loader - Macros
   53                       	.Lreqdev:  .byte    0                        # required device support
   54                       	           .align   2
   55                       	           stm      0,15,0x200               # Save IPL parameters in IPLP area
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 23
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 23
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Macros
   56                       	           basr     \br,0                    # R12 as base
@@ -1294,7 +1265,7 @@ FBA DASD Embedded Loader - Macros
   27                       	 #   zerr   = Lable of where to pass control on z/Architecture failure
   28                       	 #            (Defaults to .Lexitarch)
   29                       	 #   sym    = Lable prefix of generated symbols (defaults to .Lenter)
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 24
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 24
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Macros
   30                       	 #   er     = Register pointing to point of error (defaults to 15)
@@ -1354,7 +1325,7 @@ FBA DASD Embedded Loader - Macros
   84                       	2:         ng       \entryr,4f-\b(12)        # Make sure high-order bits are zero
   85                       	           bnzr     \entryr                  # Have an entry, so go...
   86                       	           bas      \er,\error-\b(12)        # ..DIE: No entry for TEXT segment
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 25
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 25
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Macros
   87                       	    # Enter 32-bit ELF in z/Architecture mode
@@ -1414,7 +1385,7 @@ FBA DASD Embedded Loader - Macros
   13                       	 #     but WITHOUT ANY WARRANTY; without even the implied warranty of
   14                       	 #     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   15                       	 #     GNU General Public License for more details.
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 26
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 26
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Macros
   16                       	 #
@@ -1474,7 +1445,7 @@ FBA DASD Embedded Loader - Macros
   42                       	 #  tch          System/370 TEST CHANNEL instruction
   43                       	 #  tio          System/370 TEST IO instruction
   44                       	 #  vrdcblok     Virtual/Real Device Block
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 27
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 27
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Macros
   45                       	 #  wrd          System/370 WRITE DIRECT instruction
@@ -1534,7 +1505,7 @@ FBA DASD Embedded Loader - Macros
   99                       	         .macro sio bd2:req
  100                       	         .insn s,0x9C000000,\bd2
  101                       	         .endm
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 28
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 28
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Macros
  102                       	
@@ -1594,7 +1565,7 @@ FBA DASD Embedded Loader - Macros
  156                       	.LIO_csw_ds  = 0x44  # .byte   CSW Device status
  157                       	.LIO_csw_cs  = 0x45  # .byte   CSW Channel status
  158                       	.LIO_csw_cnt = 0x46  # .hword  CSW byte count
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 29
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 29
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Macros
  159                       	.LIO_caw     = 0x48  # .long   Channel I/O - Channel Address Word
@@ -1654,7 +1625,7 @@ FBA DASD Embedded Loader - Macros
  213                       	 # Format 0 Channel Command Word (CCW)
  214                       	 # Alignment: .align 8
  215                       	
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 30
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 30
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Macros
  216                       	.LCCW0_cmd  =  0
@@ -1714,7 +1685,7 @@ FBA DASD Embedded Loader - Macros
  270                       	           .endm
  271                       	
  272                       	 # Operation-Request Block (ORB)
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 31
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 31
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Macros
  273                       	 # Alignment: .align 4
@@ -1774,7 +1745,7 @@ FBA DASD Embedded Loader - Macros
  327                       	\name      .set   \name|(((\i)&1)*0x20)
  328                       	\name      .set   \name|(((\a)&1)*0x10)
  329                       	\name      .set   \name|(((\u)&1)*0x08)
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 32
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 32
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Macros
  330                       	\name      .set   \name|(((\h)&1)*0x02)
@@ -1834,7 +1805,7 @@ FBA DASD Embedded Loader - Macros
  384                       	
  385                       	 # Subchannel-Information Block (SCHIB)
  386                       	 # Alignment: .align 4
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 33
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 33
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Macros
  387                       	
@@ -1894,7 +1865,7 @@ FBA DASD Embedded Loader - Macros
  441                       	
  442                       	           .macro testsccs schibr:req status:req
  443                       	           tm     37(\schibr),\status
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 34
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 34
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Macros
  444                       	           .endm
@@ -1950,11 +1921,11 @@ FBA DASD Embedded Loader - Macros
   44                       	 # time primary status is provided, an error condition is recognized.
   45                       	 #
   46                       	 # For a program detecting physical end-of-file, the peof370 macro should be issued 
-  47                       	 # following the iochan macro and the status used to detect the end-of-file condition
+  47                       	 # following the iosch macro and the status used to detect the end-of-file condition
   48                       	 # should not be included in the derr parameter's mask.
   49                       	 #
   50                       	 # Status checks follow the following sequence:
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 35
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 35
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Macros
   51                       	 #
@@ -2014,7 +1985,7 @@ FBA DASD Embedded Loader - Macros
  105                       	            bz       .+8-\b(\br)              # ..No, check how I/O went
  106                       	            bas      \er,\error-\b(\br)       # ..DIE: Channel program error
  107                       	    .endif # .ifnb \cerr
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 36
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 36
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Macros
  108                       	    .ifnb \derr
@@ -2065,13 +2036,13 @@ FBA DASD Embedded Loader - Macros
   61                       	
   62                       	           .sbttl "FBA DASD Embedded Loader - Boot Program"
   63                       	           .eject
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 37
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 37
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Boot Program
   64                       	 # LOADER Segment
   65                       	
   66                       	           loaderif 512,'D,'N,'H,'Y,'Y,0x22,0x60,.Lbaseadj
-  66 0074 07070707          	>  .section .loader,"a",@progbits
+  66                       	>  .section .loader,"a",@progbits
   66                       	> .Llodr:
   66                       	> 0:
   66                       	> .Lrecsize =512
@@ -2125,7 +2096,7 @@ FBA DASD Embedded Loader - Boot Program
   92 0058 5050C1A4          	           st       5,.Ldsend-0b(12)         # Set up DEFINE EXTENT for block
   93                       	
   94                       	           # Set up program register
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 38
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 38
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Boot Program
   95 005c 5870C010          	           l        7,.Lpgmsec-0b(12)        # Determine initial program sector
@@ -2185,7 +2156,7 @@ FBA DASD Embedded Loader - Boot Program
  117                       	>> 
  118                       	
  119                       	 # Read FBA sector subroutine
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 39
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 39
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Boot Program
  120                       	.Lread:    
@@ -2245,7 +2216,7 @@ FBA DASD Embedded Loader - Boot Program
  124 016c 910CC260          	>  tm .Lirb+8-0b(12),0x0C
  124 0170 4710C17C          	>  bo 5f-0b(12)
  124 0174 4DF0C1CC          	>  bas 15,.Lexitio-0b(12)
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 40
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 40
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Boot Program
  124 0178 00000000          	>  .long 0
@@ -2305,7 +2276,7 @@ FBA DASD Embedded Loader - Boot Program
  173 01d4 8200C1D8          	> .Lexitpgm:lpsw .Lpswffc-0b(12)
  173                       	>  .align 8
  173                       	> .Lpswffc:psw s=0x0002,p=0,a=0x0ffc
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 41
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 41
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Boot Program
  173                       	>>  .ifeq .L__psw_arch
@@ -2365,7 +2336,7 @@ FBA DASD Embedded Loader - Boot Program
  205                       	.endif # .ifndef .Lfbambed_S scope
   31                       	    .else  # 
   49                       	    .endif # .ifdef __FBA__
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 42
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 42
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Boot Program
   50                       	
@@ -2373,15 +2344,15 @@ FBA DASD Embedded Loader - Boot Program
   65                       	.endif  # .ifndef __s370__
   66                       	
   67                       	.endif  # .ifndef .Lloaders_S scope
-  28                       	
-  29                       	          .end
-GAS LISTING /home/harold/SATK/src/ipl/embed.S 			page 43
+  56                       	
+  57                       	          .end
+GAS LISTING /home/harold/SATKREPO/SATK/samples/embedded/embed.S 			page 43
 IPL ELF Embedded Boot Loader Sample
 FBA DASD Embedded Loader - Boot Program
 DEFINED SYMBOLS
                             *ABS*:0000000000000001 __s390__
                             *ABS*:0000000000000002 __ARCH__
                             *ABS*:0000000000000001 __FBA__
-/home/harold/SATK/src/ipl/hello.S:30     .text:0000000000000000 _start
+/home/harold/SATKREPO/SATK/samples/embedded/embed.S:32     .text:0000000000000000 _start
 
 NO UNDEFINED SYMBOLS

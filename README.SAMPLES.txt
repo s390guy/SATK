@@ -64,6 +64,7 @@ more than one module may be present.
 
 fba/<CPU-arch>/hercules.<env>.<date>.<time>.log - Hercules test console log
                module.3310     - IPL ready device of type 3310 (from iplmed.py)
+               hercules....log - Hercules test log file (from hercules)
                <CPU-arch>.conf - Hercules configuration file
                <CPU-arch>.rc   - Hercules RC file 
                build/module         - IPL ELF executable (from GNU ld)
@@ -101,7 +102,7 @@ Test/availability matrix for loading an IPL ELF by its embedded boot strap loade
 +------------+-----------+---------+------------+----------+
 |    ckd     |     --    |   --    |     --     |     --   |
 +------------+-----------+---------+------------+----------+
-|    fba     |    SATK   |  SATK   |     --     |     --   |
+|    fba     |    SATK   |  SATK   |    SATK    |     --   |
 +------------+-----------+---------+------------+----------+
 |    tape    |     --    |   --    |     --     |     --   |
 +------------+-----------+---------+------------+----------+
