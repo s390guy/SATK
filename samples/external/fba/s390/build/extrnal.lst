@@ -1,0 +1,90 @@
+GAS LISTING /home/harold/SATKREPO/SATK/samples/external/extrnal.S 			page 1
+
+
+ GNU assembler version 2.23.1 (s390-linux)
+	 using BFD version (GNU Binutils) 2.23.1.
+ options passed	: -m31 -march=z196 -mesa --listing-lhs-width=2 --listing-cont-lines=16 -acghlms=/home/harold/SATKREPO/SATK/samples/external/fba/s390/build/extrnal.lst -I -I -I -I -I -I -I --defsym --defsym 
+	--defsym 
+ input file    	: /home/harold/SATKREPO/SATK/samples/external/extrnal.S
+ output file   	: /home/harold/SATKREPO/SATK/samples/external/fba/s390/build/extrnal.o
+ target        	: s390-ibm-linux-gnu
+ time stamp    	: 2013-06-17T22:51:31.000-0500
+
+GAS LISTING /home/harold/SATKREPO/SATK/samples/external/extrnal.S 			page 2
+IPL ELF Boot Loader Sample
+
+   1                       	          .title "IPL ELF Boot Loader Sample"
+   2                       	 # Copyright (C) 2012 Harold Grovesteen
+   3                       	 #
+   4                       	 # This file is part of SATK.
+   5                       	 #
+   6                       	 #     SATK is free software: you can redistribute it and/or modify
+   7                       	 #     it under the terms of the GNU General Public License as published by
+   8                       	 #     the Free Software Foundation, either version 3 of the License, or
+   9                       	 #     (at your option) any later version.
+  10                       	 #
+  11                       	 #     SATK is distributed in the hope that it will be useful,
+  12                       	 #     but WITHOUT ANY WARRANTY; without even the implied warranty of
+  13                       	 #     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  14                       	 #     GNU General Public License for more details.
+  15                       	 #
+  16                       	 #     You should have received a copy of the GNU General Public License
+  17                       	 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+  18                       	 
+  19                       	 # This is a test source module to develop support for the IPL ELF ABI Supplement.  
+  20                       	 # It uses an embedded loader to load the program and the default LOWC content.  
+  21                       	 # The booted program is nothing more than a hello world program.  
+  22                       	 #
+  23                       	 # The embedded loader packaged in the IPL ELF is supplied by the IPL Medium 
+  24                       	 # Preparation Processor, iplmed.py, by using the embedded loader built by one of 
+  25                       	 # the samples/embedded directory, configured appropriately for the targeted IPL 
+  26                       	 # device and architecture.
+  27                       	          
+  28                       	          .sbttl "IPL Program"
+  29                       	 # TXT Segment
+  30                       	          .text
+  31                       	.L_ipl:
+  32                       	# The loader frees itself from the shackles of the IPL environment of CCW0 24-bit 
+  33                       	# addressing mode.  Because only this segment is loaded by the embedded
+  34                       	# loader it will remain is ESA/390 mode.  It will only enter z/Archtecture mode
+  35                       	# if it loads a s390 64-bit ELF in its entirety.
+  36                       	
+  37                       	_start:   .global _start
+  38 0000 0DF0              	          basr    15,0
+  39 0002 9825F016          	0:        lm      2,5,.Lparms-0b(15)
+  40 0006 83240008          	          diag    2,4,0x8          # Issue command containing the message
+  41 000a 1244              	          ltr     4,4              # Did an error occur?
+  42 000c 4780F012          	          bz      .Lendok-0b(15)   # ..No, end OK
+  43 0010 8200F046          	          lpsw    .Lendbad-0b(15)  # ..Yes, end BAD
+  44 0014 8200F03E          	.Lendok:  lpsw    .Lendpsw-0b(15)  # End with a disabled wait (code 0)
+  45 0018 00000000          	.Lparms:  .long   .Lmsg       # Rx = command string address
+  46 001c 00000000          	          .long   0           # Rx+1 = response buffer address
+  47 0020 00000015          	          .long   .Lmsglen    # Ry = command string length and flags (no response)
+  48 0024 00000000          	          .long   0           # Ry+1 = response buffer length
+  49 0028 D4E2C7D5 D6C840   	.Lmsg:    .byte   0xD4,0xE2,0xC7,0xD5,0xD6,0xC8,0x40  # 'MSGNOH'  in EBCDIC
+  50 002f 405C40            	          .byte   0x40,0x5C,0x40                      # ' * '     in EBCDIC
+  51 0032 C8859393 9640     	          .byte   0xC8,0x85,0x93,0x93,0x96,0x40       # 'Hello '  in EBCDIC
+  52 0038 A6969993 84       	          .byte   0xA6,0x96,0x99,0x93,0x84            # 'world'   in EBCDIC
+  53                       	.Lmsglen  =       .-.Lmsg
+  54 003d 070707            	          .align  8
+  55 0040 000A0000          	.Lendpsw: .hword  0x000A,0
+  56 0044 00000000          	          .long   0
+  57 0048 000A0000          	.Lendbad: .hword  0x000A,0
+GAS LISTING /home/harold/SATKREPO/SATK/samples/external/extrnal.S 			page 3
+IPL ELF Boot Loader Sample
+IPL Program
+  58 004c 00000BAD          	          .long   0xbad
+  59                       	
+  60                       	          #.include "loaders.S"    # Select the boot loader based upon symbols
+  61                       	
+  62                       	          .end
+GAS LISTING /home/harold/SATKREPO/SATK/samples/external/extrnal.S 			page 4
+IPL ELF Boot Loader Sample
+IPL Program
+DEFINED SYMBOLS
+                            *ABS*:0000000000000001 __s390__
+                            *ABS*:0000000000000002 __ARCH__
+                            *ABS*:0000000000000001 __FBA__
+/home/harold/SATKREPO/SATK/samples/external/extrnal.S:37     .text:0000000000000000 _start
+
+NO UNDEFINED SYMBOLS
