@@ -107,6 +107,31 @@ Test/availability matrix for loading an IPL ELF by its embedded boot strap loade
 |    tape    |     --    |   --    |     --     |     --   |
 +------------+-----------+---------+------------+----------+
 
+external directory
+------------------
+
+The external directory uses the module name 'extrnal'.
+Devices built to IPL a boot loader (sourced from a separate IPL ELF) then loading 
+the program from the device use the name 'extrnal.<device_type>'.
+
+Test/availability matrix for loading an IPL ELF by its embedded boot strap loader.
+
++----------------------------------------------------------+
+|   Device   |                CPU architecture             |
+|    Type    |---------------------------------------------+
+|            |   s370bc  |  s370   |    s390    |   s390x  |
++------------+-----------+---------+------------+----------+
+|    card    |     --    |   --    |     --     |     --   |
++------------+-----------+---------+------------+----------+
+|   cdrom    |     --    |   --    |     --     |     --   |
++------------+-----------+---------+------------+----------+
+|    ckd     |     --    |   --    |     --     |     --   |
++------------+-----------+---------+------------+----------+
+|    fba     |     --    |   --    |     --     |     --   |
++------------+-----------+---------+------------+----------+
+|    tape    |     --    |   --    |     --     |     --   |
++------------+-----------+---------+------------+----------+
+
 
 iplelf directory
 ----------------

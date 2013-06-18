@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (C) 2012 Harold Grovesteen
+# Copyright (C) 2012,2013 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -24,7 +24,9 @@
 # medium and architecture before being used as externally packaged embedded loaders.
 # Currently, the embedded samples are not prebuilt by SATK.
 
-SATK_DIR=${HOME}/SATK
+# Adjust to your environment
+SATK_REPO=${HOME}/SATKREPO
+SATK_DIR=${SATK_REPO}/SATK
 SAMPLE_DIR=${SATK_DIR}/samples/external
 
 # Define the base external loader directory 
@@ -37,7 +39,7 @@ source ${SATK_DIR}/samples/imlfun
 
 # Tool chain components - update when releases change:
 source ${SATK_DIR}/tools/medfun \
-    xtools=${HOME}/crossbuild sfx="-2.21.51.0.7" module="extrnal"
+    xtools=${HOME}/crossbuild sfx="-2.23.1" module="extrnal"
 
 med_env source ${SAMPLE_DIR}    # Establish where the source file is found
 ipl_elf include src             # include the basic SATK/src file
@@ -60,8 +62,8 @@ usage()
 }
 
 # Set the Hercules environment
-herc_env svn
-env="svn"
+env="sand"
+herc_env ${env}
 
 #  +------------------------------------------------------------+
 #  |                                                            | 
@@ -176,40 +178,45 @@ case $2 in
         med_env arch s370bc         # Causes psw's to be S/370 Bc-mode
         med_env init
         med_env s370bc enable       # Causes IPL PSW's to use S/370 BC-mode
-        LOADER=${EXTERNAL_DIR}/${DTYPE}/s370bc/${EXTERNAL_ELF}
+        LOADER=${EXTERNAL_DIR}/${DTYPE}/s370bc/build/${EXTERNAL_ELF}
         rc=${ARCHDIR}/s370bc.rc
         conf=${ARCHDIR}/s370bc.conf
+        ELFARCH="s370"
         ;;
     "s370")   
         ARCHDIR=${SAMPLE}/s370
         med_env arch s370
         med_env init
-        LOADER=${EXTERNAL_DIR}/${DTYPE}/s370/${EXTERNAL_ELF}
+        LOADER=${EXTERNAL_DIR}/${DTYPE}/s370/build/${EXTERNAL_ELF}
         rc=${ARCHDIR}/s370.rc
         conf=${ARCHDIR}/s370.conf
+        ELFARCH="s370"
         ;;
     "s390")   
         ARCHDIR=${SAMPLE}/s390
         med_env arch s390
         med_env init
-        LOADER=${EXTERNAL_DIR}/${DTYPE}/s390/${EXTERNAL_ELF}
+        LOADER=${EXTERNAL_DIR}/${DTYPE}/s390/build/${EXTERNAL_ELF}
         rc=${ARCHDIR}/s390.rc
         conf=${ARCHDIR}/s390.conf
+        ELFARCH="s390"
         ;;
     "s390x")  
         ARCHDIR=${SAMPLE}/s390x
         med_env arch z
         med_env init
-        LOADER=${EXTERNAL_DIR}/${DTYPE}/s390x/${EXTERNAL_ELF}
+        LOADER=${EXTERNAL_DIR}/${DTYPE}/s390x/build/${EXTERNAL_ELF}
         rc=${ARCHDIR}/s390x.rc
         conf=${ARCHDIR}/s390x.conf
+        ELFARCH="s390x"
         ;;
     *)
         echo "lodrtest: Error: invalid test architecture: $2"
         exit 1
 esac
 
-med_env build   ${ARCHDIR}      # Establish where to build the object and executable
+# Establish where to build the object and executable
+med_env build   ${ARCHDIR}/build
 med_env install ${ARCHDIR}      # Establish where to install the IPL device medium
 med_env logs    ${ARCHDIR}      # Establish where logs are placed
 
@@ -231,6 +238,10 @@ case $3 in
          ;;
     ld)  linker_options
          ipl_elf link default
+         if [ "${ELFARCH}" = "s370" ]
+         then
+             ipl_elf s370 default
+         fi
          ;;
     objdump) ipl_elf dump obj default ;;
     rmlogs) ipl_elf rmlog ;;
@@ -243,4 +254,3 @@ case $3 in
 	     usage
 	     exit 1
 esac
-

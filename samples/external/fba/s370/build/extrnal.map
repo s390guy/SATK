@@ -1,0 +1,42 @@
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+ELF1             0x0000000000001054 0x0000000000ffefac xrw
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+TARGET(elf32-s390)
+
+.text           0x0000000000002054       0x5c
+                0x0000000000002060                . = ALIGN (0x10)
+ *fill*         0x0000000000002054        0xc 
+ *(.text)
+ .text          0x0000000000002060       0x50 /home/harold/SATKREPO/SATK/samples/external/fba/s370/build/extrnal.o
+                0x0000000000002060                _start
+                0x00000000000020b0                . = ALIGN (0x10)
+ *(.data)
+ .data          0x00000000000020b0        0x0 /home/harold/SATKREPO/SATK/samples/external/fba/s370/build/extrnal.o
+                0x00000000000020b0                . = ALIGN (0x10)
+                0x00000000000020b0                PROVIDE (_GOT_begin, .)
+ *(.got)
+                0x00000000000020b0                PROVIDE (_GOT_end, .)
+                0x00000000000020b0                . = ALIGN (0x10)
+ *(.shstrtab)
+                0x00000000000020b0                . = ALIGN (0x10)
+ *(.symtab)
+                0x00000000000020b0                . = ALIGN (0x10)
+ *(.strtab)
+                0x00000000000020b0                . = ALIGN (0x10)
+ *(.rela.text)
+                0x00000000000020b0                . = ALIGN (0x10)
+ *(.bss)
+ .bss           0x00000000000020b0        0x0 /home/harold/SATKREPO/SATK/samples/external/fba/s370/build/extrnal.o
+LOAD /home/harold/SATKREPO/SATK/samples/external/fba/s370/build/extrnal.o
+OUTPUT(/home/harold/SATKREPO/SATK/samples/external/fba/s370/build/extrnal elf32-s390)
+
+Cross Reference Table
+
+Symbol                                            File
+_start                                            /home/harold/SATKREPO/SATK/samples/external/fba/s370/build/extrnal.o
