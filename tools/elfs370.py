@@ -22,6 +22,8 @@ import os.path
 import PyELF
 import sys
 
+copyright_years="2012,2013"
+
 class elfbin(object):
     s390=22
     s370=9
@@ -77,19 +79,45 @@ class elfbin(object):
         self.e.seek(18)
         self.e.write(mach)
 
-def usage():
-    print("Usage: elfs370.py executable [print]")
+class elfs370(object):
+    def __init__(self,args):
+        self.p=args.print
+        self.filename=args.exefile
+    def convert(self):
+        e=elfbin(self.filename)
+        e.setmach(b"\x00\x09")
+        print("elfs370.py: Changed ELF executable from s390 to s370: %s" \
+            % self.filename)
+        e.close()
+        if self.p:
+            elf=PyELF.elf(self.filename)
+            elf.prt()
+        sys.exit(0)
+    
+def parser_args():
+    parser=argparse.ArgumentParser(prog="inventory.py",
+        epilog="inventory.py Copyright (C) %s Harold Grovesteen" % copyright_years, 
+        description="converts a s390 ELF executable into a s370 ELF executable")
+    parser.add_argument("exefile",\
+        help="input ELF executable file path",nargs=1)
+    parser.add_argument("-p","--print",action="store_true",default=False,\
+        help="enables printing of the input filename")
+
+    return parser.parse_args()  
       
 if __name__ == "__main__":
-    if len(sys.argv)<2 or len(sys.argv)>3:
-        usage()
-        sys.exit(1)
-    filename=sys.argv[1]
-    e=elfbin(filename)
-    e.setmach(b"\x00\x09")
-    print("elfs370.py: Changed ELF executable from s390 to s370: %s" % sys.argv[1])
-    e.close()
-    if len(sys.argv)==3 and sys.argv[2]=="print":
-        elf=PyELF.elf(filename)
-        elf.prt()
-    sys.exit(0)
+    e=elfs370(parser_args())
+    e.convert()
+    
+    #if len(sys.argv)<2 or len(sys.argv)>3:
+    #    usage()
+    #    sys.exit(1)
+    #filename=sys.argv[1]
+    #e=elfbin(filename)
+    #e.setmach(b"\x00\x09")
+    #print("elfs370.py: Changed ELF executable from s390 to s370: %s" % sys.argv[1])
+    #e.close()
+    #if len(sys.argv)==3 and sys.argv[2]=="print":
+    #    elf=PyELF.elf(filename)
+    #    elf.prt()
+    #sys.exit(0)

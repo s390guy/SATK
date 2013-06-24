@@ -1043,7 +1043,7 @@ class sort(object):
         return 0
 
 def parse_args():
-    parser=argparse.ArgumentParser(\
+    parser=argparse.ArgumentParser(prog="ipldpp.py",\
         description="preprocess an IPL ELF object file for linking")
     parser.add_argument("objfile",\
         help="ELF object file preprocessed",nargs=1)

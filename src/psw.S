@@ -82,7 +82,7 @@
 .LINT_pgmmcls= 0x094  # .hword  Program monitor class
 .LINT_pgmmcod= 0x09C  # .long   Program monitor code (32-bit)
 .LINT_pgmai  = 0x0A0  # .byte   Program exception access identification
-.LINT_pgmoi  = 0x0A2  # .byte   Program exception operand acces identification
+.LINT_pgmoi  = 0x0A2  # .byte   Program exception operand access identification
 .LINT_pgmtrnx= 0x0A8  # .quad   Program translation exception (64-bit)  
 .LINT_pgmmcdx= 0x0B0  # .quad   Program monitor code (64-bit)
 .LINT_mckcode= 0x0E8  # .quad   Machine check interruption code

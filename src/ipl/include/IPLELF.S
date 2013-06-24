@@ -32,7 +32,9 @@
 .LIPL_bs      = 0x240   # .long  Address of the bootstrap services function list
 .LIPL_fbarepo = 0x244   # .long  Starting sector of FBA repository
 .LIPL_fbasize = 0x248   # .long  Size of the FBA repository in bytes
-.LIPL_unused  = 0x24C   # .long  Not currently specified
+.LIPL_pgmbeg  = 0x24C   # .long  Starting address of the loaded program
+.LIPL_pgmend  = 0x250   # .long  Address immediately following loaded program
+.LIPL_unused  = 0x254   # .long  Not currently specified
 
  # iplelf_ipl - Start a iplelf_ipl section.
  #  Macro Parameters:

@@ -40,93 +40,97 @@
 
         struct .LIH
     # Old Program Status Word
-        squad  .LIH_oPSW
+        squad  .LIH_oPSW         # +0x0
     # Link to previous active save area
-        slong  .LIH_link
-    # General Regster Save Area
-        shere  .LIH_GR
-        slong  .LIH_R0
-        slong  .LIH_R1
-        slong  .LIH_R2
-        slong  .LIH_R3
-        slong  .LIH_R4
-        slong  .LIH_R5
-        slong  .LIH_R6
-        slong  .LIH_R7
-        slong  .LIH_R8
-        slong  .LIH_R9
-        slong  .LIH_R10
-        slong  .LIH_R11
-        slong  .LIH_R12
-        slong  .LIH_R13
-        slong  .LIH_R14
-        slong  .LIH_R15
-    # Control Register Save Area
-        shere  .LIH_CR
-        slong  .LIH_C0
-        slong  .LIH_C1
-        slong  .LIH_C2
-        slong  .LIH_C3
-        slong  .LIH_C4
-        slong  .LIH_C5
-        slong  .LIH_C6
-        slong  .LIH_C7
-        slong  .LIH_C8
-        slong  .LIH_C9
-        slong  .LIH_C10
-        slong  .LIH_C11
-        slong  .LIH_C12
-        slong  .LIH_C13
-        slong  .LIH_C14
-        slong  .LIH_C15
-    # Basic Floating Point Registers
-        squad  .LIH_F0
-        squad  .LIH_F2
-        squad  .LIH_F4
-        squad  .LIH_F6
+        slong  .LIH_link         # +0x8
     # Save/Restore Control Information
-        shere  .LIH_SR
-        sbyte  .LIH_SR_pgm     # Reserved for program use
-        sbyte  .LIH_SR_state   # CPU state present in save area
-        sbyte  .LIH_SR_class   # Interruption class using this save area
-        sbyte  .LIH_SR_flags   # Save/restore controls (see HAL.S)
+        shere  .LIH_SR           # +0xC
+        sbyte  .LIH_SR_pgm       # +0xC   Reserved for program use
+        sbyte  .LIH_SR_state     # +0xD   CPU state present in save area
+        sbyte  .LIH_SR_class     # +0xE   Interruption class using this save area
+        sbyte  .LIH_SR_flags     # +0xF   Save/restore controls (see HAL.S)
+    # General Regster Save Area
+        shere  .LIH_GR           # +0x10
+        slong  .LIH_R0           # +0x10
+        slong  .LIH_R1           # +0x14
+        slong  .LIH_R2           # +0x18
+        slong  .LIH_R3           # +0x1C
+        slong  .LIH_R4           # +0x20
+        slong  .LIH_R5           # +0x24
+        slong  .LIH_R6           # +0x28
+        slong  .LIH_R7           # +0x2C
+        slong  .LIH_R8           # +0x30
+        slong  .LIH_R9           # +0x34
+        slong  .LIH_R10          # +0x38
+        slong  .LIH_R11          # +0x3C
+        slong  .LIH_R12          # +0x40
+        slong  .LIH_R13          # +0x44
+        slong  .LIH_R14          # +0x48
+        slong  .LIH_R15          # +0x4C
+    # Basic Floating Point Registers
+        shere  .LIH_FR           # +0x50
+        squad  .LIH_F0           # +0x50
+        squad  .LIH_F2           # +0x58
+        squad  .LIH_F4           # +0x60
+        squad  .LIH_F6           # +0x68
+    # End of the Level 0 architecture save area
+        shere  .LIH_s360_len     # +0x70
+    # Control Register Save Area
+        shere  .LIH_CR           # +0x70
+        slong  .LIH_C0           # +0x70
+        slong  .LIH_C1           # +0x74
+        slong  .LIH_C2           # +0x78
+        slong  .LIH_C3           # +0x7C
+        slong  .LIH_C4           # +0x80
+        slong  .LIH_C5           # +0x84
+        slong  .LIH_C6           # +0x88
+        slong  .LIH_C7           # +0x8C
+        slong  .LIH_C8           # +0x90
+        slong  .LIH_C9           # +0x94
+        slong  .LIH_C10          # +0x98
+        slong  .LIH_C11          # +0x9C
+        slong  .LIH_C12          # +0xA0
+        slong  .LIH_C13          # +0xA4
+        slong  .LIH_C14          # +0xA8
+        slong  .LIH_C15          # +0xAC
     # End of the Level 1 architecture save area
-        shere  .LIH_s370_len
-    # Floating Point Control Register (Level 2 architectures only)
-        slong  .LIH_FPC
-    # Additional Floating Point Control Registers (Level 2 architetures only)
-        squad  .LIH_F1
-        squad  .LIH_F3
-        squad  .LIH_F5
-        squad  .LIH_F7
-        squad  .LIH_F8
-        squad  .LIH_F9
-        squad  .LIH_F10
-        squad  .LIH_F11
-        squad  .LIH_F12
-        squad  .LIH_F13
-        squad  .LIH_F14
-        squad  .LIH_F15
+        shere  .LIH_s370_len     # +0xB0
+    # Additional Floating Point Registers (Level 2 architetures only)
+        squad  .LIH_F1           # +0xB0
+        squad  .LIH_F3           # +0xB8
+        squad  .LIH_F5           # +0xC0
+        squad  .LIH_F7           # +0xC8
+        squad  .LIH_F8           # +0xD0
+        squad  .LIH_F9           # +0xD8
+        squad  .LIH_F10          # +0xE0
+        squad  .LIH_F11          # +0xE8
+        squad  .LIH_F12          # +0xF0
+        squad  .LIH_F13          # +0xF8
+        squad  .LIH_F14          # +0x100
+        squad  .LIH_F15          # +0x108
     # Access Registers (Level 2 architectures only)
-        shere  .LIH_AR
-        slong  .LIH_A0
-        slong  .LIH_A1
-        slong  .LIH_A2
-        slong  .LIH_A3
-        slong  .LIH_A4
-        slong  .LIH_A5
-        slong  .LIH_A6
-        slong  .LIH_A7
-        slong  .LIH_A8
-        slong  .LIH_A9
-        slong  .LIH_A10
-        slong  .LIH_A11
-        slong  .LIH_A12
-        slong  .LIH_A13
-        slong  .LIH_A14
-        slong  .LIH_A15
+        shere  .LIH_AR           # +0x110
+        slong  .LIH_A0           # +0x110
+        slong  .LIH_A1           # +0x114
+        slong  .LIH_A2           # +0x118
+        slong  .LIH_A3           # +0x11C
+        slong  .LIH_A4           # +0x120
+        slong  .LIH_A5           # +0x124
+        slong  .LIH_A6           # +0x128
+        slong  .LIH_A7           # +0x12C
+        slong  .LIH_A8           # +0x130
+        slong  .LIH_A9           # +0x134
+        slong  .LIH_A10          # +0x138
+        slong  .LIH_A11          # +0x13C
+        slong  .LIH_A12          # +0x140
+        slong  .LIH_A13          # +0x144
+        slong  .LIH_A14          # +0x148
+        slong  .LIH_A15          # +0x14C
+    # Floating Point Control Register (Level 2 architectures only)
+        slong  .LIH_FPC          # +0x150
+        salign 8                 # +0x154
     # End of the Level 2 architecture save area
-        shere  .LIH_len
+        shere  .LIH_len          # +0x158
 
  # +--------------------------------------+
  # |  32-bit Interrupt Information Block  |
@@ -150,8 +154,15 @@
     # Old Program Status Word
         socta  .LIHG_oPSW        # +0x0
     # Link to previous active save area
-        slong  .LIHG_link        # +0x10
-        salign 8
+        squad  .LIHG_link        # +0x10
+    # Save Area Control Information
+        shere  .LIHG_SR          # +0x18
+        sbyte  .LIHG_SR_pgm      # +0x18  Reserved for program use
+        sbyte  .LIHG_SR_state    # +0x19  CPU state present in save area
+        sbyte  .LIHG_SR_class    # +0x1A  Interruption class using this save area
+        sbyte  .LIHG_SR_flags    # +0x1B  Save/restore controls (see HAL.S)
+    # Floating Point Control Register
+        slong  .LIHG_FPC         # +0x1C
     # General Regster Save Area
         shere  .LIHG_GR          # +0x20
         squad  .LIHG_R0          # +0x20
@@ -192,47 +203,39 @@
         squad  .LIHG_F2          # +0x128
         squad  .LIHG_F4          # +0x130
         squad  .LIHG_F6          # +0x138
-    # Save Area Control Information
-        shere  .LIHG_SR          # +0x140
-        sbyte  .LIHG_SR_pgm      # +0x140  Reserved for program use
-        sbyte  .LIHG_SR_state    # +0x141  CPU state present in save area
-        sbyte  .LIHG_SR_class    # +0x142  Interruption class using this save area
-        sbyte  .LIHG_SR_flags    # +0x143  Save/restore controls (see HAL.S)
-    # Floating Point Control Register
-        slong  .LIHG_FPC         # +0x144
     # Additional Floating Point Control Registers
-        squad  .LIHG_F1          # +0x148
-        squad  .LIHG_F3          # +0x150
-        squad  .LIHG_F5          # +0x158
-        squad  .LIHG_F7          # +0x160
-        squad  .LIHG_F8          # +0x168
-        squad  .LIHG_F9          # +0x170
-        squad  .LIHG_F10         # +0x178
-        squad  .LIHG_F11         # +0x180
-        squad  .LIHG_F12         # +0x188
-        squad  .LIHG_F13         # +0x190
-        squad  .LIHG_F14         # +0x198
-        squad  .LIHG_F15         # +0x1A0
+        squad  .LIHG_F1          # +0x140
+        squad  .LIHG_F3          # +0x148
+        squad  .LIHG_F5          # +0x150
+        squad  .LIHG_F7          # +0x158
+        squad  .LIHG_F8          # +0x160
+        squad  .LIHG_F9          # +0x168
+        squad  .LIHG_F10         # +0x170
+        squad  .LIHG_F11         # +0x178
+        squad  .LIHG_F12         # +0x180
+        squad  .LIHG_F13         # +0x188
+        squad  .LIHG_F14         # +0x190
+        squad  .LIHG_F15         # +0x198
     # Access Registers
-        shere  .LIHG_AR          # +0x1A8
-        slong  .LIHG_A0          # +0x1A8
-        slong  .LIHG_A1          # +0x1AC
-        slong  .LIHG_A2          # +0x1B0
-        slong  .LIHG_A3          # +0x1B4
-        slong  .LIHG_A4          # +0x1B8
-        slong  .LIHG_A5          # +0x1BC
-        slong  .LIHG_A6          # +0x1CC
-        slong  .LIHG_A7          # +0x1D0
-        slong  .LIHG_A8          # +0x1D4
-        slong  .LIHG_A9          # +0x1D8
-        slong  .LIHG_A10         # +0x1DC
-        slong  .LIHG_A11         # +0x1E0
-        slong  .LIHG_A12         # +0x1E4
-        slong  .LIHG_A13         # +0x1E8
-        slong  .LIHG_A14         # +0x1EC
-        slong  .LIHG_A15         # +0x1C0
+        shere  .LIHG_AR          # +0x1A0
+        slong  .LIHG_A0          # +0x1A0
+        slong  .LIHG_A1          # +0x1A4
+        slong  .LIHG_A2          # +0x1A8
+        slong  .LIHG_A3          # +0x1AC
+        slong  .LIHG_A4          # +0x1B0
+        slong  .LIHG_A5          # +0x1B4
+        slong  .LIHG_A6          # +0x1B8
+        slong  .LIHG_A7          # +0x1BC
+        slong  .LIHG_A8          # +0x1C0
+        slong  .LIHG_A9          # +0x1C4
+        slong  .LIHG_A10         # +0x1C8
+        slong  .LIHG_A11         # +0x1CC
+        slong  .LIHG_A12         # +0x1D0
+        slong  .LIHG_A13         # +0x1D4
+        slong  .LIHG_A14         # +0x1D8
+        slong  .LIHG_A15         # +0x1DC
     # End of the Level 3 architecture save area
-        shere  .LIHG_len         # +0x1C4
+        shere  .LIHG_len         # +0x1E0
 
  # +--------------------------------------+
  # |  64-bit Interrupt Information Block  |

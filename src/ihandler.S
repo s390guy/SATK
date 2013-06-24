@@ -1,6 +1,6 @@
 .ifndef .Lihandler_S
 .Lihandler_S = 1
- # Copyright (C) 2012 Harold Grovesteen
+ # Copyright (C) 2012,2013 Harold Grovesteen
  #
  # This file is part of SATK.
  #
@@ -310,8 +310,10 @@
  # Which stack strategy is used is dictated by the value specified for the 
  # ihandler_define[64] macro size parameter.  Defaulting or specification of '0' for
  # size parameter dictates that the interrupt handler will share the current ABI
- # stack with the interrupted program's ABI stack.  This assumes the interrupted
- # program is using a stack.
+ # stack with the interrupted program's ABI stack.  This assumes and requires the 
+ # interrupted program is using a stack.  Use of the interrupted program's ABI 
+ # stack allows for interrupt recursion, for example a supervisor call interrupt 
+ # handler making use of supervisor calls.
  #
  #  Macro Parameters:
  #       handler   Name of the handler using ABI conventions (required)
@@ -551,7 +553,7 @@
         mvc    0(8,\wrkr),.LIHS_enapsw(\ihsr)    # Enable the interrupt
         .endm
 
-        .macro ihandler_enable64r ihsr:req wrkr:req stkr=req br=13 b=0b
+        .macro ihandler_enable64r ihsr:req wrkr:req stkr=req sizer br=13 b=0b
         lgf    \wrkr,.LIHS64_stksize(\ihsr)      # Get the ABI stack size
         ltgr   \wrkr,\wrkr                       # Is the stack required?
         jz     .+10                              # ..No, do not set stack location
@@ -646,8 +648,10 @@
  # The ihs[64] macro depends upon the psw_amode and psw_arch macros in psw.S having 
  # been set for proper generation of the new PSW.  Most of the content is provided
  # by the ihandler_define[64] macros.  Only the ABI stack location is provided
- # during run-time by the ihandle_enable[64] macro when the interrupt handler is
- # enabled
+ # during run-time by the ihandler_enable[64] macro when the insterrupt in 
+ # enabled.  The ABI stack size specified in the ihandler_define[64] macro
+ # may be overridden by using the sizer parameter on the ihandler_enable[64] or
+ # ihandler_enabler[64] macro.
 
         .macro ihs handler:req
         psw    s=\handler\()_psws,p=\handler\()_pswp,a=\handler  # Enable nPSW

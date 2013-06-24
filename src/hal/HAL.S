@@ -59,9 +59,9 @@
  #  +----------------------+
  #
  #   000000-0001FF  - reserved for platform assigned storage locations
- #   000200-00024F  - reserved for IPL ELF ABI usage
- #   000250-0005FF  - Hardware Abstraction Layer structures
- #   000250-0002BF       Reserved for IEIB - public structure
+ #   000200-00025F  - reserved for IPL ELF ABI usage
+ #   000260-0005FF  - Hardware Abstraction Layer structures
+ #   000260-0002BF       Reserved for IEIB - public structure
  #   0002C0-0003FF       Reserved for IHCB - private structure
  #   000400-0005FF       Reserved for initial program save area
 
@@ -131,10 +131,11 @@
  # program how it manages CPU state preservation.
 
 .LIHSR_CR  = 0x80   # Save/Restore Control registers
-.LIHSR_AR  = 0x40   # Save/Restore Accress registers
+.LIHSR_AR  = 0x40   # Save/Restore Access registers
 .LIHSR_AFP = 0x04   # Save/Restore additional Floating Point registers
 .LIHSR_FPC = 0x02   # Save/Restore Floating Point Control register
-.LIHSR_FP  = 0x01   # Save/Restore basic Floating Point Control registers
+.LIHSR_FP  = 0x01   # Save/Restore basic Floating Point (F0, F2, F4, F6) registers
+.LIHSR_L0  = 0x01   # Valid controls for Level 0
 .LIHSR_L1  = 0x81   # Valid controls for Level 1
 .LIHSR_L2  = 0xC7   # Valid controls for Level 2
 .LIHSR_L3  = 0xC7   # Valid controls for Level 3

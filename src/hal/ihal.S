@@ -1412,7 +1412,7 @@
   # The abstraction will compare the interruption to the provided list.  If the 
   # interruption is found in the list, the abstraction will return to the caller 
   # with the information placed in the IIB previously passed to the abstraction
-  # by its calledr.  Otherwise, the absraction will continue to wait.
+  # by its caller.  Otherwise, the absraction will continue to wait.
   #
   # The first full word of the list of interruption codes contains the number of
   # interruption codes being waited upon.

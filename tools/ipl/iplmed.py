@@ -33,6 +33,8 @@ import os.path              # path manipulation tools
 import struct               # access binary structures
 import sys                  # system values
 
+copyright_years="2012,2013"
+
 # Class usage
 #   device_class     Generic IPL device medium.  It generates CCW's, if not 
 #                    supplied by the IPL ELF.  Writes out the IPL records to the
@@ -2595,7 +2597,8 @@ class segment(object):
 cdrom_record.init()
 
 def parse_args():
-    parser=argparse.ArgumentParser(\
+    parser=argparse.ArgumentParser(prog="iplmed.py",
+        epilog="iplmed.py Copyright (C) %s Harold Grovesteen" % copyright_years, 
         description="creates IPL media")
     parser.add_argument("exefile",\
         help="source ELF executable file",nargs=1)
