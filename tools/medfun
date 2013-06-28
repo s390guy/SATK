@@ -615,6 +615,7 @@ ipl_elf()
                 path exe370 default
             fi
             cp -f ${EXE} ${EXE370}
+            # FIXME for new use of argparse by elfs370.py
             med_tool=${SATK_DIR}/tools/elfs370.py
             ${med_tool} ${EXE370} ${3}
             ;;

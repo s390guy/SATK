@@ -673,7 +673,7 @@ class macro_opt(macro_parm):
             return None
 
 if __name__ == "__main__":
-    #raise NotImplementedError("gas_factory.py - must only be imported")
+    raise NotImplementedError("gas_factory.py - must only be imported")
     # Uncomment the preceding statement to run local tests.
     
     src=as_source()

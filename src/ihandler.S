@@ -149,6 +149,18 @@
         .include "struct.S"   # for structure specification macros
         .include "table.S"    # for ihandler table related macros
 
+ # +------------------------+
+ # |  Interruption Classes  |
+ # +------------------------+
+
+.Lih_mck_cls = 0x0000   # Machine-check maskable interruption class
+.Lih_ext_cls = 0x0004   # External maskable interruption class
+.Lih_io_cls  = 0x0008   # Input/Output maskable interruption class
+.Lih_svc_cls = 0x000C   # Suprvisor Call non-maskable interruption class
+.Lih_rst_cls = 0x0010   # Restart non-maskable interruption class
+.Lih_pgm_cls = 0x0014   # Program non-maskable interruption class
+        
+        
  # Interrupt Handler Specification Structure
  # Alignment: doubleword
 
@@ -405,6 +417,7 @@
  #
  #  Macro Parameters:
  #       handler   Name of the handler being defined (required)
+ #       cls       Interrupt handler class (see for defined symbols)
  #       n         New PSW assigned storage location (required)
  #       o         Old PSW assigned storage location (required)
  #       sa        Prefix page 64- or 128-byte general register save area (required)
@@ -431,8 +444,9 @@
  #    the ihs/ihs64 macros and assembly-time data allowing code generation 
  #    consistent with the interrupt definition.
 
-        .macro ihandler_define handler:req n:req o:req sa:req s=0 p=0 size=0 pgm=0 recurse=no
+        .macro ihandler_define handler:req cls:req n:req o:req sa:req s=0 p=0 size=0 pgm=0 recurse=no
 \handler\()_define = 1
+\handler\()_cls  = \cls
 \handler\()_npsw = \n
 \handler\()_opsw = \o
 \handler\()_sa   = \sa
@@ -448,8 +462,9 @@
     .endif
         .endm
 
-        .macro ihandler_define64 handler:req n:req o:req sa:req s=0 p=0 size=0 pgm=0 recurse=no
+        .macro ihandler_define64 handler:req cls:req n:req o:req sa:req s=0 p=0 size=0 pgm=0 recurse=no
 \handler\()_define64 = 1
+\handler\()_cls64  = \cls
 \handler\()_npsw64 = \n
 \handler\()_opsw64 = \o
 \handler\()_sa64   = \sa
@@ -683,11 +698,11 @@
  #       recurse   see ihandler_define[64] (defaults to 'no')
 
         .macro ihandler_ext handler:req sa=0xD00 s=0 p=0 size=0 pgm=0 recurse=no
-        ihandler_define \handler n=0x58 o=0x18 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
+        ihandler_define \handler cls=.Lih_ext_cls n=0x58 o=0x18 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
         .endm
 
         .macro ihandler_ext64 handler:req sa=0xD00 s=0 p=0 size=0 pgm=0 recurse=no
-        ihandler_define64 \handler n=0x1B0 o=0x130 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
+        ihandler_define64 \handler cls=.Lih_ext_cls n=0x1B0 o=0x130 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
         .endm
 
  # ihandler_io   - Define a 32-bit input/output interrupt handler
@@ -703,11 +718,11 @@
  #       recurse   see ihandler_define[64] (defaults to 'no')
 
         .macro ihandler_io handler:req sa=0xE00 s=0 p=0 size=0 pgm=0 recurse=no
-        ihandler_define \handler n=0x78 o=0x38 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
+        ihandler_define \handler cls=.Lih_io_cls n=0x78 o=0x38 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
         .endm
 
         .macro ihandler_io64 handler:req sa=0xE00 s=0 p=0 size=0 pgm=0 recurse=no
-        ihandler_define64 \handler n=0x1F0 o=0x170 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse 
+        ihandler_define64 \handler cls=.Lih_io_cls n=0x1F0 o=0x170 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse 
         .endm
 
  # ihandler_mck   - Define a 32-bit machine check interrupt handler
@@ -723,11 +738,11 @@
  #       recurse   see ihandler_define[64] (defaults to 'yes')
 
         .macro ihandler_mck handler:req sa=0xD80 s=0 p=0 size=0 pgm=0 recurse=yes
-        ihandler_define \handler n=0x70 o=0x30 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
+        ihandler_define \handler cls=.Lih_mck_cls n=0x70 o=0x30 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
         .endm
 
         .macro ihandler_mck64 handler:req sa=0xD80 s=0 p=0 size=0 pgm=0 recurse=yes
-        ihandler_define64 \handler n=0x1E0 o=0x160 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
+        ihandler_define64 \handler cls=.Lih_mck_cls n=0x1E0 o=0x160 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
         .endm
 
  # ihandler_pgm   - Define a 32-bit program interrupt handler
@@ -743,11 +758,11 @@
  #       recurse   see ihandler_define[64] (defaults to 'yes')
 
         .macro ihandler_pgm handler:req sa=0xF00 s=0 p=0 size=0 pgm=0 recurse=yes
-        ihandler_define \handler n=0x68 o=0x28 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
+        ihandler_define \handler cls=.Lih_pgm_cls n=0x68 o=0x28 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
         .endm
 
         .macro ihandler_pgm64 handler:req sa=0xF00 s=0 p=0 size=0 pgm=0 recurse=yes
-        ihandler_define64 \handler n=0x1D0 o=0x150 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
+        ihandler_define64 \handler cls=.Lih_pgm_cls n=0x1D0 o=0x150 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
         .endm
 
  # ihandler_rst   - Define a 32-bit restart interrupt handler
@@ -763,11 +778,11 @@
  #       recurse   see ihandler_define[64] (defaults to 'yes')
 
         .macro ihandler_rst handler:req sa=0xF80 s=0 p=0 size=0 pgm=0 recurse=yes
-        ihandler_define \handler n=0x00 o=0x08 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
+        ihandler_define \handler cls=.Lih_rst_cls n=0x00 o=0x08 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
         .endm
 
         .macro ihandler_rst64 handler:req sa=0xF80 s=0 p=0 size=0 pgm=0 recurse=yes
-        ihandler_define64 \handler n=0x1A0 o=0x120 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
+        ihandler_define64 \handler cls=.Lih_rst_cls n=0x1A0 o=0x120 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
         .endm
 
  # ihandler_svc   - Define a 32-bit supervisor call interrupt handler
@@ -783,11 +798,11 @@
  #       recurse   see ihandler_define[64] (defaults to 'yes')
 
         .macro ihandler_svc handler:req sa=0xE80 s=0 p=0 size=0 pgm=0 recurse=yes
-        ihandler_define \handler n=0x60 o=0x20 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
+        ihandler_define \handler cls=.Lih_svc_cls n=0x60 o=0x20 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
         .endm
 
         .macro ihandler_svc64 handler:req sa=0xE80 s=0 p=0 size=0 pgm=0 recurse=yes
-        ihandler_define64 \handler n=0x1C0 o=0x140 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
+        ihandler_define64 \handler cls=.Lih_svc_cls n=0x1C0 o=0x140 sa=\sa s=\s p=\p size=\size pgm=\pgm recurse=\recurse
         .endm
 
  # ihandler_table   - Define a 32-bit interrupt handler table
