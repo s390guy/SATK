@@ -61,6 +61,11 @@ class LexerError(Exception):
             string="%s - %s" % (string,self.msg)
         super().__init__(string)
 
+
+# +-------------------------------------------+
+# |  Tokens Returned by the Lexical Analyzer  |
+# +-------------------------------------------+
+
 # This class represents a recognized token and all of its information gathered
 # by the lexer for it.  
 # Contents of the Token instance are influenced by:
@@ -237,6 +242,13 @@ class Token(object):
             raise LexerError()
         return self.mo
         
+class EOS(Token):
+    def __init__(self):
+        super().__init__()
+    def init(self,tid,beg,line,linepos):
+        #tid,string,beg,end,line=0,linepos=0,eols=0,ignore=False,mo=None
+        super().init(tid,"",beg,beg,line=line,linepos=linepos)
+        
 # This class is a subclass of Token use by the Lexer class when it encounters 
 # character sequences it is unable to recognize.  It is technically an internal
 # subclass of Token used by the lexer when fail=False is used during the token
@@ -271,7 +283,7 @@ class Unrecognized(Token):
         super().init("unrecognized","",beg,beg,line=line,linepos=linepos,\
             eols=0,ignore=True)
         self.linepos=beg-linepos
-    
+
 # This class defines a regular expression used for the purposes of matching a
 # specific type of token.  Instances of class Type, create the cirumstances under
 # which a set of tokens are identified and how the recognized instance of Token
@@ -298,7 +310,10 @@ class Type(object):
         # Regular expression related attributes
         self.pattern=pattern  # Regular expression detecting type
         self.flags=flags      # Regular expression compilation flags
-        self.cre=re.compile(pattern,flags)   # Compiled regular expression
+        if pattern is None:
+            self.cre=None
+        else:
+            self.cre=re.compile(pattern,flags)   # Compiled regular expression
         
     def __str__(self):
         flags=eol=ign=mo=""
@@ -318,7 +333,7 @@ class Type(object):
     # the compiled regular expression of the this instance
     # If found, an instance of Token is returned representing the identified token.
     # If not found a LexerError exception is raised.
-    def match(self,string,pos=0,line=0,eolpos=0):
+    def match(self,string,pos=0,line=0,eolpos=0,eos=False):
         if self.debug:
             print("Type '%s' match(string,pos=%s,line=%s,eolpos=%s)" \
                 % (self.tid,pos,line,eolpos))
@@ -346,7 +361,20 @@ class Type(object):
         if self.debug:
             print("Type '%s' match(): recognized Token:\n   %s" % (self.tid,tok))
         return tok
-      
+
+class EOSType(Type):
+    def __init__(self,tid="EOS",tcls=EOS,debug=False):
+        super().__init__(tid,None,tcls=tcls,debug=debug)
+    def match(self,pos=0,line=0,eolpos=0):
+        tok=self.tcls()
+        #tid,beg,line,linepos
+        tok.init(self.tid,pos,line,0)
+        return tok
+
+# +------------------------+
+# |  THE LEXICAL ANALYZER  |
+# +------------------------+
+
 # This class performs a lexical tokenization process on a string based upon a set
 # of Type instances associated with the Lexer instance by its type() method.
 # 
@@ -400,6 +428,8 @@ class Lexer(object):
         # List elements provided by the self.type() method
         self.typs=[]   # List of Type instances for recognized tokens
         self.tids=[]   # List of Type tids for detection of duplicates
+        self.eos=False     # Set to true if EOSType is registered for recognition
+        self.eostype=None  # The Type instance being used for EOS.
         
         # Values maintained while acting as an iterator
         self._reset()   # Initialize the attributes
@@ -425,6 +455,11 @@ class Lexer(object):
                 continue
             # Stop the iteration if the recognizer has reached the string's end
             if self.pos == self.length:
+                if self.eos:
+                    tok=self.eostype.match(self.pos,self.line+1,0)
+                    #tok.init(self.pos,self.line+1,0)
+                    self.stopped=True
+                    yield tok
                 self.stopped=True
                 raise StopIteration
             self.recognizer()
@@ -542,6 +577,8 @@ class Lexer(object):
     #    linepos The position within the current being recognized. Defaults to 0.
     def recognize(self,string,pos=0,line=0,linepos=0):
         for typ in self.typs:
+            if self.eos and isinstance(typ,EOSType):
+                continue
             try:
                 return typ.match(string,pos,line,linepos)
             except LexerError:
@@ -603,6 +640,9 @@ class Lexer(object):
             raise ValueError("lexer.Lexer.type() - duplicate type id: '%s'" 
                 % t.tid)
 
+        if isinstance(t,EOSType):
+            self.eostype=t
+            self.eos=True
         self.typs.append(t)
         self.tids.append(t.tid)
         
@@ -613,7 +653,7 @@ class Lexer(object):
             print("%s" % x)
 
 if __name__ == "__main__":
-    #raise NotImplementedError("lexer.py - must only be imported")
+    raise NotImplementedError("lexer.py - must only be imported")
 
     y=Type("atype","(?P<letters>[a-z]+)",mo=True,eol=True)
     print("Created Type instance:\n   %s" % y)

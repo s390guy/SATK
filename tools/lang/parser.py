@@ -27,6 +27,111 @@ import functools  # Access to compare function to key function
 # SATK imports:
 import lexer
 
+# +-----------------------+
+# |  Callback Management  |
+# +-----------------------+
+
+# The Callback Manager class assists in registering callback methods by a 
+# language processor and in the identification of a callback for a specific 
+# point in the processing.  The CBM class mangages the processing points.  The
+# CB class manages individual callbacks for specific id's.
+#
+# Class instance arguments: None
+#
+# Instance methods:
+#   method     Returns the callback method for a specific processing point and id
+#   point      Register a CB instance for managing callbacks of a processing point.
+#              callback id's must be unique.
+#   register   Register a method with a specific processing point and id.
+class CBM(object):
+    @staticmethod
+    def mname(mo):         # Returns the method name string: 'class.method'
+        if mo is None:
+            return ""
+        io=mo.__self__     # Get the instance object from the method object 
+        cls=io.__class__   # Get the class object from the instance object
+        fo=mo.__func__     # Get the function object from the method object
+        return "%s.%s" % (cls.__name__,fo.__name__)
+
+    def __init__(self):
+        # Dictionary of callback processing points.  Contains CB instances.
+        self.cbp={}
+
+    # Returns the callback method for a specific processing point and callback id.
+    # If the processing point or callback method is not recognized (or a default
+    # callback method was not specified), a ValueError is raised.
+    def method(self,point,cbid):
+        try:
+            p=self.cbp[point]
+        except KeyError:
+            raise ValueError("parser.py - CBM.method() - unrecognized callback "
+                "processing point: %s' % point")
+        return p.method(cbid)  # Fetch the callback method for the id.
+
+    # Register a CB instance for a callback processing point
+    def point(self,cbo):
+        if not isinstance(cbo,CB):
+            raise ValueError("parser.py - CBM.point() - process point must be "
+                "a instance of class CB: %s" % point)
+        ppoint=cbo.point   # Fetch the processing point of the CB instance
+        try:
+            
+            p=self.cbp[ppoint]
+            raise ValueError("parser.py - CBM.point() - duplicate processing "
+                "point encountered: %s" % ppoint)
+        except KeyError:
+            self.cbp[ppoint]=cbo   # Register the CB instance for the point
+            
+    # Register a specific method for a processing point and callback id.
+    def register(self,point,cbid,method):
+        try:
+            p=self.cbp[point]
+        except KeyError:
+            raise ValueError("parser.py - CBM.register() - Unrecognized "
+                "processing point: %s" % point)
+        #print("p=%s" % p)
+        p.register(cbid,method)
+    
+# This class handles the all of the callbacks for an individual processing point.
+# A default can be established when the class is created or later registered.
+class CB(object):
+    def __init__(self,point,default=None):
+        if not isinstance(point,str):
+            raise ValueError("parser.py - CB.__init__() - processing point id "
+                "must be a string: %s" % point)
+        self.point=point   # Save the processing point
+        self.dft=default   # set the default method
+        self.cbs={}        # The empty dictionary of cbid's to method mapping
+
+    # Specify a default or new default method for the processing point
+    def default(self,method):
+        self.dft=method
+
+    # Return a method for a specific callback id or the default if no method has
+    # been registered.  If no default method exists, a ValueError exception is
+    # raised
+    def method(self,cbid):
+        try:
+            m=self.cbs[cbid]
+            return m
+        except KeyError:
+            pass
+        if self.dft is None:
+            raise ValueError("parser.py - CB.method() - unrecognized callback "
+                "id and no default specified: '%s'" % cbid)
+        return self.dft
+
+    # Register a method for a specific callback id.
+    def register(self,cbid,method):
+        if not isinstance(cbid,str):
+            raise ValueError("parser.py - CB.register() - callback id must be a "
+                "string: %s" % cbid)
+        self.cbs[cbid]=method
+
+# +-------------------------------+
+# |  Exceptions Raised by Parser  |
+# +-------------------------------+
+
 # This exception is raised any time the Parser encounters an error.
 # Instance arguments:
 #   tok      The token triggering the error.  Default is None.
@@ -42,6 +147,10 @@ class SyntaxError(Exception):
     def __init__(self,eo=None):
         super().__init__()
         self.eo=eo  # Associated error object
+
+# +------------------------+
+# |  Parser Error Objects  |
+# +------------------------+
 
 # These classes categorize encountered errors and passed in SyntaxErrors and
 # ultimately communicated to the language processor for eventual processing.
@@ -68,7 +177,7 @@ class Error(object):
             return 1
         if a.depth>b.depth:
             return -1
-        return 1
+        return 0
     def __init__(self,line=None,pos=None,depth=0,source="UNKNOWN"):
         self.line=line
         self.pos=pos
@@ -119,8 +228,8 @@ class ErrorToken(Error):
         super().__init__(line=found.line,pos=found.linepos,\
             depth=depth,source=source)
     def __str__(self):
-        return "ErrorToken(pid=%s,n=%s,expect=%s,found=%s)" \
-            % (self.pid,self.n,self.expect,self.token)
+        return "ErrorToken(pid=%s,n=%s,expect=%s,found=%s,source=%s)" \
+            % (self.pid,self.n,self.expect,self.token,self.source)
     def clone(self):
         return ErrorToken(self.pid,self.n,self.expect,self.token)
     def print(self,debug=False):
@@ -157,6 +266,12 @@ class ErrorMgr(object):
     def __init__(self):
         self.errors=[]   # List of encountered errors with text locations
         self.noloc=[]    # List of encountered errors without text locations
+
+    # This method returns the number of reported errors.
+    def quantity(self):
+        return len(self.errors)+len(self.noloc)
+
+    # This method is called when an error object is to be reported as an error.
     def report(self,error):
         if not isinstance(error,Error):
             raise TypeError("lang.ErrorMgr.report() - error must be an instance of "
@@ -165,6 +280,7 @@ class ErrorMgr(object):
             self.noloc.append(error)
         else:
             self.errors.append(error)
+
     # This method presents a list of errors for processing.
     def present(self):
         self.errors.sort(key=functools.cmp_to_key(ErrorMgr.comp_errors))
@@ -390,7 +506,6 @@ class Grammar(object):
         rh.trace=trace
 
         prd=PRD(lh.string,sync=sync,flags=syncflag)
-        self.parser.prdinit(prd)   # Initialize PRD for parser usage.
         prd.rhand(rh)
         if self.debug:
             print("%s" % prd)
@@ -404,7 +519,7 @@ class Grammar(object):
             except ParserError:
                 continue
 
-    # Pass 2 of the grammar processor - creates the PRD dictionary for the parseer
+    # Pass 2 of the grammar processor - creates the PRD dictionary for the parser
     def _pass2(self):
         for x in self.prods:
             try:
@@ -493,7 +608,6 @@ class Grammar(object):
             self.glines.append(aline)
 
         if self.debug:
-            #print(self.glines)
             print("\n%s Recognized production line" % self.__class__.__name__)
             for x in self.glines:
                 for y in x:
@@ -561,7 +675,6 @@ class ID(object):
 
         # Language processor call back method for a token and whether it is traced
         # the ID is traced.  Only TID type ID's use these attributes
-        self.token=None
         self.trace=False
         # PRD ID tracing is controlled by the trace attribute in the PRD and RH
         # triggered by the <trace> decorator in a production grammar statement.
@@ -572,13 +685,10 @@ class ID(object):
             self.cvt_rep(":1")
 
     def __str__(self):
-        rec=Parser.method(self.rec)
-        rep=Parser.method(self.rep)
-        method=Parser.method(self.token,dummy="_token")
-        if len(method)!=0:
-            method=",token=%s" % method
-        return "ID('%s',%s,min=%s,max=%s,rec=%s,rep=%s%s,trace=%s)" \
-            % (self.tpid,self.typ,self.min,self.max,rec,rep,method,self.trace)
+        rec=CBM.mname(self.rec)
+        rep=CBM.mname(self.rep)
+        return "ID('%s',%s,min=%s,max=%s,rec=%s,rep=%s,trace=%s)" \
+            % (self.tpid,self.typ,self.min,self.max,rec,rep,self.trace)
 
     def cvt_rep(self,string):
         if string=="*":
@@ -619,30 +729,14 @@ class PRD(object):
         # If resynchronization itself failes, a SyntaxError exception is raised.
         self.sync=sync
 
-        # Language processor call back methods:
-        self.beg=None
-        self.trying=None
-        #self.token=None
-        self.found=None
-        self.failing=None
-        self.end=None
-
     def __str__(self):
-        cbm=cbstr=tr=sync=string=''
+        sync=string=''
         if len(self.sync)>0:
             for x in self.sync:
                 sync="%s,'%s'" % (sync,x)
             sync=sync[1:]
             sync=",sync=[%s]" % sync
-        cbs=[self.beg,self.trying,self.found,self.failing,self.end]
-        dummys=PRD.dummys
-        for x in range(len(cbs)):
-            cb=Parser.method(cbs[x],dummy=dummys[x])
-            if len(cb)>0:
-                cbm="%s,%s" % (cbm,cb)
-        if len(cbm)>0:      
-            cbstr="callbacks: %s" % cbm[1:]
-        string="PRD('%s'%s,trace=%s) %s" % (self.pid,sync,self.ptrace,cbstr)
+        string="PRD('%s'%s,trace=%s)" % (self.pid,sync,self.ptrace)
         for x in self.alts:
             string="%s\n    %s" % (string,x)
         return string
@@ -682,6 +776,8 @@ class START(ID):
 # sychronization for failed productions.  The Parser class may be subclassed.
 #
 # Instance methods:
+#   cbreg     Allows a language processor to register a callback method for a 
+#             specific production id and its processing point.
 #   debug     Sets a registered debug flag as True or False.  Unrecognized flags
 #             raise ValueError exceptions.
 #   flag      Registers a unique debug flag testable by the isdebug() method and
@@ -713,17 +809,6 @@ class START(ID):
 #   init      This method must be supplied by a subclass if used.  It is intended to
 #             to initialize a specific Parser with its lexer and productions.
 class Parser(object):
-    @staticmethod
-    def method(mo,dummy=""):
-        if mo is None:
-            return ""
-        io=mo.__self__     # Get the instance object from the method object 
-        cls=io.__class__   # Get the class object from the instance object
-        fo=mo.__func__     # Get the function object from the method object
-        meth=fo.__name__
-        if meth == dummy:
-            return ""
-        return "%s.%s" % (cls.__name__,fo.__name__)
     def __init__(self):
         # Set of debug 'flags'.  See debug() and _isdebug() methods
         self.pdebug={}  # Set of debug 'flags', used to set debug options
@@ -736,7 +821,7 @@ class Parser(object):
         self.flag("gldebug")   # Grammar processing lexer debug flag
         self.flag("gtdebug")   # Grammar processing token debug flag
 
-        # This attribute is used to establish ID instance recognizers
+        # These attributes are used to establish ID instance recognizers
         self.idrec={"TID":getattr(self,"_TID"),
                     "PRD":getattr(self,"_PRD") \
                    }
@@ -745,6 +830,17 @@ class Parser(object):
                     "?":getattr(self,"_rep_0_or_1"),
                     ":":getattr(self,"_rep_n") \
                    }
+
+        # This establishes callback manager and callback processing points
+        self.cbm=CBM()
+        # Add each processing point CB instance with default methods
+        self.cbm.point( CB("beg",    default=self._beg)     )
+        self.cbm.point( CB("trying", default=self._trying)  )
+        self.cbm.point( CB("token",  default=self._token)   )
+        self.cbm.point( CB("error",  default=self._error)   )
+        self.cbm.point( CB("found",  default=self._found)   )
+        self.cbm.point( CB("failing",default=self._failing) )
+        self.cbm.point( CB("end",    default=self._end)     )
 
         # This attribute is established by the lexer() method
         self.lex=None         # The lexer to be used by this parser
@@ -763,12 +859,13 @@ class Parser(object):
 
     # Dummy language processor call back methods.  These are the expected method
     # signatures to be supported by an overridden subclass method.
-    def _beg(self): pass
-    def _trying(self,n,last=False): pass
-    def _token(self,n,token): pass
-    def _found(self,n,last=False): pass
-    def _failing(self,n,eo=[],last=False): pass
-    def _end(self,failed=False,eo=[]): pass
+    def _beg(self,gs,pid): pass
+    def _trying(self,gs,pid,n,last=False): pass
+    def _token(self,gs,pid,n,token): pass
+    def _error(self,gs,pid,n,token): pass
+    def _found(self,gs,pid,n,last=False): pass
+    def _failing(self,gs,pid,n,eo=[],last=False): pass
+    def _end(self,gs,pid,failed=False,eo=[]): pass
 
     # This is the recognizer for ID instances of type PRD
     # This method is called from one of the repetition recognizers.
@@ -821,11 +918,12 @@ class Parser(object):
         ptrace=prdo.ptrace
         
         # Call back for start of production
+        beg=self.cbm.method("beg",pid)
         if ptrace:
-            beg=Parser.method(prdo.beg,dummy="_beg")
-            if len(beg)>0:
-                print(beg)
-        prdo.beg()                        # Call back for start of production
+            begm=CMB.mname(beg)
+            if len(begm)>0:
+                print("%s(gs,%s)" % (begm,pid))
+        beg(self.gs,pid)                 # Call back for start of production
         
         # Try the productions alternatives
         last=len(prdo.alts)-1
@@ -837,22 +935,24 @@ class Parser(object):
             tracing=alt.trace  # trace this alternative or not
 
             # Call back for altenative being tried
+            trying=self.cbm.method("trying",pid)
             if tracing:
-                trying=Parser.method(prdo.trying,dummy="_trying")
-                if len(trying)>0:
-                    print("%s(%s,last=%s)" % (trying,x,end))
-            prdo.trying(x,last=end)
+                tryingn=CBM.mname(trying)
+                if len(tryingn)>0:
+                    print("%s(gs,%s,%s,last=%s)" % (tryingn,pid,trying,x,end))
+            trying(self.gs,pid,x,last=end)
 
             try:
                 for i in alt.ids:
                     i.rep(i,pid,x)            # Recognize the number of id's
 
                 # Call back for recognizing an alternative
+                found=self.cbm.method("found",pid)
                 if tracing:
-                    found=Parser.method(prdo.found,dummy="_found")
-                    if len(found)>0:
-                        print("%s(%s,last=%s)" % (trying,x,end))
-                prdo.found(x,last=end)
+                    foundn=CBM.mname(found)
+                    if len(foundn)>0:
+                        print("%s(gs,%s,last=%s)" % (foundn,x,end))
+                found(self.gs,pid,x,last=end)    # Do callback for production alternative found
 
                 error=False
                 break
@@ -860,7 +960,7 @@ class Parser(object):
             except SyntaxError as se:
                 eo=se.eo
                 if self.isdebug("edebug"):
-                    print("parser.Parser._PRD() - SyntaxError.eo=%s" % eo)
+                    print("parser.Parser._PRD() - excepted SyntaxError.eo=%s" % eo)
                 
                 tok=self.stream.inspect(self.stream.current())
                 d=len(self.depth)
@@ -868,11 +968,13 @@ class Parser(object):
                 alt_err.append(eo)
                 
                 # Do production alternative failure
+                failing=self.cbm.method("failing",pid)
                 if tracing:
-                    failing=Parser.method(prdo.failing,dummy="_failing")
-                    if len(failing)>0:
-                        print("%s(%s,last=%s)" % (trying,x,end))
-                res=prdo.failing(x,eo=alt_err,last=end)
+                    failingn=CBM.mname(failing)
+                    if len(failingn)>0:
+                        print("%s(gs,%s,%s,eo=%s,last=%s)" \
+                            % (failingn,pid,x,alt_err,end))
+                res=failing(self.gs,pid,x,eo=alt_err,last=end)
                 
                 # If the callback method did not handle error objects, add them
                 # to the list of production error failures
@@ -888,11 +990,12 @@ class Parser(object):
         else:
             eolist=[]
 
+        endm=self.cbm.method("end",pid)
         if ptrace:
-            endm=Parser.method(prdo.end,dummy="_end")
-            if len(endm)>0:
-                print("%s(failed=%s,eo=%s)" % (endm,error,eolist))
-        res=prdo.end(failed=error,eo=eolist)
+            endn=CBM.mname(endm)
+            if len(endn)>0:
+                print("%s(%s,failed=%s,eo=%s)" % (endn,pid,error,eolist))
+        res=endm(self.gs,pid,failed=error,eo=eolist)
         
         if error:
             # If error objects not handled by callback method, generate a 
@@ -900,7 +1003,7 @@ class Parser(object):
             if not res:
                 eo=self._production_error(pid,lst=eolist)
                 if self.isdebug("edebug"):
-                    print("parser.Parser._PRD() - eo=%s" % eo)
+                    print("parser.Parser._PRD() - reporting eo=%s" % eo)
                 self.gs.mgr.report(eo)
 
             self.depth.pop()
@@ -916,7 +1019,6 @@ class Parser(object):
         
     # Generate a ErrorProd instance for a production where all alternatives failed
     def _production_error(self,pid,lst=[]):
-        #print("parser.Parser._production_error(%s,lst=%s" % (pid,lst))
         if len(lst)==0:
             eo=ErrorProd(pid,None,depth=len(self.depth),token=None,
                 source="_production_error")
@@ -952,15 +1054,24 @@ class Parser(object):
             #self.gs.mgr.report(eo)
             if self.isdebug("edebug"):
                 print("parser.Parser._TID - eo=%s" % eo)
+            terror=self.cbm.method("error",pid)
+            if trace:
+                print("rejected token")
+                terrorn=CBM.mname(terror)
+                if len(terrorn)>0:
+                    print("%s(gs,%s,%s,%s)" % (terrorn,pid,n,eo))
+            terror(self.gs,pid,n,eo)
             self.stream.reset(tok)  # Cancel accept pending
             raise SyntaxError(eo=eo)
         self.stream.accept()
+        
+        token=self.cbm.method("token",pid)
         if trace:
             print("accepted token")
-            token=Parser.method(ido.token,dummy="_token")
-            if len(token)>0:
-                print("%s(%s,%s)" % (token,n,tok))
-        ido.token(n,tok)
+            tokenn=CBM.mname(token)
+            if len(tokenn)>0:
+                print("%s(gs,%s,%s,%s)" % (tokenn,pid,n,tok))
+        token(self.gs,pid,n,tok)        # Do token callback for pid
         return False  # We never resync on TID's
 
     # "?" Repetition Recognizer - zero or 1 instances of PRD or ID
@@ -1005,7 +1116,6 @@ class Parser(object):
                 if self.isdebug("edebug"):
                     print("parser.Parser._rep_1_or_more() - SytaxError.eo=%s" % eo)
                 # Resync stream following last recognized instance
-                #self.gs.mgr.report(eo)
                 self.stream.pos(current)
                 break
         if number==0:
@@ -1037,7 +1147,6 @@ class Parser(object):
                 eo=se.eo
                 if self.isdebug("edebug"):
                     print("parser.Parser._rep_n() - SytaxError.eo=%s" % eo)
-                #self.gs.mgr.report(eo)
                 break
         if number!=n:
             # Resync stream following to position of last recognized occurrence
@@ -1106,6 +1215,15 @@ class Parser(object):
             num=x+1
             number="[%s]" % num
             print("%s %s" % (number,line))
+            
+    # Establish a callback method for the language processor.
+    # Method arguments:
+    #    point   The processing point id.  
+    #            One of: "beg","trying", "token", "found", "failing", or "end"
+    #    pid     The production id for which the method should be called
+    #    method  The method name called for the production's processing point.
+    def cbreg(self,pid,point,method):
+        self.cbm.register(point,pid,method)
 
     # Set a debug flag or flags.
     #    debug("flag1","flag2") will enable both flags for debugging
@@ -1201,13 +1319,10 @@ class Parser(object):
     # This method links the ID instance to the parser recognizer functions and
     # the language processor for Node creation.
     def idinit(self,pid,ido):
-        #print("idinit(): ido.reptyp=%s" % ido.reptyp)
         typ=ido.typ
         # Set up recognizer methods
         ido.rec=self.idrec[typ]  # The recognizer method for the ID
         ido.rep=self.idrep[ido.reptyp] # Rep recognizer method for ID
-        if ido.istid:
-            ido.token=getattr(self,"%s_token" % pid,self._token)
 
     # This method must be supplied by a subclass.  It is intended to be used for
     # initialization of the Parser with productions instances specific to the
@@ -1254,17 +1369,6 @@ class Parser(object):
         self.stream=Stream(self)
         self.stream.tokens(string,lines=lines,fail=fail)
         self.sprd.rep(self.sprd,None,0)  # Do the START ID
-
-    # This method links the ID instance to the parser recognizer functions and
-    # the language processor for Node creation.
-    def prdinit(self,prdo):
-        pid=prdo.pid
-        # Set up language processor call back methods
-        prdo.beg=getattr(self,"%s_beg" % pid,self._beg)
-        prdo.trying=getattr(self,"%s_trying" % pid,self._trying)
-        prdo.found=getattr(self,"%s_found" % pid,self._found)
-        prdo.failing=getattr(self,"%s_failing" % pid,self._failing)
-        prdo.end=getattr(self,"%s_end" % pid,self._end)
 
     # Check the state of the parser for a prerequisite component. Returns
     # True if prereqs are present, False otherwise.

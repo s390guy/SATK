@@ -21,6 +21,8 @@
 
 # Python imports
 import os
+import sys
+
 # SATK imports: none
 
 # This class gathers directory and file lists recursively from within a root
@@ -234,6 +236,22 @@ class dir_tree(object):
         if files:
             for x in self.files:
                 method(x)
+
+# Add a directory dynamically to the PYTHONPATH search path
+def pythonpath(dir,debug=False):
+    if os.path.isabs(dir):
+        raise ValueError("satkutil.py - pythonpath - directory must be a relative "
+            "oath: %s" % dir)
+    root=satkroot()
+    if debug:
+        print("satkutil.py - pythonpath() - SATK root: '%s'" % root)
+    path=[os.path.join(root,dir),]
+    if debug:
+        print("satkutil.py - pythonpath() - adding path: '%s'" % path[0])
+    path.extend(sys.path)
+    sys.path=path
+    if debug:
+        print("satkutil.py - pythonpath() - sys.path=%s" % sys.path)
 
 # Determine the SATK root directory from where this module resides.
 def satkroot():

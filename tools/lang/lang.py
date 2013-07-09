@@ -29,96 +29,145 @@ import parser   # Access the language tools' syntactical analyzer
 
 class Language(parser.Parser):
     # Create the language processor as a subclass of the syntactical analyzer
-    def __init__(self):
+    def __init__(self,processor):
+        if not isinstance(processor,Processor):
+            raise ValueError("lang.py - Language.__init__() - 'processor' argument "
+                "must be an instance of lang.Processor: %s" % processor)
         super().__init__()
-        self.gs=None
+        self.gs=None                   # The Global Scope object
+        self.processor=processor       # The language processor
         
-    # Call the parser.Parser parse() method to recognize text in the target 
-    # language. The lang.Language subclass has full responsibility for its
-    # handling of recognized text.
-    #
-    # If present, the following call backs to the language processor are used.  
-    # In each case 'n' is the index of the right hand alternative being processed.
-    #   self.<pid>_beg()
-    #         Recognition of <pid> has started.
-    #   self.<pid>_trying(n,last=True/False)   
-    #         Signals the attempt to recognize a right hand side of a production.
-    #   self.<pid>_token(n,token)
-    #         This signals the language processor that the token instance was found
-    #         in the <pid>.
-    #   self.<pid>_failing(n,last=True/False) 
-    #         Signals the previously attempted recognition failed.  The 
-    #         language processor should "clean up" from the previous attempt. 
-    #   self.<pid>_found(n,last=True/False)
-    #         The syntactical analyzer succeeded its recognition of the 
-    #         production pid with the n'th alternative.  The language analyzer
-    #         should do what it needs to for the production's recognition.
-    #   self.<pid>_end(failed=True/False)
-    #         Recognition of the production has ended for <pid>.
-    # For a given production, if the callback is not present, the default version
-    # is called, which does nothing.
-    #
-    # This is a default analyze method that calls the parser.Parser parse() method
-    # with its default arguments.  
-    def analyze(self,text):
-        self.prepare()
-        self.parse(text)
-
-    # This method creates the Language processor and must be called from the 
-    # lang.Language subclass in its init() method.
-    def create(self):
-        lxr=self.create_lexer()
+        self.processor.configure(self) # Turn on debugging and enable call backs
+        
+        # Now initialize my parser super class parser.Parser
+        proccls=self.processor.__class__.__name__
+        lxr=self.processor.create_lexer()
         if not isinstance(lxr,lexer.Lexer):
             raise ValueError("%s.create_lexer() method must return an instance of "
-                "lexer.Lexer, but encountered: %s" \
-                % (self.__class__.__name__,lexer)) 
-        tg,prod=self.define_parser()
+                "lexer.Lexer, but encountered: %s" % (proccls,lexer)) 
+        tg,prod=self.processor.define_parser()
         if not isinstance(tg,str):
             raise ValueError("%s.define_parser() method must return a string "
                 "object for the grammar definition. but encountered: %s" \
-                % (self.__class__.__name__,tg))
+                % (proccls,tg))
         if not isinstance(prod,str):
             raise ValueError("%s.define_parser() method must return a string "
                 "object for the starting production id, but encountered: %s"\
-                % (self.__class__.__name__,prod))
+                % (proccls,prod))
         self.generate(tg,lxr,prod)
-    
+        
+    # Calls the parser.Parser parse() method to recognize text in the target 
+    # language. The lang.Language subclass has full responsibility for its
+    # handling of recognized text.
+    #
+    # This is a default analyze method that calls the parser.Parser parse() method
+    # with its default arguments.  Upon completion, it returns the global scope
+    # object to the processor.
+    def analyze(self,text,scope=None,error_mgr=None,depth=20,lines=True,fail=False):
+        self.prepare(scope,error_mgr)
+        self.parse(text,depth=depth,lines=lines,fail=fail)
+        return self.gs
+
+    def filter(self,tok):
+        return self.processor.filter(self.gs,tok)
+
     # This method prepares the language environment for parsing.  It must be 
     # called by the analyze method calls the parser.Parser.parse() method.
-    def prepare(self):
-        self.gs=self.create_global()
-        self.gs.mgr=self.create_error_mgr()
+    def prepare(self,scope,error_mgr):
+        if scope is None:
+            self.gs=Scope()
+        else:
+            if not isinstance(scope,Scope):
+                raise ValueError("lang.py - Lanuage.prepare() - 'scope' argument "
+                    "must be an instance of Scope: %s" % scope)
+            self.gs=scope
+        if error_mgr is None:
+            self.gs.mgr=parser.ErrorMgr()
+        else:
+            if not isinstance(error_mgr,parser.ErrorMgr):
+                raise ValueError("lang.py - Lanuage.prepare() - 'error_mgr' "
+                    "argument must be an instance of parser.ErrorMgr: %s" \
+                    % error_mgr)
+            self.gs.mgr=error_mgr
+      
+# This is the base class for all language processors as separate entities.  The
+# Language class expects to interface with this class when being instantiated.
+# All language processors must be subclasses of this class.  It defines the
+# interactions with the Language object that constitute the interface between the
+# two environments.  Text recognition processes interact between the two objects
+# by means of a global instance of the Scope object and callback methods registered
+# with the Lanugage object.
+#
+# Processor object arguments: None
+#
+# Methods required by lang.Language to be provided by Processor subclasses:
+#
+#   configure      Enables lang.Language (and its superclass parser.Parser) debug
+#                  options and Processor subclass callback methods.
+#   create_lexer   Instantiates and returns to the Language object the lexical
+#                  analyzer used by the processor.
+#   define_parser  Returns two strings as a tuple: the grammar used by the language
+#                  and the starting PID used by the parser embedded in the language
+#                  object.
+#
+# Methods available for use by a Processor subclass:
+#
+#  error           Deliver an error object to the error manager.
+#  errors          Returns the number of currently encountered errors.
+class Processor(object):
+    def __init__(self):
+        # This attribute is provided when the Processor object is associated
+        # with the Language object during the init method() call by the language object.
+        self.lang=None 
     
-    # This method creates an error manager.  If a subclass needs to instantiate its
-    # own, then this method should be overridden.
-    def create_error_mgr(self):
-        return parser.ErrorMgr()
+    # This method is called by the Language interface object for initialization
+    # of processor operations.  This method must enable debugging options and
+    # call back methods.
+    def configure(self,lang):
+        raise NotImplementedError("Subclass %s of lang.Processor must provide the "
+            "configure() method" % self.__class__.__name__)
     
     # Create the lexical analyzer to be used by the language.  This method must
     # instantiate and initialize the lexer.Lexer subclass for this language.
-    # This method is called by the self.create() method that initializes the 
+    # This method is called by the lang.create() method that initializes the 
     # language system.
     #
     # Subclasses MUST provide this method, returning the lexical analyzer instance.
     def create_lexer(self):
-        raise NotImplementedError("Subclass %s of lang.Language must provide the "
-            "create_lexer() method")
+        raise NotImplementedError("Subclass %s of lang.Processor must provide the "
+            "create_lexer() method" % self.__class__.__name__)
     
-    # Creates a global Scope instance from lang.Scope.  If the language processor
-    # needs to subclass Scope, this method should be overridden by the 
-    # lang.Language subclass.
-    def create_global(self):
-        return Scope()
-
-    # Define the syntactic analyzer to be used by the language.  This method must
+    # Defines the syntactic analyzer to be used by the language.  This method must
     # return a tuple of two strings.  The first string is the grammar string that
     # define's the syntactical analyzer's processing. The second string is the
     # pid of the starting production.
     #
     # Subclasses MUST provide this method
     def define_parser(self):
-        raise NotImplementedError("Subclass %s of Language must provide the "
-            "create_parser() method")
+        raise NotImplementedError("Subclass %s of lang.Processor must provide the "
+            "define_parser() method" % self.__class__.__name__)
+        
+    # Report an error object (instance of parser.Error) to the parser
+    def error(self,eo):
+        self.lang.gs.mgr.report(eo)
+        
+    # Return the number of currently encountered errors.
+    def errors(self):
+        return self.lang.gs.mgr.quantity()
+        
+    # This method provides the default filter for processing.  A subclass should
+    # override this method for actual filtering
+    def filter(self,gs,tok):
+        return tok
+      
+    # This method is part of the Lanugage object interface and must not be
+    # overridden by a subclass
+    def init(self):
+        self.lang=Language(self)
+        
+    # Expose the error manager for use by language processor
+    def manager(self):
+        return self.lang.gs.mgr
       
 # This class facilitates the management of scope within the language processor.  It
 # is recommended that this class or a subclass be used at least to manage global
