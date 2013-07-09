@@ -16,7 +16,7 @@ Copyright (C) 2013 Harold Grovesteen
     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
                               SATK Samples
-                      
+
 The 'samples' directory contains examples and tests of various SATK components.
 All device types have not been tested in all settings.  All devices have been tested
 but not in all CPU architectures.  All CPU architectures have been tested but not 
@@ -74,12 +74,12 @@ fba/<CPU-arch>/hercules.<env>.<date>.<time>.log - Hercules test console log
                      module.map     - Linkage editor map (from GNU ld)
                      module.o       - IPL ELF object (from GNU as)
                      module.obj.txt - IPL ELF object content (from objdump)
-    
+
 The test matrices provided below describe the level of testing done and whether
 the particular device/CPU architecture combination is included with the tool kit
 repository.  'tested' indicates the combination has been built and tested external 
 to SATK.  'SATK' indicates the combination is available in the repository.
-    
+
 The remainder of this file contains notes about specific sample directories.
 
 embedded directory
