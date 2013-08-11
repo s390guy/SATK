@@ -23,10 +23,10 @@
 # Python imports: None
 
 # SATK imports:
-import lang     # Access the language tools' semantic analyzer framework.
-import lexer    # Access the language tools' lexical analyzer
-import parser   # Access the language tools' syntactical analyzer
-import syntax   # Access the AST nodes
+import lang       # Access the language tools' semantic analyzer framework.
+import lexer      # Access the language tools' lexical analyzer
+import LL1parser  # Access the language tools' syntactical analyzer
+import syntax     # Access the AST nodes
 
 class MyLexer(lexer.Lexer):
     def __init__(self,debug=False,tdebug=False):
@@ -43,22 +43,32 @@ class MyLexer(lexer.Lexer):
         self.type(lexer.Type("ws",r"[ \t\r\f\v]+",ignore=True,debug=tdebug))
         self.type(lexer.Type("comment",r"#[^\n]*",ignore=True,debug=tdebug))
         self.type(lexer.Type("nl",r"(?m)\n+",eol=True,debug=tdebug))
+        self.type(lexer.EOSType("eos"))
+        self.type(lexer.EmptyType())
         if self.gdebug:
             self.types()
         return self
 
-class MyLanguage(lang.Language):
-    def __init__(self):
+class MyLanguage(lang.Processor):
+    def __init__(self,debug=False,cbdebug=False,gdebug=False,edebug=False,
+                 tdebug=False,ldebug=False,ll1debug=False):
        super().__init__()
+       self.debug=debug
+       self.cbdebug=cbdebug
+       self.gdebug=gdebug
+       self.edebug=edebug
+       self.ldebug=ldebug
+       self.tdebug=tdebug
+       self.ll1debug=ll1debug
+       self.init()
+       
 #
 #  These methods are used to create the language processor
 #
 
     # Create my lexer - called by the lang.Language.create() method 
     def create_lexer(self):
-         return MyLexer(\
-            debug=self.isdebug("ldebug"),
-            tdebug=self.isdebug("tdebug")).init()
+         return MyLexer(debug=self.ldebug,tdebug=self.tdebug).init()
 
     # Define syntactical analysis - called by the lang.Language.create() method.
     # It returns a tuple of two strings: the grammar text specification and the 
@@ -71,147 +81,195 @@ class MyLanguage(lang.Language):
 
         grammar=\
 """# A test grammar
-prod -> statements*
-statements -> name_statement  <!nl+>
+prod -> any_statements*!
+
+any_statements -> statements
+any_statements -> nl
+any_statements -> EMPTY
+
+statements -> name_statement
 statements -> number_statement
 statements -> operator_statement
-name_statement -> name+ nl
-number_statement -> number+ nl
-operator_statement -> operator+ nl
+
+name_statement -> name names*! nl
+names -> name
+names -> EMPTY
+
+number_statement -> number numbers*! nl
+numbers -> number
+numbers -> EMPTY
+
+operator_statement -> operator operators*! nl
+operators -> operator
+operators -> EMPTY
+
 """
 
         return (grammar,"prod")
 
     # Initialize the language processor and return it
-    def init(self,debug=False,cbdebug=False,gdebug=False,edebug=False):
-        self.flag("cbtrace")          # Define my debug flag
+    def configure(self,lang,debug=False,cbdebug=False,gdebug=False,edebug=False,\
+            ll1debug=False):
+        lang.flag("cbtrace")          # Define my debug flag
         # These flags control debug information provided by MyLexer and 
         # the parser.Parser classes debug options
-        if debug:
-            self.debug(pdebug=True)   # debug MyLanguage parser
-            self.debug(prdebug=True)  # debug my productions in the grammar
-            self.debug(ldebug=True)   # debug MyLexer when running
+        if self.debug or debug:
+            lang.debug(pdebug=True)   # debug MyLanguage parser
+            lang.debug(prdebug=True)  # debug my productions in the grammar
+            lang.debug(ldebug=True)   # debug MyLexer when running
+            self.ldebug=True
             
-        if cbdebug:
-            self.debug(cbtrace=True)  # debug my call backs
+        if self.cbdebug or cbdebug:
+            lang.debug(cbtrace=True)  # debug my call backs
 
         # These flags control debug information for Grammar and GLexer
-        if gdebug:
-            self.debug(gdebug=True)   # debug the Grammar operation
-            self.debug(gtdebug=True)  # debug the GLexer
-            self.debug(gldebug=True)  # debug the Grammar lexical processing
+        if self.gdebug or gdebug:
+            lang.debug(gdebug=True)    # debug the Grammar operation
+            lang.debug(gtdebug=True)   # debug the GLexer
+            lang.debug(gldebug=True)   # debug the Grammar lexical processing
+            
+        # This flag controls debug information produced by the LL(1) analysis
+        if self.ll1debug or ll1debug:
+            lang.debug(gLL1debug=True) # debug LL1 analysis
 
         # Debug error generation
-        if edebug:
-            self.debug(edebug=True)   # debug my errors
+        if self.edebug or edebug:
+            lang.debug(edebug=True)   # debug my errors
 
         # Set up my callback methods
-        self.cbreg("name_statement","beg",self.name_statement_beg)
-        self.cbreg("name_statement","token",self.name_statement_token)
-        self.cbreg("name_statement","end",self.name_statement_end)
-        self.cbreg("number_statement","beg",self.number_statement_beg)
-        self.cbreg("number_statement","token",self.number_statement_token)
-        self.cbreg("number_statement","end",self.number_statement_end)
-        self.cbreg("operator_statement","beg",self.operator_statement_beg)
-        self.cbreg("operator_statement","token",self.operator_statement_token)
-        self.cbreg("operator_statement","end",self.operator_statement_end)
-        self.cbreg("prod","beg",self.prod_beg)
-        self.cbreg("prod","end",self.prod_end)
-        self.cbreg("statements","beg",self.statements_beg)
-        self.cbreg("statements","end",self.statements_end)
-
-        # Create the language processor
-        self.create()
-        return self
+        lang.cbreg("name_statement","beg",self.name_statement_beg)
+        lang.cbreg("name_statement","token",self.name_statement_token)
+        lang.cbreg("name_statement","end",self.name_statement_end)
+        lang.cbreg("names","token",self.names_token)
+        lang.cbreg("number_statement","beg",self.number_statement_beg)
+        lang.cbreg("number_statement","token",self.number_statement_token)
+        lang.cbreg("number_statement","end",self.number_statement_end)
+        lang.cbreg("numbers","token",self.numbers_token)
+        lang.cbreg("operator_statement","beg",self.operator_statement_beg)
+        lang.cbreg("operator_statement","token",self.operator_statement_token)
+        lang.cbreg("operator_statement","end",self.operator_statement_end)
+        lang.cbreg("operators","token",self.operators_token)
+        lang.cbreg("prod","beg",self.prod_beg)
+        lang.cbreg("prod","end",self.prod_end)
+        lang.cbreg("statements","beg",self.statements_beg)
+        lang.cbreg("statements","empty",self.statements_empty)
+        lang.cbreg("statements","end",self.statements_end)
 
     # Syntactical analyzer call back method
-    def name_statement_beg(self,pid):
-        if self.isdebug("cbtrace"):
-            print("Begining 'name_statement' pid=%s" % pid)
-        self.gs.names_list=[]
-    def name_statement_token(self,pid,n,token):
-        if self.isdebug("cbtrace"):
-            print("'name_statement' pid=%s n=%s token=%s" % (pid,n,token))
+    def name_statement_beg(self,gs,pid):
+        if self.lang.isdebug("cbtrace"):
+            print("        Begining 'name_statement' pid=%s" % pid)
+        gs.names_list=[]
+    def name_statement_token(self,gs,pid,n,token):
+        if self.lang.isdebug("cbtrace"):
+            print("        'name_statement' pid=%s n=%s token=%s" \
+                % (pid,n,token))
         if token.istype("nl"):
             return
-        self.gs.names_list.append(token)
-    def name_statement_end(self,pid,failed,eo=[]):
-        if self.isdebug("cbtrace"):
-            print("Ending 'name_statement' pid=%s failed=%s" % (pid,failed))
-        gs=self.gs
+        gs.names_list.append(token)
+    def name_statement_end(self,gs,pid,failed,eo=[]):
+        if self.lang.isdebug("cbtrace"):
+            print("        Ending 'name_statement' pid=%s failed=%s" \
+                % (pid,failed))
+        
         if failed:
             gs.names_list=None
-            return True
+            return False
         if gs.names is None:
             gs.names=syntax.NT("names")
         for x in gs.names_list:
             gs.names.addChild(syntax.T(x))
-        if self.isdebug("cbtrace"):
-            print("gs.names: %s" % gs.names)
-        gs.name_list=None
+        if self.lang.isdebug("cbtrace"):
+            print("        gs.names: %s" % gs.names)
+        gs.names_list=None
 
-    def number_statement_beg(self,pid):
-        if self.isdebug("cbtrace"):
-            print("Begining 'number_statement' pid=%s" % pid)
-        self.gs.numbers_list=[]
-    def number_statement_token(self,pid,n,token):
-        if self.isdebug("cbtrace"):
-            print("'number_statement' pid=%s n=%s token=%s" % (pid,n,token))
+    def names_token(self,gs,pid,n,token):
+        if self.lang.isdebug("cbtrace"):
+            print("        'names' pid=%s n=%s token=%s" % (pid,n,token))
+        gs.names_list.append(token)
+        if self.lang.isdebug("cbtrace"):
+            print("        gs.numbers: %s" % gs.names_list)
+
+    def number_statement_beg(self,gs,pid):
+        if self.lang.isdebug("cbtrace"):
+            print("        Begining 'number_statement' pid=%s" % pid)
+        gs.numbers_list=[]
+    def number_statement_token(self,gs,pid,n,token):
+        if self.lang.isdebug("cbtrace"):
+            print("        'number_statement' pid=%s n=%s token=%s" \
+                % (pid,n,token))
         if token.istype("nl"):
             return  
-        self.gs.numbers_list.append(token)
-    def number_statement_end(self,pid,failed,eo=[]):
-        if self.isdebug("cbtrace"):
-            print("Ending 'number_statement' pid=%s failed=%s" % (pid,failed))
-        gs=self.gs
+        gs.numbers_list.append(token)
+    def number_statement_end(self,gs,pid,failed,eo=[]):
+        if self.lang.isdebug("cbtrace"):
+            print("        Ending 'number_statement' pid=%s failed=%s" \
+                % (pid,failed))
+
         if failed:
             gs.numbers_list=None
-            return True
+            return False
         if gs.numbers is None:
             gs.numbers=syntax.NT("numbers")
         for x in gs.numbers_list:
             gs.numbers.addChild(syntax.T(x))
-        if self.isdebug("cbtrace"):
-            print("gs.numbers: %s" % gs.numbers)
+        if self.lang.isdebug("cbtrace"):
+            print("        gs.numbers: %s" % gs.numbers)
         gs.numbers_list=None
-    
-    def operator_statement_beg(self,pid):
-        if self.isdebug("cbtrace"):
-            print("Begining 'operator_statement' pid=%s" % pid)
-        self.gs.operators_list=[]
-    def operator_statement_token(self,pid,n,token):
-        if self.isdebug("cbtrace"):
-            print("'operator_statement' pid=%s n=%s token=%s" % (pid,n,token))
+        
+    def numbers_token(self,gs,pid,n,token):
+        if self.lang.isdebug("cbtrace"):
+            print("        'numbers' pid=%s n=%s token=\n"
+                  "            %s" % (pid,n,token))
+        gs.numbers_list.append(token)
+        if self.lang.isdebug("cbtrace"):
+            print("        gs.numbers: %s" % gs.numbers_list)
+
+    def operator_statement_beg(self,gs,pid):
+        if self.lang.isdebug("cbtrace"):
+            print("        Begining 'operator_statement' pid=%s" % pid)
+        gs.operators_list=[]
+    def operator_statement_token(self,gs,pid,n,token):
+        if self.lang.isdebug("cbtrace"):
+            print("        'operator_statement' pid=%s n=%s token=\n"
+                  "            %s" % (pid,n,token))
         if token.istype("nl"):
             return
-        self.gs.operators_list.append(token)
-    def operator_statement_end(self,pid,failed,eo=[]):
-        if self.isdebug("cbtrace"):
-            print("Ending 'operator_statement' pid=%s failed=%s" % (pid,failed))
-        gs=self.gs
+        gs.operators_list.append(token)
+    def operator_statement_end(self,gs,pid,failed,eo=[]):
+        if self.lang.isdebug("cbtrace"):
+            print("        Ending 'operator_statement' pid=%s failed=%s" % (pid,failed))
+
         if failed:
             gs.operators_list=None
-            return True
+            return False
         if gs.operators is None:
             gs.operators=syntax.NT("operators")
         for x in gs.operators_list:
             gs.operators.addChild(syntax.T(x))
-        if self.isdebug("cbtrace"):
-            print("gs.operators: %s" % gs.operators)
+        if self.lang.isdebug("cbtrace"):
+            print("        gs.operators: %s" % gs.operators)
         gs.operators_list=None
     
-    def prod_beg(self,pid):
-        if self.isdebug("cbtrace"):
-            print("Begining 'prod' pid=%s" % pid)
-        gs=self.gs
+    def operators_token(self,gs,pid,n,token):
+        if self.lang.isdebug("cbtrace"):
+            print("        'operators' pid=%s n=%s token=\n"
+                  "            %s" % (pid,n,token))
+        gs.operators_list.append(token)
+        if self.lang.isdebug("cbtrace"):
+            print("        gs.operators: %s" % gs.operators_list)
+    
+    def prod_beg(self,gs,pid):
+        if self.lang.isdebug("cbtrace"):
+            print("        Begining 'prod' pid=%s" % pid)
         gs.root=syntax.AST()
         gs.numbers=None
         gs.operators=None
         gs.names=None
-    def prod_end(self,pid,failed=False,eo=[]):
-        if self.isdebug("cbtrace"):
-            print("'prod' ending - pid=%s failed=%s" % (pid,failed))
-        gs=self.gs
+    def prod_end(self,gs,pid,failed=False,eo=[]):
+        if self.lang.isdebug("cbtrace"):
+            print("        'prod' ending - pid=%s failed=%s" % (pid,failed))
+
         if gs.numbers is not None:
             gs.root.addChild(gs.numbers)
         if gs.operators is not None:
@@ -219,12 +277,15 @@ operator_statement -> operator+ nl
         if gs.names is not None:
             gs.root.addChild(gs.names)
 
-    def statements_beg(self,pid):
-        if self.isdebug("cbtrace"):
-            print("Begining 'statements' pid=%s" % pid)
-    def statements_end(self,pid,failed,eo=[]):
-        if self.isdebug("cbtrace"):
-             print("Ending 'statements' pid=%s failed=%s" % (pid,failed))
+    def statements_beg(self,gs,pid):
+        if self.lang.isdebug("cbtrace"):
+            print("         Begining 'statements' pid=%s" % pid)
+    def statements_empty(self,gs,pid,n):
+        if self.lang.isdebug("cbtrace"):
+            print("         Empty string found 'statements' pid=%s n=%s" % (pid,n))
+    def statements_end(self,gs,pid,failed,eo=[]):
+        if self.lang.isdebug("cbtrace"):
+             print("        Ending 'statements' pid=%s failed=%s" % (pid,failed))
 
 #
 #  These methods are used during syntactical analysis.
@@ -236,11 +297,9 @@ operator_statement -> operator+ nl
 #
 
     # Filter the input tokens for just the ones I need
-    def filter(self,tok):
+    def filter(self,gs,tok):
         if tok.istype("unrecognized"):
-            self.gs.mgr.report(parser.ErrorUnrecognized(tok))
-            #print("[%s:%s] unrecognized text ignored: '%s'" \
-            #    % (tok.line,tok.linepos,tok.string))
+            gs.mgr.report(LL1parser.ErrorUnrecognized(tok))
             return None
         if tok.ignore:
             return None
@@ -257,20 +316,18 @@ operator_statement -> operator+ nl
 
     # Print accumulated errors with help of the error manager
     def errors(self):
-        mgr=self.gs.mgr
+        mgr=self.manager()
         lst=mgr.present()
-        #print(lst)
         if len(lst)==0:
             print("no errors found")
         else:
             print("Errors found: %s" % len(lst))
-        debug=self.isdebug("edebug")
         for x in lst:
-            x.print(debug=debug)
+            x.print(debug=self.debug)
 
     # Print any errors and then walk the AST.
     def process(self,trace=False,debug=False):
-        gs=self.gs
+        gs=self.scope()
         if debug:
             print("Tree: %s" % gs.root)
             print("names: %s" % gs.names)
@@ -316,14 +373,14 @@ ewrwr werwerw werwrw
 """
 
     # Create the sample language processor     
-    p=MyLanguage().init(debug=False,cbdebug=True,gdebug=False,edebug=False)
+    p=MyLanguage(ll1debug=True,gdebug=False,edebug=False)
     # Print grammar related information
-    p.grammar()
-    p.productions()
+    p.lang.grammar()
+    p.lang.productions()
     
     # MyLanguage processing the test input
     print("\nMyLanguage parsing the test input...")
-    p.analyze(ti)
+    p.lang.analyze(ti)
     
     # MyLanguage tree walker (it just prints it)
     print("\nMyLangage AST for parsed input text")
@@ -334,5 +391,5 @@ ewrwr werwerw werwrw
     p.errors()
     
     # Print text related information
-    p.source()
+    p.text()
     p.tokens()

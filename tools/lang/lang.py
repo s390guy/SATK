@@ -25,9 +25,9 @@
 
 # SATK imports:
 import lexer    # Access the language tools' lexical analyzer
-import parser   # Access the language tools' syntactical analyzer
+import LL1parser   # Access the language tools' syntactical analyzer
 
-class Language(parser.Parser):
+class Language(LL1parser.Parser):
     # Create the language processor as a subclass of the syntactical analyzer
     def __init__(self,processor):
         if not isinstance(processor,Processor):
@@ -82,7 +82,7 @@ class Language(parser.Parser):
                     "must be an instance of Scope: %s" % scope)
             self.gs=scope
         if error_mgr is None:
-            self.gs.mgr=parser.ErrorMgr()
+            self.gs.mgr=LL1parser.ErrorMgr()
         else:
             if not isinstance(error_mgr,parser.ErrorMgr):
                 raise ValueError("lang.py - Lanuage.prepare() - 'error_mgr' "
@@ -159,16 +159,28 @@ class Processor(object):
     # override this method for actual filtering
     def filter(self,gs,tok):
         return tok
-      
+
     # This method is part of the Lanugage object interface and must not be
     # overridden by a subclass
     def init(self):
         self.lang=Language(self)
-        
+
     # Expose the error manager for use by language processor
     def manager(self):
         return self.lang.gs.mgr
-      
+
+    # Returns the global Scope() object
+    def scope(self):
+        return self.lang.gs
+        
+    # Returns the processed input text
+    def text(self):
+        return self.lang.source()
+        
+    # Returns the lexical tokens resulting from the lexical analysis
+    def tokens(self):
+        return self.lang.tokens()
+
 # This class facilitates the management of scope within the language processor.  It
 # is recommended that this class or a subclass be used at least to manage global
 # language processing scope.  This ensures the separation of language processor

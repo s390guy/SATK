@@ -241,7 +241,14 @@ class Token(object):
         if self.mo is None:
             raise LexerError()
         return self.mo
-        
+
+class Empty(Token):
+    def __init__(self):
+        super().__init__()
+    def init(self,tid,beg,line,linepos):
+        #tid,string,beg,end,line=0,linepos=0,eols=0,ignore=False,mo=None
+        super().init(tid,"",beg,beg,line=line,linepos=linepos)
+
 class EOS(Token):
     def __init__(self):
         super().__init__()
@@ -362,6 +369,13 @@ class Type(object):
             print("Type '%s' match(): recognized Token:\n   %s" % (self.tid,tok))
         return tok
 
+class EmptyType(Type):
+    def __init__(self,tid="EMPTY",tcls=Empty,debug=False):
+        super().__init__(tid,None,tcls=tcls,debug=debug)
+    def match(self,string,pos=0,line=0,eolpos=0):
+        tok=self.tcls()
+        tok.init(self.tid,pos,line,eolpos)
+
 class EOSType(Type):
     def __init__(self,tid="EOS",tcls=EOS,debug=False):
         super().__init__(tid,None,tcls=tcls,debug=debug)
@@ -426,10 +440,11 @@ class Lexer(object):
             self.tidre=re.compile("[a-zA-Z][a-zA-Z0-9_]*")
         
         # List elements provided by the self.type() method
-        self.typs=[]   # List of Type instances for recognized tokens
-        self.tids=[]   # List of Type tids for detection of duplicates
-        self.eos=False     # Set to true if EOSType is registered for recognition
-        self.eostype=None  # The Type instance being used for EOS.
+        self.typs=[]        # List of Type instances for recognized tokens
+        self.tids=[]        # List of Type tids for detection of duplicates
+        self.eos=False      # Set to true if EOSType is registered for recognition
+        self.eostype=None   # The Type instance being used for EOS.
+        self.emptytype=None # The Type instance beign usef for the Empty string
         
         # Values maintained while acting as an iterator
         self._reset()   # Initialize the attributes
@@ -550,7 +565,19 @@ class Lexer(object):
         for t in self.tokenize(string,pos,fail=fail,lines=lines,line=line):
             tokens.append(t)
         return tokens
-        
+    
+    # Returns the empty token tid 
+    def empty_tid(self):
+        if self.emptytype is None:
+            return None
+        return self.emptytype.tid
+    
+    # Returns the token tid of the 'end-of-stream' token or None if not supported.
+    def eos_tid(self):
+        if not self.eos:
+            return None
+        return self.eostype.tid
+    
     # This method must be supplied by a subclass.  It is intended to be used for
     # initialization of the Lexer with Type instances specific to the subclass
     # lexer.
@@ -643,7 +670,14 @@ class Lexer(object):
         if isinstance(t,EOSType):
             self.eostype=t
             self.eos=True
-        self.typs.append(t)
+        if isinstance(t,EmptyType):
+            if self.emptytype is None:
+                self.emptytype=t
+            else:
+                raise ValueError("lexer.py - Lexer.type() - empty type, TID '%s', "
+                    "already registered" % self.emptytype.tid)
+        else:
+            self.typs.append(t)
         self.tids.append(t.tid)
         
     # Print the list of registered tokens

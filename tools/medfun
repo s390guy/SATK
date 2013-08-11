@@ -368,7 +368,7 @@ path()
                 all)     path exe default
                          path exe370 default
                          path exedump default
-                         path herccong default
+                         path hercconf default
                          path hercrc default
                          path inv default
                          path ipl default
