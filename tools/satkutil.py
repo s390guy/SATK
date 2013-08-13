@@ -18,6 +18,14 @@
 
 # This module contains a set of useful functionality that does not easily fit 
 # elsewhere.
+#
+# The mdoules includes the following classes:
+#   dir_tree     Class useful in managing directory trees.
+#   DM           A Debug Manager that interfaces with the argparse class.
+#
+# The module includes the followinf functions:
+#   pythonpath   A function that allow management of the PYTHONPATH from within a
+#                module.
 
 # Python imports
 import os
@@ -236,6 +244,151 @@ class dir_tree(object):
         if files:
             for x in self.files:
                 method(x)
+
+# +-----------------+
+# |  Debug Manager  |
+# +-----------------+
+
+# This class controls debug messaging and controls via argparse for the lanugage 
+# system in particular, but for any application requiring such controls.
+#   appl       Identifies application specific debug options as a list.  Defaults
+#              to an empty list, [].
+#   langutil   Identifies this application as a user of the langutil module by 
+#              specifying True.   Specifying True implies the application also 
+#              uses the LL1parser and lexer modules.
+#   parser     Identifies this application as a user of the LL1parser module by
+#              specifying True.  Specifying True implies the application is also
+#              a user of the lexer module.
+#   lexer      Identifies this application as a user of the lexer mdoule by
+#              specifying True.
+#   cmdline    This argument identifies the mulit-occurring command line argument
+#              that enables a debugging option.
+# 
+# Instance methods:
+#   argparse   Establishes the debug command line argument in
+#   disable    Disables a previously defined debug option flag.
+#   enable     Enables a previously defined debug option flag.
+#   flag       Defines a specific string as a debug option flag.
+#   init       Takes an argparse name space and set the flags based upon the 
+#              values occurring in the command line for the command line argument
+#              specified in the cmdline instance argument.
+#   isdebug    Tests the current state of a defined debug flag.
+#   print      Prints the current state of the defined debug option flags.
+class DM(object):
+    def __init__(self,appl=[],langutil=False,parser=False,lexer=False,\
+                 cmdline="debug"):
+        self.cmdline=cmdline       # Argparser command line argument
+        self.flags={}              # Debug flags
+         
+        if isinstance(appl,list):
+            a=appl
+        elif isinstance(appl,str):
+            a=[appl,]
+        else:
+            raise ValueError("satkutil - DM.__init__() - 'appl' must be a list or "
+                "a string: %s" % appl)
+            
+        # Establish application specific debug options
+        self.appl=a
+        for x in self.appl:
+            self.flag(x)
+        
+        # Langutil based application
+        self.langutil=langutil
+        
+        # Parser based application
+        if self.langutil:
+            self.parser=True       # Langutil requires a parser
+        else:
+            self.parser=parser
+        # Lexer based application
+        if self.parser:
+            self.lexer=True        # Parser requires a lexer
+        else:
+            self.lexer=lexer
+        
+        # Establish the language component debug option.
+        if self.langutil:
+            self.flag("kdebug")    # Display keyword types
+        if self.lexer:
+            self.flag("ldebug")    # Debug lexer processing
+            self.flag("tdebug")    # Debug lexer Token type processing
+        if self.parser:
+            self.flag("cbtrace")   # Trace langutil call backs
+            self.flag("pdebug")    # Parser debug flag
+            self.flag("prdebug")   # Parser PRD debug flag
+            self.flag("edebug")    # Parser error generation debug flag
+            self.flag("gdebug")    # Grammar processing debug flag
+            self.flag("gldebug")   # Grammar processing lexer debug flag
+            self.flag("gtdebug")   # Grammar processing token debug flag
+            self.flag("gLL1debug") # Granmar LL(1) analysis debug flag
+
+    # Add a debug control argument to an argument parser.
+    def add_argument(self,argparser):
+        arg="--%s" % self.cmdline
+        choose=[]
+        for x in self.flags.keys():
+            choose.append(x)
+        choose=sorted(choose)
+        argparser.add_argument(arg,action="append",choices=choose)
+
+    # Disable a defined debug flag
+    def disable(self,dflag):
+        try:
+            flag=self.flags[dflag]
+        except KeyError:
+            self.print()
+            raise ValueError("%s.disable() - invalid debug flag: '%s'" \
+                    % (self.__class__.__name__,x)) from None
+        self.flags[dflag]=False
+    
+    # Enable a defined debug flag
+    def enable(self,dflag):
+        try:
+            flag=self.flags[dflag]
+        except KeyError:
+            self.print()
+            raise ValueError("%s.enable() - invalid debug flag: '%s'" \
+                % (self.__class__.__name__,x)) from None
+        self.flags[dflag]=True
+
+    # Define a debug flag
+    def flag(self,dflag):
+        try:
+            self.flags[dflag]
+            raise ValueError("%s.flag() - debug flag already exists: '%s'" \
+                % (self.__class__.__name__,dflag))
+        except KeyError:
+            self.flags[dflag]=False
+
+    # From an argparse Namespace object extract and enable the requested debug
+    # options.
+    def init(self,args):
+        dct=vars(args)
+        debugs=dct[self.cmdline]
+        for x in debugs:
+            self.enable(x)
+
+    # Test if a defined flag is enabled (returning True) or disabled (returning
+    # False).
+    def isdebug(self,dflag):
+        try:
+            return self.flags[dflag]
+        except KeyError:
+            self.print()
+            raise ValueError("%s.isdebug() - invalid debug flag: '%s'" \
+                % (self.__class__.__name__,dflag)) from None
+
+    # Print the current state of the debug options.
+    def print(self):
+        string="DM setting:\n"
+        keys=[]
+        for x in self.flags.keys():
+            keys.append(x)
+        skeys=sorted(keys)
+        for x in skeys:
+            string="%s    %s=%s\n" % (string,x,self.flags[x])
+        print(string[:-1])
 
 # Add a directory dynamically to the PYTHONPATH search path
 def pythonpath(dir,debug=False):

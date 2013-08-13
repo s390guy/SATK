@@ -26,7 +26,8 @@ import functools  # Access to compare function to key function
 
 # SATK imports:
 import lexer
-import LL1grammar   # Access the LL(1) grammar processor
+import LL1grammar         # Access the LL(1) grammar processor
+from satkutil import DM   # Access the generic debug manager
 
 # +-----------------------+
 # |  Callback Management  |
@@ -368,18 +369,11 @@ class ErrorMgr(object):
 #   init      This method must be supplied by a subclass if used.  It is intended to
 #             to initialize a specific Parser with its lexer and productions.
 class Parser(object):
-    def __init__(self):
-        # Set of debug 'flags'.  See debug() and _isdebug() methods
-        self.pdebug={}  # Set of debug 'flags', used to set debug options
-        self.flag("pdebug")    # Parser debug flag
-        self.flag("prdebug")   # Parser PRD debug flag
-        self.flag("ldebug")    # Parser lexer's debug flag
-        self.flag("tdebug")    # Parser lexer's token debug flag
-        self.flag("edebug")    # Parser error generation debug flag
-        self.flag("gdebug")    # Grammar processing debug flag
-        self.flag("gldebug")   # Grammar processing lexer debug flag
-        self.flag("gtdebug")   # Grammar processing token debug flag
-        self.flag("gLL1debug") # Granmar LL(1) analysis debug flag
+    def __init__(self,dm=None):
+        if dm is None:
+            self.dm=DM(parser=True)
+        else:
+            self.dm=dm
 
         # These attributes are used to establish ID instance recognizers
         self.idrec={"TID":getattr(self,"_TID"),
@@ -420,8 +414,6 @@ class Parser(object):
         
         # Detect Left Recursion in productions to specified depth.
         self.smgr=None      # Manages the parser's global state. see init()
-        #self.depth=[]      # List of recursive pid's
-        #self.max_depth=0   # Maximum recursive pid's
 
     # Used by Parser class to report an error
     def __report(self,eo):
@@ -973,26 +965,13 @@ class Parser(object):
     # class.
     def debug(self,*args,**kwds):
         for x in args:
-            try:
-                self.pdebug[x]
-                self.pdebug[x]=True
-            except KeyError:
-                raise ValueError("%s.debug() - invalid debug flag: '%s'" \
-                    % (self.__class__.__name__,x)) \
-                    from None
+            self.dm.enable(x)
         for x in kwds:
             new=kwds[x]
-            print("parser.debug() - %s=%s" % (x,new))
-            try:
-                self.pdebug[x]
-                if new:
-                    self.pdebug[x]=True
-                else:
-                    self.pdebug[x]=False
-            except KeyError:
-                raise ValueError("%s.debug() - invalid debug flag: '%s'" \
-                    % (self.__class__.__name__,x)) \
-                    from None
+            if new:
+                self.dm.enable(x)
+            else:
+                self.dm.disable(x)
 
     # This method filters Tokens before presentation to the parser.  By default
     # this method returns all recognized tokens.  A subclass must override this
@@ -1005,12 +984,13 @@ class Parser(object):
     # Define a debug flag and initialize it to False
     # A subclass may add additional debug flags
     def flag(self,dflag):
-        try:
-            self.pdebug[dflag]
-            raise ValueError("%s.flag() - debug flag already exists: '%s'" \
-                % (self.__class__.__name__,dflag))
-        except KeyError:
-            self.pdebug[dflag]=False
+        self.dm.flag(dflag)
+        #try:
+        #    self.pdebug[dflag]
+        #    raise ValueError("%s.flag() - debug flag already exists: '%s'" \
+        #        % (self.__class__.__name__,dflag))
+        #except KeyError:
+        #    self.pdebug[dflag]=False
 
     # This method is used to create the parser from a supplied lexer and grammar.
     # It is intended to called from a subclass init() method
@@ -1088,15 +1068,17 @@ class Parser(object):
     # This method returns True of False for a tested debug flag.  Unregistered
     # flags raise a Value Error
     def isdebug(self,flag):
-        try:
-            switch=self.pdebug[flag]
-            if switch:
-                return True
-            return False
-        except KeyError:
-            raise ValueError("%s.isdebug() - undefined flag encountered: %s" \
-                % (self.__class__.__name__,flag)) \
-                from None
+        return self.dm.isdebug(flag)
+        #try:
+            
+        #    switch=self.pdebug[flag]
+        #    if switch:
+        #        return True
+        #    return False
+        #except KeyError:
+        #    raise ValueError("%s.isdebug() - undefined flag encountered: %s" \
+        #        % (self.__class__.__name__,flag)) \
+        #        from None
 
     # Parse a string in the target language
     #

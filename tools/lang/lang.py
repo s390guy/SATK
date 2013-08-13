@@ -37,7 +37,10 @@ class Language(LL1parser.Parser):
         self.gs=None                   # The Global Scope object
         self.processor=processor       # The language processor
         
-        self.processor.configure(self) # Turn on debugging and enable call backs
+        # Turn on debugging and enable call backs
+        dm=self.processor.configure(self)
+        if isinstance(dm,LL1parser.DM):
+            self.dm=dm  # Override default DM with one supplied.
         
         # Now initialize my parser super class parser.Parser
         proccls=self.processor.__class__.__name__
