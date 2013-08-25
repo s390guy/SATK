@@ -23,9 +23,10 @@
 #   dir_tree     Class useful in managing directory trees.
 #   DM           A Debug Manager that interfaces with the argparse class.
 #
-# The module includes the followinf functions:
-#   pythonpath   A function that allow management of the PYTHONPATH from within a
+# The module includes the following functions:
+#   pythonpath   A function that allows management of the PYTHONPATH from within a
 #                module.
+#   satkroot     Determines the absolute path to the SATK root directory
 
 # Python imports
 import os
@@ -330,7 +331,7 @@ class DM(object):
         for x in self.flags.keys():
             choose.append(x)
         choose=sorted(choose)
-        argparser.add_argument(arg,action="append",choices=choose)
+        argparser.add_argument(arg,action="append",choices=choose,default=[])
 
     # Disable a defined debug flag
     def disable(self,dflag):
@@ -390,7 +391,70 @@ class DM(object):
             string="%s    %s=%s\n" % (string,x,self.flags[x])
         print(string[:-1])
 
-# Add a directory dynamically to the PYTHONPATH search path
+# This class accepts a string as its instance argument and will format the
+# string for printing with line numbers.  It will either print the formatted
+# text or return a string to allow it to be printed elsewhere.
+#
+# Instance Argument
+#   text    A string object to be formatted and/or printed.
+#
+# Instance Methods:
+#   cleanends   Removes whitespace from the end of the lines.
+#   print       Formats the text for printing and either prints the formatted text
+#               or returns the formatted text as a string.
+class Text_Print(object):
+    def __init__(self,text=""):
+        if not isinstance(text,str):
+            raise ValueError("satkutil.py - Text_Print.__init__() - 'text' "
+                "argument must be a string: %s" % text)
+        self.text=text      # Text to be printed
+        self.lines=self.text.splitlines()
+        
+    # Remove whitespace at end of the text lines.  
+    # Returns a list lines without trailing whitespace or a new string without
+    # trailing whitespace.
+    # 
+    # Method argument:
+    #    string     Specify 'True' to return a new string object of lines with
+    #               trailing whitespace removed.  Specify 'False' to return a 
+    #               list of lines from which trailing whitespace has been
+    #               removed from each line.  Defaults to 'False'.
+    def cleanends(self,string=False):
+        new_lines=[]
+        for line in self.lines:
+            new_lines.append(line.rstrip())
+        if string:
+            return "\n".join(new_lines)
+        return new_lines
+        
+    # Formats the text for printing with line numbers.
+    # Method Argument:
+    #    string    Specify 'True' to have the formatted text returned as a string.
+    #              Specify 'False' to have the method do the printing itself.
+    #              Defaults to 'False',
+    def print(self,string=False):
+        print_lines=self.cleanends()   # Clean up any trailing whitespace
+
+        # Determine how big the line numbers are, allow space for '[',']' and ' ' 
+        lines=len(print_lines)
+        size=len("%s" % lines)+3
+
+        s=""
+        line_number=1
+        for line in print_lines:
+            number="[%s]" % line_number
+            number=number.ljust(size)
+            s="%s%s%s\n" % (s,number,line)
+            line_number+=1
+        if len(s)==0:
+            s="[1]"       # If there were no lines pretend the first was empty
+        else:
+            s=s[:-1]      # Remove last '\n' in formatted string
+        if string:
+            return s      # string=True so just return the formatted text
+        print(s)          # string=False so print the string here
+
+# Add a relative directory dynamically to the PYTHONPATH search path
 def pythonpath(dir,debug=False):
     if os.path.isabs(dir):
         raise ValueError("satkutil.py - pythonpath - directory must be a relative "

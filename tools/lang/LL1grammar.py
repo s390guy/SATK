@@ -936,7 +936,9 @@ class Prods(object):
                     i=ids[0]
                     if self.gp.isEmpty(i.tpid):
                         prd.isempty=True
+                        prd.empty=ndx        # Identify the EMPTY production
                         alt.isempty=True
+                        alt.empty=True
                         i.isempty=True
                 else:
                     for i in ids:
@@ -1349,8 +1351,9 @@ class LL1Prods1(Prods):
         
         # Update all of the ID's in the grammer.  This will be useful when
         # calculating the 'begins-directly-with' relationship.
-        for prd in self.gp.iter_prods():
-            for rh in prd.alts:
+        for prd in self.gp.iter_prods():  
+            for rndx in range(len(prd.alts)):
+                rh=prd.alts[rndx]
                 for ido in rh.ids:
                     if self.gp.isEmpty(ido):
                         ido.nullable=True
@@ -1785,8 +1788,22 @@ class LL1Prods2(Prods):
             passes+=1
             work=new
 
+    def __new_work(self,work,prod):
+        if isinstance(prod,str):
+            tpid=prod
+        elif isinstance(prod,RH):
+            tpid=prod.lhpid
+        else:
+            raise ValueError("LL1grammar.py - LL1Prods2 - __new_work() - 'prod' "
+                "argument must be a string or RH instance: %s" % prod)
+        xref=self.xref[tpid]
+        for n in xref:
+            if not n in work:
+                work.append(n)
+        return work
+
     def __nullable(self):
-        # Start by looking at all productions
+        # Start by looking at all production (RH instances)
         work=list(range(len(self.prods)))
         passes=0
         while True:
@@ -1811,20 +1828,12 @@ class LL1Prods2(Prods):
             if len(new)==0:
                 break
             work=new
-                    
-    def __new_work(self,work,prod):
-        if isinstance(prod,str):
-            tpid=prod
-        elif isinstance(prod,RH):
-            tpid=prod.lhpid
-        else:
-            raise ValueError("LL1grammar.py - LL1Prods2 - __new_work() - 'prod' "
-                "argument must be a string or RH instance: %s" % prod)
-        xref=self.xref[tpid]
-        for n in xref:
-            if not n in work:
-                work.append(n)
-        return work
+            
+            # Update the PRD instances for membership in the nullable set
+            for prdo in self.gp.iter_prods():
+                pid=prdo.pid
+                if pid in self.nullable:
+                    prdo.nullable=True
 
     def __propogate(self):
         # Update PRD instances with follow information
@@ -1997,6 +2006,9 @@ class LL1Prods2(Prods):
             self.print_director()
         if self.debug or len(self.ambigous)>0:
             self.print_ambigous()
+        if len(self.ambiguous)>0:
+            raise ValueError("LL1grammar.py - LL1Prods2.validate() - Grammar "
+                "contains ambiguous productions")
 
 class LL1Relationship(object):
     def __init__(self,keys,init=False):
@@ -2277,6 +2289,7 @@ class PRD(LL1Sem):
         self.ptrace=False # If any of the right hands are traced, so will the PRD
         # If an integer, attribute identifies the production alternative that
         # contains: PID -> EMPTY.  Set by LL1Prods.__sanity_check2()
+        self.isempty=False
         self.empty=None
 
         # List of token types for resynchronization.  This is a list of tuples of

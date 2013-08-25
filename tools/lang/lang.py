@@ -26,6 +26,7 @@
 # SATK imports:
 import lexer    # Access the language tools' lexical analyzer
 import LL1parser   # Access the language tools' syntactical analyzer
+import satkutil    # Access the DM class
 
 class Language(LL1parser.Parser):
     # Create the language processor as a subclass of the syntactical analyzer
@@ -39,7 +40,7 @@ class Language(LL1parser.Parser):
         
         # Turn on debugging and enable call backs
         dm=self.processor.configure(self)
-        if isinstance(dm,LL1parser.DM):
+        if isinstance(dm,satkutil.DM):
             self.dm=dm  # Override default DM with one supplied.
         
         # Now initialize my parser super class parser.Parser
@@ -66,9 +67,13 @@ class Language(LL1parser.Parser):
     # This is a default analyze method that calls the parser.Parser parse() method
     # with its default arguments.  Upon completion, it returns the global scope
     # object to the processor.
-    def analyze(self,text,scope=None,error_mgr=None,depth=20,lines=True,fail=False):
+    # 
+    # ParserAbort exception may be raised if recovery=False and a parser detected
+    # and error.
+    def analyze(self,text,scope=None,error_mgr=None,recovery=False,\
+                depth=20,lines=True,fail=False):
         self.prepare(scope,error_mgr)
-        self.parse(text,depth=depth,lines=lines,fail=fail)
+        self.parse(text,recovery=recovery,depth=depth,lines=lines,fail=fail)
         return self.gs
 
     def filter(self,tok):
@@ -76,6 +81,12 @@ class Language(LL1parser.Parser):
 
     # This method prepares the language environment for parsing.  It must be 
     # called by the analyze method calls the parser.Parser.parse() method.
+    #
+    # Its role is to initialize the global scope object  with global parser 
+    # management objects:
+    #   gs.dm      The Debug manager being used by the parser
+    #   gs.mgr     The Error manager being used by the parser
+    # SHOULD THIS BE MOVED TO THE LL1Parser object?
     def prepare(self,scope,error_mgr):
         if scope is None:
             self.gs=Scope()
@@ -92,7 +103,8 @@ class Language(LL1parser.Parser):
                     "argument must be an instance of parser.ErrorMgr: %s" \
                     % error_mgr)
             self.gs.mgr=error_mgr
-      
+        self.gs.dm=self.dm
+
 # This is the base class for all language processors as separate entities.  The
 # Language class expects to interface with this class when being instantiated.
 # All language processors must be subclasses of this class.  It defines the

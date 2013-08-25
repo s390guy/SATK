@@ -27,7 +27,7 @@ import functools  # Access to compare function to key function
 # SATK imports:
 import lexer
 import LL1grammar         # Access the LL(1) grammar processor
-from satkutil import DM   # Access the generic debug manager
+import satkutil           # Access the generic debug manager and text printer
 
 # +-----------------------+
 # |  Callback Management  |
@@ -134,6 +134,26 @@ class CB(object):
 # |  Exceptions Raised by Parser  |
 # +-------------------------------+
 
+# This exception is raised when the parser encounters an error and error 
+# recovery is disabled.  It is NEVER caught by the parser, but must be caught
+# by the driver of the parser for proper reporting of the error.  The parser
+# halts at the point of the error.
+class ParserAbort(Exception):
+    def __init__(self,eo=None):
+        if not isinstance(eo,Error):
+            raise ValueError("LL1parser.py - ParserAbort.__init__() - 'eo' "
+                "argument must be an instance of Error: %s" % eo)
+        self.eo=eo
+        if eo is None:
+            self.msg="LL1parser.py - ParserAbort.__init__() - Unknown error"
+        else:
+            self.msg=self.eo.print(string=True)
+        super().__init__(self.msg)
+    def print(self,string=False,debug=False):
+        if string:
+            return self.eo.print(string=True,debug=debug)
+        self.eo.print(debug=debug)
+
 # This exception is raised any time the Parser encounters an error.
 # Instance arguments:
 #   tok      The token triggering the error.  Default is None.
@@ -144,7 +164,7 @@ class ParserError(Exception):
         self.msg=msg         # Error message
         super().__init__(self.msg)
 
-# This exception is raised when syntactical analysis detects an error
+# This exception is raised when syntactical analysis detects an error.
 class SyntaxError(Exception):
     def __init__(self,eo=None):
         super().__init__()
@@ -191,18 +211,27 @@ class Error(object):
         self.depth=depth
         self.source=source
         self.reported=False    # Set to True by ErrorMgr when reported
+        
+    # Formats text location for printing
     def loc(self,depth=False):
-        if self.line is None:
-            ln=""
         if self.line is None and self.pos is None:
             return ""
         if depth:
             return "[%s:%s]-%s " % (self.line,self.pos,self.depth)
         else:
             return "[%s:%s] " % (self.line,self.pos)
+            
+    # Formats function source debugging information for printing if requested
+    def src(self,debug=False):
+        if debug:
+            return " %s()" % self.source
+        return ""
+        
+    # Method must be supplied by a subclass
     def print(self,*args,**kwds):
         raise NotImplementedError("lang.Error.print() - subclass %s must implement "
             "method print()" % self.__class__.__name__)
+
 class ErrorProd(Error):
     def __init__(self,pid,n,depth=0,token=None,source="UNKNOWN"):
         self.pid=pid
@@ -216,21 +245,21 @@ class ErrorProd(Error):
     def __str__(self):
         return "ErrorProd(pid=%s,n=%s,depth=%s,token=%s,source=%s" \
             % (self.pid,self.n,self.depth,self.token,self.source)
-    def print(self,debug=False):
+    def print(self,string=False,debug=False):
         if self.n is None or self.n==0:
             n=""
         else:
             n="for alternative %s" % self.n
         if self.token is None:
-            string=""
+            s=""
         else:
-            string=" encountered: '%s'" % self.token.string
-        if debug:
-            src=" %s()" % self.source
-        else:
-            src=""
-        print("P%s'%s' error %s%s%s" \
-            % (self.loc(depth=True),self.pid,n,string,src))
+            s=" encountered: '%s'" % self.token.string
+        sr=self.src(debug=debug)
+        msg="P%s'%s' error %s%s%s" \
+            % (self.loc(depth=True),self.pid,n,s,sr)
+        if string:
+            return msg
+        print(msg)
         
 class ErrorResync(Error):
     def __init__(self,pid,n,depth,rtoken,source="UNKNOWN"):
@@ -239,10 +268,14 @@ class ErrorResync(Error):
         self.rtoken=rtoken
         super().__init__(line=rtoken.line,pos=rtoken.linepos,depth=depth,\
             source=source)
-    def print(self,debug=False):
-        print("S%s following %s[%s] error, input stream continues with token "
-            "type '%s'" \
-            % (self.loc(depth=True),self.pid,self.n,self.rtoken.tid))
+    def print(self,string=False,debug=False):
+        sr=self.src(debug=debug)
+        msg="S%s following %s[%s] error, input stream continues with token " \
+            "type '%s'%s" \
+            % (self.loc(depth=True),self.pid,self.n,self.rtoken.tid,sr)
+        if string:
+            return msg
+        print(msg)
         
 class ErrorStream(Error):
     def __init__(self,pid,depth,token,source="UNKNOWN"):
@@ -250,9 +283,13 @@ class ErrorStream(Error):
         self.token=token
         super().__init__(line=token.line,pos=token.linepos,depth=depth,\
             source=source)
-    def print(self,debug=False):
-        print("S%s'%s' input stream processing incomplete: '%s'" \
-            % (self.loc(depth=True),self.pid,self.token.string))
+    def print(self,string=False,debug=False):
+        sr=self.src(debug=debug)
+        msg="S%s'%s' input stream processing incomplete: '%s'%s" \
+            % (self.loc(depth=True),self.pid,self.token.string,sr)
+        if string:
+            return msg
+        print(msg)
    
 class ErrorToken(Error):
     def __init__(self,pid,n,depth,expect,found,source="UNKNOWN"):
@@ -267,30 +304,30 @@ class ErrorToken(Error):
             % (self.pid,self.n,self.expect,self.token,self.source)
     def clone(self):
         return ErrorToken(self.pid,self.n,self.expect,self.token)
-    def print(self,debug=False):
+    def print(self,string=False,debug=False):
         if self.n is None or self.n==0:
             n=""
         else:
             n=" for alternative %s" % self.n
-        if debug:
-            src=" %s()" % self.source
-        else:
-            src=""
-        print("T%s'%s'%s expected %s, found: '%s'%s" \
-            % (self.loc(depth=True),self.pid,n,self.expect,self.token.string,src))
+        sr=self.src(debug=debug)
+        msg="T%s'%s'%s expected %s, found: '%s'%s" \
+            % (self.loc(depth=True),self.pid,n,self.expect,self.token.string,sr)
+        if string:
+            return msg
+        print(msg)
 
 class ErrorUnrecognized(Error):
     def __init__(self,token,depth=0):
         self.token=token
         super().__init__(line=token.line,pos=token.linepos,\
             depth=depth,source="LEXER")
-    def print(self,debug=False):
-        if debug:
-            src=" %s" % self.source
-        else:
-            src=""
-        print("U%sunrecognized text ignored: '%s'%s" \
-            % (self.loc(),self.token.string,src))
+    def print(self,string=False,debug=False):
+        sr=self.src(debug=debug)
+        msg="U%sunrecognized text ignored: '%s'%s" \
+            % (self.loc(),self.token.string,sr)
+        if string:
+            return msg
+        print(msg)
 
 # This class is intended to help a language processor to manage error reporting
 # Instances of class Error are presented to it.  The ErrorManager will sort errors
@@ -331,6 +368,26 @@ class ErrorMgr(object):
         lst=self.errors
         lst.extend(self.noloc)
         return lst
+        
+    # This method returns a string or prints the errors collected by the error
+    # manager.
+    def print(self,string=False,debug=False):
+        lst=self.present()
+        
+        # No errors
+        if len(lst)==0:
+            msg="no errors found"
+            if string:
+                return msg
+            return print(msg)
+        
+        # Errors encountered
+        msg="Errors found: %s" % len(lst)
+        for x in lst:
+            msg="%s\n%s" % (msg,x.print(string=True,debug=debug))
+        if string:
+            return msg
+        print(msg)
 
 # The Parser class creates a recursive descent parser with retries and parser
 # sychronization for failed productions.  The Parser class may be subclassed.
@@ -371,7 +428,7 @@ class ErrorMgr(object):
 class Parser(object):
     def __init__(self,dm=None):
         if dm is None:
-            self.dm=DM(parser=True)
+            self.dm=satkutil.DM(parser=True)
         else:
             self.dm=dm
 
@@ -407,10 +464,13 @@ class Parser(object):
         self.prds=None  # LL1Prods instance
         self.sprd=None  # The ID instance corresponding to the start productions
         
-        # These attributes are established by the 
+        # This attribute is established by lang.Language subclass prepare() method
+        self.gs=None
 
         # Parse specific attributes
         self.stream=None # The Stream managing the token input stream.
+        # Specify True to enable resync error recovery.
+        self.recovery=False    # Set by parse() method.  Default is False
         
         # Detect Left Recursion in productions to specified depth.
         self.smgr=None      # Manages the parser's global state. see init()
@@ -518,6 +578,7 @@ class Parser(object):
         beg(self.gs,pid)                 # Call back for start of production
         
         # Use director set to determine the alternative being tried
+        edebug=self.isdebug("edebug")  # Set edebug for rest of function
         la_tok=self.stream.inspect(self.stream.current())
         la_id=la_tok.tid
         la_alt=None
@@ -525,34 +586,59 @@ class Parser(object):
         alt_err=[]
         try:
             la_alt=prdo.ds[la_id]
+            if la_alt is None:
+                raise ValueError("%s[?] - director set return None for la_id=%s"\
+                    % (pid,la_id))
             action=0
         except KeyError:
-            action=1
-            if ido.resync:
-                self.smgr.push(PState(pid,None,prdo,ido))
-                if self.isdebug("edebug"):
-                    print("%s[%s] _PRD - pushed state - %s" \
-                        % (pid,"?",self.smgr.print()))
-                state=self.smgr.resync(self.stream,debug=self.isdebug("edebug"))
-                if self.isdebug("edebug"):
-                    print("%s[%s] - _PRD - popped state by resync - %s" \
-                        % (pid,"?",self.smgr.print()))
-                action=state.action
-                if self.isdebug("edebug"):
-                    print("%s[%s] _PRD - resync action: %s" % (pid,"?",action))
+            if edebug:
+                print("%s[%s] _PRD@DS - nullable=%s, isempty=%s, empty=%s" \
+                    % (pid,"?",prdo.nullable,prdo.isempty,prdo.empty))
+            if prdo.nullable and prdo.isempty:
+                # Terminate the production as if EMPTY were selected
+                la_alt=prdo.empty     # Select the "empty" production
+                action=0
+                if edebug:
+                    print("%s[%s] _PRD@DS - selected EMPTY production due to "
+                        "first set mismatch of nullable production" \
+                        % (pid,la_alt))
+            elif self.recovery:
+                action=1
+                if ido.resync:
+                    self.smgr.push(PState(pid,None,prdo,ido,action=1))
+                    if edebug:
+                        print("%s[%s] _PRD@DS - pushed state - %s" \
+                            % (pid,"?",self.smgr.print()))
+                    state=self.smgr.resync(self.stream,noeos=False,debug=edebug)
+                    if edebug:
+                        print("%s[%s] _PRD@DS - popped state by resync - %s" \
+                            % (pid,"?",self.smgr.print()))
+                    action=state.action
+                    if edebug:
+                        print("%s[%s] _PRD@DS - resync action: %s" \
+                            % (pid,"?",action))
+            else:
+                action=1
         
         # Successful selection of RH instance from director set
         if action==0:
-            pass
+            if edebug:
+                print("%s[%s] _PRD - resync action: %s" % (pid,"?",action))
 
-        # Syntax error because this ID provides no resynching or resycn
+        # Syntax error because this ID provides no resynching or recovery is 
+        # disabled
         elif action==1:   # Abort this production
+            if self.recovery:
+                excls=SyntaxError
+            else:
+                excls=ParserAbort
             if self.isdebug("edebug"):
-                print("%s[?] _PRD - ***** raising SyntaxError, director set "
-                    "failure, no match for token: '%s'" % (pid,la_tok))
+                print("%s[?] _PRD - ***** raising %s, director set "
+                    "failure, no match for token: '%s'" \
+                    % (pid,excls.__name__,la_tok))
             eo=ErrorProd(pid,None,depth=self.smgr.depth(),token=la_tok,\
                 source="_PRD")
-            raise SyntaxError(eo=eo)
+            raise excls(eo=eo)  # Either a SyntaxError or ParserAbort is raised
 
         
         elif action==2:  # Resync here.
@@ -612,42 +698,42 @@ class Parser(object):
         eo=None
         for i in alt.ids:
             self.smgr.push(PState(pid,altn,prdo,i))
-            if self.isdebug("edebug"):
-                print("%s[%s] _PRD - pushed state - %s" \
+            if edebug:
+                print("%s[%s] _PRD@ID - pushed state - %s" \
                     % (pid,altn,self.smgr.print()))
             try:
                 if tracing:
                     repn=CBM.mname(i.rep)
-                    print("%s[%s] _PRD tpid %s calling: %s" \
+                    print("%s[%s] _PRD@ID tpid %s calling: %s" \
                         % (pid,altn,i.tpid,repn))
                 # Recognize the number of id's and detect nullable production
                 empty=i.rep(i,pid,altn,ptrace=tracing)
                 if tracing:
-                    print("%s[%s] _PRD returned empty=%s from: %s" \
+                    print("%s[%s] _PRD@ID returned empty=%s from: %s" \
                         % (pid,altn,empty,repn))
 
                 state=self.smgr.pop()
-                if self.isdebug("edebug"):
-                    print("%s[%s] _PRD - popped state - %s" \
+                if edebug:
+                    print("%s[%s] _PRD@ID - popped state - %s" \
                         % (pid,altn,self.smgr.print()))
                 action=state.action
             except SyntaxError as se:
                 eo=se.eo
-                if self.isdebug("edebug"):
+                if edebug:
                     print_id="ID('%s',%s)" % (i.tpid,i.typ)
-                    print("%s[%s] _PRD %s - excepted SyntaxError.eo=\n    %s" \
+                    print("%s[%s] _PRD@ID %s - excepted SyntaxError.eo=\n    %s" \
                         % (pid,altn,print_id,eo))
-                state=self.smgr.resync(self.stream,debug=self.isdebug("edebug"))
-                if self.isdebug("edebug"):
-                    print("%s[%s] - _PRD - popped state by resync - %s" \
+                state=self.smgr.resync(self.stream,noeos=False,debug=edebug)
+                if edebug:
+                    print("%s[%s] _PRD@ID - popped state by resync - %s" \
                         % (pid,altn,self.smgr.print()))
                 action=state.action
                 if self.isdebug("edebug"):
-                    print("%s[%s] _PRD - resync action: %s" % (pid,altn,action))
+                    print("%s[%s] _PRD@ID - resync action: %s" % (pid,altn,action))
                
             if empty:
-                if self.isdebug("edebug"):
-                    print("%s[%s] _PRD - raising Empty" % (pid,altn))
+                if edebug:
+                    print("%s[%s] _PRD@ID - raising Empty" % (pid,altn))
                 # Need to do this to break _pid_0_or_more recognition loop
                 raise Empty()
  
@@ -661,8 +747,8 @@ class Parser(object):
                 d=self.smgr.depth()
                 rtok=self.stream.inspect(self.stream.current())
                 eo=ErrorResync(pid,altn,d,rtok,source="_PRD")
-                if self.isdebug("edebug"):
-                    print("%s[%s] _PRD - ***** reporting eo=\n    %s" \
+                if edebug:
+                    print("%s[%s] _PRD@ID - ***** reporting eo=\n    %s" \
                         % (pid,"?",eo))
                 self.gs.mgr.report(eo)
                 continue
@@ -698,7 +784,6 @@ class Parser(object):
             if not res:
                 prod_err.extend(alt_err)
             error=len(prod_err)>0
-                
 
         # Call back for end of production
         if error:
@@ -719,13 +804,13 @@ class Parser(object):
             # report them to the Error Manager.
             if not res:
                 for eo in eolist:
-                    if self.isdebug("edebug"):
-                        print("%s[%s] _PRD - ***** reporting eo=\n    %s" \
+                    if edebug:
+                        print("%s[%s] _PRD@END - ***** reporting eo=\n    %s" \
                             % (pid,altn,eo))
                     self.gs.mgr.report(eo)
 
-            if self.isdebug("edebug"):
-                print("%s[%s] _PRD - ***** raising error eo=\n    %s"\
+            if edebug:
+                print("%s[%s] _PRD@END - ***** raising error eo=\n    %s"\
                     % (pid,altn,eo))
             raise SyntaxError(eo=eo)
 
@@ -780,10 +865,14 @@ class Parser(object):
                         % (pid,n,terrorn,pid,n,eo))
             terror(self.gs,pid,n,eo)
 
+            if self.recovery:
+                excls=SyntaxError
+            else:
+                excls=ParserAbort
             if self.isdebug("edebug"):
-                print("%s[%s] _TID - ***** raising SyntaxError.eo=\n    %s" \
-                    % (pid,n,eo))
-            raise SyntaxError(eo=eo)
+                print("%s[%s] _TID - ***** raising %s.eo=\n    %s" \
+                        % (pid,n,excls.__name__,eo))
+            raise excls(eo=eo)
             
         # Token MATCHED!
         self.stream.accept()
@@ -934,12 +1023,8 @@ class Parser(object):
 
     # This internal method prints text with line numbers
     def _text(self,string):
-        lines=string.splitlines()
-        for x in range(len(lines)):
-            line=lines[x]
-            num=x+1
-            number="[%s]" % num
-            print("%s %s" % (number,line))
+        pt=satkutil.Text_Print(string)
+        pt.print()
             
     # Establish a callback method for the language processor.
     # Method arguments:
@@ -1069,16 +1154,6 @@ class Parser(object):
     # flags raise a Value Error
     def isdebug(self,flag):
         return self.dm.isdebug(flag)
-        #try:
-            
-        #    switch=self.pdebug[flag]
-        #    if switch:
-        #        return True
-        #    return False
-        #except KeyError:
-        #    raise ValueError("%s.isdebug() - undefined flag encountered: %s" \
-        #        % (self.__class__.__name__,flag)) \
-        #        from None
 
     # Parse a string in the target language
     #
@@ -1091,7 +1166,11 @@ class Parser(object):
     #               Defaults to False.  False causes the token of type
     #               'unrecognized' to be created
     # A SyntaxError is raised if the START production is not recognized
-    def parse(self,string,depth=20,lines=True,fail=False):
+    def parse(self,string,recovery=False,depth=20,lines=True,fail=False):
+        if recovery:
+            self.recovery=True
+        else:
+            self.recovery=False
         self.smgr=PStateMgr(self.gp.EOS(),depth=depth)
         self.stream=Stream(self)
         self.stream.tokens(string,lines=lines,fail=fail)
@@ -1226,9 +1305,9 @@ class PStateMgr(object):
     # When the first match of a follow set occurs for the currently tested
     # input token, starting with the failed token and checking ID's from top of
     # the stack to the bottom (the starting production id)
-    def __resync(self,stream,debug=False):
+    def __resync(self,stream,noeos=True,debug=False):
         if debug:
-            print("PStateMgr - __resync() - failure in stack - %s" \
+            print("PStateMgr - __resync() - attempting resync - %s" \
                 % self.print())
             
             #for x in self.stack:
@@ -1264,12 +1343,13 @@ class PStateMgr(object):
             tid=token.tid
             # If we have exhausted the input streamm, 
             # resynchronization is not possible
-            if tid==eos:
-                if debug:
-                    print("PStateMgr - __resync() - resync failed, "
-                        "encountered end-of-stream")
-                self.__no_resync()
-                return
+            if noeos:
+                if tid==eos:
+                    if debug:
+                        print("PStateMgr - __resync() - resync failed, "
+                            "encountered end-of-stream")
+                    self.__no_resync()
+                    return
 
             # Try this token
             for state in eligible:
@@ -1279,6 +1359,9 @@ class PStateMgr(object):
                     this_follow=state.prdo.follow
                 else:
                     this_follow=state.ido.follow
+                if debug:
+                    print("PStateMgr - __resync() - follow set: %s" \
+                        % (this_follow))
                 if tid in this_follow:
                     # !! YES - we can resynch here
                     state.action=2
@@ -1335,9 +1418,12 @@ class PStateMgr(object):
         self.stack.append(pstate)
         
     # Resynchronize input stream with parsing process
-    def resync(self,stream,debug=False):
+    def resync(self,stream,noeos=True,debug=False):
+        fun="PStateMgr - resync"
+        if debug:
+            print("%s() - resyncing=%s" % (fun,self.resyncing))
         if not self.resyncing:
-            self.__resync(stream,debug=debug)
+            self.__resync(stream,noeos=noeos,debug=debug)
             self.resyncing=True
         state=self.pop()
         if state.action == 2:
@@ -1346,7 +1432,7 @@ class PStateMgr(object):
         return state
         
 class PState(object):
-    def __init__(self,pid,n,prdo,ido):
+    def __init__(self,pid,n,prdo,ido,action=0):
         self.pid=pid
         self.n=n
         self.prdo=prdo
@@ -1357,7 +1443,7 @@ class PState(object):
         #  1 == can not re-sync following this ID, create a SyntaxError
         #  2 == stream synchronized following this ID, issue error report and
         #       continue processing ID's in this right-hand ID list.
-        self.action=0
+        self.action=action
     def __str__(self):
         return "PState(PRD=%s[%s] IDO='%s' depth=%s action=%s"\
             % (self.pid,self.n,self.ido.tpid,self.depth,self.action)
