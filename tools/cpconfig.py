@@ -38,34 +38,36 @@ from langutil import *
 
 # The key-word language processor for CP configuration
 class CPCFG(KWLang):
-    def __init__(self,dm):
-        super().__init__()
-        self.dm=dm
+    def __init__(self,dm,case="M",recovery=False):
+        super().__init__()      # Override required TID names here if needed
+        self.dm=dm              # The global debug manager
+        outcase="upper"         # Reserved word converted to uppercase
+        
+        # Define the Keyword Language
         tdebug=self.dm.isdebug("tdebug")
       
-        # Define statements
-        self.token(WordType("SYSTEM",words="M:system",debug=tdebug))
-        # Define keywords
-        self.token(WordType("ARCH",words="M:arch",debug=tdebug))
-        self.token(WordType("TYPE",words="M:type",debug=tdebug))
-        # Define keyword arguments
-        self.token(WordType("ARCHS",\
-            words=["S/370BC","S/370","ESA/390","z/Architecture"],debug=tdebug))
-        self.token(WordType("SYSTYPE",\
-            words=["M:IPL","M:CP"],case="upper",debug=tdebug))
-        # This token must be here
-        self.token(NamType("NAME",debug=tdebug))
+        defn=self.begin(ptrace=False)
+        defn.opt(WordType("ARCHS",\
+            words=["S/370BC","S/370","ESA/390","z/Architecture"],\
+            case=outcase,debug=tdebug))
+        defn.opt(NamType("NAME"))
+        defn.opt(StrType("DSTR",quotes="d"))
+        la=defn.la
+        
+        # SYSTEM <name> ARCH=<archs> type=[IPL|CP]
+        sys=Stmt("system",la,required=True)
+        sys.pos("name")
+        sys.keyword("arch",val=["ARCHS",],required=True)
+        sys.keyword("type",val=["IPL","CP"])
+        defn.add(sys)
+        
+        # SCRIPT <name> SUFFIX="string"
+        script=Stmt("script",la)
+        script.pos("name")
+        script.keyword("suffix",val="dstr")
+        defn.add(script)
 
-        # The following statements reference the tokens defined above
-
-        # Define SYSTEM statement
-        sys=KWDef("SYSTEM",required=True)
-        sys.positional("NAME")
-        sys.keyword(KWKeyWord("ARCH",arguments="ARCHS"))    # required
-        sys.keyword(KWKeyWord("TYPE",arguments="SYSTYPE"))  # required
-        self.statement(sys)
-
-        self.init_lang(dm=self.dm)
+        self.init_lang(dm=self.dm,recovery=recovery,incase=case,outcase="upper")
 
 # The language processing tools requires a wrapper that handles various roles.
 #   1. Accessing the text to be processed by the language tools
@@ -82,7 +84,9 @@ class CPCONFIG(object):
         self.cfgtext=""     # Input configuration file text string
         self.statements=[]  # List of recognized statements, KWStatement instance
 
-        self.kwlang=CPCFG(dm=self.dm)
+        self.kwlang=CPCFG(dm=self.dm,\
+                          case=self.args.case,\
+                          recovery=self.args.recovery)
 
     # This method checks for errors and override flags for a step
     # Returns true if next step should be attempted, False otherwise
@@ -95,7 +99,7 @@ class CPCONFIG(object):
         plural=""
         if errors>1:
             plural="s"
-        self.error("CPCONFIG__try_step",type="",message="%s%s" % (message,plural))
+        self.error("_CPCONFIG__try_step",type="",message="%s%s" % (message,plural))
         return False
      
     # Report an error to the error manager for later reporting
@@ -128,11 +132,21 @@ class CPCONFIG(object):
     # This method drives the cpconfig.py utility processing
     def run(self):
         self.cfgtext=self.file_read(self.args.cfgfile[0],mode="rt")
+
+        if self.args.recovery:
+            abort=None
+        else:
+            abort=2
+            
+        # Parse and build statement instances
         self.statements=self.kwlang.analyze(self.cfgtext,\
-            sdebug=self.dm.isdebug("sdebug"))
+            sdebug=self.dm.isdebug("sdebug"),abort=abort)
+        
         if self.args.print:
-            for x in statements:
-                print("%s" % x)
+            print("cpconfig.py - CPCONFIG.run() - Statement objects returned: %s" \
+                % len(self.statements))
+            for x in self.statements:
+                print("%s" % x.print())
 
         msg="cpconfig.py - statement processing suppressed due to error"
         next=self.__try_step(self.process,msg,flag=self.args.ignore)
@@ -154,19 +168,25 @@ def parse_args(dm):
     parser.add_argument("cfgfile",\
         help="configuration source text file",nargs=1)
         # Note: cfgfile is a list.  Use cfgfile[0] to extract the filename
+    parser.add_argument("-c","--case",choices=["M","L","U","E"],default="M",
+        help="reserved word input text case: mixed (M), only upper (U), "
+             "only lower (L), or either (E) upper or lower")
     parser.add_argument("-f","--force",action="store_true",default=False,
-        help="force output creation even if statement processing encountered "
-             "errors")
+        help="force output creation regardless of input text semantic errors")
     parser.add_argument("-i","--ignore",action="store_true",default=False,
-        help="process statements regardless of intput text errors encountered")
+        help="process statements regardless of input text semantic errors")
+    parser.add_argument("-r","--recovery",action="store_true",default=False,
+        help="attempt to recover from parsing errors, otherwise terminate parsing "
+             "immediately upon detecting an error")
     parser.add_argument("-t","--target",default=os.getcwd(),
         help="target directory, defaults to current working directory")
     parser.add_argument("--print",action="store_true",default=False,
-        help="display recognized statements")
-    # Add debug argument using the debug manager
+        help="display recognized statements as seen by the processor")
+    # Add debug argument(s) using the debug manager
     dm.add_argument(parser)
     return parser.parse_args()   
 
+dm=satkutil.DM(cmdline="debug",appl=["bdebug","sdebug"],langutil=True)
+
 if __name__ == "__main__":
-    dm=satkutil.DM(cmdline="debug",appl=["sdebug"],langutil=True)
     CPCONFIG(parse_args(dm),dm).run()
