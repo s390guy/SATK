@@ -333,7 +333,7 @@ class Type(object):
             ign=",IGNORE"
         if self.mo:
             mo=",mo=True"
-        return 'Type("%s",' "'%s'%s%s%s,tcls=%s,debug=%s,%s)" \
+        return 'Type("%s",' "'%s'%s%s%s,tcls=%s,debug=%s%s)" \
             % (self.tid,self.pattern,flags,eol,mo,cls,self.debug,ign)
         
     # This method does a match from the starting position within the string against
@@ -368,6 +368,10 @@ class Type(object):
         if self.debug:
             print("Type '%s' match(): recognized Token:\n   %s" % (self.tid,tok))
         return tok
+        
+    # Accessor method to dynamically set debug status
+    def setDebug(self,value):
+        self.debug=value
 
 class EmptyType(Type):
     def __init__(self,tid="EMPTY",tcls=Empty,debug=False):
@@ -604,7 +608,7 @@ class Lexer(object):
     #    linepos The position within the current being recognized. Defaults to 0.
     def recognize(self,string,pos=0,line=0,linepos=0):
         for typ in self.typs:
-            if self.eos and isinstance(typ,EOSType):
+            if self.eos and isinstance(typ,EOSType):  # put pseudo token type test here
                 continue
             try:
                 return typ.match(string,pos,line,linepos)

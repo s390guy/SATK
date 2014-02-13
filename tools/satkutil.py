@@ -266,7 +266,7 @@ class dir_tree(object):
 #              that enables a debugging option.
 # 
 # Instance methods:
-#   argparse   Establishes the debug command line argument in
+#   add_argument Establishes the debug command line argument in an argparse parser
 #   disable    Disables a previously defined debug option flag.
 #   enable     Enables a previously defined debug option flag.
 #   flag       Defines a specific string as a debug option flag.
@@ -325,13 +325,13 @@ class DM(object):
             self.flag("gLL1debug") # Granmar LL(1) analysis debug flag
 
     # Add a debug control argument to an argument parser.
-    def add_argument(self,argparser):
+    def add_argument(self,argparser,help=None):
         arg="--%s" % self.cmdline
         choose=[]
         for x in self.flags.keys():
             choose.append(x)
         choose=sorted(choose)
-        argparser.add_argument(arg,action="append",choices=choose,default=[])
+        argparser.add_argument(arg,action="append",choices=choose,default=[],help=help)
 
     # Disable a defined debug flag
     def disable(self,dflag):
@@ -404,11 +404,18 @@ class DM(object):
 #               or returns the formatted text as a string.
 class Text_Print(object):
     def __init__(self,text=""):
-        if not isinstance(text,str):
+        if isinstance(text,list):
+            self.lines=text
+        elif isinstance(text,str):
+            self.lines=text.splitlines()
+        else:
             raise ValueError("satkutil.py - Text_Print.__init__() - 'text' "
-                "argument must be a string: %s" % text)
-        self.text=text      # Text to be printed
-        self.lines=self.text.splitlines()
+                "argument not a list or string: %s" % text)
+        #self.text=text      # Text to be printed
+        #if isisntance(text,list):
+        #    self.lines=text
+        #else:
+        #    self.lines=self.text.splitlines()
         
     # Remove whitespace at end of the text lines.  
     # Returns a list lines without trailing whitespace or a new string without
@@ -454,11 +461,18 @@ class Text_Print(object):
             return s      # string=True so just return the formatted text
         print(s)          # string=False so print the string here
 
+# For the supplied method object, returns a tuple: method's class name, method name)
+def method_name(method):
+    io=method.__self__   # Get the instance object from the method object 
+    cls=io.__class__     # Get the class object from the instance object
+    fo=method.__func__   # Get the function object from the method object
+    return (cls.__name__,fo.__name__)
+
 # Add a relative directory dynamically to the PYTHONPATH search path
 def pythonpath(dir,debug=False):
     if os.path.isabs(dir):
-        raise ValueError("satkutil.py - pythonpath - directory must be a relative "
-            "oath: %s" % dir)
+        raise ValueError("satkutil.py - pythonpath() - 'dir' argument must be a "
+            "relative path: '%s'" % dir)
     root=satkroot()
     if debug:
         print("satkutil.py - pythonpath() - SATK root: '%s'" % root)

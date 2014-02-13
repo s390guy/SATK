@@ -371,7 +371,7 @@ class ErrorMgr(object):
         
     # This method returns a string or prints the errors collected by the error
     # manager.
-    def print(self,string=False,debug=False):
+    def print(self,string=False,count=True,debug=False):
         lst=self.present()
         
         # No errors
@@ -382,9 +382,12 @@ class ErrorMgr(object):
             return print(msg)
         
         # Errors encountered
-        msg="Errors found: %s" % len(lst)
+        msg=""
+        if count:
+            msg="Errors found: %s\n" % len(lst)
         for x in lst:
-            msg="%s\n%s" % (msg,x.print(string=True,debug=debug))
+            msg="%s%s\n" % (msg,x.print(string=True,debug=debug))
+        msg=msg[:-1]
         if string:
             return msg
         print(msg)
@@ -1070,12 +1073,6 @@ class Parser(object):
     # A subclass may add additional debug flags
     def flag(self,dflag):
         self.dm.flag(dflag)
-        #try:
-        #    self.pdebug[dflag]
-        #    raise ValueError("%s.flag() - debug flag already exists: '%s'" \
-        #        % (self.__class__.__name__,dflag))
-        #except KeyError:
-        #    self.pdebug[dflag]=False
 
     # This method is used to create the parser from a supplied lexer and grammar.
     # It is intended to called from a subclass init() method
@@ -1159,6 +1156,7 @@ class Parser(object):
     #
     # Method arguments:
     #    string     The input source being parsed
+    #    recovery   Specify True to enable resync error covery.  Disabled otherwise
     #    depth      Specify the maximum production call depth.  Defaults to 20.
     #    lines      Argument passed to lexer tokenize() method.  Defaults to True.
     #               True causes the lexer to track input line numbers.

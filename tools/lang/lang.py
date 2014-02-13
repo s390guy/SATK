@@ -136,8 +136,8 @@ class Processor(object):
         self.lang=None 
     
     # This method is called by the Language interface object for initialization
-    # of processor operations.  This method must enable debugging options and
-    # call back methods.
+    # of processor operations.  This method must enable call back methods and return
+    # a Debug Manager instance.
     def configure(self,lang):
         raise NotImplementedError("Subclass %s of lang.Processor must provide the "
             "configure() method" % self.__class__.__name__)
@@ -175,6 +175,11 @@ class Processor(object):
     def filter(self,gs,tok):
         return tok
 
+    # This method prints the grammar used by the Language object, a subclass of 
+    # LL1parser.Parser.
+    def grammar(self):
+        self.lang.grammar()
+
     # This method is part of the Lanugage object interface and must not be
     # overridden by a subclass
     def init(self):
@@ -207,6 +212,61 @@ class Scope(object):
     def init(self):
         raise NotImplementedError("Subclass %s of lang.Scope must provide the "
             "init() method" % self.__class__.__name__)
-      
+
+# These two class provides generic Symbol Table support
+# It is expected that a language processor will subclass these classes tailored to
+# its needs.
+class STE(object):
+    def __init__(self,name):
+        if not isinstance(name,str):
+            cls_str="lang.py - %s.__init__() -" % self.__class__.__name__
+            raise ValueError("%s 'name' argument must be a string: %s" \
+                % (cls_str,name))
+        self.name=name
+
+class SymbolTable(object):
+    def __init__(self,write_once=False):
+        self.tbl={}
+        self.write_once=write_once
+
+    # Retrieve a symbol by its name using index syntax: table[name]
+    # Raises KeyError if item not in table
+    def __getitem__(self,key):
+        return self.tbl[key]
+        
+    # Set the value of a symbol in the table using index syntax: table[name]=STE object
+    # Raises KeyError if write_once=True and the symbol name already exists
+    def __setitem__(self,key,item):
+        cls_str="lang.py - %s.__setitem__() -" % self.__class__.__name__
+        if not isinstance(key,str):
+            raise ValueError("%s 'key' argument must be a string: %s" % (cls_str,key))
+        if not isinstance(item,STE):
+            raise ValueError("%s 'item' argument must an instance of STE: %s"
+                % (cls_str,item))
+        if self.write_once:
+            try:
+                self.tbl[key]
+                found=True
+            except KeyError:
+                found=False
+            if found:
+                raise KeyError("%s symbol already defined in write_once=True table: "
+                    "%s" % (cls_str,key))
+        self.tbl[key]=item
+    
+    # Return an iterator of entries, a tuple (label,STE)
+    def entries(self):
+        return self.tbl.items()
+    
+    # Return an interator of symbol labels
+    def labels(self):
+        return self.tbl.keys()
+    
+    # Return an interator of STE objects
+    def symbols(self):
+        return self.tbl.values()
+     
+    
+
 if __name__ == "__main__":
     raise NotImplementedError("lang.py - must only be imported")
