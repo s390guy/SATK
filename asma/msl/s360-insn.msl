@@ -18,7 +18,8 @@
 # System/360 in instructions and instruction sets in Machine Specification Language
 
 # Include machine instruction formats
-include msl/formats.msl
+# Uses MSLPATH when searching for include files
+include formats.msl
 
 cpu s360         # Generic S/360 CPU
     addrmax 24

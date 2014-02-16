@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2013 Harold Grovesteen
+# Copyright (C) 2013, 2014 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -30,6 +30,7 @@
 
 # Python imports
 import os
+import os.path
 import sys
 
 # SATK imports: none
@@ -246,9 +247,13 @@ class dir_tree(object):
             for x in self.files:
                 method(x)
 
+#
 # +-----------------+
+# |                 |
 # |  Debug Manager  |
+# |                 |
 # +-----------------+
+#
 
 # This class controls debug messaging and controls via argparse for the lanugage 
 # system in particular, but for any application requiring such controls.
@@ -391,6 +396,156 @@ class DM(object):
             string="%s    %s=%s\n" % (string,x,self.flags[x])
         print(string[:-1])
 
+
+#
+# +-------------------------------------+
+# |                                     |
+# |  Path Environment Variable Manager  |
+# |                                     |
+# +-------------------------------------+
+#
+
+# This class manages paths environment variables for an applications opening
+# files via search paths.  Path environment variables are registered with the
+# class when instantiated or later using the path() method.  This class is designed
+# to used for all paths, or individual instances may be used for a subset including
+# one path.
+#
+# Instance arguments:
+#    'variable'   A single string or list of strings identifying the supported
+#                 environment variables.
+class PathMgr(object):
+    def __init__(self,variable=None,debug=False):
+        self.debug=debug          # Enable debugging of all methods
+        self.paths={}             # Dictionary of supported paths
+        
+        if variable is None:
+            return
+        elif isinstance(variable,list):
+            for n in range(len(variable)):
+                v=variable[n]
+                if not isinstance(v,str):
+                    clstr="satkutil.py - %s.__init__() -" % (self.__class__.__name__)
+                    raise ValueError("%s 'variable' argument list element %s not a "
+                        "string: %s" % (clsstr,n,v))
+            vars=variable
+        elif isinstance(variable,str):
+            vars=[variable,]
+        else:
+            clstr="satkutil.py - %s.__init__() -" % (self.__class__.__name__)
+            raise ValueError("%s 'variable' argument must be a list or str: %s" \
+                % (clsstr,variable))
+        
+        for v in vars:
+            self.path(v)
+
+    # Registers an environment variable to be used for file search paths by the
+    # application.
+    #
+    # Method arguments:
+    #   variable    Environment variable string.
+    #   debug       Specify True to enable debug message generation.
+    def path(self,variable,debug=False):
+        if not isinstance(variable,str):
+            clsstr="satkutil.py - %s.path() -" % self.__class__.__name
+            raise ValueError("%s 'variable' argument must be a string: %s" \
+                % (clsstr,variable))
+
+        ldebug=debug or self.debug
+        pathlist=[]
+        rawlist=[]
+        try:
+            path=os.environ[variable]
+            if ldebug:
+                print("satkuil.py - %s.path() - environment variable '%s': '%s'" \
+                    % (self.__class__.__name__,variable,path))
+        except KeyError:
+            # Environment variable is not defined so ignore it
+            if ldebug:
+                print("satkutil.py - %s.path() - environment variable not "
+                    "defined: '%s'" % (self.__class__.__name__,variable))
+
+        rawlist=path.split(os.pathsep)
+        if ldebug:
+            print("satkutil.py - %s.path() - path list: %s" \
+                % (self.__class__.__name__,rawlist))
+
+        for p in rawlist:
+            pathlist.append(p.strip())
+            
+        # Add current working directory if not already in the path
+        curwd=os.getcwd()
+        if curwd not in pathlist:
+            pathlist.append(curwd)
+            
+        # Register the recognized path
+        self.paths[variable]=pathlist
+        
+    # Opens the file in the specified mode and returns the file object.  If supplied,
+    # the predefined path variable is used to find the supplied relative path.
+    # If an path variable is not supplied, or an absolute path is supplied, standard
+    # Python processing occurs.
+    #
+    # Method arguments:
+    #   filename    A path to a file to be opened. Required.
+    #   mode        The mode in which the file is to be opened.  Defaults to "rt".
+    #   variable    Recognized path environment variable string used to search for the 
+    #               file.  Optional.  If not supplied, standard Python open processing
+    #               applies.  The arguemnet string must have been defined when the
+    #               class was instantiated (via the 'variable' argument or later
+    #               added via the path() method.
+    #   debug       Enable debug messages during the call.
+    #
+    # Returns the tuple:  (absolute_path, open_file_object)
+    #   The absolute_path is the path that was used to successfully open the file.
+    #   The open_file_object is ready to be used for file operations as allowed by
+    #   the mode.
+    #
+    # Exceptions:
+    #   ValueError  Raised if the file fails to open.  Note, this differs from normal
+    #               file open processing that raises an IOError exception.  IOError
+    #               exceptions are caught and not propagated upward.
+    #
+    def ropen(self,filename,mode="rt",variable=None,debug=False):
+        ldebug=debug or self.debug
+
+        # Try locating the path list to open the file.
+        try:
+            pathlist=self.paths[variable]
+        except KeyError:
+            pathlist=None
+            if ldebug:
+                clstr="satkutil.py - %s.ropen() -" % (self.__class__.__name__)
+                print("%s 'variable' argument not a defined path: '%s'" \
+                    % (clsstr,variable))
+
+        # For absolut paths or where a path variable name has not been supplied, or
+        # the supplied variable is not recognized, default to Python's native behavior
+        if os.path.isabs(filename) or variable is None or pathlist is None:
+            try:
+                return (filename,self.osopen(filename,mode,debug=ldebug))
+            except IOError:
+                raise ValueError("could not open in mode '%s' path: %s" \
+                    % (mode,filename)) from None
+
+        # Try using search path to open the relative path
+        for p in pathlist:
+            filepath=os.path.join(p,filename)
+            try:
+                return (filepath,self.osopen(filepath,mode,debug=ldebug))
+                # on success, simply return the tuple (abspath,file_object)
+            except IOError:
+                continue
+
+        raise ValueError("could not open in mode '%s' file '%s' with path: %s" \
+            % (mode,filename,variable))
+        
+    def osopen(self,filename,mode,debug=False):
+        if debug:
+             print("satkutil.py - %s.osopen() - trying: open('%s','%s')" \
+                   % (self.__class__.__name__,filename,mode))
+        return open(filename,mode)
+
 # This class accepts a string as its instance argument and will format the
 # string for printing with line numbers.  It will either print the formatted
 # text or return a string to allow it to be printed elsewhere.
@@ -411,11 +566,6 @@ class Text_Print(object):
         else:
             raise ValueError("satkutil.py - Text_Print.__init__() - 'text' "
                 "argument not a list or string: %s" % text)
-        #self.text=text      # Text to be printed
-        #if isisntance(text,list):
-        #    self.lines=text
-        #else:
-        #    self.lines=self.text.splitlines()
         
     # Remove whitespace at end of the text lines.  
     # Returns a list lines without trailing whitespace or a new string without

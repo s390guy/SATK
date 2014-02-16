@@ -1358,7 +1358,8 @@ class MSL(sopl.SOPL):
         self.fail=False          # Immediate failure flag
         self.xref=None           # MSLxref object if build(xref=True)
 
-        super().__init__()
+        # Instantiate super class.  Use 'MSLPATH' environment variable for includes.
+        super().__init__(variable="MSLPATH",debug=False)
 
     # Processes SOPL Statmeent and Parameter objects, creating the MSL database.
     # Method arguments:

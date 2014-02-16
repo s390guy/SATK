@@ -19,6 +19,10 @@
 # This module provides support for the Statement Oriented Parameter Language.  This
 # simple language forms the basis for the Machine Specification Language (MSL).
 
+# Python imports: None
+# SATK impoorts:
+import satkutil      # Access path_open class
+
 #
 #  +--------------------------+
 #  |                          |
@@ -175,10 +179,16 @@ class Statement(Parameter):
 # This is the base class for all languages based upon SOPL.  A specific instance of
 # SOPL will subclass this class.  The language registers with the base class its
 # statements and parameters.
-
+#
+# Instance arguments:
+#   variable   Environment variable to be used for include file searches.  Default
+#              is 'PATH' environment variable.
+#   debug      Specify True to enable PathMgr debugging
 class SOPL(object):
-    def __init__(self):
+    def __init__(self,variable="PATH",debug=False):
         self.fail=False         # If True fail immediately on an error
+        self.soplpath=variable  # Environment variable used for includes
+        self.opath=satkutil.PathMgr(variable=self.soplpath,debug=debug)
 
         # This is a dictionary of statement line id's mapped to a list of valid
         # parameter line id's.  It is built by the subclass calling regStmt() method.
@@ -250,18 +260,21 @@ class SOPL(object):
 
     # Read, honoring include statements, the primary input file.
     def __readfile(self,filename,line=None):
-        cls_str="sopl.py - %s.readfile() -" % self.__class__.__name__
-        if filename in self.files:
-            self._do_warning(line=line,\
-                msg="file may not be included more than once, ignored: %s" % filename)
-            return
         try:
-            fo=open(filename,"rt")
-        except IOError:
+            abspath,fo=self.opath.ropen(filename,variable=self.soplpath)
+        except ValueError:
             self._do_error(line=line,
                 msg="could not open for reading file: %s" % filename)
-            return                  # just return on an include file
-        self.files.append(filename)
+            return                  # just return if file does not open
+
+        # Ignore previously included file
+        if abspath in self.files:
+            self._do_warning(line=line,\
+                msg="file may not be included more than once, ignored: %s" % abspath)
+            fo.close()              # close the open file without reading it
+            return
+
+        self.files.append(abspath)
         fileno=len(self.files)
         lineno=0
         try:
@@ -296,7 +309,6 @@ class SOPL(object):
                         stmt=text[:comment-1]
                     except ValueError:
                         stmt=text
-                #print("stmt: '%s'" % stmt)
 
                 # Most likely, now have some text needing to be processed
                 source=Source(fileno=fileno,lineno=lineno)
@@ -307,7 +319,6 @@ class SOPL(object):
 
                 # Remove any trailing blanks (between statment and comment/end-of-line)
                 stmt=stmt.rstrip()  # Remove trailing blanks.
-                #print("stmt.rstrip(): '%s'" % stmt)
                 if len(stmt)==0:
                     continue
 
