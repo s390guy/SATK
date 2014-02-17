@@ -459,13 +459,15 @@ class PathMgr(object):
             if ldebug:
                 print("satkuil.py - %s.path() - environment variable '%s': '%s'" \
                     % (self.__class__.__name__,variable,path))
+            rawlist=path.split(os.pathsep)
         except KeyError:
             # Environment variable is not defined so ignore it
             if ldebug:
                 print("satkutil.py - %s.path() - environment variable not "
                     "defined: '%s'" % (self.__class__.__name__,variable))
+            
 
-        rawlist=path.split(os.pathsep)
+        #rawlist=path.split(os.pathsep)
         if ldebug:
             print("satkutil.py - %s.path() - path list: %s" \
                 % (self.__class__.__name__,rawlist))
@@ -515,7 +517,7 @@ class PathMgr(object):
         except KeyError:
             pathlist=None
             if ldebug:
-                clstr="satkutil.py - %s.ropen() -" % (self.__class__.__name__)
+                clsstr="satkutil.py - %s.ropen() -" % (self.__class__.__name__)
                 print("%s 'variable' argument not a defined path: '%s'" \
                     % (clsstr,variable))
 

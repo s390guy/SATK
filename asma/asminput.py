@@ -19,11 +19,14 @@
 # This module handles all input operations for the assembler.py module.  Input can 
 # be provided directly for the embedded assembler use case or for others via a source
 # file, included file, or macro generated statements.
+#
+# Environment variable ASMPATH used to search for input files.
 
 # Python imports
 import os.path       # Access path tools by FileBuffer class
 
-# SATK imports: None
+# SATK imports:
+import satkutil      # Access the path manager
 
 # ASMA imports:
 import assembler     # Access assembler exceptions
@@ -123,7 +126,8 @@ class InputSource(object):
 class FileSource(InputSource):
     def __init__(self,typ,filename,stmtno=None):
         super().__init__(typ,filename,stmtno=stmtno)
-        self.fname=filename       # Text input file absolute path name
+        self.rname=filename       # Text input file relative path or absolute path
+        self.fname=None           # Text absolute path from search path.
         self.eof=False            # Flag set at end-of-file
         self.fo=None              # Python file object
         self.lineno=None          # File line number
@@ -170,14 +174,14 @@ class FileSource(InputSource):
         ln=Line(line,lineno=self.lineno,fileno=1)
         return ln
 
-    def init(self):
+    def init(self,pathmgr=None):
         if self.fo is not None:
             cls_str=assembler.eloc(self,"init")
             raise ValueError("%s file object already exists for file: %s" \
                 % (cls_str,self.fname))
         try:
-            self.fo=open(self.fname,"rt")
-        except OSError:
+            self.fname,self.fo=pathmgr.ropen(self.rname)
+        except ValueError:
             raise SourceError("could not open for reading text file: %s" % self.fname) \
                 from None
 
@@ -204,7 +208,7 @@ class InjectableSource(InputSource):
             raise SourceEmpty() from None
         return line
 
-    def init(self): pass
+    def init(self,pathmgr=None): pass
 
    #
    #  Methods unique to injectable sources
@@ -285,6 +289,8 @@ class Line(object):
 class LineBuffer(object):
     source_type={"F":FileSource}
     def __init__(self,depth=20):
+        # ASMPATH search path manager
+        self._opath=satkutil.PathMgr("ASMPATH",debug=False)
         self._depth=depth          # Supported depth of input sources.
         self._sources=[]           # List of input sources
         self._files=[]             # List of input files
@@ -314,7 +320,7 @@ class LineBuffer(object):
         src_cls=LineBuffer.source_type[typ]
         srco=src_cls(typ,sid,srcno)
         try:
-            srco.init()
+            srco.init(pathmgr=self._opath)
         except SourceError as se:
             raise assembler.AssemblerError(line=stmtno,msg=se.msg) from None
 
