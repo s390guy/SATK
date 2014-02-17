@@ -16,13 +16,57 @@
 #     You should have received a copy of the GNU General Public License
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
-# This module provides configuration support for the CPTK software provided in
-# the src/cp directory.  It uses the language tools to parse configuration
-# statements.
+# This module provides configuration support for SATK.  It will configure and 
+# create build scripts for a single stand-alone program incorporating ultimately
+# support for the emerging micro-kernel in src/cp.
 #
-# Statements are free form.  Standard comments (starting with a '#') are allowed
-# Minimal input requires a SYSTEM statement.
-# 
+# For now all of the documentation will be in this module in the following
+# comments.  A separate manual may ultimately be created.
+#
+# +------------+
+# |  Overview  |
+# +------------+
+#
+# saconfig.py uses three methods of input: environmnet variables, command-line
+# arguments and a configuration file containing statements recognized by the
+# saconfig.py utility.  The utility will output a script that will build stand-
+# alone programs using the SATK conventions and facilities and generate other
+# files related to creation of the micro-kernel.
+#
+# The utility requires knowledge of the locations of:
+#   - the SATK root directory,
+#   - the directory in which the cross-compiler tools are built and version
+#     information,
+#   - various run-time input directories used in creating a program and
+#   - various output-directories used in creating the stand-alone program.
+
+# +-------------------------+
+# |  Environment Variables  |
+# +-------------------------+
+#
+#  The following environment variables are used.  Each defines a required location
+#  that may be supplied by a command-line override value.
+#
+#  $HOME     absolute path to the "home" directory.  Corresponding command-line
+#            argument is '--home'.
+#  $XTOOLS   The directory in which the cross-compiler executables reside.  
+#            Corresponding command-line argument is '--xtools'.  If neiter are
+#            present it defaults to '$HOME/crossbuild/run/bin'.
+#  $SATK     The location of the SATK root directory.  It defaults to that derived
+#            by the satkutil.satkroot() function.  Corresponding command-line
+#            argument is '--satk'.
+#  $BUILD    The directory in which the program is built.
+
+# +----------------------+
+# |  Command Line usage  |
+# +----------------------+
+
+# +----------------------------------------+
+# |  Configuration Statement Descriptions  |
+# +----------------------------------------+
+#
+# Statements are free form.  Standard comments (starting with a '#') are allowed.
+# Minimal input requires a SYSTEM statement. 
 
 copyright_years="2013"
 
@@ -36,8 +80,8 @@ import satkutil
 satkutil.pythonpath("tools/lang")   # Dynamically add language tools to PYTHONPATH
 from langutil import *
 
-# The key-word language processor for CP configuration
-class CPCFG(KWLang):
+# The key-word language processor for SA configuration
+class SACFG(KWLang):
     def __init__(self,dm,case="M",recovery=False):
         super().__init__()      # Override required TID names here if needed
         self.dm=dm              # The global debug manager
@@ -74,9 +118,9 @@ class CPCFG(KWLang):
 #   2. Instantiating the tools for use
 #   3. Driving the processing by the tools
 #   4. Handling the back end processing of resulting AST
-# The CPCONFIG class provides the user interface for use of the configuration 
+# The SACONFIG class provides the user interface for use of the configuration 
 # language parser and creating its output config.S text file.
-class CPCONFIG(object):
+class SACONFIG(object):
     def __init__(self,args,dm):
         self.args=args      # argparse arguments
         self.dm=dm          # Debug Manager
@@ -84,7 +128,7 @@ class CPCONFIG(object):
         self.cfgtext=""     # Input configuration file text string
         self.statements=[]  # List of recognized statements, KWStatement instance
 
-        self.kwlang=CPCFG(dm=self.dm,\
+        self.kwlang=SACFG(dm=self.dm,\
                           case=self.args.case,\
                           recovery=self.args.recovery)
 
@@ -99,7 +143,7 @@ class CPCONFIG(object):
         plural=""
         if errors>1:
             plural="s"
-        self.error("_CPCONFIG__try_step",type="",message="%s%s" % (message,plural))
+        self.error("_SACONFIG__try_step",type="",message="%s%s" % (message,plural))
         return False
      
     # Report an error to the error manager for later reporting
@@ -111,25 +155,25 @@ class CPCONFIG(object):
         try:
             fo=open(path,mode="rt")
         except IOError:
-            print("cpconfig.py - Could not open for reading text file: '%s'" % path)
+            print("saconfig.py - Could not open for reading text file: '%s'" % path)
             sys.exit(2)
         try:
             fdata=fo.read()   # Read the entire file
         except KeyError:
-            print("cpconfig.py - Could not read file: '%s'" % path)
+            print("saconfig.py - Could not read file: '%s'" % path)
             sys.exit(2)
         try:
             fo.close()
         except IOError:
-            print("cpconfig.py - Could not close file: '%s'" % path)
+            print("saconfig.py - Could not close file: '%s'" % path)
             sys.exit(2)
         return fdata
         
     # This method generates utility output
     def output(self): 
-        print("CPCONFIG.output() called")
+        print("SACONFIG.output() called")
         
-    # This method drives the cpconfig.py utility processing
+    # This method drives the saconfig.py utility processing
     def run(self):
         self.cfgtext=self.file_read(self.args.cfgfile[0],mode="rt")
 
@@ -143,27 +187,27 @@ class CPCONFIG(object):
             sdebug=self.dm.isdebug("sdebug"),abort=abort)
         
         if self.args.print:
-            print("cpconfig.py - CPCONFIG.run() - Statement objects returned: %s" \
+            print("saconfig.py - SACONFIG.run() - Statement objects returned: %s" \
                 % len(self.statements))
             for x in self.statements:
                 print("%s" % x.print())
 
-        msg="cpconfig.py - statement processing suppressed due to error"
+        msg="saconfig.py - statement processing suppressed due to error"
         next=self.__try_step(self.process,msg,flag=self.args.ignore)
 
         if next:
-            msg="cpconfig.py - output creation suppressed due to error"
+            msg="saconfig.py - output creation suppressed due to error"
             self.__try_step(self.output,msg,flag=self.args.force)
 
         self.kwlang.report()
         
     # This method processes successfully recognized statements
     def process(self):
-        print("CPCONFIG.process() called")
+        print("SACONFIG.process() called")
 
 def parse_args(dm):
-    parser=argparse.ArgumentParser(prog="cpconfig.py",
-        epilog="cpconfig.py Copyright (C) %s Harold Grovesteen" % copyright_years, 
+    parser=argparse.ArgumentParser(prog="saconfig.py",
+        epilog="saconfig.py Copyright (C) %s Harold Grovesteen" % copyright_years, 
         description="configures a control program")
     parser.add_argument("cfgfile",\
         help="configuration source text file",nargs=1)
@@ -182,6 +226,13 @@ def parse_args(dm):
         help="target directory, defaults to current working directory")
     parser.add_argument("--print",action="store_true",default=False,
         help="display recognized statements as seen by the processor")
+    parser.add_argument("--satk",default=False,
+        help="Stand-alone Toolkit root directory overriding 'SATK' environment "
+             "variable")
+    parser.add_argument("--xtools",default=False,
+        help="Directory where compiler toolchain executables reside overriding "
+             "'XTOOLS' environment variable.  Defaults to "
+             "'$HOME/crossbuild/run/bin' if neither are available")
     # Add debug argument(s) using the debug manager
     dm.add_argument(parser)
     return parser.parse_args()   
@@ -189,4 +240,8 @@ def parse_args(dm):
 dm=satkutil.DM(cmdline="debug",appl=["bdebug","sdebug"],langutil=True)
 
 if __name__ == "__main__":
-    CPCONFIG(parse_args(dm),dm).run()
+    #print("$HOME='%s'" % os.environ["HOME"])
+    #print("$HOME/SATK='%s'" % os.path.expandvars("$HOME/SATK"))
+    #os.environ["HOME"]="other"
+    #print("$HOME/SATK='%s'" % os.path.expandvars("$HOME/SATK"))
+    SACONFIG(parse_args(dm),dm).run()
