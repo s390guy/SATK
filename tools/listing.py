@@ -125,16 +125,23 @@ class CharCol(Column):
             colnum=colnum,default=default)
 
 class DateCol(Column):
-    def __init__(self,format="%d %b %Y",just="left",trunc=True,sep=0,colnum=0):
-        now=time.localtime()     # now is an instance of struct_time.
-        string=time.strftime(format,now)
+    def __init__(self,now=None,format="%d %b %Y",just="left",trunc=True,sep=0,colnum=0):
+        if now is None:
+            n=time.localtime()     # now is an instance of struct_time.
+        else:
+            n=now
+        string=time.strftime(format,n)
         super().__init__(just=just,trunc=trun,size=len(string),sep=sep,\
             colnum=colnum,default=string)
 
 class DateTimeCol(Column):
-    def __init__(self,format="%d %b %Y %H:%M:%S",just="left",trunc=True,sep=0,colnum=0):
-        now=time.localtime()     # now is an instance of struct_time.
-        string=time.strftime(format,now)
+    def __init__(self,now=None,format="%d %b %Y %H:%M:%S",just="left",\
+                 trunc=True,sep=0,colnum=0):
+        if now is None:
+            n=time.localtime()     # now is an instance of struct_time.
+        else:
+            n=now
+        string=time.strftime(format,n)
         super().__init__(just=just,trunc=trunc,size=len(string),sep=sep,\
             colnum=colnum,default=string)
 

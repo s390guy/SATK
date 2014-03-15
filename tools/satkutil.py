@@ -24,9 +24,11 @@
 #   DM           A Debug Manager that interfaces with the argparse class.
 #
 # The module includes the following functions:
+#   byte2str     Converts a bytes list or bytearray into a string without encoding
 #   pythonpath   A function that allows management of the PYTHONPATH from within a
 #                module.
 #   satkroot     Determines the absolute path to the SATK root directory
+# 
 
 # Python imports
 import os
@@ -613,12 +615,32 @@ class Text_Print(object):
             return s      # string=True so just return the formatted text
         print(s)          # string=False so print the string here
 
+
+# Convert a list of integers, bytes or bytesarray into a string independent of encoding
+# If the integer value is greater
+def byte2str(blist):
+    if isinstance(blist,str):
+        return blist
+    if not isinstance(blist,list):
+        bl=list(blist)
+    else:
+        bl=blist
+    s=[]
+    for n in range(len(bl)):
+        c=bl[n]
+        if c<0 or c>255:
+            raise ValueError("list[%s] out of range (0-255): %s" % (n,c))
+        s.append(chr(c))
+    return "".join(s)
+
+
 # For the supplied method object, returns a tuple: method's class name, method name)
 def method_name(method):
     io=method.__self__   # Get the instance object from the method object 
     cls=io.__class__     # Get the class object from the instance object
     fo=method.__func__   # Get the function object from the method object
     return (cls.__name__,fo.__name__)
+
 
 # Add a relative directory dynamically to the PYTHONPATH search path
 def pythonpath(dir,debug=False):
@@ -635,6 +657,7 @@ def pythonpath(dir,debug=False):
     sys.path=path
     if debug:
         print("satkutil.py - pythonpath() - sys.path=%s" % sys.path)
+
 
 # Determine the SATK root directory from where this module resides.
 def satkroot():
