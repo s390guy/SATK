@@ -110,7 +110,6 @@ class Parameter(object):
         self.units=units
         self.typ=None
         self.attr=[]
-        self.ID=None
         self.parse_units()
 
     def dump(self,indent="",string=True):
@@ -204,7 +203,7 @@ class SOPL(object):
         # Attribute supplied by SOPL.pre_process() method.  Return by getStmts() method
         self.stmts=[]            # List of Statement objects
 
-        # Used by __backchars() method to detect invalid input characters.
+        # Used by __badchars() method to detect invalid input characters.
         translate="\x00" * 0x20                               # 32 chars   (0x20)
         translate="%s%s" % (translate,"\xFF" * (0x7F-0x20))   # 95 chars   (0x5F)
         translate="%s%s" % (translate,"\x00" * (0x100-0x7F))  # 129 chars  (0x81)
@@ -235,6 +234,13 @@ class SOPL(object):
             self._do_error(line=source,\
                 msg="too many arguements in 'include' statement: %s" % len(parts))
         self.__readfile(parts[1],line=source)
+
+    # Recognize a comment  or empty line
+    def __is_comment(self,text):
+        if len(text)==0:
+            return True
+        cont=text[0]
+        return cont in ["#","*"]
 
     # Convert Line objects from readfile() method into Statement objects.
     def __pre_process(self,debug=False):
@@ -290,7 +296,7 @@ class SOPL(object):
                     text=lin
                 #print("text: '%s'" % text)
 
-                # If now empty wihout the line termination, ignore it too
+                # If now empty without the line termination, ignore it too
                 if len(text)==0:
                     continue
 
@@ -343,6 +349,19 @@ class SOPL(object):
 
         # self.lines contains the list of recognized Line objects
 
+    # Removes an comment at the end of a line
+    def __remove_comment(self,text):
+        try:
+            comment=text.index("#")
+            stmt=text[:comment-1]
+        except ValueError:
+            try:
+                comment=text.index("*")
+                stmt=text[:comment-1]
+            except ValueError:
+                stmt=text
+        return stmt
+
     # Execute the -f, --fail protocol during pre-processing
     def _do_error(self,line=None,msg="",error=None):
         if error is None:
@@ -379,6 +398,42 @@ class SOPL(object):
     #  Returns True if errors present.  Otherwise returns False.
     def isErrors(self):
         return len(self.errors)>0
+
+    # This method is the logical equivalent of recognize, except file inclusions
+    # are not recognized.  It is strictly for the use of an embedded multiline string
+    # obviating the need for paths or filenames.
+    def multiline(self,string,fail=False,debug=False):
+        if not isinstance(string,str):
+            cls_str="sopl.py - %s.multiline() -" % self.__class__.__name__
+            raise ValueError("%s 'string' argument must be a string: %s" \
+                % (cls_str,string))
+
+        self.fail=fail
+        # Separate string into individual lines without ends
+        lines=string.splitlines()
+        lineno=0
+        for line in lines:
+            lineno+=1
+            if self.__is_comment(line):
+                continue
+            stmt=self.__remove_comment(line)
+            source=Source(lineno=lineno)
+            # Generate an error is bad characters in line and cease processing it
+            if self.__badchars(source,stmt):
+                continue   # Error message queued so just ignore it here
+
+            # Remove any trailing blanks (between statment and comment/end-of-line)
+            stmt=stmt.rstrip()  # Remove trailing blanks.
+            if len(stmt)==0:
+                 continue
+
+            ln=Line(source,stmt)
+            self.lines.append(ln)
+        if debug:
+            self.dumpLines()
+        # SOPL processes text into Statement and Parameter objects
+        self.__pre_process(debug=debug)
+        # Access Statement and Parameter objects via getStmts() method
 
     # prints out queued errors
     def printErrors(self):
