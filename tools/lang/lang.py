@@ -233,7 +233,7 @@ class SymbolTable(object):
     # Raises KeyError if item not in table
     def __getitem__(self,key):
         return self.tbl[key]
-        
+
     # Set the value of a symbol in the table using index syntax: table[name]=STE object
     # Raises KeyError if write_once=True and the symbol name already exists
     def __setitem__(self,key,item):
@@ -253,19 +253,18 @@ class SymbolTable(object):
                 raise KeyError("%s symbol already defined in write_once=True table: "
                     "%s" % (cls_str,key))
         self.tbl[key]=item
-    
+
     # Return an iterator of entries, a tuple (label,STE)
     def entries(self):
         return self.tbl.items()
-    
+
     # Return an interator of symbol labels
     def labels(self):
         return self.tbl.keys()
-    
+
     # Return an interator of STE objects
     def symbols(self):
         return self.tbl.values()
-     
     
 
 if __name__ == "__main__":

@@ -353,9 +353,10 @@ class Instruction(object):
         soper_seq=fmt.soper_seq
         if len(operands)!=len(soper_seq):
             cls_str="insnbldr.py - %s.__init__() -" % self.__class__.__name__
-            raise ValueError("%s number of operands from assembler.Stmt object does "
-                "not match source operands in msldb.Format object: %s != %s" \
-                % (cls_str,len(operands),len(soper_seq)))
+            raise ValueError("%s number of operands from assembler.Stmt object "
+                "for line %s does not match source operands in msldb.Format object for "
+                "mnemonic %s: %s != %s" \
+                % (cls_str,line,self.mnemonic,len(operands),len(soper_seq)))
         for n in range(len(operands)):
             name=soper_seq[n]        # A source parameter type/id attribute
             soper=fmt.soper[name]    # The msldb.soper object it defines

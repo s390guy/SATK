@@ -39,6 +39,7 @@ import re
 # Instance Arguments:
 #   msg    A string constituting a message related to the error. Defaults to ''.
 #   n      The failing part number. Defaults to None.
+#   pos    Position in the string where error occurred
 class SequentialError(Exception):
     def __init__(self,msg="",n=None,pos=None):
         self.msg=msg
@@ -134,7 +135,7 @@ class PartRE(object):
         if part is None:
             if not self.optional:
                 raise SequentialError(\
-                    msg="RE '%s' failed for part: %s " % (self.name,n),n=n)
+                    msg="RE '%s' failed for part: %s " % (self.name,n),n=n,pos=pos)
             else:
                 return n+1
         return part.test(n)
@@ -184,7 +185,7 @@ class SeqParser(object):
                 break
             partre=self.res[cur_part]
             part=partre.match(string,pos,debug=debug)
-            cont=partre.test(part,cur_part,pos)
+            cont=partre.test(part,n=cur_part,pos=pos)
             # If this does not raise a SequentialError, then we can add the result
             result.append(part)
             if part is not None:

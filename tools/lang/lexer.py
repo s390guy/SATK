@@ -133,6 +133,7 @@ class Token(object):
         if a.linepos>b.linepos:
             return 1
         return 0
+
     def __init__(self):
         self.tid=None     # Token type to which recognized token belongs
         self.string=None  # String of the identified token
@@ -156,31 +157,19 @@ class Token(object):
 
     # Display the Token instance
     def __str__(self):
-        #info=eols=eolpos=line=ignore=""
-        #string="%s(" '"' "%s" '"' ",'%s',%s," \
-        #    % (self.__class__.__name__,self.tid,self.string,self.beg,self.end)
         string="%s(" % self.__class__.__name__
         string='%s"%s"' % (string,self.tid)
         string="%s,'%s'" % (string,self.string)
         string="%s,%s,%s" % (string,self.beg,self.end)
         if self.eols:
             string="%s,eols=%s,eolpos=%s" % (string,self.eols,self.eolpos)
-            #eols=",eol=%s" % self.eols
-            #eolpos=",eolpos=%s" % self.eolpos
         if self.line:
             string="%s,line=%s,linepos=%s" % (string,self.line,self.linepos)
-            #line=",line=%s" % self.line
-            #linepos=",linepos=%s" % self.linepos
         if self.ignore:
             string="%s,IGNORE" % string
-            #ignore=",IGNORE"
         if self.info is not None:
             string="%s,info=%s" % (string,self.info)
-            #info=",info=%s" % self.info
         string="%s)" % string
-        #string="%s(" '"' "%s" '"' ",'%s',%s%s%s%s%s%s%s)" \
-        #    % (cls,self.tid,self.string,self.beg,self.end,eols,line,linepos,eolpos,\
-        #       ignore,info)
         if self.mo is not None:
             string="%s\n    mo groups=%s" % (string,self.groups())
             string="%s\n    mo dict=%s" % (string,self.dict())
@@ -202,7 +191,7 @@ class Token(object):
     # the recognized token for handling by the language processor.  By default it
     # returns the recognized string of characters.
     def extract(self):
-         return self.string
+        return self.string
     
     # Initialize the instance attributes even when subclassed.
     # WARNING: This method does not return self as does __init__.  It returns None.
@@ -218,10 +207,15 @@ class Token(object):
         self.mo=mo          # Match object that identified the token
 
     # Return the saved Regular Expression match object's group dictionary or
-    # if not present raise a LexerError exception
+    # if not present raise a LexerError exception.
+    #
+    # Lack of the match object may occur if it is referenced in the token object's
+    # __init__() method.  The match object is not available until the Token.init()
+    # method is called.
     def dict(self,default=None):
         if self.mo is None:
-            raise LexerError()
+            raise LexerError(msg="%s.dict() - match object not available (yet?)" \
+                % self.__class__.__name__)
         return self.mo.groupdict(default)   
 
     # Test whether this Token instance is of a particular type.
@@ -229,10 +223,15 @@ class Token(object):
         return tid == self.tid
 
     # Return the saved Regular Expression match object's groups or
-    # if not present, raise a LexerError exception
+    # if not present, raise a LexerError exception.
+    #
+    # Lack of the match object may occur if it is referenced in the token object's
+    # __init__() method.  The match object is not available until the Token.init()
+    # method is called.
     def groups(self,default=None):
         if self.mo is None:
-            raise LexerError()
+            raise LexerError(msg="%s.groups() - match object not available (yet?)" \
+                % self.__class__.__name__)
         return self.mo.groups(default)
         
     # Returns the complete Regular Expression match object or
@@ -348,7 +347,11 @@ class Type(object):
         res=None
 
         # Try to recognize a token with my Regular Expression match pattern
+        if self.debug:
+            print("string: '%s'" % string[pos:])
         mo=self.cre.match(string,pos)
+        if self.debug:
+            print("mo: %s" % mo)
         if mo is None:
             if self.debug:
                 print("Type '%s' match(): failed (None)" % self.tid)
@@ -358,13 +361,30 @@ class Type(object):
         string=mo.group()
         if self.mo:
             res=mo
+        if self.debug:
+            print("matched string '%s' creating tcls: %s" % (string,self.tcls))
+            
+        # Note excpetions occurring within an iterator behave differently.  This
+        # try block attemps to provide some indication of the failure.
+        # Is this a bug in the Lexer interator code??  Don't know.
+        try:
+            tok=self.tcls()
+        except Exception as e:
+            ecls=e.__class__.__name__
+            print("lexer.py - %s.match() - Failed to create token object: %s\n"
+                "%s%s" % (self.__class__.__name__,self.tcls,ecls,e.args))
+            raise e
 
-        tok=self.tcls()
+        if self.debug:
+            print("created token: %s.()" % tok.__class__.__name__)
+
         relpos=pos-eolpos
         tok.init(self.tid,string,mo.start(),mo.end(),\
             line=line,linepos=relpos,eols=eols,ignore=self.ignore,mo=res)
+
         if self.eol:
             tok._newline()
+
         if self.debug:
             print("Type '%s' match(): recognized Token:\n   %s" % (self.tid,tok))
         return tok
@@ -476,10 +496,11 @@ class Lexer(object):
             if self.pos == self.length:
                 if self.eos:
                     tok=self.eostype.match(self.pos,self.line+1,0)
-                    #tok.init(self.pos,self.line+1,0)
                     self.stopped=True
+                    #self._reset()
                     yield tok
                 self.stopped=True
+                #self._reset()
                 raise StopIteration
             self.recognizer()
             
@@ -523,7 +544,6 @@ class Lexer(object):
                     if n:
                         self.line+=n
                         self.eolpos=self.pos
-                        #self.linepos=self.pos
                 unrecog._extend(badchar,lines=n)
                 continue
         if unrecog._any():
@@ -569,19 +589,19 @@ class Lexer(object):
         for t in self.tokenize(string,pos,fail=fail,lines=lines,line=line):
             tokens.append(t)
         return tokens
-    
+
     # Returns the empty token tid 
     def empty_tid(self):
         if self.emptytype is None:
             return None
         return self.emptytype.tid
-    
+
     # Returns the token tid of the 'end-of-stream' token or None if not supported.
     def eos_tid(self):
         if not self.eos:
             return None
         return self.eostype.tid
-    
+
     # This method must be supplied by a subclass.  It is intended to be used for
     # initialization of the Lexer with Type instances specific to the subclass
     # lexer.
@@ -683,7 +703,7 @@ class Lexer(object):
         else:
             self.typs.append(t)
         self.tids.append(t.tid)
-        
+
     # Print the list of registered tokens
     def types(self):
         print("\n%s Defined Types\n" % self.__class__.__name__)

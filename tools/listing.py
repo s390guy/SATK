@@ -398,7 +398,10 @@ class Listing(object):
         return self.lines-self.pagelines
 
     # Inject an empty line into the listing
-    def space(self,n=1):
+    def space(self,n=1,eject=False):
+        if eject and self.pagelines+n>self.lines:
+            self.pagelines=0
+            return
         for x in range(n):
             self.__line("")
 

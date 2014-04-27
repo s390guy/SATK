@@ -35,12 +35,12 @@
 #                when completed.
 
 # Python imports: none
-
-# SATK imports: none
+# SATK imports:
 import lexer     # Access lexical analyzer tokens
-
-# ASMA imports:
 import pratt     # Access the Pratt top-down operator precedence parser
+# ASMA imports: none
+
+this_module="expression.py"
 
 #
 #  +-----------------------------------+
@@ -54,7 +54,7 @@ import pratt     # Access the Pratt top-down operator precedence parser
 class PLitTID(pratt.PLit):
     def __init__(self,token,external):
         if not isinstance(token,lexer.Token):
-            cls_str="assembler.py - %s.__init__() -" % self.__class__.__name__
+            cls_str="%s - %s.__init__() -" % (this_module,self.__class__.__name__)
             raise ValueError("%s 'token' argument must be an instance of "
                 "lexer.Token: %s" % (cls_str,token))
         self.external=external   # An object providing external assistance
@@ -121,7 +121,7 @@ class Expression(object):
 
     def append(self,ptoken):
         if not isinstance(ptoken,pratt.PToken):
-            cls_str="expression.py - %s.append() -" % self.__class__.__name__
+            cls_str="%s - %s.append() -" % (this_module,self.__class__.__name__)
             raise ValueError("%s 'ptoken' argument must be an instance of "
                 "pratt.PToken: %s" % (cls_str,ptoken))
         self.ptokens.append(ptoken)
@@ -205,7 +205,7 @@ term_more -> EMPTY
         return gram
 
     def factors(self,tid,ptoken):
-        cls_str="expression.py - %s.factors() -" % self.__class__.__name__
+        cls_str="%s - %s.factors() -" % (this_module,self.__class__.__name__)
         if not isinstance(tid,str):
             raise ValueError("%s 'tid' argument must a string: %s" % (cls_str,tid))
         if not issubclass(ptoken,PLitTID):
@@ -219,7 +219,7 @@ term_more -> EMPTY
             self.factor_map[tid]=ptoken
 
     def operators(self,tid,ptoken):
-        cls_str="expression.py - %s.operators() -" % self.__class__.__name__
+        cls_str="%s - %s.operators() -" % (this_module,self.__class__.__name__)
         if not isinstance(tid,str):
             raise ValueError("%s 'tid' argument must a string: %s" % (cls_str,tid))
         if not issubclass(ptoken,pratt.Operator):
@@ -233,7 +233,7 @@ term_more -> EMPTY
             self.operator_map[tid]=ptoken
 
     def parans(self,left,right):
-        cls_str="expression.py - %s.parans() -" % self.__class__.__name__
+        cls_str="%s - %s.parans() -" % (this_module,self.__class__.__name__)
         if not isinstance(left,str):
             raise ValueError("%s 'left' argument must a string: %s" % (cls_str,tid))
         if not isinstance(right,str):
@@ -244,7 +244,7 @@ term_more -> EMPTY
         self.right_tid=right
 
     def unary(self,tid,ptoken=None):
-        cls_str="expression.py - %s.unary() -" % self.__class__.__name__
+        cls_str="%s - %s.unary() -" % (this_module,self.__class__.__name__)
         if not isinstance(tid,str):
             raise ValueError("%s 'tid' argument must a string: %s" % (cls_str,tid))
         if ptoken is not None and not issubclass(ptoken,pratt.Operator):
@@ -283,7 +283,7 @@ term_more -> EMPTY
     #        factors.
     #
     def define_factors(self):
-        cls_str="expression.py - %s.define_factors() -" % self.__class__.__name__
+        cls_str="%s - %s.define_factors() -" % (this_module,self.__class__.__name__)
         raise NotImplementedError("%s subclass must provide define_factors() method")
 
     #  Role: when the object is instantiated, it needs to know its operators.  In this
@@ -294,7 +294,7 @@ term_more -> EMPTY
     #        PLUS, MINUS, MUL, DIV.  EACH MUST BE DEFINED TODAY.
     #
     def define_operators(self):
-        cls_str="expression.py - %s.define_operators() -" % self.__class__.__name__
+        cls_str="%s - %s.define_operators() -" % (this_module,self.__class__.__name__)
         raise NotImplementedError("%s subclass must provide define_operators() method")    
 
     #  Role: when the object is instantiated, it needs to know its parenthesis
@@ -302,7 +302,7 @@ term_more -> EMPTY
     #        parans() method to define them.
     #
     def define_parans(self):
-        cls_str="expression.py - %s.define_operators() -" % self.__class__.__name__
+        cls_str="%s - %s.define_operators() -" % (this_module,self.__class__.__name__)
         raise NotImplementedError("%s subclass must provide define_operators() method")   
 
     #  Role: when the object is instantiated, it needs to know its unary operator
@@ -310,14 +310,14 @@ term_more -> EMPTY
     #        unary() method to define them.
     #
     def define_unary(self):
-        cls_str="expression.py - %s.define_unary() -" % self.__class__.__name__
+        cls_str="%s - %s.define_unary() -" % (this_module,self.__class__.__name__)
         raise NotImplementedError("%s subclass must provide define_unary() method") 
 
     #  Role: language processor handling of completed expression LL1 parsing
     #        driven in PID exp 'end' callback
     #
     def expression_done(self,gs,exp,trace=False):
-        cls_str="expression.py - %s.expression_done() -" % self.__class__.__name__
+        cls_str="%s - %s.expression_done() -" % (this_module,self.__class__.__name__)
         raise NotImplementedError("%s subclass must provide expression_done() method")
 
     #
@@ -325,7 +325,7 @@ term_more -> EMPTY
     #
 
     def create_PToken(self,tok,mapdict,trace=False):
-        cls_str="expression.py - %s.create_PToken()" % self.__class__.__name__
+        cls_str="%s - %s.create_PToken()" % (this_module,self.__class__.__name__)
         tid=tok.tid
         try:
             cls=mapdict[tid]
@@ -350,7 +350,7 @@ term_more -> EMPTY
     def exp_begin(self,gs,pid):
         trace=gs.dm.isdebug("cbtrace")
         if trace:
-            cls_str="expression.py - %s.exp_begin() -" % self.__class__.__name__
+            cls_str="%s - %s.exp_begin() -" % (this_module,self.__class__.__name__)
             print(cls_str[:-2])
         try:
             exp=getattr(gs,"exp")
@@ -366,7 +366,7 @@ term_more -> EMPTY
     def exp_end(self,gs,pid,failed=False,eo=[]):
         trace=gs.dm.isdebug("cbtrace")
         if trace:
-            cls_str="expression.py - %s.exp_end()" % self.__class__.__name__
+            cls_str="%s - %s.exp_end()" % (this_module,self.__class__.__name__)
             print(cls_str)
         exp=gs.exp
 
@@ -381,7 +381,8 @@ term_more -> EMPTY
     def exp_more_token(self,gs,pid,n,token):
         trace=gs.dm.isdebug("cbtrace")
         if trace:
-            cls_str="expression.py - %s.exp_more_token() -" % self.__class__.__name__
+            cls_str="%s - %s.exp_more_token() -" \
+                % (this_module,self.__class__.__name__)
             print("%s token.tid='%s'" % (cls_str,token.tid))
         po=self.create_PToken(token,self.operator_map,trace=trace)
         gs.exp.ptokens.append(po)
@@ -389,7 +390,7 @@ term_more -> EMPTY
     def factor_token(self,gs,pid,n,token):
         trace=gs.dm.isdebug("cbtrace")
         if trace:
-            cls_str="expression.py - %s.factor_token() -" % self.__class__.__name__
+            cls_str="%s - %s.factor_token() -" % (this_module,self.__class__.__name__)
             print("%s token.tid='%s'" % (cls_str,token))
 
         # Is this a left paran '('?
@@ -412,10 +413,11 @@ term_more -> EMPTY
     def term_more_token(self,gs,pid,n,token):
         trace=gs.dm.isdebug("cbtrace")
         if trace:
-            cls_str="expression.py - %s.term_more_token() -" % self.__class__.__name__
+            cls_str="%s - %s.term_more_token() -" \
+                % (this_module,self.__class__.__name__)
             print("%s token.tid='%s'" % (cls_str,token.tid))
         po=self.create_PToken(token,self.operator_map,trace=trace)
         gs.exp.ptokens.append(po)
 
 if __name__ == "__main__":
-    raise NotImplementedError("expression.py - intended for import use only")
+    raise NotImplementedError("%s - intended for import use only" % this_module)

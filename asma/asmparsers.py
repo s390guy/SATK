@@ -176,17 +176,19 @@
 # Python imports
 import re           # Use Python's regular expression module
 
-# SATK imports - PYTHONPATH must include ${SATK_DIR}/tools/lang
+# SATK imports - PYTHONPATH must include ${SATK_DIR}/tools/lang and ${SATK_DIR}/tools
+import expression   # Access the Pratt parser / LL1 parser interface
+import fsmparser    # Access the finite state machine based parser
 import lang         # Access SATK language tools Interface
 import langutil     # Access SATK "Smart Tokens"
 import lexer        # Access SATK language tools lexical analyzer
+import pratt        # Access directly Pratt PTokens
 import translate    # Access the ASCII-to-EBCDIC translation table
+import seqparser    # Access the simple parser
 from   LL1parser import ParserAbort   # Access exception for try statement
 
 # ASMA imports
-import expression   # Access the Pratt parser / LL1 parser interface
-import pratt        # Access directly Pratt PTokens
-import assembler    # Access the assembler's user error exception
+import assembler    # Access the assembler's user error exception and Translator
 
 
 #
@@ -197,17 +199,13 @@ import assembler    # Access the assembler's user error exception
 #  +--------------------------------------------+
 #
 
-# These definitions provide consistency between different modules definitions
-# Note: presently only used by Assembler.__init_res() method for statment classifier
-char="$@_"                          # Special characters used in names
-multiline="(?m)"                    # Turns on multiline for start/end match
-cmt="\*"                            # The comment character, an asterisk
-inst="[a-zA-Z]+[0-9]*"              # An instruction pattern
-ws="[ \t\r\f\v]"                    # White space characters
-stuff=".*"                          # Stuff at the end of the line
-
-# Label pattern with special chracters
-label="[a-zA-Z%s][a-zA-Z0-9%s]*" % (char,char)
+# These definitions provide consistency between different modules using regular
+# expressions.  Use requires the assembler module to be imported
+char=assembler.char                 # Special characters used in names
+multiline=assembler.multiline       # Turns on multiline for start/end match
+ws=assembler.ws                     # White space characters
+label=assembler.label               # Label pattern with special chracters
+opend=assembler.opend               # End of a statements operands
 
 # Template user must provide DS type(s)
 ds_template="([0-9]+)?(%s)([Ll][0-9]+)?"
@@ -305,6 +303,22 @@ ds_desc -> DSDESC
 """
 
 #
+#  +-----------------+
+#  |                 |
+#  |   Label Error   |
+#  |                 | 
+#  +-----------------+
+#
+
+class LableError(Exception):
+    def __init__(self,label,ltok=None,msg=""):
+        self.msg=msg         # Text associated with the error
+        self.ltok=ltok       # Lexical token where label occurs
+        self.label=label     # Label for which error is detected
+        string="%s: %s" % (self.msg,self.label)
+        super().__init__(string)
+
+#
 #  +---------------------------------------+
 #  |                                       |
 #  |   Lexical Analyzer Tokens and Types   |
@@ -326,7 +340,7 @@ class CharLitToken(lexer.Token):
         char=groups[3]
         desc=groups[1]
         if desc.upper() in CharLitToken.ebcdic:
-            char=char.translate(translate.A2E)
+            char=assembler.CPTRANS.a2e(char)
         return ord(char)
 
 class CharLitType(lexer.Type):
@@ -501,8 +515,10 @@ class DCOperandToken(DescToken):
 # DS Descriptor token type
 class DSDescType(lexer.Type):
     def __init__(self,debug=False):
+        #ds_desc=ds_template \
+        #% "[Bb]|[Hh]|[Pp]|[Xx]|[Zz]|[Aa][Dd]?|[Cc][AaEe]?|[Ff][Dd]?"
         ds_desc=ds_template \
-            % "[Bb]|[Hh]|[Pp]|[Xx]|[Zz]|[Aa][Dd]?|[Cc][AaEe]?|[Ff][Dd]?"
+            % "[Bb]|[Dd]|[Hh]|[Pp]|[Xx]|[Zz]|[Aa][Dd]?|[Cc][AaEe]?|[Ff][Dd]?"
         super().__init__("DSDESC",ds_desc,tcls=DescToken,mo=True,debug=debug)
 
 # DC ADCON Descriptor token type
@@ -615,7 +631,11 @@ class PLitCur(expression.PLitSmart):
 
     def convert(self,debug=False,trace=False):
         cur_stmt=self.external.cur_stmt
-        cur=cur_stmt.current()
+        stmt_bin=cur_stmt.content
+        if stmt_bin is None:
+            cur=self.external.cur_loc.retrieve()
+        else:
+            cur=cur_stmt.current()
         if not isinstance(cur,assembler.Address):
             cls_str="asmparsers.py - %s.convert() -" % self.__class__.__name__
             raise ValueError("%s current location of statement %s not an address: %s" \
@@ -656,7 +676,7 @@ class PLitDC(expression.PLitSmart):
         if dctype == "CA":
             v=ord(self.literal)
         elif dctype == "C" or dctype == "CE":
-            v=ord(self.literal.translate(translate.A2E))
+            v=ord(assembler.CPTRANS.a2e(self.literal))
         else:
             b=PLitDC.base[dctype]
             v=int(self.literal,b)
@@ -682,9 +702,12 @@ class PLitLabel(expression.PLitSmart):
         token=self.src
         label=token.extract()
         # self.external is the Assembler object
-        # Note: this method will raise an AssemblerError excpetion if the symbol
-        # is not found. 
-        ste=self.external._getSTE_Ref(label,token.line)
+        # Note: this method will raise a KeyError excpetion if the symbol
+        # is not found.
+        try:
+            ste=self.external._getSTE_Ref(label,token.line)
+        except KeyError:
+            raise LableError(label,ltok=self.src,msg="undefined label") from None
 
         value=ste.value()
         if isinstance(value,(assembler.SectAddr,assembler.DDisp,assembler.AbsAddr)):
@@ -722,11 +745,14 @@ class PLitLabelAttr(expression.PLitSmart):
         tok=self.src
         attr,label=tok.convert()
         # self.external is the Assembler object
-        # Note: this method will raise an AssemblerError excpetion if the symbol
+        # Note: this method will raise a KeyError excpetion if the symbol
         # is not found. 
-        v=self.external._getAttr(label,attr.upper(),tok.line)
-        if trace:
-            print("%s.value() v=%s" % (self.__class__.__name__,v))
+        try:
+            v=self.external._getAttr(label,attr.upper(),tok.line)
+            if trace:
+                print("%s.value() v=%s" % (self.__class__.__name__,v))
+        except KeyError:
+            raise LableError(lable,ltok=self.src,msg="undefined label")
         return v
 
     def value(self,debug=False,trace=False):
@@ -757,6 +783,7 @@ class ExpressionParser(expression.ExpParser):
         self.factors("BIN",expression.PLitSmart)
         self.factors("HEX",expression.PLitSmart)
         self.factors("DEC",expression.PLitSmart)
+        self.factors("CHAR",expression.PLitSmart)
         self.factors("LATTR",PLitLabelAttr)
         self.factors("LABEL",PLitLabel)
         self.factors("MUL",PLitCur)
@@ -1762,14 +1789,18 @@ class AdCon(ConsType):
             raise ValueError("%s 'expr' argument must be a Expression object: %s" \
                 % (cls_str,signed))
 
-        expr.evaluate(debug=debug,trace=trace)
+        try:
+            expr.evaluate(debug=debug,trace=trace)
+        except LableError as le:
+            raise assembler.AssemblerError(line=stmt.lineno,source=stmt.source,\
+                msg="%s: %s" % (le.msg,le.label)) from None 
         # I can trust the result to be either an integer or Address
         value=expr.value
         if isinstance(value,assembler.Address):
             if value.isAbsolute():
                 value=value.address
             else:
-                raise AssemblerError(line=stmt.lineno,\
+                raise assembler.AssemblerError(line=stmt.lineno,\
                     msg="address constant in operand %s did not evaluate to an "
                         "absolute address: %s" % (ondx+1,value))
 
@@ -1796,7 +1827,10 @@ class AD_Con(AdCon):
     def __init__(self):
         super().__init__("AD",8)
 
-# Types: F, FD, H
+# Types: D, F, FD, H
+# Note: Type D constants are actually hexadecimal floating point constants.  But
+#       legacy code uses D in lieu of AD for 8-byte aligned fields.  ASMA treats
+#       type D as fixed point, not hexadecimal floating point.
 class FixPt(ConsType):
     def __init__(self,typ,align):
         super().__init__(typ,align=align)
@@ -1827,6 +1861,10 @@ class FixPt(ConsType):
 
     def infer_length(self,constant):
         return self.align
+
+class D_Con(FixPt):
+    def __init__(self):
+        super().__init__("D",8)
 
 class F_Con(FixPt):
     def __init__(self):
@@ -1941,7 +1979,7 @@ class ECharCon(CharCon):
     def __init__(self,typ):
         super().__init__(typ)
     def translate(self,string):
-        return string.translate(translate.A2E)
+        return assembler.CPTRANS.a2e(string)
 
 class C_Con(ECharCon):
     def __init__(self):
@@ -1982,7 +2020,7 @@ class BaseCon(ConsType):
 
     def infer_length(self,constant):
         # The assumption is that constant is a string
-        return ConsType.roung_up(len(constant),self.cpb)
+        return ConsType.round_up(len(constant),self.cpb)
 
 class B_Con(BaseCon):
     def __init__(self):
@@ -1991,6 +2029,7 @@ class B_Con(BaseCon):
 class X_Con(BaseCon):
     def __init__(self):
         super().__init__("X",16,2)
+
 
 # The unroll process creates instances of Constant.  This class is an intermediary
 # between the constant as coded in the source and the binary object that contains
@@ -2004,6 +2043,7 @@ class Constant(object):
            "C": C_Con(),
            "CA":CA_Con(),
            "CE":CE_Con(),
+           "D": D_Con(),
            "F": F_Con(),
            "FD":FD_Con(),
            "H": H_Con(),
@@ -2013,7 +2053,7 @@ class Constant(object):
     def __init__(self,typ,constant=None,length=None,force=False):
         self.typ=typ             # Constant type from DC operand
         self.constant=constant   # May be Signed, Expression or string instance
-        self.contyp=None         # Set from Types dictionary below
+        self.contyp=None         # Set from Types dictionary above
 
         # Binary object associated with this constant.  Established by 
         # Assembler Pass 1 method __dcds_pass1().  The assingment of this object
@@ -2048,7 +2088,7 @@ class Constant(object):
         if constant is None:            # Constant being None means a DS statememt
             self.length=self.align      # For DS use alignment for length
             return                      # and we are done
-  
+
         # Need to infer the length from the constant
         self.length=self.contyp.infer_length(constant)
 
@@ -2065,6 +2105,201 @@ class Constant(object):
         data=self.contyp.build(stmt,ondx,self.constant,self.length,\
             debug=debug,trace=trace)
         self.content.update(data,full=True,finalize=True,trace=trace)
+
+#
+#  +-----------------------------------------------+
+#  |                                               |
+#  |   FSM-based Parsers for Individual Contexts   |
+#  |                                               | 
+#  +-----------------------------------------------+
+#
+
+# This class forms the base class for all of the finite-state machine based
+# syntactical analyzers.  It enforces the structure used by each parser and provides
+# some standard functions.
+
+class AsmFSMParser(fsmparser.FSMParser):
+    def __init__(self,dm,scope=None,init="init",external=None,trace=False):
+        self.dm=dm            # Debug manager, passed to lexical analyzer
+        self.lex=self.Lexer() # Create my lexical analyzer
+        super().__init__(self.lex,scls=scope,external=external,init=init,trace=trace)
+        self.initialize()     # Initialize the finite-state machine
+
+    # This method uses the super class state() method to register defined states
+    def initialize(self):
+        cls_str=assembler.eloc(self,"initialize",module=this_module)
+        raise NotImplementedError("%s subclass %s must provide initialize() method" \
+            % (cls_str,self.__class__.__name__))
+
+    def ACT_Expected(self,expected,value,found=None):
+        msg="expected %s, found " % expected
+        if found is None:
+            if isinstance(value,EoOperToken):
+                msg="%s%s" % (msg,"end of operands")
+            elif isinstance(value,lexer.EOS):
+                msg="%s%s" % (msg,"end of statement")
+            else:
+                msg='%s"%s"' % (msg,value.string)
+        else:
+            msg="%s%s" % (msg,found)
+        raise MacroParserError(value,msg=msg)
+
+    # This method returns the default lexical analyzer used by all macro statements.
+    # Override this method to utilize a different lexical analyzer.
+    def Lexer(self):
+        return assembler.Assembler.lexer
+
+
+#
+#  +----------------------------------------+
+#  |                                        |
+#  |   Generic Statement Field Recognizer   |
+#  |                                        |
+#  +----------------------------------------+
+#
+
+class FieldParser(AsmFSMParser):
+    def __init__(self,dm):
+        super().__init__(dm,scope=None,trace=False)
+
+    # Define my states and action methods.
+    def initialize(self):
+        # Looking for the name feild
+        init=fsmparser.PState("init")
+        init.action([SEQSYM,],self.ACT_NameSeq)
+        init.action([SYMREF,],self.ACT_NameSym)
+        init.action([LABEL,],self.ACT_NameLabel)
+        init.action([EOO,],self.ACT_NameNone)
+        init.error(self.ACT_ExpectedName)
+        self.state(init)
+ 
+        # Looking for spaces before the operation field
+        op_spaces=fsmparser.PState("op_spaces")
+        op_spaces.action([EOO,],self.ACT_Oper)
+        op_spaces.error(self.ACT_ExpectedSpaces1)
+        self.state(op_spaces)
+
+        # Found the operation field
+        optn=fsmparser.PState("optn")
+        optn.action([LABEL,],self.ACT_Operation)
+        optn.error(self.ACT_ExpectedOper)
+        self.state(optn)
+
+        # Looking for spaces after the operation field
+        opnd_spaces=fsmparser.PState("opnd_spaces")
+        opnd_spaces.action([EOO,],self.ACT_Opnd)
+        opnd_spaces.action([EOS,],self.ACT_Done)
+        opnd_spaces.error(self.ACT_ExpectedSpaces2)
+        self.state(opnd_spaces)
+
+        # Found spaces following operation field, if anything is there it marks the
+        # start of the operands.
+        opnd=fsmparser.PState("opnd")
+        opnd.action([EOS,],self.ACT_Done)
+        opnd.error(self.ACT_Operands)
+        self.state(opnd)
+
+    def ACT_Done(self,value,state,trace=False):
+        state.atend()
+
+    def ACT_ExpectedName(self,value,state,trace=False):
+        self.ACT_Expected("name field",value)
+
+    def ACT_ExpectedOper(self,value,state,trace=False):
+        self.ACT_Expected("operation field",value)
+
+    def ACT_ExpectedSpaces1(self,value,state,trace=False):
+        self.ACT_Expected("one or more spaces before operation field",value)
+
+    def ACT_ExpectedSpaces2(self,value,state,trace=False):
+        self.ACT_Expected("one or more spaces following operation field",value)
+
+    def ACT_NameLabel(self,value,state,trace=False):
+        gs=self.scope()
+        gs.NameLabel(value)
+        return "op_spaces"
+
+    def ACT_NameNone(self,value,state,trace=False):
+        return "optn"
+
+    def ACT_NameSeq(self,value,state,trace=False):
+        gs=self.scope()
+        gs.NameSeq(value)
+        return "op_spaces"
+
+    def ACT_NameSym(self,value,state,trace=False):
+        gs=self.scope()
+        gs.NameSym(value)
+        return "op_spaces"
+
+    def ACT_Oper(self,value,state,trace=False):
+        return "optn"
+
+    def ACT_Opnd(self,value,state,trace=False):
+        return "opnd"
+
+    def ACT_Operands(self,value,state,trace=False):
+        gs=self.scope()
+        gs.Operands(value)
+        state.atend()
+
+    def ACT_Operation(self,value,state,trace=False):
+        gs=self.scope()
+        gs.Operation(value)
+        return "opnd_spaces"
+
+
+
+#
+#  +------------------------------------------------+
+#  |                                                |
+#  |   Sequential Parsers for Individual Contexts   |
+#  |                                                | 
+#  +------------------------------------------------+
+#
+
+class MHELP_Self_Part(seqparser.Part):
+    def __init__(self,mo,name):
+        super().__init__(mo,name)
+
+    # Extract the self-defining terms value
+    def term(self):
+        string=self.match
+        binary=string[0].upper()
+        binary=binary=="B"
+
+        # The int built-in function may raise an IndexError if the string content
+        # is out-of-range for the base.  This should not happen because the part
+        # string's content has already been validated by the regular expression.
+        if binary:
+            value=string[2:-1]
+            value=int(value,2)
+        else:
+            value=int(string,10)
+        return value
+
+class MHELP_Parser(seqparser.SeqParser):
+    def __init__(self):
+        super().__init__()
+        self.RE("self defining term","[0-9]+|B'[01]+'",cls=MHELP_Self_Part)
+        self.RE("end",opend)
+
+    def mhelp(self,stmt,debug=False):
+        try:
+            parts=self.parse(stmt.rem)
+        except SequentialError as se:
+            partname=self.part(se.n)
+            raise assembler.AssemblerError(line=stmt.lineno,\
+                linepos=se.pos+stmt.rempos,\
+                msg="MHELP unrecognized operand %s" % partname)
+        return parts[0].term()
+
+class MNOTE_Parser(seqparser.SeqParser):
+    def __init__(self):
+        super().__init__()
+        self.RE("severity","([0-9]+|\*)(,)")
+        self.RE("message","('[^']+')( |$)")
+
 
 if __name__ == "__main__":
     raise NotImplementedError("asmparsers.py - intended for import use only")

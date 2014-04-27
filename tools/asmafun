@@ -1,0 +1,296 @@
+#!/bin/sh
+# Copyright (C) 2014 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+# This script is intended to be sourced for access to asma facilities:
+#
+# source  path/asmafun
+
+# If SATK_dir is provided export it, otherwise abort if it isn't
+if [ -z "${SATK_DIR}" ]
+then
+    echo "SATK_DIR required environment variable not set, aborting" ; exit 1
+fi
+
+# Description: creates the run-time environment for use of asma utility.
+# Usage: asma_env init   Set up environment variables for asma use
+# 
+
+# Sets the ASMA environment
+# Usage: asma_env option value
+#   Options supported:
+#       addr    16|24|31|64|cpu     Sets the listing address size or uses MSL CPU
+#       ccw     0|1|disable|cpu     Sets the XMODE CCW setting or uses MSL CPU
+#       cpfile  file|reset     Sets the code page file
+#       cptrans defn|reset     Sect the code page translation definition
+#       cpu     CPU id         Sets the cpu id
+#       debug   reset|<point>  Sets or resets a debug point. See asma.py --help
+#       dump    enable|disable Enables or disables hex dump of image file in listing
+#       error   0|1|2|default  Sets the error handling level
+#       image   file|noimage   Sets the image file or disables it
+#       init    msl            Sets the MSLPATH
+#       init    python         Sets the PYTHONPATH
+#       list    file|nolist    Sets the listing file or disables it
+#       nest    n|default      Sets the input nesting level or lets it default
+#       psw     s|s360|67|BC|EC|380|XA|E370|E290|Z|disable|cpu
+#                              Sets the XMODE PSW value or uses the MSL cpu
+#       oper    reset|<oper>   Sets or resets operation tracing
+#       rc      file|norc      Sets the RC command file or disables it
+#       reset   ccw|deck|list|msl|rc|store
+#       stats   enable|disable Enables or disables statistics reporting
+#       store   file|nostore   Sets the STORE command file or disables it
+#       vmc     file|novmc     Sets the virtual machine STORE command file or disables
+asma_env()
+{   
+    if [ $# -ne 2 ]
+    then 
+    echo "asma_env function requires 2 arguments, ignored: ${1} ${2} ${3}"
+         return 1
+    fi
+    case ${1} in
+        "addr")
+            case ${2} in
+                "16")   asma_addr=" -a 16" ;;
+                "24")   asma_addr=" -a 24" ;;
+                "31")   asma_addr=" -a 31" ;;
+                "64")   asma_addr=" -a 64" ;;
+                "cpu") asma_env reset addr ;;
+                *) echo "invalid addr option value: ${2}" ; return 1 ;;
+            esac
+            ;;
+        "ccw")
+            case ${2} in
+                "0")  asma_ccw=" -w 0" ;;
+                "1")  asma_ccw=" -w 1" ;;
+                "disable") asma_ccw=" -w none" ;;
+                "cpu") asma_env reset ccw ;;
+                *) echo "invalid ccw option value: ${2}" ; return 1 ;;
+            esac
+            ;;
+        "cpfile")
+            asma_cpfile=" --cpfile ${2}" ;;
+        "cptrans")
+            asma_cptrans=" --cptrans ${2}" ;;
+        "cpu")
+            asma_cpu=" -c ${2}" ;;
+        "deck")
+            if [ "${2}" = "nodeck" ]
+            then 
+              asma_env reset deck
+            else
+              asma_deck=" -o ${2}"
+            fi
+            ;;
+        "debug")
+            case ${2} in
+                "reset") asma_debugr="" ;;
+                *) asma_debug="${asma_debug} --debug ${2}" ;;
+            esac
+            ;;
+        "dump")
+            case ${2} in
+                "enable")  asma_dump=" -d" ;;
+                "disable") asma_env reset dump ;;
+                *) echo "invalid dump option value: ${2}" ; return 1 ;;
+            esac
+            ;;
+        "error")
+            case ${2} in
+                "0") asma_error=" -e 0" ;;
+                "1") asma_error=" -e 1" ;;
+                "2") asma_error=" -e 2" ;;
+                "default") asma_env reset error ;;
+            *)  echo "invalid error option value: ${2}" ; return 1 ;;
+            esac
+            ;;
+        "init") 
+            case ${2} in
+                "msl")
+                    export MSLPATH=${SATK_DIR}/asma/msl
+                    ;;
+                "python")
+                    # Add SATK to the PYTHONPATH for asma use
+                    PYTHONPATH=${SATK_DIR}/asma
+                    PYTHONPATH=${PYTHONPATH}:${SATK_DIR}/tools/lang
+                    PYTHONPATH=${PYTHONPATH}:${SATK_DIR}/tools/ipl
+                    PYTHONPATH=${PYTHONPATH}:${SATK_DIR}/tools
+                    export PYTHONPATH
+                    export ASMA=${SATK_DIR}/tools/asma.py
+                    export MSL=${SATK_DIR}/tools/msl.py
+                    ;;
+             
+            *) echo "invalid init option value: ${2}" ; return 1 ;;
+            esac
+            ;;
+        "image")
+            if [ "${2}" = "noimage" ]
+            then 
+                asma_env reset image
+            else
+                asma_image=" -i ${2}"
+            fi
+            ;;
+        "ldipl")
+            if [ "${2}" = "noldipl" ]
+            then 
+                asma_env reset ldipl
+            else
+                asma_ldipl=" -g ${2}"
+            fi
+            ;;
+        "list")
+            if [ "${2}" = "nolist" ]
+            then 
+                asma_env reset list
+            else
+                asma_list=" -l ${2}"
+            fi
+            ;;
+        "msl")   asma_msl=" -m ${2}" ;;
+        "nest")
+            if [ "${2}" = "default" ]
+            then 
+                asma_env reset nest
+            else
+                asma_nest="${2}"
+            fi
+            ;;
+        "oper")
+            case ${2} in
+                "reset") asma_oper="" ;;
+                *) asma_oper="${asma_oper} --oper ${2}" ;;
+            esac
+            ;;
+        "psw")
+            case ${2} in
+                "s")    asma_psw=" -p S"    ;;
+                "S")    asma_psw=" -p S"    ;;
+                "360")  asma_psw=" -p 360"  ;;
+                "67")   asma_psw=" -p 67"   ;;
+                "BC")   asma_psw=" -p BC"   ;;
+                "EC")   asma_psw=" -p EC"   ;;
+                "380")  asma_psw=" -p 380"  ;;
+                "XA")   asma_psw=" -p XA"   ;;
+                "E370") asma_psw=" -p E370" ;;
+                "E390") asma_psw=" -p E390" ;;
+                "z"   ) asma_psw=" -p Z"    ;;
+                "Z"   ) asma_psw=" -p Z"    ;;
+                "disable") asma_psw=" -p none" ;;
+                "cpu")  asma_env reset psw ;;
+                *) echo "invalid ccw option value: ${2}" ; return 1 ;;
+            esac
+            ;;
+        "rc")
+            if [ "${2}" = "norc" ]
+            then 
+                asma_env reset rc
+            else
+                asma_rc=" -r ${2}"
+            fi
+            ;;
+        "reset")
+             case ${2} in
+                "addr")
+                     asma_addr="" ;;
+                "all")
+                    asma_env reset addr
+                    asma_env reset ccw
+                    asma_env reset cpfile
+                    asma_env reset cptrans
+                    asma_env reset cpu
+                    asma_env reset deck
+                    asma_env reset dump
+                    asma_env reset error
+                    asma_env reset image
+                    asma_env reset list
+                    asma_env reset msl
+                    asma_env reset nest
+                    asma_env reset psw
+                    asma_env reset rc
+                    asma_env reset store
+                    ;;
+                "ccw")    asma_ccw=""    ;;
+                "cpfile") asma_cpfile="" ;;
+                "cpu")    asma_cpu=""    ;;
+                "deck")   asma_deck=""   ;;
+                "dump")   asma_dump=""   ;;
+                "error")  asma_error=""  ;;
+                "image")  asma_image=""  ;;
+                "ldipl")  asma_ldipl=""  ;;
+                "list")   asma_list=""   ;;
+                "msl")    asma_msl=""    ;;
+                "nest")   asma_nest=""   ;;
+                "psw")    asma_psw=""    ;;
+                "rc")     asma_rc=""     ;;
+                "stats")  asma_stats=""  ;;
+                "store")  asma_store=""  ;;
+             
+             *) echo "invalid reset option value: ${2}" ; return 1 ;;
+             esac
+             ;;
+         "stats")
+             case ${2} in
+                "enable")  asma_stats=" --stats" ;;
+                "disable") asma_env reset stats ;;
+                *) echo "invalid stats option value: ${2}" ; return 1 ;;
+             esac
+             ;;
+             
+         "store")
+             if [ "${2}" = "nostore" ]
+             then 
+                 asma_env reset store
+             else
+                 asma_store=" -s ${2}"
+             fi
+             ;;
+         "vmc")
+             if [ "${2}" = "novmc" ]
+             then 
+                 asma_env reset vmc
+             else
+                 asma_vmc=" -v ${2}"
+             fi
+             ;;
+            
+        *) echo "invalid asma_env option: ${1}" ;;
+    esac  
+}
+
+# Assembles a source program using ASMA
+# Usage: asma source [echo]
+asma()
+{   
+    if [ "${1}" = "" ]
+    then
+        echo "asmafun - asma function required source file missing"
+        exit 1
+    fi
+    asma=${SATK_DIR}/tools/asma.py
+    cout="${asma_image}${asma_deck}${asma_ldipl}${asma_rc}${asma_store}${asma_vmc}"
+    ccp="${asma_cpfile}${asma_cptrans}"
+    cdebug="${asma_debug}${asma_oper}"
+    clist="${asma_dump}${asma_list}"
+    copt="${asma_msl}${asma_cpu}${asma_addr}${asma_psw}${asma_error}${asma_stats}"
+    cmd="${asma} ${copt}${ccp}${cdebug}${cout}${clist} ${1}"
+    if [ "${2}" = "echo" ]
+    then
+         echo "${cmd}"
+    fi
+    ${cmd}
+    
+}

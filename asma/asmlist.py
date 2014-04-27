@@ -18,10 +18,14 @@
 
 # This module generates the output listing for ASMA.
 
+# Python imports: none
+# SATK imports:
+from listing import *      # Access the listing generator tools
+from satkutil import byte2str   # Function that converts bytes to a string
+from translate import E2A  # Character translation table
+
 # ASMA imports
 import assembler           # Access to some assembler objects
-from listing import *      # Access the listing generator tools
-from translate import E2A  # Character translation table
 
 this_module="asmlist.py"
 
@@ -141,6 +145,7 @@ class AsmListing(Listing):
         # Error listing information
         self.part7_hdr=False      # Do a hearder without eject
         self.sorted_errors=None   # List of errors sorted by statement number
+        self.num_errors=None      # Number of errors
 
     # This method extracts from the symbol table detail data and image related 
     # information.used in listing
@@ -263,6 +268,12 @@ class AsmListing(Listing):
 
         # Build the assembler error list
         self.sorted_errors=sorted(self.errors,key=assembler.AssemblerError.sort)
+        errors=0
+        for e in self.sorted_errors:
+            if e.info:
+                continue
+            errors+=1
+        self.num_errors=errors
 
     # This method acts as the interface with the super class.  
     def create(self):
@@ -271,7 +282,7 @@ class AsmListing(Listing):
         self.ST=self.asm.ST           # Make available the Symbol Table
         self.imgwip=self.asm.imgwip   # Make available the binary Image object
         self.image=self.asm.img       # Make available the Image object (listing added)
-        self.errors=self.image.aes    # Make available the AssemblerError objects
+        self.errors=sorted(self.image.aes,key=assembler.AssemblerError.sort)
         maxaddr=self.asm.laddrsize    # Maximum address size in bits
         self.addrmax=AsmListing.addr_max[maxaddr]   # Number of address characters
         self.entry=self.image.entry   # Image entry point (could be None)
@@ -308,7 +319,7 @@ class AsmListing(Listing):
         asmtitle=Title(self.linesize,pages=99999)
         version="ASMA Ver. 0.1"
         asmtitle.setLeft([CharCol(size=len(version),default="ASMA Ver. 0.1"),])
-        asmtitle.setRight([DateTimeCol(sep=2)],)
+        asmtitle.setRight([DateTimeCol(now=self.asm.now,sep=2)],)
         asmtitle.setTitle(self.dir_title)
         self.asmtitle=asmtitle
 
@@ -390,6 +401,10 @@ class AsmListing(Listing):
             if not stmt.prdir:
                 # This processes assembler directives and machine instructions
                 if not stmt.pon:
+                    # If PRINT OFF, ignore statement for listing
+                    continue
+                if stmt.gened and not stmt.pgen:
+                    # If a generated macro statement and PRINT NOGEN, ignore 
                     continue
                 line=self.part1_details(stmt)
                 # Note: line may be one detail line or a list of detail lines
@@ -398,6 +413,9 @@ class AsmListing(Listing):
 
             # Processing for listing directives occurs here.
             directive=stmt.instu
+            if directive=="SPACE":
+                self.space(n=stmt.plist,eject=True)
+                continue
             if directive=="TITLE":
                 self.dir_title=stmt.plist
                 self.create_title()
@@ -450,14 +468,20 @@ class AsmListing(Listing):
         size=Column.dec_size(max_line)
         self.max_char=size                # Save for other's use
         size=max(size,4)
-        stmt=DecCol(maximum=max(max_line,9999),sep=1,colnum=4)
-        stmth=CharCol(size,just="center",sep=1,default="STMT",colnum=4)
+        stmt=DecCol(maximum=max(max_line,9999),sep=0,colnum=4)
+        stmth=CharCol(size,just="center",sep=0,default="STMT",colnum=4)
         ad.append(stmt)
         ah.append(stmth)
 
+        # SOURCE Type
+        stype=CharCol(1,sep=0,colnum=5)
+        stypeh=CharCol(1,sep=0,colnum=5)
+        ad.append(stype)
+        ah.append(stypeh)
+       
         # SOURCE Column
         default="  SOURCE STATEMENT"
-        sh=CharCol(size=len(default),just="left",default=default,colnum=5)
+        sh=CharCol(size=len(default),just="left",default=default,colnum=6)
         ah.append(sh)
 
         self.asmdet=Group(columns=ad)
@@ -515,6 +539,11 @@ class AsmListing(Listing):
                 addr2=None
 
         lineno=stmt.lineno
+        
+        if stmt.gened:
+            stype="+"
+        else:
+            stype=" "
 
         source=stmt.line.text
 
@@ -526,7 +555,7 @@ class AsmListing(Listing):
             del data_lines[0]
             # data_lines is now the number PRINT DATA extra lines
 
-        vals=[loc,data,addr1,addr2,lineno]
+        vals=[loc,data,addr1,addr2,lineno,stype]
         if trace:
             print("%s vals: %s" % (cls_str,vals))
 
@@ -999,13 +1028,8 @@ class AsmListing(Listing):
 
         # Translate barray integers into ASCII printable string
         chrbytes=""
-        for x in range(len(objbyt)):
-            byte=objbyt[x]
-            char=E2A[byte]
-            chrnum=ord(char)
-            if chrnum<0x20 or chrnum>0x7E:
-                char="."
-            chrbytes="%s%s" % (chrbytes,char)
+        chrbytes=byte2str(objbyt)
+        chrbytes=assembler.CPTRANS.dumpa(chrbytes)
 
         # Create the character data group string
         chrs="%s%s%s" % (chrbeg,chrbytes,chrend)
@@ -1195,10 +1219,10 @@ class AsmListing(Listing):
         return
 
     def part7_create_detail(self):
-        if len(self.sorted_errors)==0:
+        if self.num_errors==0:
             hdr="** NO ERRORS FOUND **"
         else:
-            hdr="** ERRORS FOUND: %s **" % len(self.sorted_errors)
+            hdr="** ERRORS FOUND: %s **" % self.num_errors
         self.headers[6]=hdr
 
     def part7_details(self,ae):

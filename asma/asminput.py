@@ -29,6 +29,7 @@ import os.path       # Access path tools by FileBuffer class
 import satkutil      # Access the path manager
 
 # ASMA imports:
+import asmmacs       # Access macro facilities
 import assembler     # Access assembler exceptions
 
 this_module="asminput.py"
@@ -171,7 +172,7 @@ class FileSource(InputSource):
         if line[-1]=="\n":
             line=line[:-1]
         self.lineno+=1
-        ln=Line(line,lineno=self.lineno,fileno=1)
+        ln=Line(line,source=Source(lineno=self.lineno,fileno=1))
         return ln
 
     def init(self,pathmgr=None):
@@ -234,18 +235,87 @@ class InjectableSource(InputSource):
                 "strings: %s" % lines)
         self.lines.extend(ln)
 
+class MacroSource(InputSource):
+    def __init__(self,typ,exp,stmtno=None):
+        if not isinstance(exp,asmmacs.Invoker):
+            cls_str=assembler.eloc(self,"__init__",module=this_module)
+            raise ValueError("%s 'exp' argument must be an asmmacs.Expander object: "
+                "%s" % (cls_str,exp))
+
+        self.exp=exp          # asmmacs.Invoker object
+        super().__init__(typ,exp.macro.name,stmtno=stmtno)
+       
+    def init(self,pathmgr=None):
+        self.exp.mgr.nest(self.exp)
+        self.exp.enter()
+
+    def fini(self):
+        # Clean up Invoker that is no longer needed.
+        mm=self.exp.mgr
+        mm.unnest()
+        self.exp=None
+
+    # Returns a generated macro line
+    # Exception:
+    #   MacroError if the macro detected a user error
+    def getLine(self):
+        # Throws a MacroError if a user error is detected
+        line=self.exp.generate()
+
+        if line is None:
+            raise SourceEmpty() # Tell LineBuffer object that this source is exhausted.
+        return Line(line,macro=True)
+
+
 # This class associates source information of a line with the text itself.
 class Line(object):
-    def __init__(self,line,lineno=None,fileno=None):
+    def __init__(self,line,lineno=None,source=None,typ="X",macro=False):
+        if source is not None and not isinstance(source,Source):
+            cls_str=assembler.eloc(self,"__init__",module=this_module)
+            raise ValueError("%s 'source' argument must be an instance of Source: %s" \
+                % (cls_str,source))
+
+        # typ attribute controls how the line is processed by the assembler
+        #   'B' --> This is a macro body statement
+        #   'E' --> Expanded line (typ after expansion)
+        #   'F' --> Text expansion failed, see self.merror for reason
+        #   'P' --> This is a macro prototype statement
+        #   'X' --> This is a normal input line and must be expanded by the current
+        #           asmmacs.Expander object
+        self.typ=typ         # Line type
+
         self.text=line       # Source line of text
-        self.lineno=lineno   # Global line number
-        self.source=Source(fileno=fileno,lineno=lineno)
+        self.lineno=lineno   # Global line number (The statement number in the listing)
+        self.source=source   # Input source information
         self.psource=None    # This is used for printing source lines
+        
+        # Macro related information
+        self.macro=macro     # If True, this line is a macro generated line
+        self.merror=None     # MacroError exception if expansion failed
+        
+        # Early comment and empty line detection
+        self.comment=False   # If True this is a comment statement
+        self.silent=False    # If comment and this is True, it is a silent comment
+        self.empty=False     # True if line is empty or all spaces
+        self.__comment()     # Detect if line is a comment
+
     def __str__(self):
         string="%s" % self.source
         if len(string)>0:
             string="%s " % string
-        return "%s%s" % (string,self.text)
+        return "%s %s %s" % (string,self.typ,self.text)
+        
+    def __comment(self):
+        # Detect silent comment
+        if len(self.text)>=2 and self.text[:2]==".*":
+            self.comment=True
+            self.silent=True
+            return
+        # Detect loud comment
+        if len(self.text)>=1 and self.text[0]=="*":
+            self.comment=True
+        if len(self.text.strip())==0:
+            self.empty=True
 
     # Returns the size of the prefix location information before printing
     def prefix(self):
@@ -287,7 +357,7 @@ class Line(object):
 #    newFile   Initiate a new file input source.  Used by INCLUDE directive or implied
 #              inclusion for initial input source file.
 class LineBuffer(object):
-    source_type={"F":FileSource}
+    source_type={"F":FileSource,"M":MacroSource}
     def __init__(self,depth=20):
         # ASMPATH search path manager
         self._opath=satkutil.PathMgr("ASMPATH",debug=False)
@@ -311,6 +381,24 @@ class LineBuffer(object):
         if src._typ=="F":
             src.fileno=len(self._files)+1
             self._files.append(src)
+
+    # Source terminated, resume previous source
+    # Exceptions:
+    #   BufferEmpty   Tells the assembler ALL input sources are exhausted
+    def __exhausted(self):
+        # Current source is done
+        try:
+            self._cur_src.fini()
+        except SourceError as se:
+            # This is a fatal uncaught exception
+            raise assembler.AssemblerError(msg=se.msg) from None
+
+        # Unnest one input source
+        self._sources.pop()
+        if len(self._sources)==0:
+            raise BufferEmpty from None  # All sources done, tell the assembler
+        self._cur_src=self._sources[-1]
+        # Unnested source becomes the current providing input
 
     # Initiate a new input source
     def __source(self,typ,sid,stmtno=None,srcno=0):
@@ -340,7 +428,7 @@ class LineBuffer(object):
                 % cls_str)
 
         # This while statement ends with:
-        #   - an BufferEmtpy exception being raised (to tell assembler input it done)
+        #   - a BufferEmtpy exception being raised (to tell assembler input is done)
         #   - an AssemblerError exception if current source can not be terminated
         #   - has received a Line object from the source.
         # This while statement recycles only when a source ends and a previous
@@ -349,20 +437,19 @@ class LineBuffer(object):
         while True:
             try:
                 ln=self._cur_src.getLine()
+                # WARNING: this break is required!  DO NOT DELETE
                 break
             except SourceEmpty:
                 # Current source is done
-                try:
-                    self._cur_src.fini()
-                except SourceError as se:
-                    raise assembler.AssemblerError(msg=se.msg) from None
-
-                # Unnest one input source
-                self._sources.pop()
-                if len(self._sources)==0:
-                    raise BufferEmpty from None  # All sources done, tell the assembler
-                self._cur_src=self._sources[-1]
-                continue   # try reading from the unnested source
+                # A BufferEmpty exception is raised when all input is exhausted
+                self.__exhausted()
+                continue   # try reading from the unnested source now
+            except asmmacs.MacroError as me:
+                # A macro invocation will throw this error when a problem is detected
+                # We catch it here so we can terminate the macro source.
+                self.__exhausted()
+                # Then we raise it again to allow the assembler to handle it
+                raise me from None
 
         self._lineno+=1
         ln.setLineNo(self._lineno)
@@ -388,7 +475,11 @@ class LineBuffer(object):
             cls_str=assemlber.eloc(self,"newInject")
             raise ValueError("%s already queueing injectable source: %s" \
                 % (cls_str,self._inject))
-        self._inject=InjectableSource(typ,sid,stmtno=stmtno)
+        self._inject=InjectableSource(typ,sid)
+
+    # Initialize a new macro source for statements
+    def newMacro(self,macro,stmtno=None):
+        self.__source("M",macro,stmtno=stmtno)
 
     # Inject a line or list of lines
     def putline(self,line):

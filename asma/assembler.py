@@ -94,32 +94,17 @@
 #  regions and CSECTS.  The regions are concatenated together to in the sequence 
 #  of their START statements to form the final output
 
-# Python imports
-import functools     # Allow sorting of instances
-import os.path       # Access to path management for AsmOut.
-import re            # Regular expression support
-import sys           # Need hexversion attribute and exit function
+this_module="assembler.py"
 
-# SATK imports
-# PYTHONPATH must include tools/lang, tools/ipl
-import satkutil
-import hexdump      # Useful ad hoc dumping of binary data
-import lang         # Access SATK language tools Interface for the symbol table
-from LL1parser import ParserAbort  # Access the exception
-
-# ASMA imports
-import asmbin       # Access binary output generator
-import asminput     # Access the input handler for the assembler
-import asmlist      # Access the assembler listing generator
-import asmparsers   # Access all of my parsers of statement operands
-import expression   # Access to Pratt parser interface
-import insnbldr     # Access the instruction construction machinery
-import msldb        # Access the Format class for type checking
+# ASMA version tuple:
+asma_version=(0,1,0)
 
 # This method returns a standard identification of an error's location.
 # It is expected to be used like this:
 #
-#     cls_str=assembler.eloc(self,method)
+#     cls_str=assembler.eloc(self,"method")
+# or
+#     cls_str=assembler.eloc(self,"method",module=this_module)
 #     raise Exception("%s %s" % (cls_str,"error information"))
 #
 # It results in a Exceptin string of:
@@ -130,6 +115,388 @@ def eloc(clso,method_name,module=None):
     else:
         m=module
     return "%s - %s.%s() -" % (m,clso.__class__.__name__,method_name)
+
+#
+#  +---------------------------+
+#  |                           |
+#  |   Statistics Management   |
+#  |                           | 
+#  +---------------------------+
+#
+
+# Python imports early for statistics
+import time          # Access to local time, process timer and wall clock timer
+
+class AsmStats(object):
+    def __init__(self):
+        self.timers={}       # Active timers
+        self.stmts=None      # Number of statements processes
+        
+        # These three timers may be updated with better times from an external source.
+        # asma.py understands how to update these timers.  Use it as an example
+        # for use of ASMA in a different embedded context.
+
+        # Overall process timers
+        self.proc_timer("process")
+        self.start("process")
+        self.wall_timer("wall")
+        self.start("wall")
+        # Import timers, may be updated from external source with better times
+        self.proc_timer("import_p")
+        self.wall_timer("import_w")
+        # Instantiation timers
+        self.proc_timer("objects_p")
+        self.wall_timer("objects_w")
+
+        # The remaining timers are managed by ASMA and should not be updated
+        # from any external source.
+
+        # Assembly processing
+        self.proc_timer("assemble_p")
+        self.wall_timer("assemble_w")
+        # Pass 0 timers
+        self.proc_timer("pass0_p")
+        self.wall_timer("pass0_w")
+        # Pass 1 timers
+        self.proc_timer("pass1_p")
+        self.wall_timer("pass1_w")
+        # Pass 2 timers
+        self.proc_timer("pass2_p")
+        self.wall_timer("pass2_w")
+        # Output creation timers
+        self.proc_timer("output_p")
+        self.wall_timer("output_w")
+
+    def __format(self,total,timer=None,time=None):
+        if timer is None:
+            val=time
+        else:
+            val=self.report_time(timer)
+        pc=(val/total)*100
+        pc="%7.4f" % pc
+        pc=pc.rjust(8)
+        return "%s  %s" % (pc,val)
+
+    def __fetch(self,tname,method_name):
+        try:
+            return self.timers[tname]
+        except KeyError:
+            cls_str=eloc(self,method_name)
+            raise ValueError("%s %s timer does not exist" % (cls_str,tname))
+            
+    # Returns whether a timer has been created
+    def available(self,tname):
+        try:
+            self.timers[tname]
+        except KeyError:
+            return False
+        return True    
+
+    # Returns a timer's elapsed time. 
+    def elapsed(self,tname):
+        timer=self.__fetch(tname,"running")
+        return timer.elapsed()
+
+    # Create a process timer
+    def proc_timer(self,tname):
+        try:
+            timer=self.timers[tname]
+            cls_str=eloc(self,"proc_timer")
+            raise ValueError("%s timer already created: %s" % (cls_str,timer))
+        except KeyError:
+            self.timers[tname]=AsmProcTimer(tname)
+
+    # Report the available statistics.  An external source of better information
+    # should perform the timer updates before calling this method.  Calling this
+    # method will implicitly stop the overall timers 'process' and 'wall'.  Calling
+    # this method should be the very last thing done by the reporting module before
+    # exiting completely.
+    def report(self):
+        stmts=self.stmts
+        total="Total statements: %s" % stmts
+
+        wt=self.report_time("wall")
+        pt=self.report_time("process")
+ 
+        assembly=self.report_time("assemble_w")
+        string=  "\nWall Clock    percent   seconds"
+        string="%s\n  total       %s" % (string,self.__format(wt,time=wt))
+        string="%s\n    import    %s" % (string,self.__format(wt,timer="import_w"))
+        string="%s\n    objects   %s" % (string,self.__format(wt,timer="objects_w"))
+        string="%s\n    assembly  %s" % (string,self.__format(wt,time=assembly))
+        string="%s\n      pass 0  %s" % (string,self.__format(wt,timer="pass0_w"))
+        string="%s\n      pass 1  %s" % (string,self.__format(wt,timer="pass1_w"))
+        string="%s\n      pass 2  %s" % (string,self.__format(wt,timer="pass2_w"))
+        string="%s\n      output  %s" % (string,self.__format(wt,timer="output_w"))
+        string="%s\n      rate    %7.4f  (stmt/sec)\n" % (string,stmts/assembly)
+
+        assembly=self.report_time("assemble_p")
+        string="%s\nProcess       percent   seconds" % string
+        string="%s\n  total       %s" % (string,self.__format(pt,time=pt))
+        string="%s\n    import    %s" % (string,self.__format(pt,timer="import_p"))
+        string="%s\n    objects   %s" % (string,self.__format(pt,timer="objects_p"))
+        string="%s\n    assembly  %s" % (string,self.__format(pt,time=assembly))
+        string="%s\n      pass 0  %s" % (string,self.__format(pt,timer="pass0_p"))
+        string="%s\n      pass 1  %s" % (string,self.__format(pt,timer="pass1_p"))
+        string="%s\n      pass 2  %s" % (string,self.__format(pt,timer="pass2_p"))
+        string="%s\n      output  %s" % (string,self.__format(pt,timer="output_p"))
+        string="%s\n      rate    %7.4f  (stmt/sec)" % (string,stmts/assembly)
+
+        return string
+        
+    # Returns a timer's elapsed time.  If the timer has not been stopped it stops
+    # it and provides a warning.  If the timer was never started it returns None.  
+    def report_time(self,tname):
+        timer=self.__fetch(tname,"running")
+        if not timer.started():
+            return None
+        if not timer.stopped():
+            cls_str=eloc(self,"report_time")
+            print("%s WARNING: stopping timer for reporting: %s" % (cls_str,tname))
+            timer.stop()
+        return timer.elapsed()
+
+    # Returns whether a timer is running
+    def running(self,tname):
+        timer=self.__fetch(tname,"running")
+        return timer.running()
+
+    # Set a timer's start time from an external source
+    def set_start(self,tname,start):
+        timer=self.__fetch(tname,"set_start")
+        timer.set_start(start)
+
+    # Set a timer's stop time from an external source
+    def set_stop(self,tname,stop):
+        timer=self.__fetch(tname,"set_stop")
+        timer.set_stop(stop)
+
+    # Start a timer
+    def start(self,tname):
+        timer=self.__fetch(tname,"start")
+        timer.start()
+
+    # Returns True if timer is started
+    def started(self,tname):
+        timer=self.__fetch(tname,"started")
+        return timer.started()
+
+    # Supply the number of assembler statements processed for per/statement stats
+    def statements(self,number):
+        if not isinstance(number,int):
+            cls_str=eloc(self,"statements")
+            raise ValueError("%s 'number' argument must be an integer: %s" \
+                % (cls_str,number))
+        self.stmts=number
+
+    # Stop a timer
+    def stop(self,tname):
+        timer=self.__fetch(tname,"stop")
+        timer.stop()
+
+    # Returns True if timer is stopped
+    def stopped(self,tname):
+        timer=self.__fetch(tname,"stoped")
+        return timer.stopped()
+
+    # Update a timer with a better start time
+    def update_start(self,tname,time,force=False):
+        timer=self.__fetch(tname,"update_start")
+        timer.update_start(time,force=force)
+
+    # Update a timer with a better end time
+    def update_stop(self,tname,time,force=False):
+        timer=self.__fetch(tname,"update_stop")
+        timer.update_start(time,force=force)
+
+    # Create a wall-clock timer
+    def wall_timer(self,tname):
+        try:
+            timer=self.timers[tname]
+            cls_str=eloc(self,"wall_timer")
+            raise ValueError("%s timer already created: %s" % (cls_str,timer))
+        except KeyError:
+            self.timers[tname]=AsmWallTimer(tname)
+
+# This class implements a single usage timer.  Once created it may be started once
+# and stopped once.  After which it may be report the elapsed process time between
+# the time is was started and the time it was stopped.
+# Note: the elapsed time is _not_ wall-clock time.
+class AsmTimer(object):
+    def __init__(self,name):
+        self.name=name
+        self.begin=None
+        self.end=None
+
+    def __str__(self):
+        return "%s('%s',begin=%s,end=%s)" \
+            % (self.__class__.__name__,self.name,self.begin,self.end)
+
+    # Return the current time.  The subclass controls how the time is acquired and the
+    # type of time being monitored.
+    def _get_time(self):
+        cls_str=eloc(self,"__get_time")
+        raise NotImplementedError("%s subclass must implement _get_time() method" \
+            % cls_str)
+
+    # Return the time elapsed time is fractional seconds
+    def elapsed(self):
+        if self.begin is None:
+            cls_str=eloc(self,"elapsed")
+            raise ValueError("%s %s timer has not been started" % (cls_str,self.name))
+        if self.end is None:
+            cls_str=eloc(self,"elapsed")
+            raise ValueError("%s %s timer is still running" % (cls_str,self.name))
+        return self.end-self.begin
+
+    # Set the timer's start time from an external time source, causing timer to be
+    # in the running state.
+    def set_start(self,time):
+        if self.running():
+            cls_str=eloc(self,"set_start")
+            raise ValueError("%s %s timer is already running" % (cls_str,self.name))
+        self.begin=time
+
+    # Set the timer's end time from an external time source, causing the running
+    # timer to enter the stopped state.
+    # Method argument:
+    #   time   A time value of the correct time for the timer
+    def set_stop(self,time):
+        if not self.running():
+            cls_str=eloc(self,"set_start")
+            raise ValueError("%s %s timer is not running" % (cls_str,self.name))
+        if time<self.begin:
+            cls_str=eloc(self,"set_start")
+            raise ValueError("%s %s 'time' argument must be less than start "
+                "time (%s): %s" % (cls_str,self.name,self.begin,time))
+        self.end=time
+
+    # Start the timer
+    def start(self):
+        begin=self._get_time()
+        if self.started():
+            cls_str=eloc(self,"start")
+            raise ValueError("%s %s timer already started" % (cls_str,self.name))
+        self.begin=begin
+
+    # Returns True if timer is running
+    def running(self):
+        return self.started() and not self.stopped()
+
+    # Returns True if the time has been started
+    def started(self):
+        return self.begin is not None
+
+    # Stop the timer
+    def stop(self):
+        if self.stopped():
+            cls_str=eloc(self,"stop")
+            raise ValueError("%s %s timer already stopped" % (cls_str,self.name))
+        self.end=self._get_time()
+
+    # Returns True if the timer is stopped
+    def stopped(self):
+        return self.end is not None
+
+    # Update with a better start time
+    def update_start(self,time,force=False):
+        if not self.started():
+            self.begin=time
+            return
+        if time<self.begin:
+            self.begin=time
+        else:
+            if not force:
+                return
+            if time>self.end:
+                self.begin=self.end
+            else:
+                self.begin=time
+
+    # Update with a better stop time
+    def updates_stop(self,time,force=False):
+        if not self.stopped():
+            self.end=time
+            return
+        if time>self.end:
+            self.begin=time
+        else:
+            if not force:
+                return
+            if time<self.begin:
+                self.end=self.begin
+            else:
+                self.end=time
+
+
+# A timer for process time consumption
+class AsmProcTimer(AsmTimer):
+    def __init__(self,name):
+        super().__init__(name)
+    def _get_time(self):
+        return time.process_time()
+
+
+# A timer for wall-clock time consumption
+class AsmWallTimer(AsmTimer):
+    def __init__(self,name):
+        super().__init__(name)
+    def _get_time(self):
+        return time.time()
+
+Stats=AsmStats()
+Stats.start("import_p")
+Stats.start("import_w")
+
+# Python imports
+import functools     # Allow sorting of instances
+import os.path       # Access to path management for AsmOut.
+import re            # Regular expression support
+import sys           # Need hexversion attribute and exit function
+
+# SATK imports - PYTHONPATH must include tools/lang, tools/ipl
+import satkutil      # Useful miscelaneous functionality
+import codepage      # Access ASCII/EBCDIC code pages
+import hexdump       # Useful ad hoc dumping of binary data
+import lang          # Access SATK language tools Interface for the symbol table
+from LL1parser import ParserAbort      # Access the exception
+from seqparser import SequentialError  # Access the exception
+
+#
+#  +--------------------------------------------+
+#  |                                            |
+#  |  ASMA Shared Regular Expression Patterns   |
+#  |                                            | 
+#  +--------------------------------------------+
+#
+
+# These definitions provide consistency between different modules definitions
+# Note: These module attributes must be defined before other imported ASMA modules 
+# access them when imported below. These should move to asmfsmbp.py module
+char="\$@_"                         # Special characters used in names
+multiline="(?m)"                    # Turns on multiline for start/end match
+cmt="\*|\.\*"                       # An asterisk or a period followed by an asterisk
+inst="[a-zA-Z]+[0-9]*"              # An instruction pattern
+ws="[ \t\r\f\v]"                    # White space characters
+stuff=".*"                          # Stuff at the end of the line
+opend="([ ]|$)"                     # End of operands, a space or end of string
+
+# Label pattern with special chracters
+label="[a-zA-Z%s][a-zA-Z0-9%s]*" % (char,char)
+
+# ASMA imports (do not change the sequence)
+import asmbin       # Access binary output generator
+import asminput     # Access the input handler for the assembler
+import asmlist      # Access the assembler listing generator
+import asmmacs      # Access the macro framework
+import asmparsers   # Access all of my parsers of statement operands
+import expression   # Access to Pratt parser interface
+import insnbldr     # Access the machine instruction construction machinery
+import asmfsmbp     # Access the finite state machine parsing technology
+import msldb        # Access the Format class for type checking
+
+Stats.stop("import_w")
+Stats.stop("import_p")
 
 # This is the base class for the assembler.  It assembles individiual assembler
 # statements presented to it.  Final output is returned in the form of an Image
@@ -156,28 +523,36 @@ def eloc(clso,method_name,module=None):
 class AssemblerError(Exception):
     @staticmethod
     def sort(item):
+        if item.line is None:
+            return 0
         return item.line
-    def __init__(self,fileno=None,line=None,linepos=None,msg=""):
+    def __init__(self,source=None,line=None,linepos=None,msg="",info=False):
+        if (line is not None) and (not isinstance(line,int)):
+            cls_str=eloc(self,"__init__")
+            string="%s 'line' argument must be None or integer:" % cls_str
+            string="%s\n    line: %s" % (string,line)
+            string="%s\n    msg='%s'" % (string,msg)
+            raise ValueError(string)
         self.msg=msg         # Text associated with the error
-        self.fileno=fileno   # File number of source statement generating the error
-        self.line=line       # Line in the string where the error occurred
-        self.linepos=linepos # Position relative to start of the line
+        if source is not None:
+            source.linepos=linepos  # Position relative to start of the line
+        self.source=source   # source statement source information generating the error
+        self.line=line       # Global statement number of Line where the error occurred
+        self.info=info       # If True, not an error, an informational message
 
         # This results in the following location strings
-        # [lineno:position]-fileno
-        # [lineno:position]          fileno is None
-        # [lineno]-fileno            linepos is None
-        # [lineno]                   fileno and linepos are None
-        # or no position             fileno, line and linepos are all None
+        # [stmt] @[line:pos]-fileno  
+        # [stmt] [lineno:position]   source fileno is None
+        # [stmt] [lineno]-fileno     source linepos is None
+        # [stmt] [lineno]            source fileno and source linepos are None
+        # [stmt]                     source or its attributes are None
+        # or no position             line and source are all None
+        src=""
         string=""
-        if self.linepos is not None:
-            string="%s[%s:%s]" % (string,self.line,self.linepos)
-            if self.fileno is not None:
-                string="%s-%s" % (string,self.fileno)
-        elif self.line is not None:
-            string="%s[%s]" % (string,self.line)
-            if self.fileno is not None:
-                string="%s-%s" % (string,self.fileno)
+        if self.source is not None:
+            src=" @%s" % self.source
+        if self.line is not None:
+            string="%s%s" % (self.line,src)
         if len(string)>0:
             string="%s " % string
         if len(self.msg)>0:
@@ -203,6 +578,7 @@ class AssemblerAbort(Exception):
         if len(self.msg)>0:
             string="%s %s" % (string,self.msg)
         super().__init__(string)
+
 
 #
 #  +---------------------------------------+
@@ -584,21 +960,21 @@ class Storage(Operand):
         elif self.fields==0x200:
             # Note, if this fails, an AssemblerError exception is raised.
             dest=self.values[0]
-            self.base,self.disp=asm._resolve(dest,stmt.line,opn,self.size,\
+            self.base,self.disp=asm._resolve(dest,stmt.lineno,opn,self.size,\
                 trace=trace)
             self.laddr=dest.address
         elif self.fields==0x210:
             disp=self.values[0]
             if disp.isDummy():
-                # Use the DSECT relative address as displcement
+                # Use the DSECT relative address as displacement
                 self.disp=disp.address
             elif disp.isAbsolute():
                 # Use absolute address as displacement
                 self.disp=disp.address
             else:
                 raise AssemblerError(line=stmt.lineno,\
-                    msg="operand %s (%s) encountered unexpected %s as "
-                        "displacement: %s" % (opn,self.name,disp.description()))
+                    msg="operand %s (%s) encountered unexpected displacement: %s" \
+                        % (opn,self.name,disp.description()))
 
             self.base=self.values[1]
             self.disp=disp
@@ -714,7 +1090,7 @@ class StorageExt(Storage):
         elif self.fields==0x200:
             # Note, if this fails, an AssemblerError exception is raised.
             dest=self.values[0]
-            self.base,self.disp=asm._resolve(dest,stmt.line,opn,self.size,\
+            self.base,self.disp=asm._resolve(dest,stmt.lineno,opn,self.size,\
                 trace=trace)
             self.laddr=dest.address
             if self.isIndex:
@@ -723,7 +1099,7 @@ class StorageExt(Storage):
                 self.length=self.values[0].length
         elif self.fields==0x210:
             dest=self.values[0]
-            self.base,self.disp=asm._resolve(dest,stmt.line,opn,self.size,\
+            self.base,self.disp=asm._resolve(dest,stmt.lineno,opn,self.size,\
                 trace=trace)
             self.laddr=dest.address
             self.__setNdxLen(self.values[1])
@@ -775,6 +1151,123 @@ class StorageExt(Storage):
             % (cls_str,hex(self.fields),self.values))
 
 #
+#  +--------------------------------+
+#  |                                |
+#  |   The Statement Fields Class   |
+#  |                                | 
+#  +--------------------------------+
+#
+
+# The assembler and macro languages of ASMA depend upon each statement following
+# a basic structure of four fields:
+#
+# name    operation   operands  comments
+#
+# Each field other than operation is optional.  The fields are separated by required
+# spaces.  Depending upon the context (assembler vs. macro language) and the operation
+# certain fields may be required or restricted to specific forms.  This class forms
+# the basis for managing and enforcing the the operation specific options.
+# It is the base class for determining a statement's field propersions
+class StmtFields(object):
+    def __init__(self):
+        # Text from which fields were identified
+        self.text=None      # Input text
+        self.source=None    # assembler.Source object related to input
+        # Comment statement information 
+        self.comment=False  # True if a comment statement
+        self.silent=False   # True if _also_ a silent comment
+        
+        # Name field type information.  All values will be False if omitted
+        self.name_ltok=None # The lexical token associated with the name
+        self.label=False    # True if the present name is a location label
+        self.sequence=False # True if the present name is a sequence symbol
+        self.symbol=False   # True if the present name is a variable symbol
+        # Set based upon the type of name field
+        self.name=None      # The name field if a label or sequence symbol is present
+        self.symid=None     # SymbolID object of a symbolic variable symbol
+        
+        # Operation Field
+        self.oper_ltok=None # Operation field lexical token
+        self.operation=None # Operation field from statement
+        self.opuc=None      # Operation in upper case
+        self.oppos=None     # Position in line of operation
+        
+        # Operand and comment field
+        self.operands=None  # Operand and comment fields if present
+        self.operpos=None   # Operand starting position in statement
+        
+    def __str__(self):
+        if self.comment:
+            return "%s: comment silent=%s" % (self.__class__.__name__,self.silent)
+
+        if self.sequence or self.label:
+            name="'%s'" % self.name
+        elif self.symbol:
+            name="%s" % self.symid
+        else:
+            name="None"
+
+        return "%s: name=%s, operation='%s' operands='%s'" \
+            % (self.__class__.__name__,name,self.opuc,self.operands)
+
+    # Recognize individual statement fields
+    def parse(self,asm,stmt,debug=False):
+        if debug:
+            cls_str=assembler.eloc(self,"parse",module=this_module)
+        line=stmt.line
+        self.comment=line.comment
+        self.silent=line.silent
+        self.text=line.text
+        self.source=line.source
+        
+        # Do not parse comment lines
+        if line.comment or line.empty:
+            return
+        
+        # May raise AssemblerError 
+        # Note: This object is its own FSM parser scope object.
+        asm.fsmp.parse_statement(stmt,"fields",scope=self)
+        
+        # Update various attributes after successful recognition.
+        if self.name_ltok is not None:
+            self.name_ltok.update(stmt,0,source=stmt.source)
+            if self.symbol:
+                self.symid=self.name_ltok.SymID()
+        if self.oper_ltok is not None:
+            self.oper_ltok.update(stmt,0,source=stmt.source)
+            self.oppos=self.oper_ltok.beg
+
+    # Set the name field information for a sequence symbol from a lexer.Token object
+    def NameLabel(self,ltoken):
+        self.name_ltok=ltoken
+        self.name=ltoken.string
+        self.label=True
+
+    # Set the name field information for a sequence symbol from a lexer.Token object
+    def NameSeq(self,ltoken):
+        self.name_ltok=ltoken
+        self.name=ltoken.string
+        self.sequence=True
+
+    # Set the name field information for a symbolic variable with optional subscript
+    def NameSym(self,ltoken):
+        self.name_ltok=ltoken
+        self.symbol=True
+
+    # Extract the operand and commment fields from the input text
+    def Operands(self,ltoken):
+        self.operpos=ltoken.beg
+        self.operands=self.text[self.operpos:]
+        
+    # Set the operation field information from a lexical token
+    def Operation(self,ltoken):
+        self.oper_ltok=ltoken
+        string=ltoken.string
+        self.operation=string
+        self.opuc=string.upper()
+
+
+#
 #  +-------------------------+
 #  |                         |
 #  |   The Statement Class   |
@@ -799,10 +1292,11 @@ class Stmt(object):
 
     def __init__(self,line,trace=False):
         self.line=line                    # Input Line instance
-        self.fileno=line.source.fileno    # Include file number.
-        self.lineno=line.source.lineno    # Line number of statement
+        self.source=line.source           # Input line source info.
+        self.lineno=line.lineno           # Global Line number of statement
         self.stmt=line.text        # original statement string
         self.trace=trace           # Causes statement tracing in all passes
+        self.gened=line.macro      # True if statement generated by a macro
 
         # General state flags.  Once eithr is set True future processing is inhibited
         # Master processing switch.  All passes check this to determine if the 
@@ -835,11 +1329,15 @@ class Stmt(object):
         self.rem=None              # Parsable portion of statement (operand, comment)
         self.rempos=None           # Position in line of remainder
 
+        # Statment fields: name, operation, operands and comments
+        self.fields=None           # StmtFields object built by Assmebler
+
         # Provided by Assembler.__oper_id() method 
         self.insn=None             # MSLentry object of instruction
         self.insn_fmt=None         # msldb.Format instance of instruction's format
         self.asmdir=False          # True means this is an assembler directive
         self.prdir=False           # True means this is a print directive
+        self.macro=None            # The asmmacs.Macro object if a macro statement
         self.asmpasses=None        # AsmPasses instance of this instruction
         self.trace=trace           # Causes statement tracing in all passes
 
@@ -878,9 +1376,25 @@ class Stmt(object):
 
     # Update with information from Assembler.__classifier() method
     def classified(self,inst,label=None,remainder="",rempos=1):
-        self.inst=inst
-        self.instu=inst.upper()
+        # Statement operation field
+        self.inst=inst             # As coded in input statement
+        self.instu=inst.upper()    # Uppercase used for table searches
+
+        # Statement Name field
         self.label=label
+        # Identify type of label if present
+        if label is not None:
+            char=label[0]
+            if char==".":
+                self.seqsym=True
+            elif char=="&":
+                self.macsym=True
+            else:
+                self.normsym=True
+
+        # Statement operands and comment field
+        # Parsers or special pre-processor functions must separate the two 'fields'
+        # based upon operation specific knowledge of operands.
         self.rem=remainder
         self.rempos=rempos
 
@@ -939,7 +1453,13 @@ class Stmt(object):
             opr=self.operands[n]
             if trace:
                 print("%s operand: %s" % (cls_str,opr))
-            opr.evaluate(debug=debug,trace=trace)
+
+            try:
+                opr.evaluate(debug=debug,trace=trace)
+            except asmparsers.LableError as le:
+                raise AssemblerError(line=self.lineno,source=self.source,\
+                    msg="undefined label: %s" % le.label) from None
+
             if not opr.validate_expr(trace=trace):
                 raise AssemblerError(line=self.lineno,\
                     msg="operand %s %s" % (n+1,opr.value_error()))
@@ -952,6 +1472,16 @@ class Stmt(object):
             cls_str="assembler.py - %s.get_operand() -" % self.__class__.__name__
             print("%s returning to parser oprs[%s]: %s" % (cls_str,ndx,opr))
         return opr
+
+    # Return the location following this statement
+    def next(self):
+        content=self.content
+        if content is None:
+            return
+        loc=content.loc
+        if loc is None:
+            return None
+        return loc+len(content)
 
     # Returns the number of operands required by the statement
     def num_oprs(self):
@@ -968,6 +1498,11 @@ class Stmt(object):
         operands=self.num_oprs()
         present=len(self.parsed)
         error=passes.operands_ok(present)
+        #if self.instu=="SSM":
+        #    print("SSM operands")
+        #    print("  asmpasses operands: %s" % operands)
+        #    print("  stmt operands: %s" % present)
+        #    print("  assmpasses error: %s" % error)
         if error:
             min_num=passes.min_operands
             max_num=passes.max_operands
@@ -1147,6 +1682,12 @@ class Assembler(object):
                "E390":"PSWE390","PSWE390":"PSWE390",
                "Z":"PSWZ","PSWZ":"PSWZ",
                "none":None,"NONE":None}
+    # Lexical analyzers (created by __init_parsers() method)
+    lexer=None     # Defau;t Lexical analyzer used by most FSM-based parsers
+    
+    # Syntactic analyzers (created by __init_parsers() method)
+    fields=None    # Statement field FSM-based recognizer
+    mhelp=None     # MHELP FSM-based recognizer
 
     # Returns my global debug manager.
     @staticmethod
@@ -1189,9 +1730,21 @@ class Assembler(object):
     #               their entirety.  This is a diagnostic option.
     #   otrace      A list of the machine instructions or assembler directives to
     #               be traced in all passs including initial parsing.
+    #   stats       Specigy True to enable statistics reporting at end of pass 2.  
+    #               Should be False if an external driving is updating statistics.
     def __init__(self,machine,msl,aout,addr=None,debug=None,dump=False,eprint=False,\
-                 error=2,nest=20,ccw=None,psw=None,ptrace=[],otrace=[]):
+                 error=2,nest=20,ccw=None,psw=None,ptrace=[],otrace=[],cpfile=None,\
+                 cptrans="94C",stats=False):
+
+        # Before we do anything else start my timers
+        Stats.start("objects_p")
+        Stats.start("objects_w")
+        self.timers_started=False
+
         Assembler.test_version()     # Make sure we have the right Python
+        self.version=asma_version    # Current version of the assembler
+        
+        self.now=time.localtime()    # now is an instance of struct_time.
 
         if not isinstance(aout,AsmOut):
             cls_str="assembler.py - %s.__init__() -" % self.__class__.__name__
@@ -1207,6 +1760,8 @@ class Assembler(object):
         self.imgdump=dump           # Dumps completed CSECT's, regions and image
         self.ptrace=ptrace          # Passes to be traced
         self.otrace=otrace          # statements to be traced.
+        self.cpfile=cpfile          # Code page source file (defaults to built-in)
+        self.cptrans=cptrans        # Code page translation definition to use
 
         # Error handling flag
         self.error=error
@@ -1214,19 +1769,24 @@ class Assembler(object):
         self.eprint=self.error==1
 
         self.eprint=eprint          # Prints errors when encountered
+        
+        # Statistics flag
+        self.stats=stats
 
       #
       #   Assembler initialization begins
       #   DO NOT CHANGE THE SEQUENCE!  Dependencies exist between methods
       #
 
-        # Statement classifier regular expressions. 
-        # See __init_res() and __classifier() methods
+        # Statement classifier regular expressions and other RE users. 
+        # See __init_res() and __classifier() and related _spp methods
         self.cmtre=None       # Recognizes comment statements
         self.empre=None       # Recognizes empty statements
         self.insre=None       # Recognizes statements without labels
         self.lblre=None       # Recognizes statements with labels
-        self.titre=None       # Recognizes title in a TITLE directive
+        #self.titre=None       # Recognizes title in a TITLE directive
+        self.sqtre=None       # Recognizes a single quoted string (TITLE, COPY)
+        self.mhlre=None       # Recognizes MHELP operand
         self.__init_res()     # Create regular expressions for __classifier() method
 
         # Statement operand parsers. See __init_parsers() method
@@ -1256,20 +1816,28 @@ class Assembler(object):
       #   Remaining initialization is sequence independent
       #
 
+        # Manage ASCII/EBCDIC codepages by building the codepage.Translator object
+        self.trans=self.__init_codepage()
+        # The Translater object is available now via this object attribute and
+        # in modules that import assembler via assembler.CPTRANS
+       
         # Manage input text
         self.LB=asminput.LineBuffer(depth=nest)
 
+        # Macro Language processing manager
+        self.MM=asmmacs.MacroLanguage(self)
+
         # Manage output binary data
         self.OM=asmbin.AsmBinary()
-
-        # Manage output listing
-        self.LM=asmlist.AsmListing(self)
 
         # These attributes are constructed and manipulated by __parse() method
         # assembler passes.
         self.lineno=1         # Next statement number for source listing
         self.stmts=[]         # List of parsed Stmt instances
         self.cur_stmt=None    # In numbered pass processing, current Stmt instance
+
+        # In pass processing, * location after previous stmt.
+        self.cur_loc=LocationCounter()
 
         # These attributes are constructed and manipulated during the various 
         # assembler passes performed on the statements stored in self.stmts list.
@@ -1310,6 +1878,10 @@ class Assembler(object):
         self.pdata=False      # Assume "PRINT NODATA" directive
         # Note: Presently macros are not supported.  The GEN and NOGEN options have
         # no effect today.
+        
+        # Stop object timers
+        Stats.stop("objects_w")
+        Stats.stop("objects_p")
 
     def __abort(self,line,msg):
         self.aborted=True
@@ -1320,7 +1892,7 @@ class Assembler(object):
         stmt.error=True
         stmt.ignore=True
         self.img._error(ae)
-        if debug :
+        if debug:
             print("%s DEBUG - AE %s" % (string,ae))
         elif self.eprint:
             print(ae)
@@ -1331,7 +1903,16 @@ class Assembler(object):
     def __classifier(self,s,debug=False):
         # debug is controlled by debug option 'stmt'
         cls_str="assembler.py - %s.__classifier() -" % self.__class__.__name__
+        
+        # This uses the StmtFields object to parse the statement fields
+        # This should replace all of the remaining regular expression logic
+        # when all statements use this mechanism for name and operand handling.
+        # Until then statement field parsing is done twice.
+        s.fields=StmtFields()
+        s.fields.parse(self,s,debug=debug)
+        
 
+        # Now use legacy field recognizer -- this will eventually go away
         stmt=s.stmt  # Extract input line from Stmt instance
 
         # Recognize a line containing:        INST [REST-OF-LINE]
@@ -1341,7 +1922,7 @@ class Assembler(object):
                 print("%s DEBUG insre no match: '%s'" % (cls_str,stmt))
         else:
             if debug:
-                print("%s DEBIG insre match:    %s" % (cls_str,list( mo.groups())) )
+                print("%s DEBUG insre match:    %s" % (cls_str,list( mo.groups())) )
             s.classified(mo.group(2),remainder=mo.group(4),rempos=mo.start(4)+1)
             return
 
@@ -1434,6 +2015,14 @@ class Assembler(object):
         if self.aout.ldipl is not None:
             image.ldipl=self.OM.ldipl(self)   
 
+    # Initialize the code page translator and make it globally available via
+    # the assembler.CPTRANS for modules that import assembler.
+    def __init_codepage(self):
+        global CPTRANS
+        trans=codepage.CODEPAGE().build(trans=self.cptrans,filename=self.cpfile)
+        CPTRANS=trans
+        return trans
+
     def __init_parsers(self,debug=False):
         gdebug=self.dm.isdebug("grammar")
         parser=asmparsers.CommonParser(self.dm,asm=self)
@@ -1457,9 +2046,20 @@ class Assembler(object):
             parser.grammar()
             print("")
 
+        self.parsers["mhelp"]=asmparsers.MHELP_Parser()
+        self.parsers["mnote"]=asmparsers.MNOTE_Parser()
+        
+        # These lexical analyzers are assigned to Assembler class attributes.
+        Assembler.lexer=asmfsmbp.AsmLexer(self.dm).init()
+        
+        # These syntactical analyzers are assigned to Assembler class attributes,
+        # and are not part of the Assembler object's parsers attribute dictionary.
+        self.fsmp=asmfsmbp.Parsers(self).init()
+        Assembler.fields=self.fsmp.parsers["fields"]
+
     def __init_passes(self):
-        pass_list=[Pass(1,post=self.__Pass1_Post),\
-                   Pass(2,post=self.__Pass2_Post)]
+        pass_list=[Pass(1,proc="pass1_p",wall="pass1_w",post=self.__Pass1_Post),\
+                   Pass(2,proc="pass2_p",wall="pass2_w",post=self.__Pass2_Post)]
 
         # Create list of Pass instances
         num_pass=len(pass_list)
@@ -1479,13 +2079,6 @@ class Assembler(object):
     def __init_res(self,debug=False):
         # debug is controlled by debug option 'stmt'
 
-        multiline=asmparsers.multiline      # Turns on multiline for start/end match
-        cmt=asmparsers.cmt                  # The comment character
-        label=asmparsers.label              # Label pattern
-        inst=asmparsers.inst                # An instruction pattern
-        ws=asmparsers.ws                    # White space characters
-        stuff=asmparsers.stuff              # Stuff at the end of the line
-
         # Recognize an empty line containing nothing but white space
         # (the * does not have to start the line)
         p="%s^%s*$" % (multiline,ws)
@@ -1493,7 +2086,7 @@ class Assembler(object):
         if debug:
             print("empre pattern: '%s'" % self.empre.pattern)
 
-        # Recognize a line containing: # a comment or nothing but white space 
+        # Recognize a line containing: '*' or '.*' comment or nothing but white space 
         # (the # does not have to start the line)
         p="%s^%s*%s%s" % (multiline,ws,cmt,stuff)
         self.cmtre=re.compile(p)
@@ -1517,6 +2110,13 @@ class Assembler(object):
         self.sqtre=re.compile(p)
         if debug:
             print("sqtre pattern: '%s'" % self.titre.pattern)
+            
+        # Recognizes MHELP self-defining term
+        p="%s([0-9]+|[bB]'[01]+')(%s)" % (multiline,stuff)
+        self.mhlre=re.compile(p)
+        if debug:
+            print("mhlre pattern: '%s'" % self.mhlre.pattern)
+        
 
     # This method initializes among other things, the methods used in each pass
     # for each directive or machine instruction.  The following table summarizes
@@ -1534,6 +2134,8 @@ class Assembler(object):
     #    END       "common"     _end_pass1         --
     #    ENTRY     "common"     _entry_pass1   _entry_pass2
     #    EQU       "common"     _equ_pass1         --
+    #    <macro>   _spp_invoke      --             --
+    #    MNOTE     _spp_mnote       --             --
     #    ORG       "common"     _org_pass1         --
     #    PRINT     _spp_print       --             --
     #    PSWS      "common"     _psw20_pass1   _psw20_pass2
@@ -1651,6 +2253,24 @@ class Assembler(object):
         self.__define_dir(dset,"EQU",parser="common",
             pass1=self._equ_pass1,optional=False,min=1,max=2,cls=[SingleAny,Single])
 
+
+        # MACRO - Initiate a macro definition
+        # 
+        # [label] MACRO  [comments]
+        self.__define_dir(dset,"MACRO",spp=self._spp_macro,optional=True)
+
+
+        # MHELP - Specify macro assistance options
+        # 
+        # [label] MHELP  <action>
+        self.__define_dir(dset,"MHELP",spp=self._spp_mhelp,optional=True)
+
+
+        # MNOTE - Define a symbol
+        # 
+        # [label] MNOTE sev,'message'
+        self.__define_dir(dset,"MNOTE",spp=self._spp_mnote,optional=True)
+        
 
         # ORG - adjust current location
         #
@@ -1780,6 +2400,12 @@ class Assembler(object):
             pass1=self._region_pass1,pass2=self._region_pass2,optional=False,\
             min=0,max=0)
 
+
+        # SPACE - insert space(s) into listing
+        #
+        #         SPACE [n]
+        self.__define_dir(dset,"SPACE",spp=self._spp_space,optional=True)
+     
 
         # START - start a new region
         #
@@ -2040,6 +2666,13 @@ class Assembler(object):
     # Accepts a Stmt object from the statement field classifier and identifies
     # the operation of the statement.  A number of Stmt attributes are set based
     # upon what it finds.
+    #
+    # Identification of the statement operation is performed in the following
+    # sequence:
+    #  1. Macro name
+    #  2. Machine instruction operation mnemonic
+    #  3. XMODE directive setting
+    #  4. Assembler directive
     def __oper_id(self,stmt,debug=False):
         cls_str="assembler.py - %s.__oper_id() -" % self.__class__.__name__
         if not isinstance(stmt,Stmt):
@@ -2052,30 +2685,43 @@ class Assembler(object):
         # Locate the instruction or statement data
         insn=None
         insn_fmt=None
+        macro=None
         asmpasses=None
         try:
-            insn=self.builder.getInst(stmt.inst)
-            # insn is an instance of MSLentry
-            # Note, this needs to stay here as it controls Insn selection from the
-            # machine definition or the assembler pseudo instruction definition.
-            insn_fmt=insn.mslformat  # insn_fmt is an instance of msldb.Format
-
-            asmpasses=AsmInsn(insn,insn_fmt,self.asminsn)
+            macro=self.MM.find(stmt.instu)
+            asmpasses=macro.passes(self)    # Pass myself, so my methods can be found
             if idebug:
-                print("%s DEBUG found instruction: %s" % (cls_str,insn.mnemonic))
+                print("%s DEBUB found macro: %s" % cls_str,stmt.inst)
         except KeyError:
+            # Macro not found, try to identify the instruction mnemonic
             try:
-                operation=self.xmode[stmt.instu]   # Find XMODE instruction
-            except KeyError:
-                operation=stmt.instu               # If none use statement directly
-            try:
-                asmpasses=self.asmpasses[operation]
+                insn=self.builder.getInst(stmt.inst)
+                # insn is an instance of MSLentry
+                # Note, this needs to stay here as it controls Insn selection from the
+                # machine definition or the assembler pseudo instruction definition.
+                insn_fmt=insn.mslformat  # insn_fmt is an instance of msldb.Format
+
+                asmpasses=AsmInsn(insn,insn_fmt,self.asminsn)
                 if idebug:
-                    print("%s DEBUG found directive: %s" % (cls_str,operation))
+                    print("%s DEBUG found instruction: %s" % (cls_str,insn.mnemonic))
             except KeyError:
-                if idebug:
-                    raise ValueError("%s AsmPasses not defined for "
-                        "instruction: %s" % (cls_str,operation)) from None
+                # Instruction mnemonic not found, try to find assmebler directive:
+                # first by locating an XMODE setting, then by finding the actual
+                # directive.
+                # Note: XMODE settings translate a generic directive into a specific
+                # machine sensitive one.
+                try:
+                    operation=self.xmode[stmt.instu]   # Find XMODE instruction
+                except KeyError:
+                    operation=stmt.instu               # If none use statement directly
+                try:
+                    asmpasses=self.asmpasses[operation]
+                    if idebug:
+                        print("%s DEBUG found directive: %s" % (cls_str,operation))
+                except KeyError:
+                    if idebug:
+                        raise ValueError("%s AsmPasses not defined for "
+                            "instruction: %s" % (cls_str,operation)) from None
 
         if asmpasses is None:
             stmt.error=True   # Mark this statement to avoid future processing
@@ -2084,11 +2730,12 @@ class Assembler(object):
 
         stmt.insn=insn             # MSLentry object
         stmt.insn_fmt=insn_fmt     # msldb.Format object
+        stmt.macro=macro           # asmmacs.Macro object
         stmt.asmpasses=asmpasses   # Set the pass dispatch table for this statement
         stmt.asmdir=asmpasses.directive  # Set the assembler directive flag
         if stmt.asmdir:
             stmt.laddr=[None,None] # Initialize laddr for assembler directives
-        # Set trace flag if were are tracing this
+        # Set trace flag if we are tracing this
         stmt.trace=asmpasses.name in self.otrace
 
 
@@ -2175,6 +2822,9 @@ class Assembler(object):
             print(string)
         return stmt
 
+    def __parsefsm(self,stmt,parser):
+        pass
+
     def __pre_process(self,s,debug=False):
         cls_str="assembler.py - %s.__pre_process() -" % self.__class__.__name__
         if not isinstance(s,Stmt):
@@ -2183,6 +2833,26 @@ class Assembler(object):
 
         sdebug=debug
         fail=self.fail
+
+        # Access the Macro Language when defining macros
+        # The Macro Language will return 'True' if the statement was handled
+        if fail:
+            macdefn=self.MM.defining(s)
+        else:
+            try:
+                macdefn=self.MM.defining(s)
+            except asmmacs.MacroError as me:
+                ae=AssemblerError(source=s.source,line=s.lineno,msg=me.msg)
+                self.__ae_excp(ae,s,string=cls_str,debug=sdebug)
+                return
+            except AssemblerError as ae:
+                self.__ae_excp(ae,s,string=cls_str,debug=sdebug)
+                return
+
+        # Did the Macro Language intercept the statement as part of a definition?
+        if macdefn:
+            s.ignore=True  # Intercepted, so no need to do anything more with this
+            return
 
         # Classifies statement and identify statement fields: lable, instruction, and
         # operands.
@@ -2254,6 +2924,17 @@ class Assembler(object):
             except AssemblerError as ae:
                 self.__ae_excp(ae,s,string=cls_str,debug=sdebug)
 
+    # Set XMODE.  An invalid setting will raise a KeyError
+    def __xmode_setting(self,mode,setting,sdict):
+        v=sdict[setting]    # This may raise a KeyError
+        if v is None:
+            try:
+                del self.xmode[mode]  # If none, remove the XMODE setting entirely 
+            except KeyError:
+                pass                  # Alredy gone, that is OK, that's what we wanted 
+        else:
+            self.xmode[mode]=v
+
     # Generic routine for handling comma separate operands in pre-processed statements
     def __spp_operands(self,stmt,debug=False):
         # Extract the operand field from the statement
@@ -2268,17 +2949,6 @@ class Assembler(object):
         if not isinstance(operands,list):
             operands=[operands,]
         return operands
-
-    # Set XMODE.  An invalid setting will raise a KeyError
-    def __xmode_setting(self,mode,setting,sdict):
-        v=sdict[setting]    # This may raise a KeyError
-        if v is None:
-            try:
-                del self.xmode[mode]  # If none, remove the XMODE setting entirely 
-            except KeyError:
-                pass                  # Alredy gone, that is OK, that's what we wanted 
-        else:
-            self.xmode[mode]=v
 
 
     # Special pre-processing for COPY directive
@@ -2297,6 +2967,94 @@ class Assembler(object):
     def _spp_eject(self,stmt,debug=False):
         stmt.prdir=True           # This statement requires processing during listing
         stmt.ignore=True          # No more processing needed by assembler passes
+
+
+    # Special pre-processor for invoking a macro definition
+    # 
+    # This method creates the interface between the macro invocation processing
+    # and the input line buffer into which model statements are supplied
+    def _spp_invoke(self,stmt,debug=False):
+        # Separate the comma separated macro parameters into a list
+        operands=self.__spp_operands(stmt,debug=debug)
+        
+        # Create an asmmacs.Expander object.  The object runs the macro interpreter.
+        # &SYSNDX value and MHELP limits are managed by the macstmt() method
+        exp=self.MM.macstmt(stmt)
+        if exp is None:  # This means MHELP maximum sysndx has been reached
+            stmt.ignore=True
+            return       # Silently ignore the macro statement
+
+        # Create a new input source, that is, the macro being invoked
+        self.LB.newMacro(exp,stmtno=stmt.lineno)
+        # Done with the macro statement that triggered the expansion.
+        # The macro engine now runs under control of the LineBuffer with the new 
+        # macro input source.
+        stmt.ignore=True
+
+
+    # Special pre-processor for MACRO directive, initiating a new MACRO definition
+    def _spp_macro(self,stmt,debug=False):
+        # Determine if optional 'DEBUG' operand present and set definition debug
+        ddebug=False
+        operfld=stmt.rem
+        try:
+            ndx=operfld.index(" ")
+            opers=operfld[:ndx]
+        except ValueError:
+            opers=operfld
+        ddebug=opers.upper()=="DEBUG"
+
+        self.MM.define(debug=ddebug)
+        stmt.ignore=True
+
+
+    # Special pre-processor for MHELP directive
+    def _spp_mhelp(self,stmt,debug=False):
+        fsmp=self.fsmp
+        scope=fsmp.parse_operands(stmt,"mhelp",required=True)
+        desc="MHELP %s" % stmt.lineno
+        expr=fsmp.L2ArithExpr(desc,stmt,ltoks=scope.lextoks,debug=debug)
+        operand=expr.evaluate(None,debug=debug,trace=False)
+        
+        # Update the mhelp data in the macro manager (asmmacs.MacroLanguage object)
+        self.MM.mhelp(operand,debug=debug)
+
+
+    # Special pre-processor for MNOTE directive
+    def _spp_mnote(self,stmt,debug=False):
+        #parser=self.parsers["mnote"]
+        #operfld=stmt.rem
+        #try:
+        #    parts=parser.parse(operfld)
+        #except SequentialError as se:
+        #    operand=parser.part(se.n)
+        #    raise AssemblerError(line=stmt.lineno,linepos=se.pos+stmt.rempos,\
+        #        msg="MNOTE %s operand not recognized" % operand)
+
+        #sev=parts[0].groups[0]
+        #note=parts[1].groups[0]
+        #info=sev=="*"
+        
+        fsmp=self.fsmp
+        scope=fsmp.parse_operands(stmt,"mnote",required=True)
+        note=scope.message.convert()
+        if scope.comment:
+            info=True
+            sev="*"
+        else:
+            if scope.severity is None:
+                desc="MNOTE %s" % stmt.lineno
+                expr=fsmp.L2ArithExpr(desc,stmt,ltoks=scope.lextoks,debug=debug)
+                operand=expr.evaluate(None,debug=debug,trace=False)
+            else:
+                operand=scope.severity
+            if operand < 0 or operand> 255:
+                operand=255
+            info=False
+            sev=operand
+
+        raise AssemblerError(line=stmt.lineno,\
+            msg="MNOTE %s,%s" % (sev,note),info=info)
 
 
     # Special pre-processing for PRINT directive
@@ -2331,7 +3089,22 @@ class Assembler(object):
                 raise AssemblerError(line=stmt.lineno,
                     msg="PRINT directive operand %s unrecognized: %s" \
                         % (ndx+1,original))
-        stmt.ignore=True   # No more processing for a PRINT directive
+        stmt.ignore=True          # No more processing for a PRINT directive
+
+    # Special pre-processsor for SPACE directive
+    def _spp_space(self,stmt,debug=False):
+        fsmp=self.fsmp
+        scope=fsmp.parse_operands(stmt,"space",required=False)
+        if scope is None:
+            operand=1
+        else:
+            desc="SPACE %s" % stmt.lineno
+            expr=fsmp.L2ArithExpr(desc,stmt,ltoks=scope.lextoks,debug=debug)
+            operand=expr.evaluate(None,debug=debug,trace=False)
+
+        stmt.plist=operand        # Communicate number of spaces to listing manager
+        stmt.prdir=True           # This statement requires processing during listing
+        stmt.ignore=True          # No more processing needed by assembler passes
 
 
     # Special pre-processing for TITLE directive
@@ -2362,7 +3135,7 @@ class Assembler(object):
         try:
             self.__xmode_setting(mode,setting,mdict)
         except KeyError:
-            raise AssemblerError(line=stmt.lineno,
+            raise AssemblerError(line=stmt.lineno,\
                 msg="XMODE %s setting invalid: %s" % (mode,setting)) from None
         stmt.ignore=True          # Processing completed
 
@@ -2490,7 +3263,6 @@ class Assembler(object):
             raise ValueError("%s 'section' argument must be a DSECT: %s"\
                 % (cls_str,region))
 
-        #self.cur_reg=None
         self.cur_sec=section
         if debug:
             print("%s current active region is:  '%s'" % (cls_str,self.cur_reg))
@@ -2555,7 +3327,7 @@ class Assembler(object):
         # If a label is present, assign it this value and length
         self.__label_create(stmt)
 
-    # Make the supplied region becomes the active region and its active CSECT the 
+    # The supplied region becomes the active region and its active CSECT the 
     # active CSECT of the assembly.
     def __region_activate(self,region,debug=False):
         cls_str="assembler.py - %s.__region_activate() -" % self.__class__.__name__
@@ -2720,13 +3492,13 @@ class Assembler(object):
 
     # Attempt to resolve an address into its base/displacement pair of values.
     # Raises an AssemblerError exception if resolution fails.
-    def _resolve(self,address,line,opn,size,trace=False):
+    def _resolve(self,address,lineno,opn,size,trace=False):
         try:
             return self.bases.find(address,size,self,trace=trace)
         except KeyError:
-            raise AssemblerError(line=line,\
-                msg="operand %s could not resolve implied base register: %s" \
-                    % (opn,address))
+            raise AssemblerError(line=lineno,\
+                msg="operand %s could not resolve implied base register for "
+                    "location: %s" % (opn,address)) from None
 
     #
     # INSTRUCTION AND DIRECTIVE PASS PROCESSING METHODS
@@ -3054,7 +3826,7 @@ class Assembler(object):
         length=insn.length     # length of the instruction in bytes
 
         # Create the content definition for the machine instruction
-        bin=Binary(2,length)     # Always put instructions on half word boundary
+        bin=Binary(2,length)   # Always put instructions on half word boundary
 
         # Assign space in the active section for the machine instruction
         self.cur_sec.assign(bin)
@@ -3078,7 +3850,7 @@ class Assembler(object):
         operands=stmt.operands
         for ndx in range(len(operands)):
             opr=operands[ndx]
-            opr.resolve(self,stmt,opr,trace=idebug)
+            opr.resolve(self,stmt,ndx,trace=idebug)
             laddr=opr.laddr
             if laddr is not None:
                 stmt.laddr.append(laddr)
@@ -3535,6 +4307,12 @@ class Assembler(object):
     # is None or the statement has been flagged as ignore=True, the statememt is not
     # processed.
     def assemble(self):
+        # Because the statement() method may be called multiple times, I don't
+        # really know we are done with input until this method is called.
+        if not Stats.stopped("pass0_p"):
+            Stats.stop("pass0_p")
+            Stats.stop("pass0_w")
+
         cls_str="assembler.py - %s.assemble() -" % self.__class__.__name__
         if self.aborted:
             raise ValueError("%s ASMA has aborted - can not assemble statememts" \
@@ -3550,6 +4328,8 @@ class Assembler(object):
             if paso is None:
                 raise ValueError("%s Pass instance undefined for pass: %s" \
                     (cls_str,pas))
+            Stats.start(paso.proc)
+            Stats.start(paso.wall)
             pdebug=paso.trace           # set the pass trace variable
             if pdebug:
                 print("%s PASS %s STARTED" % (cls_str,pas))
@@ -3597,6 +4377,8 @@ class Assembler(object):
                             cls_str="assembler.py - %s.%s() -" \
                                 % satkutil.method_name(method)
                             self.__ae_excp(ae,s,string=cls_str,debug=False)
+                    if pas==1:
+                        self.cur_loc.update(s)
                     self.cur_stmt=None   # De-reference the current statement
             else:
                 if pdebug:
@@ -3620,11 +4402,29 @@ class Assembler(object):
 
             if pdebug:
                 print("%s PASS %s COMPLETED" % (cls_str,pas))
+            
+            Stats.stop(paso.wall)
+            Stats.stop(paso.proc)
         # PASS PROCESSING COMPLETED
 
         # Complete Processing
+        Stats.start("output_p")
+        Stats.start("output_w")
         self.__finish()   # Complete the Image before providing to listing generator
         self.LM.create()  # Generate listing and place it in the final Image object
+        Stats.stop("output_w")
+        Stats.stop("output_p")
+        
+        Stats.stop("assemble_w")
+        Stats.stop("assemble_p")
+        Stats.stop("wall")
+        Stats.stop("process")
+        Stats.statements(len(self.stmts))
+        
+        # Print statistics if requested here.
+        
+        if self.stats:
+            print(Stats.report())
 
     # Returns the completed Image instance for processing
     def image(self):
@@ -3641,6 +4441,17 @@ class Assembler(object):
     #
     # Any error will raise an AssemblerError exception
     def statement(self,string=None,filename=None):
+        if not self.timers_started: 
+            if not Stats.started("assemble_p"):
+                Stats.start("assemble_p")
+                Stats.start("assemble_w")
+            if not Stats.started("pass0_p"):
+                Stats.start("pass0_p")
+                Stats.start("pass0_w")
+        # Either I started the timers or they were already started.
+        # Whichever the case, I don't need to do this again
+        self.timers_started=True
+
         cls_str="assembler.py - %s.statement() -" % self.__class__.__name__
 
         # Try to avoid recall if a big problem happened.
@@ -3671,10 +4482,25 @@ class Assembler(object):
         # the processing.
         try:
             while True:
-                ln=self.LB.getline()
-                if sdebug:
-                    print("%s: Processing line:\n    %s" % (cls_str,ln))
-                # Add the line to ths wip image.
+                try:
+                    ln=self.LB.getline()
+                    if sdebug:
+                        print("%s: Processing line:\n    %s" % (cls_str,ln))
+                except asmmacs.MacroError as me:
+                    # An error was detected in a macro invocation.
+                    # If we are failing immediately upon any detected error, do so now
+                    if self.fail:
+                        raise me from None
+                    # Not failing immediately, so we need to convert the macro
+                    # error to an assembler error for reporting purposes.
+                    ae=AssemblerError(line=me.line,linepos=me.linepos,msg=me.msg)
+                    # Queue it for ultimate output
+                    self.img._error(ae)
+                    # The invoked macro has terminated, but continue reading input
+                    # from the source that generated the macro statement invocation.
+                    continue
+
+                # Add the line to ths wip image after symbol replacement
                 self.img._statement(ln)
 
                 s=Stmt(ln)
@@ -3690,15 +4516,17 @@ class Assembler(object):
                 # The following actions occur during pre-processing:
                 #   1. statement is classified;
                 #   2. operation name is recognized (directive vs. machine 
-                #      instruction);
-                #   3. if special pre-processing is specified, it is performed;
-                #   4. otherwise, the operands are parsed and results validated, 
-                #      although expressions have not yet been evaluated.
+                #      instruction vs. defined macro);
+                #   3. if special pre-processing is specified, it is performed, for
+                #      example invoked macros;
+                #   4. otherwise, the assembler directive or machine instruction
+                #      operands are parsed and results validated, although expressions
+                #      have not yet been evaluated.
                 # At the end of this process, the statement is queued for later 
                 # assembly via the assemble() method.
                 self.__pre_process(s,debug=sdebug)
         except asminput.BufferEmpty:
-             pass
+            pass
 
 #
 #  +------------------------------------+
@@ -3745,7 +4573,7 @@ class AsmPasses(object):
         # initialized in its call to this super class method.
         self.passes=[None,pass1,pass2] # * assembler pass methods
 
-        # These attribute is specific to assembler directives:
+        # These attributes are specific to assembler directives:
         self.spp=spp                   # Special pre-processor in lieu of parser
         self.operand_cls=cls           # List of operand classes for parser.
 
@@ -3770,20 +4598,26 @@ class AsmPasses(object):
     #
     # The tests are based upon the attributes self.min_operands and self.max_operands
     # Method returns the failing case number or 0 if ok
-    def operands_ok(self,number):
+    def operands_ok(self,number,debug=False):
         minimum=self.min_operands
         maximum=self.max_operands
+        #if self.name=="SSM":
+        #    print("%s min operands: %s" % (self.name,minimum))
+        #    print("%s max operands: %s" % (self.name,maximum))
+        #    print("%s actual operands: %s" % (self.name,number))
         # Case 1 - n or more required
-        if maximum is None and number<minimum:
-            return 1
-        else:
-            return 0
+        if maximum is None:
+            if number<minimum:
+                return 1
+            else:
+                return 0
         # Case 2 - n required
-        if minimum==maximum and number!=minimum:
-            return 2
-        else:
-            return 0
-        # Case 3 - m-n operatns required
+        if minimum==maximum:
+            if number!=minimum:
+                return 2
+            else:
+                return 0
+        # Case 3 - m-n operands required
         if number<minimum or number>maximum:
             return 3
         return 0  # Operands OK
@@ -3821,6 +4655,8 @@ class AsmInsn(AsmPasses):
 # Instance arguments:
 #
 #   pas          The number of the pass, 1-n, to which the object applies.
+#   wall         The name of this passes wall clock timer
+#   proc         The name of this passes process timer
 #   pre          The method to be called before any statements are processed.
 #   statements   Indicates whether statements are to be processed within this pass.
 #                Defaults to True.
@@ -3828,8 +4664,11 @@ class AsmInsn(AsmPasses):
 #                the pass but before the pass is completed.
 #   trace        whether all processing within the pass will be traced.
 class Pass(object):
-    def __init__(self,pas,pre=None,statements=True,post=None,trace=False):
+    def __init__(self,pas,wall=None,proc=None,pre=None,statements=True,post=None,\
+        trace=False):
         self.pas=pas                 # Pass number of this object
+        self.wall=wall               # Wall clock timer name
+        self.proc=proc               # Process timer name
         self.pre=pre                 # Pre statement processing method
         self.post=post               # Post statement processing method
         self.stmts=statements        # Statement processing, True or False, this pass
@@ -3915,6 +4754,12 @@ class Address(object):
         self.address=address    # Absolute address of the relative location
         self.typ=typ            # Set my type (1, 2 or 3, relative or absolute)
         self.length=length      # This attibute is used for implied length values
+
+    def __repr__(self):
+        string="%s(typ=%s,value=%s,address=%s,length=%s" \
+            % (self.__class__.__name__,self.typ,self.value,self.address,self.length)
+        string="%s\n    section=%s)" % (string,self.section)
+        return string
 
     def __str__(self):
         if self.isRelative():
@@ -4003,6 +4848,12 @@ class Address(object):
         me,other=self._cmp(self,other,">=")
         return me>=other
 
+    # Returns the intgeger value to be used in Base/Displacement calculation.
+    def base(self):
+        cls_str=eloc(self,"base")
+        raise NotImplementedError("%s subclass must implement base() method" \
+            % cls_str)
+
     def clone(self):
         cls_str="assembler.py - %s.close() -" % self.__class__.__name__
         raise NotImplementedError("%s subclass must implement clone() method" \
@@ -4073,6 +4924,9 @@ class DDisp(Address):
     def __str__(self):
         return self._rel_str()
 
+    def base(self):
+        return self.value
+
     def clone(self):
         return DDisp(self.value,self.section)
 
@@ -4122,6 +4976,9 @@ class AbsAddr(Address):
         if typo==3: #    Other is an absolute address
             return self.address-other.address
         self.__no_sup("-",other)
+
+    def base(self):
+        return self.address
 
     def clone(self):
         return AbsAddr(self.address)
@@ -4183,23 +5040,35 @@ class SectAddr(AbsAddr):
             return self.value-other.value
         self._no_sup("-",other) 
 
+    def base(self):
+        if self.isRelative():
+            return self.value
+        return self.address
+
     def clone(self):
         if self.isRelative():
             return SectAddr(self.value,self.section)
         return super().clone()
 
     def makeAbs(self):
-        cls_str="assembler.py - %s.makeAbsoulte() -" % self.__class__.__name__
+        #cls_str="assembler.py - %s.makeAbse() -" % self.__class__.__name__
         if self.typ!=2:
+            cls_str=eloc(self,"makeAbs")
             raise ValueError("%s relative (%s) already absolute: %s" \
                 % (cls_str,self._rel_str(),self._abs_str()))
 
-        sec_addr=self.section.value()
-        if not sec_addr.isAbsolute():
-            raise ValueError("%s section address not abolute: %s" % (cls_str,sec_addr))
-
-        self.address=sec_addr.address+self.value
-        self.typ=3
+        section=self.section
+        if section.isdummy():
+            sec_addr=self.section.value()
+            self.address=sec_addr+self.value
+        else:
+            sec_addr=self.section.value()
+            if not sec_addr.isAbsolute():
+                cls_str=eloc(self,"makeAbs")
+                raise ValueError("%s section address is not absolute: %s" \
+                    % (cls_str,repr(sec_addr)))
+            self.address=sec_addr.address+self.value
+            self.typ=3
 
     def description(self):
         if self.typ ==2:
@@ -4287,7 +5156,7 @@ class Base(object):
         if direct is not None:
             self.address=direct.address
         else:
-            self.address=addr.address  # Absolute address or relative displacement
+            self.address=addr.base()       # Absolute address or relative displacement
 
         # A register assigned a relative address can ONLY be used as a base register
         # of another relative address within the same CSECT or DSECT.  Per above
@@ -4298,10 +5167,14 @@ class Base(object):
         if addr.isRelative():
             self.section=addr.section  # CSECT/DSECT for relative address only
         else:
-            self.section=None          # absp;ute addresses only
+            self.section=None          # absolute addresses only
 
         # Set to allow comparison of base register options on displacement
         self.disp=None
+        
+        if self.address is None:
+            raise ValueError("%s Base address is None: %s" % (cls_str,repr(addr)))
+
 
     # This method is used to comapre two Base instances for sorting purposes.  The
     # staticmethod BaseMgr.compare() is just a wrapper for this method.  The
@@ -4367,7 +5240,7 @@ class Base(object):
             cls_str="assembler.py - %s.__init__() -" % self.__class__.__name__
             raise ValueError("%s 'addr' argument must be an instance of Address: %s" \
                 % (cls_str,addr))
-        return addr.address-self.address
+        return addr.base()-self.address
         # Note: no checks are performed on the actual displacement.  Different
         # values are allowed for different instruction formats.  Whether the
         # displacement is appropriate for the instruction must be tested elsewhere.
@@ -4475,8 +5348,13 @@ class BaseMgr(object):
             return self.__select(addr,possible,trace=trace)
 
         for base in self.rbases.values():
-            if base.section == addr.section and base.address <= addr.address:
-                disp=base.getDisp(addr.address)
+            #if base.section == addr.section and base.address <= addr.address:
+            base_addr=addr.base()
+            if base_addr is None:
+                raise ValueError("%s Base address is None: %s" % (cls_str,repr(addr)))
+            if base.section == addr.section and base.address <= addr.base():
+                #disp=base.getDisp(addr.address)
+                disp=base.getDisp(addr)
                 try:
                     asm.builder.range_check(size,disp)
                 except insnbldr.RangeCheckError:
@@ -4543,6 +5421,50 @@ class BaseMgr(object):
             self.rbases[reg]=Base(reg,addr,direct=dbase)
             self.bases[reg]=self.rbases
         return
+
+#
+#  +-----------------------------+
+#  |                             |
+#  |   Global Location Counter   |
+#  |                             | 
+#  +-----------------------------+
+#
+
+# The location counter is used during pass 1 to define statement locations.
+# In pass 2 the location of the binary content of the statement defines the location.
+class LocationCounter(object):
+    def __init__(self):
+        self.location=None
+
+    # This happens whenever a section changes
+    def establish(self,loc):
+        # If no location is provided, simply leave the location as is.
+        if loc is None:
+            return
+        if not isinstance(loc,Address):
+            cls_str=eloc(self,"establish")
+            raise ValueError("%s 'loc' argument must be a Address object: %s" \
+                % (cls_str,loc))
+        if not loc.isRelative():
+            cls_str=eloc(self,"establish")
+            raise ValueError("%s 'loc' argument must be a relative address object: %s" \
+                % (cls_str,loc))
+        # Make a copy because we are going to alter it
+        self.location=loc.clone()
+
+    def increment(self,length):
+        self.location+=length
+
+    def retrieve(self):
+        return self.location.clone()
+
+    # Based upon the content of the statement the location counter will be upated
+    # for next statement
+    def update(self,stmt):
+        new_loc=stmt.next()
+        if new_loc is None:
+            return
+        self.establish(new_loc)
 
 
 #
@@ -5311,7 +6233,7 @@ class Img(Content):
         if len(self.elements)==0:
             cls_str="assembler.py - %s.value() -" % self.__class__.__name__
             raise ValueError("%s image value depends upon its first region, no "
-                "regions present")
+                "regions present" % cls_str)
         region=self.elements[0]
         return region.value()
 

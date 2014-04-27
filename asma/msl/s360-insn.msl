@@ -25,7 +25,7 @@ cpu s360         # Generic S/360 CPU
     addrmax 24
     ccw CCW0
     psw PSW360
-    base s360-base s360-extended s360-20-io
+    base s360-base s360-extended s360-io
     features s360-DECIMAL s360-DIRECT s360-HFP s360-PROTECTION
 
 cpu 2020
@@ -385,7 +385,7 @@ inst SR     1B   RR             # SUBTRACT (32)
 inst SRDA   8E   RSA1           # SHIFT RIGHT DOUBLE
 inst SRDL   8C   RSA1           # SHIFT RIGHT DOUBLE LOGICAL
 inst SRL    88   RSA1           # SHIFT RIGHT SINGLE LOGICAL (32)
-inst SSM    80   SI      P      # SET SYSTEM MASK
+inst SSM    8000 S0      P      # SET SYSTEM MASK
 inst ST     50   RXA            # STORE (32)
 inst STC    42   RXA            # STORE CHARACTER
 inst STH    40   RXA            # STORE HALFWORD
