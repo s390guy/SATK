@@ -517,7 +517,7 @@ class AsmListing(Listing):
         if content is None:
             loc=None
         else:
-            loc=content.loc.address
+            loc=content.loc.lval()
 
         laddr=stmt.laddr
         if stmt.asmdir:
@@ -672,7 +672,7 @@ class AsmListing(Listing):
         hdr.append(CharCol(5,just="center",sep=2,colnum=1,default="TYPE"))
 
         # Value Column
-        maximum=max(self.max_value,0xFFFFF)
+        maximum=max(self.max_value,0xFFFFFF)
         size=Column.hex_size(maximum)
         det.append(HexCol(maximum=maximum,sep=2,colnum=2))
         hdr.append(CharCol(size,just="center",sep=2,colnum=2,default="VALUE"))

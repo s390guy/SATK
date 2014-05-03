@@ -191,7 +191,7 @@ asma_env()
                 "Z"   ) asma_psw=" -p Z"    ;;
                 "disable") asma_psw=" -p none" ;;
                 "cpu")  asma_env reset psw ;;
-                *) echo "invalid ccw option value: ${2}" ; return 1 ;;
+                *) echo "invalid psw option value: ${2}" ; return 1 ;;
             esac
             ;;
         "rc")

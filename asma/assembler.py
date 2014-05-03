@@ -28,7 +28,7 @@
 #  +---------------------+
 #  |                     |
 #  |   ASMA Highlights   |
-#  |                     | 
+#  |                     |
 #  +---------------------+
 #
 
@@ -604,7 +604,7 @@ class Operand(object):
         # expression evalution.  Attribute is set by the evaluate() method
         self.values=[None,None,None]
 
-        # Address for listing
+        # Address for listing set by resolve() method 
         self.laddr=None
 
     def __str__(self):
@@ -858,6 +858,7 @@ class SingleRelImed(Operand):
     def __init__(self,name):
         super().__init__(name)
         self.relimed=None
+        self.isladdr=True
 
     # Return operand value for 'RI' type machine fields
     # Results depend upon the resolve() method having completed its work.
@@ -953,13 +954,14 @@ class Storage(Operand):
     def resolve(self,asm,stmt,opn,trace=False):
         if self.fields==0x100:
             self.base=0
-            self.disp=self.values[0]
+            self.laddr=self.disp=self.values[0]
         elif self.fields==0x110:
             self.base=self.values[1]
-            self.disp=self.values[0]
+            self.laddr=self.disp=self.values[0]
         elif self.fields==0x200:
             # Note, if this fails, an AssemblerError exception is raised.
             dest=self.values[0]
+            self.laddr=dest.lval()
             self.base,self.disp=asm._resolve(dest,stmt.lineno,opn,self.size,\
                 trace=trace)
             self.laddr=dest.address
@@ -967,7 +969,7 @@ class Storage(Operand):
             disp=self.values[0]
             if disp.isDummy():
                 # Use the DSECT relative address as displacement
-                self.disp=disp.address
+                self.disp=disp.lval()
             elif disp.isAbsolute():
                 # Use absolute address as displacement
                 self.disp=disp.address
@@ -977,7 +979,7 @@ class Storage(Operand):
                         % (opn,self.name,disp.description()))
 
             self.base=self.values[1]
-            self.disp=disp
+            self.laddr=self.disp=disp
         else:
             cls_str="assembler.py - %s.resolve() -" % self.__class__.__name__
             raise ValueError("%s unexpected self.fields: 0x%03X" \
@@ -1033,7 +1035,8 @@ class StorageExt(Storage):
 
         self.index=None
         self.length=None
-        # self.base, self.disp and self.size are inherited from Storage superclass.
+        # self.base, self.disp and self.size and self.isladdr are inherited from
+        # Storage superclass.
 
     def __setNdxLen(self,value):
         if self.isIndex:
@@ -1067,21 +1070,21 @@ class StorageExt(Storage):
     def resolve(self,asm,stmt,opn,trace=False):
         if self.fields==0x100:
             self.base=0
-            self.disp=self.values[0]
+            self.laddr=self.disp=self.values[0]
             if self.isIndex:
                 self.index=0
             else:
                 self.length=1
         elif self.fields==0x101:
             self.base=self.values[2]
-            self.disp=self.values[0]
+            self.laddr=self.disp=self.values[0]
             if self.isIndex:
                 self.index=0
             else:
                 self.length=1
         elif self.fields==0x110:
             self.base=0
-            self.disp=self.values[0]
+            self.laddr=self.disp=self.values[0]
             self.__setNdxLen(self.values[1])
         elif self.fields==0x111:
             self.base=self.values[2]
@@ -1089,16 +1092,15 @@ class StorageExt(Storage):
             self.__setNdxLen(self.values[1])
         elif self.fields==0x200:
             # Note, if this fails, an AssemblerError exception is raised.
-            dest=self.values[0]
+            self.laddr=dest=self.values[0]
             self.base,self.disp=asm._resolve(dest,stmt.lineno,opn,self.size,\
                 trace=trace)
-            self.laddr=dest.address
             if self.isIndex:
                 self.index=0
             else:
                 self.length=self.values[0].length
         elif self.fields==0x210:
-            dest=self.values[0]
+            self.laddr=dest=self.values[0]
             self.base,self.disp=asm._resolve(dest,stmt.lineno,opn,self.size,\
                 trace=trace)
             self.laddr=dest.address
@@ -1108,7 +1110,7 @@ class StorageExt(Storage):
             disp=self.values[0]
             if disp.isDummy():
                 # Use the DSECT relative address as displcement
-                self.disp=disp.address
+                self.disp=disp.lval()
             elif disp.isAbsolute():
                 # Use absolute address as displacement
                 self.disp=disp.address
@@ -1116,7 +1118,7 @@ class StorageExt(Storage):
                 raise AssemblerError(line=stmt.lineno,\
                     msg="operand %s (%s) encountered unexpected %s as "
                         "displacement: %s" % (opn,self.name,disp.description()))
-
+            self.laddr=disp
             self.__setNdxLen(self.values[1])
         else:
             cls_str="assembler.py - %s.resolve() -" % self.__class__.__name__
@@ -1344,6 +1346,8 @@ class Stmt(object):
         # Provided by Assembler.__parse() method
         # Output from all syntactical analyzer: Parsed object or DSDC object
         self.oprs=[]               # Possible statement operands from create_types
+        # Output from syntactical analyzer of found operands.  Must be either a list
+        # oof asmparsers.Parsed objects or a scope object from a FSM asmfsmbp parser.
         self.parsed=[]             # Output from syntactical analyzer of found operands
 
         # This list of Operand subclass objects is used by all users of the 
@@ -1498,11 +1502,7 @@ class Stmt(object):
         operands=self.num_oprs()
         present=len(self.parsed)
         error=passes.operands_ok(present)
-        #if self.instu=="SSM":
-        #    print("SSM operands")
-        #    print("  asmpasses operands: %s" % operands)
-        #    print("  stmt operands: %s" % present)
-        #    print("  assmpasses error: %s" % error)
+
         if error:
             min_num=passes.min_operands
             max_num=passes.max_operands
@@ -1784,7 +1784,6 @@ class Assembler(object):
         self.empre=None       # Recognizes empty statements
         self.insre=None       # Recognizes statements without labels
         self.lblre=None       # Recognizes statements with labels
-        #self.titre=None       # Recognizes title in a TITLE directive
         self.sqtre=None       # Recognizes a single quoted string (TITLE, COPY)
         self.mhlre=None       # Recognizes MHELP operand
         self.__init_res()     # Create regular expressions for __classifier() method
@@ -2045,9 +2044,6 @@ class Assembler(object):
             print("Grammar of 'ds' parser:")
             parser.grammar()
             print("")
-
-        self.parsers["mhelp"]=asmparsers.MHELP_Parser()
-        self.parsers["mnote"]=asmparsers.MNOTE_Parser()
         
         # These lexical analyzers are assigned to Assembler class attributes.
         Assembler.lexer=asmfsmbp.AsmLexer(self.dm).init()
@@ -2131,7 +2127,7 @@ class Assembler(object):
     #    DC        "dc"         _dcds_pass1    _dc_pass2
     #    DS        "ds"         _dcds_pass1        --
     #    DSECT     "common"     _dsect_pass1       --
-    #    END       "common"     _end_pass1         --
+    #    END       _spp_end     _end_pass1     _end_pass2
     #    ENTRY     "common"     _entry_pass1   _entry_pass2
     #    EQU       "common"     _equ_pass1         --
     #    <macro>   _spp_invoke      --             --
@@ -2236,8 +2232,8 @@ class Assembler(object):
         # END - terminate the assembly and calculate the address of the entry-point.
         # 
         # [label] END     # no operands
-        self.__define_dir(dset,"END",optional=True,min=1,max=0,\
-            pass1=self._end_pass1)
+        self.__define_dir(dset,"END",spp=self._spp_end,optional=True,\
+            pass1=self._end_pass1,pass2=self._end_pass2)
 
 
         # ENTRY - Define and report an entry-point of the image.
@@ -2969,6 +2965,12 @@ class Assembler(object):
         stmt.ignore=True          # No more processing needed by assembler passes
 
 
+    # Special pre-processing for END directive
+    def _spp_end(self,stmt,debug=False):
+        fsmp=self.fsmp
+        stmt.parsed=fsmp.parse_operands(stmt,"addr",required=False)
+
+
     # Special pre-processor for invoking a macro definition
     # 
     # This method creates the interface between the macro invocation processing
@@ -3015,26 +3017,13 @@ class Assembler(object):
         desc="MHELP %s" % stmt.lineno
         expr=fsmp.L2ArithExpr(desc,stmt,ltoks=scope.lextoks,debug=debug)
         operand=expr.evaluate(None,debug=debug,trace=False)
-        
+
         # Update the mhelp data in the macro manager (asmmacs.MacroLanguage object)
         self.MM.mhelp(operand,debug=debug)
 
 
     # Special pre-processor for MNOTE directive
     def _spp_mnote(self,stmt,debug=False):
-        #parser=self.parsers["mnote"]
-        #operfld=stmt.rem
-        #try:
-        #    parts=parser.parse(operfld)
-        #except SequentialError as se:
-        #    operand=parser.part(se.n)
-        #    raise AssemblerError(line=stmt.lineno,linepos=se.pos+stmt.rempos,\
-        #        msg="MNOTE %s operand not recognized" % operand)
-
-        #sev=parts[0].groups[0]
-        #note=parts[1].groups[0]
-        #info=sev=="*"
-        
         fsmp=self.fsmp
         scope=fsmp.parse_operands(stmt,"mnote",required=True)
         note=scope.message.convert()
@@ -3230,7 +3219,7 @@ class Assembler(object):
             print("%s Created new: %s" % (cls_str,csect))
 
         if self.cur_reg is None:
-            self.__abort(line=stmt.lineno,\
+            self.__abort(line=line,\
                 msg="FATAL ERROR: can not activate CSECT because no active region "
                     "present, START likely missing")
 
@@ -3677,6 +3666,7 @@ class Assembler(object):
 
         # Define the statement's label if present
         self.__label_create(stmt)
+        #print("_dcds_pass1: [%s] content.loc=%s" % (stmt.lineno,stmt.content.loc))
 
     def _dc_pass2(self,stmt,trace=False):
         edebug=self.dm.isdebug("exp")
@@ -3747,13 +3737,25 @@ class Assembler(object):
 
     # END - terminate the assembly and assign the output image to the label
     #       field symbol if present.  Image symbol defaults to IMAGE
-    # 
+    #
     # [label] END     [comments]
     def _end_pass1(self,stmt,trace=False):
         # Create the binary content and assign a label if present in the statement
         self.__new_content(stmt,alignment=0,length=0)
 
         self.LB.end()      #  Tell Line Buffer, no more input
+
+    def _end_pass2(self,stmt,trace=False):
+        scope=stmt.parsed
+        if scope is None:
+            # No entry address, so nothing to do
+            return
+        # Calculate entry address
+        desc="END %s" % stmt.lineno
+        fsmp=self.fsmp
+        expr=fsmp.L2ArithExpr(desc,stmt,ltoks=scope.lextoks)
+        self.entry=entry=expr.evaluate(self,debug=False,trace=trace)
+        stmt.laddr=[None,entry]
 
 
     # ENTRY - Define a reported entry point address
@@ -3848,12 +3850,21 @@ class Assembler(object):
         # Resolve all values in preparation for machine instruction construction:
         # calculate base/displacements, relative immediate, find lengths, etc.
         operands=stmt.operands
+        laddrs=[]
         for ndx in range(len(operands)):
             opr=operands[ndx]
             opr.resolve(self,stmt,ndx,trace=idebug)
-            laddr=opr.laddr
-            if laddr is not None:
-                stmt.laddr.append(laddr)
+            if opr.laddr is not None:
+                laddrs.append(opr.laddr)
+        
+        # Figure out what should go into the ADDR1 and ADDR2 listing fields
+        if len(laddrs)==1:
+            stmt.laddr.append(laddrs[0])
+        elif len(laddrs)>=2:
+            stmt.laddr.append(laddrs[0])
+            stmt.laddr.append(laddrs[-1])
+        else:
+            pass
             
         self.builder.build(stmt,trace=idebug)
 
@@ -4950,7 +4961,6 @@ class AbsAddr(Address):
         super().__init__(typ,rel,section,address,length=length)
 
     def __add__(self,other,rsup=False):
-        #return self._AbsAdd__(other,rsup=rsup)
         typo=self._type(other)    # The other objects type number
                        # I'm an absolute address
         if typo==0:    #    other is an integer
@@ -4964,7 +4974,6 @@ class AbsAddr(Address):
         self.__no_sup("+",other)  
 
     def __sub__(self,other):
-        #return self._AbsSub__(other,rsup=rsup)
         typo=self._type(other)    # The other objects type number
                        # I'm an absolute address
         if typo==0:    #    Other is an integer
@@ -5031,10 +5040,10 @@ class SectAddr(AbsAddr):
         if typo==0:    #    Other is integer
             new_rel=self._ck(self.value-other,self,"-",other)
             return SectAddr(new_rel,self.section)
-        if typo==1:    #    Other is a DSECT displacement
-            new_rel=self._ck(self.value-other.value,self,"-",other)
-            return SectAddr(new_rel,self.section)
-        if typo==2:    #    Other is a relative address
+        #if typo==1:    #    Other is a DSECT displacement
+        #    new_rel=self._ck(self.value-other.value,self,"-",other)
+        #    return SectAddr(new_rel,self.section)
+        if typo==2 or typo==1:    #    Other is a relative address (CSECT or DSECT)
             if self.section!=other.section:
                 self._no_sup("-",other)
             return self.value-other.value
@@ -5423,6 +5432,25 @@ class BaseMgr(object):
         return
 
 #
+#  +---------------------+
+#  |                     |
+#  |   Location Object   |
+#  |                     | 
+#  +---------------------+
+#
+
+# This object represents a location within an object module.  Location objects
+# participate in relocation.  They consist of an anchor address and a positive or
+# negative adjustment.  The amchor address may be a section relative address or an
+# absolute address.  When a section relative address, the section will dictate the
+# ESDID used for the location.  The adjustment is always an integer.
+class Location(object):
+    def __init__(self,anchor,adjustmen=0):
+        self.anchor=anchor          # Location's anchor address
+        self.adjust=adjustment      # Location's adjustment
+
+
+#
 #  +-----------------------------+
 #  |                             |
 #  |   Global Location Counter   |
@@ -5708,8 +5736,8 @@ class Area(Binary):
     # into effect.  This method must only be called after all elements of the area
     # have been appended.
     def fini(self):
-        cls_str="assembler.py - %s.fini() -" % self.__class__.__name__
         if len(self.elements)==0:
+            cls_str=eloc(self,"fini")
             raise ValueError("%s area contains zero Binary elements")
         bin_1st=self.elements[0]
         self._align=bin_1st._align

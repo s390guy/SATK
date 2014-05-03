@@ -77,7 +77,7 @@ class FSMParser(fsm.FSM):
                 done=self.machine(token)
             #print("fsmparser.parse - done: %s" % done)
             if done:
-                break
+                self.lex.stop()
         return self.scope()
      
     # Saves a previously presented token on a pushdown stack

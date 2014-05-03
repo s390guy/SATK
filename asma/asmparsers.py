@@ -184,7 +184,6 @@ import langutil     # Access SATK "Smart Tokens"
 import lexer        # Access SATK language tools lexical analyzer
 import pratt        # Access directly Pratt PTokens
 import translate    # Access the ASCII-to-EBCDIC translation table
-import seqparser    # Access the simple parser
 from   LL1parser import ParserAbort   # Access exception for try statement
 
 # ASMA imports
@@ -1605,7 +1604,7 @@ class Parsed(object):
 
 # Operand subclass used for each DS or DC operand of a DS or DC statement.  The
 # input is what came in from the source text.  Its role for DS and DC statements
-# is the same rola as provided by the Parsed object for other assembler directives and
+# is the same role as provided by the Parsed object for other assembler directives and
 # machine instructions.  The implications of duplication are addressed before this
 # object is released by the parser.  
 class DCDS(object):
@@ -1683,22 +1682,50 @@ class DCDS(object):
                 self.unrolled.append(con)
             return
 
-        # Case 3
+        # Case 3 - this logic is not consistent with legacy mainframe handling.
+        #          although appeared to be the manner in which duplication is
+        #          hangled by modern mainframe assemblers.  This could be the
+        #          result of incorrect reading of the modern mainframe assembler
+        #          manuals.  It is left here as comments in the case it proves 
+        #          useful in the future.
 
         # self.dup is >0 and so is the number of constants.  The duplications
         # factor will drive how many of the constants and which get repeated as
         # physical constants.  There will be exactly the number of physical constants
         # specified by the duplication factor.  As many constants will be repeated
-        # or truncated to provide this number.
-        cndx=0
+        # or truncated to provided by this number.
+        #
+        # Example:   5F'1,0' will become F'1',F'0',F'1',F'0',F'1'
+
+        #cndx=0
+        #for n in range(self.dup):
+        #    con=Constant(self.name,self.constants[cndx],length=self.length)
+        #    if debug:
+        #        print("%s case 3 adding to unrolled:\n    %s" % (cls_str,con))
+        #    self.unrolled.append(con)
+        #    cndx+=1
+        #    if cndx>=cons:
+        #        cndx=0
+                
+        # Case 3 - this logic is consistent with legacy mainframe duplication
+        #          factor handling.
+
+        # self.dup is >0 and so is the number of constants.  The duplication
+        # factor will drive how the constants are repeated as physical constands.
+        # The duplication is straight forward.  For entire set of constants coded
+        # will be duplicated by the duplication factor.  All constants will be
+        # duplicated by the duplication factor resulting in defined constants
+        # multiplied by the duplication factor being created.
+        #
+        # Example:   5F'1,0' will become: F'1,0',F'1,0',F'1,0',F'1,0',F'1,0'
         for n in range(self.dup):
-            con=Constant(self.name,self.constants[cndx],length=self.length)
-            if debug:
-                print("%s case 3 adding to unrolled:\n    %s" % (cls_str,con))
-            self.unrolled.append(con)
-            cndx+=1
-            if cndx>=cons:
-                cndx=0
+            for c in self.constants:
+                con=Constant(self.name,constant=c,length=self.length)
+                if debug:
+                    print("%s case 3 adding to unrolled:\n    %s" % (cls_str,con))
+                self.unrolled.append(con)
+        return
+      
 
 # This class is used as a constant instead of a string for DC constants that
 # have signed values.
@@ -1765,8 +1792,6 @@ class ConsType(object):
     #   debug    The current setting of the 'expr' debug option
     #   trace    The current combined setting of the pass and stmt trace settings.
     def build(self,stmt,ondx,con,length,debug=True,trace=False):
-        # While developing, return a byte list of binary zeros
-        #return b"\xbd" * length  # Return byte list of X'bd' while testing
         cls_str="asmparsers.py - %s.build() -" % self.__class__.__name__
         raise NotImplementedError("%s subclass must provide build() method" % cls_str)
 
@@ -2247,58 +2272,6 @@ class FieldParser(AsmFSMParser):
         gs=self.scope()
         gs.Operation(value)
         return "opnd_spaces"
-
-
-
-#
-#  +------------------------------------------------+
-#  |                                                |
-#  |   Sequential Parsers for Individual Contexts   |
-#  |                                                | 
-#  +------------------------------------------------+
-#
-
-class MHELP_Self_Part(seqparser.Part):
-    def __init__(self,mo,name):
-        super().__init__(mo,name)
-
-    # Extract the self-defining terms value
-    def term(self):
-        string=self.match
-        binary=string[0].upper()
-        binary=binary=="B"
-
-        # The int built-in function may raise an IndexError if the string content
-        # is out-of-range for the base.  This should not happen because the part
-        # string's content has already been validated by the regular expression.
-        if binary:
-            value=string[2:-1]
-            value=int(value,2)
-        else:
-            value=int(string,10)
-        return value
-
-class MHELP_Parser(seqparser.SeqParser):
-    def __init__(self):
-        super().__init__()
-        self.RE("self defining term","[0-9]+|B'[01]+'",cls=MHELP_Self_Part)
-        self.RE("end",opend)
-
-    def mhelp(self,stmt,debug=False):
-        try:
-            parts=self.parse(stmt.rem)
-        except SequentialError as se:
-            partname=self.part(se.n)
-            raise assembler.AssemblerError(line=stmt.lineno,\
-                linepos=se.pos+stmt.rempos,\
-                msg="MHELP unrecognized operand %s" % partname)
-        return parts[0].term()
-
-class MNOTE_Parser(seqparser.SeqParser):
-    def __init__(self):
-        super().__init__()
-        self.RE("severity","([0-9]+|\*)(,)")
-        self.RE("message","('[^']+')( |$)")
 
 
 if __name__ == "__main__":

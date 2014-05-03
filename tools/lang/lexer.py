@@ -637,6 +637,10 @@ class Lexer(object):
         # None of the associated types matches the string
         raise LexerError(pos=pos,line=line,linepos=linepos)
 
+    # Prematurely stops tokenizing iterator without an exception
+    def stop(self):
+        self.stopped=True
+
     # Returns an iterator recognizing tokens in a string.  On each successive
     # iteration the next token is recognized and returned.  This method must be 
     # used within a for statement:

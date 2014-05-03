@@ -130,7 +130,6 @@ class AsmFSMParser(fsmparser.FSMParser):
     # This method returns the default lexical analyzer used by all macro statements.
     # Override this method to utilize a different lexical analyzer.
     def Lexer(self):
-        #return assembler.Assembler.lexer
         return Parsers.lexer
 
 # Base class for AsmFSMParser scopes supporting expressions and compound strings.
@@ -221,7 +220,7 @@ class AsmFSMState(fsmparser.PState):
 #
 # Instance Argument:
 #    ltoken   The lexer.Token object forming the basis for the operand
-#             This object becomes the pratt2.PLit objects src attribute
+#             This object becomes the pratt2.PLit object's src attribute
 class AsmPrattToken(pratt2.PLit):
     def __init__(self,ltoken):
         super().__init__(src=ltoken)
@@ -281,6 +280,39 @@ class LexicalToken(lexer.Token):
 #  +---------------------------------------------+
 #
 
+# This division operator implements the assembler specific behavior of returning
+# a value of zero when division by zero occurs.  Otherwise the pratt2.PFloorDiv
+# object handles the division operation.
+class PAsmDiv(pratt2.PFloorDiv):
+    def __init__(self,src=None):
+        super().__init__(src)
+    # Infix arithmetic operation: left divided by right, ignoring remainder
+    def calc_led(self,parser,left,right,external=None,debug=False,trace=False):
+        if right==0:
+            return 0
+        return super().calc_led(parser,left,right,external=external,\
+            debug=debug,trace=trace)
+
+# This pratt2.PLit subclass accesses the current location counter.  It is used
+# in expressions where the '*' symbol is being used to reference the currne location
+# (as opposed to being the multiplication operator).
+class PLitCur(AsmPrattToken):
+    def __init__(self,token):
+        super().__init__(token)
+    def value(self,external=None,debug=False,trace=False):
+        cur_stmt=self.external.cur_stmt
+        stmt_bin=cur_stmt.content
+        if stmt_bin is None:
+            cur=self.external.cur_loc.retrieve()
+        else:
+            cur=cur_stmt.current()
+        if not isinstance(cur,assembler.Address):
+            cls_str="asmparsers.py - %s.convert() -" % self.__class__.__name__
+            raise ValueError("%s current location of statement %s not an address: %s" \
+                % (cls_str,cur_stmt.lineno,cur))
+        if trace:
+            print("%s.value() v=%s" % (self.__class__.__name__,cur))
+        return cur
 
 # This pratt2.PLit object references to a symbolic symbol's values' K' attribute
 #class PLitKAttr(pratt2.PLit):
@@ -297,6 +329,36 @@ class PLitKAttr(AsmPrattToken):
         if debug:
             print("%s val: %s" % (cls_str,val))
         return val
+
+# This class allows a symbol to be used as a factor within an expression.
+# It retrieves from the symbol table the symbol's value and passes it to
+# the Pratt expression evaluator
+class PLitLabel(AsmPrattToken):
+    def __init__(self,token):
+        super().__init__(token)
+
+    def value(self,external=None,debug=False,trace=False):
+        # external is the Assembler object
+        token=self.src
+        label=token.extract()
+
+        # Note: this method will raise a KeyError excpetion if the symbol
+        # is not found.
+        try:
+            ste=external._getSTE_Ref(label,token.line)
+        except KeyError:
+            raise LableError(label,ltok=self.src,msg="undefined label") from None
+
+        value=ste.value()
+        if isinstance(value,(assembler.SectAddr,assembler.DDisp,assembler.AbsAddr)):
+            value.length=ste.attrGet("L")
+            if trace:
+                print("%s.convert() v=%s,length=%s" \
+                    % (self.__class__.__name__,value,value.length))
+        else:
+            if trace:
+                print("%s.value() v=%s" % (self.__class__.__name__,value))
+        return value
 
 # This pratt2.PLit object references to a symbolic symbol's N' attribute
 #class PLitNAttr(pratt2.PLit):
@@ -421,11 +483,18 @@ class AOperToken(LexicalToken):
     ptokens={"+":pratt2.PAdd,
              "-":pratt2.PSub,
              "*":pratt2.PMul,
-             "/":pratt2.PFloorDiv}
+             "/":PAsmDiv}
     def __init__(self):
         super().__init__()
-    # Returns a pratt2 PToken object with myself as the source
+        # This flag used to trigger current location counter for * instead of multiply
+        # The parser must recognize this condition and set the iscur attribute to
+        # True.
+        self.iscur=False 
+    # Returns a pratt2 PToken object with myself as the sourc
     def ptoken(self):
+        if self.iscur:
+            return PLitCur(self)
+        # Add logic for Current location PToken
         cls=AOperToken.ptokens[self.extract()]
         return cls(src=self)
 
@@ -505,6 +574,8 @@ KEYWORD=KeywordType()
 class LabelToken(LexicalToken):
     def __init__(self):
         super().__init__()
+    def ptoken(self):
+        return PLitLabel(self)
 
 class LabelType(lexer.Type):
     def __init__(self,debug=False):
@@ -512,58 +583,112 @@ class LabelType(lexer.Type):
         
 LABEL=LabelType()
 
-class LogicalToken(LexicalToken):
-    ptokens={"AND":pratt2.PAnd,
-             "OR": pratt2.POr,
-             "XOR":pratt2.PXor}
+class LogGenToken(LexicalToken):
+    bitwise_ops={"AND":pratt2.PBWAnd,
+                 "OR": pratt2.PBWOr,
+                 "XOR":pratt2.PBWXor}
+    logical_ops={"AND":pratt2.PAnd,
+                 "OR": pratt2.POr,
+                 "XOR":pratt2.PXor}
     def __init__(self):
         super().__init__()
 
-    # Override lexer.Token's extract() method
+    # Override lexer.Token's extract() method.  Returns the logical or bit-wise
+    # primary operation from the type regular expression object: AND, OR or XOR.
     def extract(self):
         groups=self.groups()
         return groups[1]
 
     # Returns a pratt2 PToken object with myself as the source
     def ptoken(self):
-        cls=LogicalToken.ptokens[self.extract().upper()]
+        cls=self.ptokens()[self.extract().upper()]
         return cls(src=self)
 
-class LogicalType(lexer.Type):
-    # Groups 0   1         2
-    pattern="(%s)(%s|%s|%s)(%s)" % (spaces,anduc,oruc,xoruc,spaces)
-    def __init__(self,debug=False):
-        super().__init__("LOGICAL",LogicalType.pattern,tcls=LogicalToken,mo=True,\
-            debug=debug)
+    # This method returns a dictionary for selecting the pratt token associated with
+    # the "AND", "OR" and "XOR" operations.
+    def ptokens(self):
+        cls_str=assembler.eloc(self,"ptokens",module=this_module)
+        raise NotImplementedError("%s subclass %s must implement ptokens() method"\
+            % (cls_str,self.__class__.__name__))
 
-LOGICAL=LogicalType()
-
-class LogNotToken(LexicalToken):
-    ptokens={"AND":pratt2.PAnd,
-             "OR": pratt2.POr,
-             "XOR":pratt2.PXor}
+class LogGenNotToken(LogGenToken):
     def __init__(self):
         super().__init__()
 
-    # Override lexer.Token's extract() method
-    def extract(self):
-        groups=self.groups()
-        return groups[1]
-
-    # Returns a pratt2 PToken object with myself as the source
     def ptoken(self):
-        cls=LogicalToken.ptokens[self.extract().upper()]
+        cls=self.ptokens()[self.extract().upper()]
         tok1=cls(src=self)
-        tok2=pratt2.PNot(src=self)
+        tok2=self.ptoken_not()
         return [tok1,tok2]
 
-class LogNotType(lexer.Type):
+    # Returns the pratt Ptoken associated with the "NOT" operation
+    def ptoken_not(self):
+        cls_str=assembler.eloc(self,"ptoken_not",module=this_module)
+        raise NotImplementedError("%s subclass %s must implement ptoken_not() method"\
+            % (cls_str,self.__class__.__name__))
+
+class LogGenType(lexer.Type):
+    # Groups 0   1         2
+    pattern="(%s)(%s|%s|%s)(%s)" % (spaces,anduc,oruc,xoruc,spaces)
+    def __init__(self,tid,tcls,debug=False):
+        super().__init__(tid,LogGenType.pattern,tcls=tcls,mo=True,debug=debug)
+
+class LogGenNotType(lexer.Type):
     # Groups 0   1         2   3   4
     pattern="(%s)(%s|%s|%s)(%s)(%s)(%s)" \
         % (spaces,anduc,oruc,xoruc,spaces,notuc,spaces)
+    def __init__(self,tid,tcls,debug=False):
+        super().__init__(tid,LogGenNotType.pattern,tcls=tcls,mo=True,debug=debug)
+
+class BWOpToken(LogGenToken):
+    def __init__(self):
+        super().__init__()
+    def ptokens(self):
+        return LogGenToken.bitwise_ops
+
+class BWOpType(LogGenType):
     def __init__(self,debug=False):
-        super().__init__("LOGNOT",LogNotType.pattern,tcls=LogNotToken,mo=True,\
-            debug=debug)
+        super().__init__("BWOP",BWOpToken,debug=debug)
+
+BWOP=BWOpType()
+
+class BWNOpToken(LogGenNotToken):
+    def __init__(self):
+        super().__init__()
+    def ptokens(self):
+        return LogGenToken.bitwise_nops
+    def ptoken_not(self):
+        return pratt2.PBWNot(src=self)   
+        
+class BWNOpType(LogGenNotType):
+    def __init__(self,debug=False):
+        super().__init__("BWNOP",BWNOpToken,debug=debug)
+
+BWNOP=BWNOpType()
+
+class LogicalToken(LogGenToken):
+    def __init__(self):
+        super().__init__()
+    def ptokens(self):
+        return LogGenToken.logical_ops
+        
+class LogicalType(LogGenType):
+    def __init__(self,debug=False):
+        super().__init__("LOGICAL",LogicalToken,debug=debug)
+
+LOGICAL=LogicalType()
+
+class LogNotToken(LogGenNotToken):
+    def __init__(self):
+        super().__init__(self)
+    def ptokens():
+        return LogGenToken.logical_ops
+    def ptoken_not(self):
+        return pratt2.PNot(src=self)
+
+class LogNotType(LogGenNotType):
+    def __init__(self,debug=False):
+        super().__init__("LOGNOT",LogNotToken,debug=debug)
 
 LOGNOT=LogNotType()
 
@@ -605,9 +730,15 @@ class NotToken(LexicalToken):
         groups=self.groups()
         return groups[1]
 
-    # Returns a pratt2 PToken object with myself as the source
-    def ptoken(self):
+    def atoken(self):
+        return pratt2.PBWNot(src=self)
+
+    def btoken(self):
         return pratt2.PNot(src=self)
+
+    # Returns a pratt2 PToken object with myself as the source
+    #def ptoken(self):
+    #    return pratt2.PNot(src=self)
 
 class NotType(lexer.Type):
     # Groups 0     1   2
@@ -984,15 +1115,23 @@ class ArithEval(pratt2.PParser):
     def __init__(self):
         super().__init__()
         # Initialize my operator precedence values
-        self.operator(pratt2.PAdd,lbp=10,rbp=100,symbol="+",\
-            isinfix=True,isunary=True)
-        self.operator(pratt2.PFloorDiv,lbp=20,rbp=None,symbol="/",\
+        self.operator(pratt2.PBWNot,lbp=None,rbp=100,symbol="NOT",\
+            isinfix=False,isunary=True)
+        self.operator(pratt2.PFloorDiv,lbp=50,rbp=None,symbol="/",\
             isinfix=True,isunary=False)
-        self.operator(pratt2.PMul,lbp=20,rbp=None,symbol="*",\
+        self.operator(pratt2.PMul,lbp=50,rbp=None,symbol="*",\
             isinfix=True,isunary=False)
-        self.operator(pratt2.PSub,lbp=10,rbp=100,symbol="-",\
+        self.operator(pratt2.PAdd,lbp=40,rbp=100,symbol="+",\
             isinfix=True,isunary=True)
-        # Need to add bit-wise operations and shifts
+        self.operator(pratt2.PSub,lbp=40,rbp=100,symbol="-",\
+            isinfix=True,isunary=True)
+        self.operator(pratt2.PBWAnd,lbp=30,rbp=None,symbol="AND",\
+            isinfix=True,isunary=False)
+        self.operator(pratt2.PBWOr,lbp=30,rbp=None,symbol="OR",\
+            isinfix=True,isunary=False)
+        self.operator(pratt2.PBWXor,lbp=30,rbp=None,symbol="XOR",\
+            isinfix=True,isunary=False)
+        # Need to add bit-wise shifts: SLA, SLL, SRA, SRL
 
 class ArithExpr(pratt2.PExpr):
     evaluator=ArithEval()
@@ -1055,17 +1194,67 @@ class BinaryExpr(pratt2.PExpr):
     def token(self,ptok):
         super().token(ptok)
 
+#
+#  +--------------------------------------+
+#  |                                      |
+#  |   Statement Field Lexical Analyzer   |
+#  |                                      |
+#  +--------------------------------------+
+#
+
+class FieldLexer(lexer.Lexer):
+    def __init__(self,dm):
+        super().__init__()
+        self.dm=dm
+        
+    def init(self):
+        tdebug=self.dm.isdebug("tdebug")
+    
+        lst=[]
+        #lst.append(LPAREN)      # "("
+        #lst.append(RPAREN)      # ")"
+        #lst.append(COMMA)       # ","
+        #lst.append(EQUAL)       # "="
+        #lst.append(LOGNOT)      # " AND NOT ", " OR NOT ", " XOR NOT "
+        #lst.append(LOGICAL)     # " AND ", " OR ", " XOR "
+        #lst.append(COMPARE)     # " EQ ", " NE ", " LT ", " LE ", " GT ", " GE "
+        #lst.append(AOPER)       # "+", "-", "*", "/"
+        #lst.append(NOT)         # "NOT ", " NOT "
+        #lst.append(SDBIN)       # "B'01.."
+        #lst.append(SDCHR)       # "C'x'", "CE'x'", "CA'x'"
+        #lst.append(SDHEX)       # "X'0..F..'"
+        #lst.append(SDDEC)       # "0..9.."
+        #lst.append(NATTR)       # N'&label   # Number attribute reference
+        lst.append(SYMREF)      #*   "&label",   "&label(0..9..)",    "&label(&sub)"
+                                # "K'&label", "K'&label(0..9..)",  "K'&label(&sub)"
+        lst.append(SEQSYM)      #* ".label"
+        lst.append(LABEL)       #* "label"
+        #lst.append(STRING)      # "'x..'"  Includes the empty string
+        lst.append(EOO)         #* " "      One or more spaces
+        lst.append(EOS)         #* end of input string detected by lexer
+        # Because of the options used by the fsmparser.FSMParser class, the lexical
+        # analyzer will also generate the lexer.Unrecognized() token when no 
+        # match is found.
+
+        for typ in lst:
+            typ.setDebug(tdebug)
+            self.type(typ)
+
+        # Display token types if --debug ldebug set in the command line
+        if self.dm.isdebug("ldebug"):
+            self.types()
+
+        return self
+
 
 #
-#  +---------------------------------------+
-#  |                                       |
-#  |   Shared Statement Lexical Analyzer   |
-#  |                                       |
-#  +---------------------------------------+
+#  +-----------------------------------------------+
+#  |                                               |
+#  |   Shared Statement Operand Lexical Analyzer   |
+#  |                                               |
+#  +-----------------------------------------------+
 #
 
-# Leaving this class here (rather than asmparsers) because of the lexical token
-# references.
 class AsmLexer(lexer.Lexer):
     def __init__(self,dm):
         super().__init__()
@@ -1263,6 +1452,142 @@ class FieldParser(AsmFSMParser):
         gs.Operation(value)
         return "opnd_spaces"
 
+    def Lexer(self):
+        return Parsers.flexer
+
+#
+#  +-----------------------------------------+
+#  |                                         |
+#  |   Assembler Address Expression Parser   |
+#  |                                         |
+#  +-----------------------------------------+
+#
+
+class AddressParser(AsmFSMParser):
+    def __init__(self,dm):
+        super().__init__(dm,scope=AddrScope,trace=False)
+
+    # Define my states and action methods.
+    def initialize(self):                                            # Next state
+        init=fsmparser.PState("init")
+        init.action([LABEL,],self.ACT_Add_Base)                      #   adjust     
+        init.error(self.ACT_ExpectedLabel)
+        self.state(init)
+
+        # Initial infix +/- expected
+        adjust=fsmparser.PState("adjust")
+        adjust.action([AOPER,],self.ACT_Add_Adjustment)              #   rh
+        adjust.action([EOO,EOS],self.ACT_End)  # No adjustment, done  
+        adjust.error(self.ACT_ExpectedAdjustment)
+        self.state(adjust)
+        
+        # State after an infix operator
+        rh=fsmparser.PState("rh")
+        rh.action([LPAREN,],self.ACT_LPAREN)                          #  rh
+        rh.action([LABEL,SDBIN,SDHEX,SDCHR,SDDEC],self.ACT_Add_RHand) #  infix
+        rh.action([AOPER,],self.ACT_Add_Unary)                    #  +/-=rh, *=infix
+        rh.error(self.ACT_ExpectedOperand)
+        self.state(rh)
+
+        # Expecting an infix operator
+        infix=fsmparser.PState("infix")
+        infix.action([AOPER],self.ACT_Add_Infix)                      # rh
+        infix.action([RPAREN,],self.ACT_RPAREN)                       # infix
+        infix.action([EOO,EOS],self.ACT_End)    # no more, done
+        infix.error(self.ACT_ExpectedOperator)
+        self.state(infix)
+
+    def ACT_Add_Adjustment(self,value,state,trace=False):
+        if value.string in "+-":
+            gs=self.scope()
+            gs.token(value)
+            return "rh"
+        self.ACT_Expected("plus or minus address adjustment",value)
+        
+    def ACT_Add_Base(self,value,state,trace=False):
+        gs=self.scope()
+        gs.token(value)
+        # Remember the base address token so its label is remembered for a possible
+        # Location object
+        gs.anchor=value
+        return "adjust"
+
+    def ACT_Add_Infix(self,value,state,trace=False):
+        gs=self.scope()
+        gs.token(value)
+        return "rh"
+
+    def ACT_Add_RHand(self,value,state,trace=False):
+        gs=self.scope()
+        gs.token(value)
+        return "infix"
+
+    def ACT_Add_Unary(self,value,state,trace=False):
+        if value.string in "+-":
+            gs=self.scope()
+            gs.token(value)
+            return "rh"
+        elif value.string=="*":
+            value.iscur=True       # Make sure the correct pratt token is generated
+            gs.token(value)
+            return "infix"
+        else:
+            self.ACT_Expected("unary operator or current location counter",value)
+
+    def ACT_End(self,value,state,trace=False):
+        gs=self.scope()
+        gs.ck_parens(value)
+        lextoks=gs.expr_end()
+        gs.lextoks=lextoks
+        if len(lextoks)>1:
+            self.adjust=lextoks[1:]
+        state.atend()
+
+    def ACT_ExpectedAdjustment(self,value,state,trace=False):
+        self.ACT_Expected("plus/minus address adjustment",value)
+
+    def ACT_ExpectedExpr(self,value,state,trace=False):
+        self.ACT_Expected("arithmetic operation or valid arithemtic operand",value)
+        
+    def ACT_ExpectedLabel(self,value,state,trace=False):
+        self.ACT_Expected("initial address label",value)
+
+    def ACT_ExpectedOperand(self,value,state,trace=False):
+        self.ACT_Expected("address, self-defining term, or left parenthesis",value)
+     
+    def ACT_ExpectedOperator(self,value,state,trace=False):
+        self.ACT_Expected("infix operator",value)
+
+    def ACT_LPAREN(self,value,state,trace=False):
+        gs=self.scope()
+        gs.lparen(value)
+        return "rh"
+
+    def ACT_RPAREN(self,value,state,trace=False):
+        gs=self.scope()
+        gs.rparen(value)
+        return "infix"
+
+# Shared between AddressParser, ArithParser, MHELPParser and SPACEParser
+class AddrScope(AsmFSMScope):
+    def __init__(self):
+        super().__init__()
+    def __str__(self):
+        string="%s():" % self.__class__.__name__
+        for tok in self.lextoks:
+            string="%s\n    %s" % (string,tok)
+        return string
+    def init(self):
+        super().init()
+        self.parens=0          # Used to check for balanced parenthesis
+
+        # These two attributes are relavant for a potential Location object
+        # Note: ultimately only Location objects might result from address arithmetic
+        self.anchor=None
+        self.adjust=[]
+        # This attribute is relavant for an address calculation.
+        self.lextoks=[]
+
 
 #
 #  +----------------------------------------+
@@ -1355,7 +1680,7 @@ class MHELPParser(ArithParser):
 #  +------------------------------------+
 #
 
-# The MHELP parser is nothing more than an ArithParser with a subset of the tokens
+# The SPACE parser is nothing more than an ArithParser with a subset of the tokens
 # accepted by the ArithParser.  It will return an instance of AScope.
 class SPACEParser(ArithParser):
     def __init__(self,dm):
@@ -2630,19 +2955,24 @@ class SymRefSearch(seqparser.SeqSearch):
 #
 
 class Parsers(object):
-    lexer=None
-    plexer=None
+    # Established by __init_lexers() method
+    lexer=None    # Lexical analyzer used by the shared operand recognizer
+    flexer=None   # Lexical analyzer used by the generic statement field recognizer
+    plexer=None   # Lexical analyzer used by the macro parameter recognizer
+    # Established by __init_parsers() method
     sdterm=None   # Self-defining term recognizer used by ArithEval.sdterm()
     def __init__(self,asm):
         self.asm=asm      # The assembler object
         self.parsers={}   # Dictionary of parsers by name (see init() method)
         self.lexers={}    # Dictionary of lexers (see __init_lexers() method)
-        
+
     def __init_lexers(self,dm):
         self.lexers["lexer"]=Parsers.lexer=AsmLexer(dm).init()
+        self.lexers["flexer"]=Parsers.flexer=FieldLexer(dm).init()
         self.lexers["plexer"]=Parsers.plexer=ParameterLexer(dm).init()
 
     def __init_parsers(self,dm):
+        self.parsers["addr"]=AddressParser(dm)
         self.parsers["fields"]=FieldParser(dm)
         self.parsers["mhelp"]=MHELPParser(dm)
         self.parsers["aif"]=AIFParser(dm)
@@ -2664,7 +2994,7 @@ class Parsers(object):
         except KeyError:
             cls_str=assembler.eloc(self,"__parse",module=this_module)
             raise ValueError("%s undefined parser: '%s'" % (cls_str,parser))
-            
+
         # This may raise an AsmParserError that should be caught by the caller.
         return fsmp.parse(string,scope=scope)
 
@@ -2673,7 +3003,7 @@ class Parsers(object):
         self.__init_lexers(dm)
         self.__init_parsers(dm)
         return self
-        
+
     # Creates a asmfsmbp.ArithExpr object from a list of lexical token objects
     def L2ArithExpr(self,desc,stmt,ltoks=[],debug=False):
         lineno=stmt.lineno
@@ -2697,7 +3027,7 @@ class Parsers(object):
         lineno=stmt.lineno
         source=stmt.source
         operpos=stmt.fields.operpos
-        
+
         # Note: for some unexplained reason, if left to default, tokens picks up
         # the list from the previous expr.  Force the argument to be empty
         expr=BinaryExpr(desc,lineno,tokens=[])
@@ -2752,7 +3082,7 @@ class Parsers(object):
         except AsmParserError as ape:
             raise assembler.AssemblerError(source=stmt.source,line=stmt.lineno,\
                 linepos=ape.token.linepos+flds.operpos+1,msg=ape.msg) from None
-    
+
     # Perform a parse using the supplied FSM-based parser on entire statement
     # Method arguments:
     #   stmt      An assembler.Stmt object

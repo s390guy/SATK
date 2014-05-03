@@ -112,114 +112,6 @@ class MacroError(Exception):
 
 
 #
-#  +-------------------------------+
-#  |                               |
-#  |   Statment Field Recognizer   |
-#  |                               | 
-#  +-------------------------------+
-#
-
-# This class isolates the name, operation and operand/comment fields
-class StmtFields(object):
-    def __init__(self):
-        # Text from which fields were identified
-        self.text=None      # Input text
-        self.source=None    # assembler.Source object related to input
-        # Comment statement information 
-        self.comment=False  # True if a comment statement
-        self.silent=False   # True if _also_ a silent comment
-        
-        # Name field type information.  All values will be False if omitted
-        self.name_ltok=None # The lexical token associated with the name
-        self.label=False    # True if the present name is a location label
-        self.sequence=False # True if the present name is a sequence symbol
-        self.symbol=False   # True if the present name is a variable symbol
-        # Set based upon the type of name field
-        self.name=None      # The name field if a label or sequence symbol is present
-        self.symid=None     # SymbolID object of a symbolic variable symbol
-        
-        # Operation Field
-        self.oper_ltok=None # Operation field lexical token
-        self.operation=None # Operation field from statement
-        self.opuc=None      # Operation in upper case
-        self.oppos=None     # Position in line of operation
-        
-        # Operand and comment field
-        self.operands=None  # Operand and comment fields if present
-        self.operpos=None   # Operand starting position in statement
-        
-    def __str__(self):
-        if self.comment:
-            return "%s: comment silent=%s" % (self.__class__.__name__,self.silent)
-
-        if self.sequence or self.label:
-            name="'%s'" % self.name
-        elif self.symbol:
-            name="%s" % self.symid
-        else:
-            name="None"
-
-        return "%s: name=%s, operation='%s' operands='%s'" \
-            % (self.__class__.__name__,name,self.opuc,self.operands)
-
-    # Recognize individual statement fields
-    def parse(self,stmt,debug=False):
-        if debug:
-            cls_str=assembler.eloc(self,"parse",module=this_module)
-        line=stmt.line
-        self.comment=line.comment
-        self.silent=line.silent
-        self.text=line.text
-        self.source=line.source
-        
-        # Do not parse comment lines
-        if line.comment:
-            return
-        
-        # May raise AssemblerError 
-        # Note: This object is its own FSM parser scope object.
-        assembler.Assembler.fields.parse(self.text,scope=self)
-        
-        # Update various attributes after successful recognition.
-        if self.name_ltok is not None:
-            self.name_ltok.update(stmt,0,source=stmt.source)
-            if self.symbol:
-                self.symid=self.name_ltok.SymID()
-        if self.oper_ltok is not None:
-            self.oper_ltok.update(stmt,0,source=stmt.source)
-            self.oppos=self.oper_ltok.beg
-
-    # Set the name field information for a sequence symbol from a lexer.Token object
-    def NameLabel(self,ltoken):
-        self.name_ltok=ltoken
-        self.name=ltoken.string
-        self.label=True
-
-    # Set the name field information for a sequence symbol from a lexer.Token object
-    def NameSeq(self,ltoken):
-        self.name_ltok=ltoken
-        self.name=ltoken.string
-        self.sequence=True
-
-    # Set the name field information for a symbolic variable with optional subscript
-    def NameSym(self,ltoken):
-        self.name_ltok=ltoken
-        self.symbol=True
-
-    # Extract the operand and commment fields from the input text
-    def Operands(self,ltoken):
-        self.operpos=ltoken.beg
-        self.operands=self.text[self.operpos:]
-        
-    # Set the operation field information from a lexical token
-    def Operation(self,ltoken):
-        self.oper_ltok=ltoken
-        string=ltoken.string
-        self.operation=string
-        self.opuc=string.upper()
-        
-
-#
 #  +----------------------------+
 #  |                            |
 #  |   Macro Defining Classes   |
@@ -2507,8 +2399,8 @@ class MacroLanguage(object):
             return False
 
         # Within a macro definition so we now process statement fields for a macro
-        flds=StmtFields()
-        flds.parse(stmt,debug=debug)
+        flds=assembler.StmtFields()
+        flds.parse(self.asm,stmt,debug=debug)
 
         if ddebug:
             print("%s %s" % (cls_str,flds))
