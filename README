@@ -1,17 +1,17 @@
-                      SATK - Stand-alone Tool Kit
+                           SATK - Stand-alone Tool Kit
 
 Copyright (C) 2012,2013 Harold Grovesteen                     
-                      
+
 SATK is intended to assist in the development of stand-alone, or baremetal, programs 
-on mainframe compatible systems using the GNU assembler, as.  While targeting the 
-Hercules emulator, nothing precludes its use with "big-iron" real or virtual 
-environments.
+on mainframe compatible systems.  While targeting the Hercules emulator, nothing
+precludes its use with "big-iron" real or virtual environments.
 
 The following directories are provided:
+    asma            - A Small Mainframe Assembler for stand-alone programs.
     doc             - Various related documentation including other 'README' files.
     doc/iplelf      - Documentation related to the IPL ELF Supplement and SATK 
                       support.
-    lib             - Linker scripts
+    lib             - GNU ld linker scripts
     samples         - Various IPL related samples
     src             - source code for use in stand-alone programs.
     src/drivers     - Device drivers - very experimental, do not recommend use
@@ -23,6 +23,7 @@ The following directories are provided:
     tools           - Python and bash tools for use with SATK.
     tools/ipl       - IPL ELF Media Preparation Processor, iplmed.py, and related 
                       tools: ipldpp.py, media.py
+    xforth          - Forth language cross-compiler framework
 
 This file is part of SATK.
 
@@ -38,7 +39,21 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with SATK.  If not, see <http://www.gnu.org/licenses/>.
-                      
+
+LICENSING
+---------
+
+Unless otherwise indicated SATK is licensed under the GNU General Public License
+version 3 or later.  The license can be found in the file COPYING in the project root
+directory.  Documentation is licensed under the GNU Free Documentation License
+version 1.3 and can be found in the file fdl-1.3.txt in the doc directory.
+
+The directory xforth is licensed under the Simplified BSD License containing
+modifications to a package using this licensing.  The Simplified BSD License can be
+found in the file LICENSE.txt in the xforth directory.  The file forth_words.py in
+the xforth directory contains public domain software.  See the xforth file forth.py
+for details of the original package on which this directory is based.
+
 Contact the author, Harold Grovesteen, on the hercules-390 Yahoo group or at
 Harold Grovesteen
 2003 Winter Sunday Way
