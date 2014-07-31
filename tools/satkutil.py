@@ -441,6 +441,47 @@ class PathMgr(object):
         for v in vars:
             self.path(v)
 
+    # Returns a list of file names in the path files with the specified extension.
+    # File names are not absolute.  ropen() method required to access the file.
+    #
+    # Method argument:
+    #   variable    Environment variable string
+    #   ext         Selects files with this extension.  If ommitted, all files returned
+    #               The ext string must contain the initial "." to match
+    def files(self,variable,ext=None,debug=False):
+        if not isinstance(variable,str):
+            clsstr="satkutil.py - %s.path() -" % self.__class__.__name
+            raise ValueError("%s 'variable' argument must be a string: %s" \
+                % (clsstr,variable))
+
+        fdebug=debug or self.debug
+        try:
+            pathlist=self.paths[variable]
+        except KeyError:
+            pathlist=None
+            if ldebug:
+                clsstr="satkutil.py - %s.files() -" % (self.__class__.__name__)
+                print("%s 'variable' argument not a defined path: '%s'" \
+                    % (clsstr,variable))
+        files=[]
+        for d in pathlist:
+            entries=os.listdir(d)
+            for x in entries:
+                if len(x)<1 or x[0]==".":
+                    # Ignore hidden files
+                    continue
+                path=os.path.join(d,x)
+                if not os.path.isdir(path):
+                    # assume a file
+                    if ext is not None:
+                        fileroot,extension=os.path.splitext(path)
+                        if extension!=ext:
+                            continue
+                    if x not in files:
+                        files.append(x)
+        return files
+        
+
     # Registers an environment variable to be used for file search paths by the
     # application.
     #

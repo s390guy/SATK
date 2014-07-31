@@ -161,6 +161,7 @@ def parse_args(dm):
         help="input assembler source file path",nargs=1)
 
     # Override MSL maximum address size
+    # May be specified in a local configuration
     parser.add_argument("-a","--addr",type=int,choices=[16,24,31,64],\
         help="override target CPU maximum address size in listing")
 
@@ -169,10 +170,12 @@ def parse_args(dm):
         help="MSL database target cpu, for example, '2025'")
 
     # Dump the completed CSECT's, region's and image
+    # May be specified in a local configuration
     parser.add_argument("-d","--dump",action="store_true",default=False,\
         help="listing provides the image content in storage dump format")
 
     # Specify error handling level
+    # May be specified in a local configuration
     parser.add_argument("-e","--error",type=int,choices=[0,1,2],default=2,\
         help="specify error handling level")
 
@@ -180,7 +183,7 @@ def parse_args(dm):
     parser.add_argument("-g","--gldipl",
         help="directory containing list directed IPL files")
 
-    # Machine Specification Language database source file
+    # Path and filename of the written binary image file
     parser.add_argument("-i","--image",
         help="binary image file containing content")
 
@@ -193,6 +196,7 @@ def parse_args(dm):
         help="path to MSL database source file")
 
     # Maximum depth of nested input sources.
+    # May be specified in a local configuration
     nest_default=20
     parser.add_argument("-n","--nest",type=int,default=nest_default,
         help="maximum depth of nested input sources (default %s)" % nest_default)
@@ -222,11 +226,17 @@ def parse_args(dm):
     parser.add_argument("-w","--ccw",choices=["0","1","none"],
         help="set the initial XMODE CCW format (none disables the CCW directive)")
 
+    # Define the local default specification
+    parser.add_argument("--config",default="default",\
+        help="identify the local configuration, if not specified standard defaults "
+            "apply")
+
     # Specify the code page file
     parser.add_argument("--cpfile",
         help="specify the code page source file to be used")
-    
+
     # Specify the code page translation definition to be used
+    # May be specified in a local configuration
     parser.add_argument("--cptrans",default="94C",
         help="specify the code page translation (defaults to '94C')")
 
@@ -238,6 +248,8 @@ def parse_args(dm):
     parser.add_argument("--pas",action="append",type=int,default=[],\
         help="indicate by number a pass to be traced (may be used multiple times)")
 
+    # Enable statistics reporting
+    # May be specified in a local configuration
     parser.add_argument("--stats",action="store_true",default=False,\
         help="enables statististics reporting")
 

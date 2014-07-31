@@ -74,6 +74,7 @@ from satkutil import method_name       # Access the method names in method objec
 import pratt2                 # Access a number of expression evalutor objects
 
 # ASMA imports:
+import asmcards               # Access the continuation support
 import asminput               # Access the input manager for macro expansions
 import asmfsmbp               # Access the finite-state machine parsers
 import assembler              # Access the assembler for AsmPasses generation
@@ -2399,8 +2400,19 @@ class MacroLanguage(object):
             return False
 
         # Within a macro definition so we now process statement fields for a macro
+        # This is essentially the same as assembler.__classifier()
         flds=assembler.StmtFields()
         flds.parse(self.asm,stmt,debug=debug)
+        stmt.classified()
+
+        # This is the same as assembler.__continuation()
+        # Needs to be updated for alternate continuation conventions.
+        try:
+            flds.normal(stmt.line)
+        except asmcards.LineError as le:
+            raise AssmeblerError(source=le.source,line=stmt.lineno,msg=le.msg) \
+                from None
+        stmt.continuation()
 
         if ddebug:
             print("%s %s" % (cls_str,flds))

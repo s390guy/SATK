@@ -409,6 +409,125 @@ class Listing(object):
     def title(self):
         cls_str="%s - %s.init() -" % (this_module,self.__class__.__name__)
         raise NotImplementedError("%s subclass must provide title() method" % cls_str)
+        
+
+# This object is used in conjunction with the Listing Manager to allow multiple lines
+# to be generated and returned individually to the manager object.
+#
+# When the buffer is empty it will call a user supplied bound method to retrieve
+# more lines.  The method must support one argumet, this object.  When a line
+# is generated, the method should call this object's more() method to buffer the
+# data.  If no additional report lines are required, the method should simply return
+# without calling the more() method.
+#
+# The user supplied more method must do one of the following:
+#   1. Supply one or more lines via the Multline.more() method.  The same method
+#      will be called the next time the buffer is empty.
+#   2. Supply one or more lines and terminate the listing with 
+#      Multline.more(done=True).
+#   3. Change to another more method by calling Multiline.details(method).
+#   4. Return without adding lines to the listing and thereby ending the listing.
+#
+# A more method that returns lines using option one but really expects to be
+# called only once will result in a infinite loop.
+#
+# Instance Argument:
+#   more  Specifies a method for generating more detail lines when more lines are
+#         needed.  Required.
+class Multiline(object):
+    def __init__(self, details):
+        self._more=details   # Method called when buffer needs more lines
+        self._in_more=False
+        self._done=False     # Force end when buffer empty.  DO NOT CALL more()!
+        
+        # More than one detail line may be created.  The following list is used to 
+        # buffer such details lines until requested by the detail() method.
+        self._buffer=[]
+    
+    # Return a detail line from the buffer.
+    # An IndexError indicates the buffer is empty
+    def _pop(self):
+        det=self._buffer[0]
+        del self._buffer[0]
+        return det
+
+    # Provide a detail line to the buffer.
+    def _push(self,lines,trace=False):
+        if trace:
+            cls_str="asmlist.py %s._push() -" % self.__class__.__name__
+            print("%s push(%s)" % (cls_str,lines))
+        if isinstance(lines,list):
+            for n in lines:
+                if not isinstance(n,str):
+                    cls_str="%s %s.push() -" % (this_module,self.__class__.__name__)
+                    raise ValueError("%s detail buffer must only contain strings: %s" \
+                        % (cls_str,n.__class__.__name__))
+                self._buffer.append(n)
+            if trace:
+                print("%s push list\n    %s" % (cls_str,self._buffer))
+        else:
+            if not isinstance(lines,str):
+                cls_str="%s %s._push() -" % (this_module,self.__class__.__name__)
+                raise ValueError("%s detail buffer must only contains strings: %s" \
+                    % (cls_str,lines.__class__.__name__))
+            self._buffer.append(lines)
+            if trace:
+                print("%s push string\n    %s" % (cls_str,self._buffer))
+
+    # Return a detail line from the buffer generating more lines when needed
+    # This is used strictly within the user's own detail() method when responding
+    # to the Listing Manager's request for a detail line.
+    def detail(self, trace=False):
+        if self._in_more:
+            raise NotImplementedError("detail() method must not be called while "
+                "in 'more()' method")
+        if trace:
+            cls_str="%s - %s.detail() -" % (this_module,self.__class__.__name__)
+
+        # Normally, the while ends by returning a line from the buffer
+        # If it does not, the self._cont is inspected to see if a new more() method
+        # has been registered and we need to see if it provides any new input.  If
+        # this second attempt fails to generate data in the input buffer, None is
+        # returned to indicate the listing is complete.
+        while True:
+            if len(self._buffer)==0:
+                if self._done:
+                    break
+                else:
+                    self._in_more=True
+                    self._more(self)
+                    self._in_more=False
+            try:
+                det=self._pop()
+                if trace:
+                    print("%s detail: '%s'" % (cls_str,det))
+                return det
+            except IndexError:
+                if self._cont:
+                    self._cont=False
+                    continue
+                # Buffer is still empty after previous attempt to fill it, so we are 
+                # really done.  return None
+                return None
+        return None
+
+    # Change the more lines method
+    # Method Argument
+    #   detail   The new 'more()' method returning detail lines
+    #   cont     If True, retry with the new method for more lines.  Default is True.
+    def details(self, detail,cont=True):
+        self._more=detail
+        self._cont=cont
+
+    # Add one or more detail lines to the buffer for report creation.
+    # Method Arguments:
+    #   lines    One or more lines to be added to the listing
+    #   done     If True, the user's 'more()' method is not called again, ending the
+    #            listing.
+    def more(self, lines,done=False):
+        self._push(lines)
+        self._done=done
+        
 
 if __name__ == "__main__":
     raise NotImplementedError("listing.py - intended for import use only")

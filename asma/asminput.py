@@ -29,6 +29,7 @@ import os.path       # Access path tools by FileBuffer class
 import satkutil      # Access the path manager
 
 # ASMA imports:
+import asmcards      # Logical line continuation handler
 import asmmacs       # Access macro facilities
 import assembler     # Access assembler exceptions
 
@@ -124,15 +125,21 @@ class InputSource(object):
 # Instance Arguments:
 #    typ        Type of input source. Always 'F' supplied by LineBuffer
 #    filename   A file name is the source id for a FileSource
+#    legacy     Specify True to use legacy line continuation conventions.
+#               Specify False to use stream line continuation conventions.
 class FileSource(InputSource):
-    def __init__(self,typ,filename,stmtno=None):
+    def __init__(self,typ,filename,stmtno=None,srcno=None,legacy=False):
         super().__init__(typ,filename,stmtno=stmtno)
         self.rname=filename       # Text input file relative path or absolute path
+        self.legacy=legacy        # True if legacy line contuation in use.
+        self.fileno=srcno         # File number of this source
         self.fname=None           # Text absolute path from search path.
-        self.eof=False            # Flag set at end-of-file
+        self.eof=False            # Flag set at physical end-of-file
+        self.leof=False           # Flas set when at logical end-of-file
         self.fo=None              # Python file object
         self.lineno=None          # File line number
-        self.fileno=None          # File number of this source
+        self.legacy=legacy        
+        self.handler=asmcards.InputHandler()  # line continuation handler
 
     def fini(self):
         if self.fo is None:
@@ -152,27 +159,39 @@ class FileSource(InputSource):
             raise ValueError("%s file object not created for file: %s" \
                 % (cls_str,self.fname))
         if self.eof:
-            cls_str=assembler.eloc(self,"getLine")
-            raise ValueError("%s text file already at end-of-file: %s" \
-                % (cls_str,self.fname))
+            if self.leof:
+                cls_str=assembler.eloc(self,"getLine")
+                raise ValueError("%s text file already at end-of-file: %s" \
+                    % (cls_str,self.fname))
+            else:
+                raise SourceEmpty()
 
         # Read a single line with universal newlines
-        try:
-            line=self.fo.readline()
-        except OSError:
-            raise SourceError("could not read from text file: %s" % self.fname) \
-                from None
+        line=None
+        while line is None:
+            try:
+                inline=self.fo.readline()
+            except OSError:
+                raise SourceError("could not read from text file: %s" % self.fname) \
+                    from None
+                    
+            if len(inline)==0:
+                self.eof=True
+                line=self.handler.end()
+                
+                if line is None:
+                    self.leof=True
+                    raise SourceEmpty()
+            else:
+                self.lineno+=1
+                line=self.handler.text(inline,\
+                    source=Source(lineno=self.lineno,fileno=self.fileno))
+                #print("line: %s" % line)
 
-        # Test for normal end-of-file
-        if len(line)==0:
-            self.eof=True       # Remember the file is at end-of-file
-            raise SourceEmpty() # Tell LineBuffer object that this source is exhausted.
-
-        # Remove universal line end.  Assembler only wants the character text
-        if line[-1]=="\n":
-            line=line[:-1]
-        self.lineno+=1
-        ln=Line(line,source=Source(lineno=self.lineno,fileno=1))
+        # The line variable now contains an unvalidated logical line from which
+        # actual active content has not been consolided by either the normal()
+        # or stream() continuation conventions.
+        ln=Line(line)
         return ln
 
     def init(self,pathmgr=None):
@@ -187,6 +206,7 @@ class FileSource(InputSource):
                 from None
 
         self.lineno=0
+        self.handler.begin(legacy=self.legacy)
 
 # This is the base class for a source that injects lines into the input stream during
 # execution of the assembler.
@@ -264,12 +284,20 @@ class MacroSource(InputSource):
 
         if line is None:
             raise SourceEmpty() # Tell LineBuffer object that this source is exhausted.
-        return Line(line,macro=True)
+        # Create logincal input line
+        # Create a raw stream input "card".
+        raw=asmcards.StreamRaw(line,None,stream="")
+        logline=asmcards.LogLineString(raw)
+        return Line(logline,macro=True)
 
 
 # This class associates source information of a line with the text itself.
 class Line(object):
     def __init__(self,line,lineno=None,source=None,typ="X",macro=False):
+        if not isinstance(line,asmcards.LogLine):
+            cls_str=assembler.eloc(self,"__init__",module=this_module)
+            raise ValueError("%s 'line' argument must be an instance of "
+                "asmcards.LogLine: %s" % (cls_str,line))
         if source is not None and not isinstance(source,Source):
             cls_str=assembler.eloc(self,"__init__",module=this_module)
             raise ValueError("%s 'source' argument must be an instance of Source: %s" \
@@ -283,39 +311,49 @@ class Line(object):
         #   'X' --> This is a normal input line and must be expanded by the current
         #           asmmacs.Expander object
         self.typ=typ         # Line type
+        self.logline=line    # asmcards.LogLine object
 
-        self.text=line       # Source line of text
+        # THIS ATTRIBUTE IS USED FOR LISTING SOURCE CONTENT
+        self.text=None       # Text of logical line of text
+        
         self.lineno=lineno   # Global line number (The statement number in the listing)
         self.source=source   # Input source information
         self.psource=None    # This is used for printing source lines
-        
+
         # Macro related information
         self.macro=macro     # If True, this line is a macro generated line
         self.merror=None     # MacroError exception if expansion failed
+
+        self.comment=line.comment   # If True this is a comment statement
+        self.silent=line.silent     # If comment and True, it is a silent comment
+        self.empty=line.empty       # True if line is empty or all spaces
+        
+        # Validate the logical line.  LineError exceptions caught and reraised as
+        # assembler errors which must be handled by Stmt instantiator
+        self.validate()
         
         # Early comment and empty line detection
-        self.comment=False   # If True this is a comment statement
-        self.silent=False    # If comment and this is True, it is a silent comment
-        self.empty=False     # True if line is empty or all spaces
-        self.__comment()     # Detect if line is a comment
+        if self.empty:
+            self.text=""
 
     def __str__(self):
         string="%s" % self.source
         if len(string)>0:
             string="%s " % string
         return "%s %s %s" % (string,self.typ,self.text)
-        
-    def __comment(self):
-        # Detect silent comment
-        if len(self.text)>=2 and self.text[:2]==".*":
-            self.comment=True
-            self.silent=True
-            return
-        # Detect loud comment
-        if len(self.text)>=1 and self.text[0]=="*":
-            self.comment=True
-        if len(self.text.strip())==0:
-            self.empty=True
+
+    # Return the first raw line of the logical line for statement classification
+    def first(self):
+        return self.logline.first()
+
+    # Perform normal continuation conventions on logical lines raw input.
+    def normal(self):
+        logline=self.logline
+        logline.normal()
+        self.text=logline.line
+        self.empty=logline.empty
+        if self.text is None:
+            print("Line.normal(): logline: %s" % (logline))
 
     # Returns the size of the prefix location information before printing
     def prefix(self):
@@ -337,6 +375,17 @@ class Line(object):
     # Sets the external globally unique line number used in listings.
     def setLineNo(self,n):
         self.lineno=n
+
+    # Validate the Logical Line object.
+    def validate(self):
+        logline=self.logline
+        try:
+            logline.validate()
+        except asmcards.LineError as le:
+            raise assembler.AssemblerError(source=le.source,line=self.lineno,\
+                msg=le.msg) from None
+        if self.comment:
+            self.text=logline.line
 
 # This class buffers input lines in a LIFO stack of input sources.
 #

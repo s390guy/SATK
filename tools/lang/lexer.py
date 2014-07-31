@@ -473,6 +473,8 @@ class Lexer(object):
         # Values maintained while acting as an iterator
         self._reset()   # Initialize the attributes
         
+        #self.end_debug=0
+        
     # Return to the for statement the class that provides the iterator __next__()
     # method.  In this case this Lexer instance itself provides the method.
     def __iter__(self):
@@ -502,8 +504,9 @@ class Lexer(object):
                 self.stopped=True
                 #self._reset()
                 raise StopIteration
-            self.recognizer()
-            
+            else:    
+               self.recognizer()
+
     def _accept(self,lst,tok):
         if self.lines and not isinstance(tok,Unrecognized):
             if tok.eols:

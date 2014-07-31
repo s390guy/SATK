@@ -407,6 +407,7 @@ class AsmListing(Listing):
                     # If a generated macro statement and PRINT NOGEN, ignore 
                     continue
                 line=self.part1_details(stmt)
+                #print("line: [%s] %s\n    %s" % (stmt.lineno,len(line),line))
                 # Note: line may be one detail line or a list of detail lines
                 self.push(line)
                 return
@@ -582,10 +583,11 @@ class AsmListing(Listing):
             details.append(detail)
 
         if stmt.error:
+            #print("source: [%s] '%s'" % (stmt.lineno,source))
             for ae in stmt.aes:
                 spaces=" " * self.addrlen
                 error_line="%s  ** %s" % (spaces,ae)
-                self.details.append(error_line)
+                details.append(error_line)
 
         return details
 
@@ -1299,8 +1301,8 @@ class AsmListing(Listing):
     # Provide a detail line to the buffer.
     def push(self,lines,trace=False):
         if trace:
-            cls_str="asmlist.py %s.push() -" % self.__class__.__name
-            print("%s push(%s)" % lines)
+            cls_str="asmlist.py %s.push() -" % self.__class__.__name__
+            print("%s push(%s)" % (cls_str,lines))
         if isinstance(lines,list):
             for n in lines:
                 if not isinstance(n,str):

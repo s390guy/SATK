@@ -213,13 +213,13 @@ class AsmStats(object):
     # exiting completely.
     def report(self):
         stmts=self.stmts
-        total="Total statements: %s" % stmts
+        total="\nTotal statements: %s\n" % stmts
 
         wt=self.report_time("wall")
         pt=self.report_time("process")
  
         assembly=self.report_time("assemble_w")
-        string=  "\nWall Clock    percent   seconds"
+        string="%s\nWall Clock    percent   seconds" % total
         string="%s\n  total       %s" % (string,self.__format(wt,time=wt))
         string="%s\n    import    %s" % (string,self.__format(wt,timer="import_w"))
         string="%s\n    objects   %s" % (string,self.__format(wt,timer="objects_w"))
@@ -486,6 +486,7 @@ label="[a-zA-Z%s][a-zA-Z0-9%s]*" % (char,char)
 
 # ASMA imports (do not change the sequence)
 import asmbin       # Access binary output generator
+import asmcards     # Access the line continuation handler
 import asminput     # Access the input handler for the assembler
 import asmlist      # Access the assembler listing generator
 import asmmacs      # Access the macro framework
@@ -1178,7 +1179,8 @@ class StmtFields(object):
         # Comment statement information 
         self.comment=False  # True if a comment statement
         self.silent=False   # True if _also_ a silent comment
-        
+        self.empty=False    # Line contains no content
+
         # Name field type information.  All values will be False if omitted
         self.name_ltok=None # The lexical token associated with the name
         self.label=False    # True if the present name is a location label
@@ -1187,7 +1189,7 @@ class StmtFields(object):
         # Set based upon the type of name field
         self.name=None      # The name field if a label or sequence symbol is present
         self.symid=None     # SymbolID object of a symbolic variable symbol
-        
+
         # Operation Field
         self.oper_ltok=None # Operation field lexical token
         self.operation=None # Operation field from statement
@@ -1195,8 +1197,9 @@ class StmtFields(object):
         self.oppos=None     # Position in line of operation
         
         # Operand and comment field
-        self.operands=None  # Operand and comment fields if present
-        self.operpos=None   # Operand starting position in statement
+        self.operpos=None   # Operand starting position in logical line
+        self.operands=None  # Operand string and possible comment field
+        self.oprnd=None     # StmtOperands object.
         
     def __str__(self):
         if self.comment:
@@ -1212,6 +1215,28 @@ class StmtFields(object):
         return "%s: name=%s, operation='%s' operands='%s'" \
             % (self.__class__.__name__,name,self.opuc,self.operands)
 
+    # Handle normal line continuation conventions.
+    # May raise asmcards.LineError exception
+    def normal(self,lineo):
+        if not isinstance(lineo,asminput.Line):
+            cls_str=eloc(self,"normal")
+            raise ValueError("%s 'lineo' must be an instance of asminput.Line: %s"\
+                % (cls_str,lineo))
+        #if self.operpos is None:
+             # No operands detected after operation field so nothing to be done here
+        #     return
+
+        # Handle normal continuation conventions.  May raise asmcards.LineError
+        lineo.normal()
+        self.text=lineo.text
+        
+        if self.operpos is None:
+             # No operands detected after operation field so nothing to be done here
+             return
+        self.oprnd=oprnd=StmtOperands(lineo.logline,self.operpos)
+        # This should normalize processing beyond after continuation
+        self.operands=oprnd.operands
+
     # Recognize individual statement fields
     def parse(self,asm,stmt,debug=False):
         if debug:
@@ -1221,15 +1246,16 @@ class StmtFields(object):
         self.silent=line.silent
         self.text=line.text
         self.source=line.source
-        
+        self.empty=line.empty
+
         # Do not parse comment lines
         if line.comment or line.empty:
             return
-        
+
         # May raise AssemblerError 
         # Note: This object is its own FSM parser scope object.
         asm.fsmp.parse_statement(stmt,"fields",scope=self)
-        
+
         # Update various attributes after successful recognition.
         if self.name_ltok is not None:
             self.name_ltok.update(stmt,0,source=stmt.source)
@@ -1259,8 +1285,9 @@ class StmtFields(object):
     # Extract the operand and commment fields from the input text
     def Operands(self,ltoken):
         self.operpos=ltoken.beg
-        self.operands=self.text[self.operpos:]
-        
+        #print("StmtFields.Operands(): operpos: %s" % self.operpos)
+        #self.operands=self.text[self.operpos:]
+
     # Set the operation field information from a lexical token
     def Operation(self,ltoken):
         self.oper_ltok=ltoken
@@ -1268,6 +1295,26 @@ class StmtFields(object):
         self.operation=string
         self.opuc=string.upper()
 
+class StmtOperands(object):
+    def __init__(self,logline,pos):
+        #print("StmtOperands: %s,%s" % (logline,pos))
+        if not isinstance(logline,asmcards.LogLine):
+            cls_str=eloc(self,"__init__")
+            raise ValueError("%s 'line' argument must be an instance of "
+                "asmcards.LogLine: %s" % (cls_str,logline))
+                 # asminput.Line object
+        if not isinstance(pos,int):
+            cls_str=eloc(self,"__init__")
+            raise ValueError("%s 'pos' argument must be an integer: %s" \
+                % (cls_str,pos))        
+        
+        self.logline=logline             # The asmcards.LogLine object
+        self.pos=pos                     # position of operands in logical line
+        # Input control object from asmcards.LogLine object
+        self.ictl=logline.ictl           # Needed to handle lexical tokens
+        logical_line=logline.line        # The entire logical line string
+        #print("StmtOperands: logical_line: %s" % logical_line)
+        self.operands=logical_line[pos:] # Extract just the operands
 
 #
 #  +-------------------------+
@@ -1294,9 +1341,11 @@ class Stmt(object):
 
     def __init__(self,line,trace=False):
         self.line=line                    # Input Line instance
+        line.validate()                   # Validate the logical line
         self.source=line.source           # Input line source info.
         self.lineno=line.lineno           # Global Line number of statement
-        self.stmt=line.text        # original statement string
+        # The full statement is available after continuation handling has been done
+        self.stmt=None             # original statement string
         self.trace=trace           # Causes statement tracing in all passes
         self.gened=line.macro      # True if statement generated by a macro
 
@@ -1312,8 +1361,6 @@ class Stmt(object):
         self.pon=True              # Assume "PRINT ON" directive
         self.pgen=True             # Assume "PRINT GEN" directive
         self.pdata=False           # Assume "PRINT NODATA" directive
-        # Note: at present macros are not supported so the GEN, NOGEN states have no
-        # effect.
         self.plist=None            # Information passed to listing manager
         self.laddr=[]              # Addresses from operand evaluations
         # Note: Assembler directives will set the values as [addr1,addr2].
@@ -1325,14 +1372,16 @@ class Stmt(object):
         # directives.
 
         # Provided by Assembler.__classifier() method using Stmt.classified()
+        # StmtFields object: name, operation, operands and comments
+        self.fields=None
         self.label=None            # Label if present, None otherwise
         self.inst=None             # Instruction field of the statement
         self.instu=None            # The instruction/operation field in upper case
+        # As the various assembler statements move to their own FSM-based parsers,
+        # these attributes will no longer be needed.  They are already established
+        # in the StmtFields object
         self.rem=None              # Parsable portion of statement (operand, comment)
         self.rempos=None           # Position in line of remainder
-
-        # Statment fields: name, operation, operands and comments
-        self.fields=None           # StmtFields object built by Assmebler
 
         # Provided by Assembler.__oper_id() method 
         self.insn=None             # MSLentry object of instruction
@@ -1378,29 +1427,42 @@ class Stmt(object):
         return "Stmt(lineno=%s,label='%s',inst='%s',rem='%s',rempos=%s)" \
             % (self.lineno,self.label,self.inst,self.rem,self.rempos)
 
-    # Update with information from Assembler.__classifier() method
-    def classified(self,inst,label=None,remainder="",rempos=1):
+    # Update with information from Assembler.__classifier() method in the 
+    # StmtFields object it creates.
+    def classified(self):
+        fields=self.fields
+        if fields.empty:
+            self.ignore=True
+            return
+
+        if fields.comment:
+            fields.normal(self.line)
+            self.ignore=True
+            return
+
         # Statement operation field
-        self.inst=inst             # As coded in input statement
-        self.instu=inst.upper()    # Uppercase used for table searches
+        self.inst=oper=fields.operation
+        self.instu=oper.upper()
 
         # Statement Name field
-        self.label=label
-        # Identify type of label if present
-        if label is not None:
-            char=label[0]
-            if char==".":
-                self.seqsym=True
-            elif char=="&":
-                self.macsym=True
-            else:
-                self.normsym=True
+        if fields.label is not None:
+            self.label=fields.name
 
+    def continuation(self):
+        if self.ignore:
+            return
+            
         # Statement operands and comment field
         # Parsers or special pre-processor functions must separate the two 'fields'
         # based upon operation specific knowledge of operands.
-        self.rem=remainder
-        self.rempos=rempos
+        operando=self.fields.oprnd
+        if operando is None:
+            self.rem=""
+            self.rempos=1
+        else:
+            self.rem=operando.operands
+            self.rempos=operando.pos
+        self.stmt=self.fields.text
 
     # Create the list of Operand instances populated by syntactical analysis
     def create_types(self,debug=False):
@@ -1578,7 +1640,170 @@ class Stmt(object):
 #   statement    Does initial statement parsing and queues statements for assembly
 #   assemble     Assembles queued statements and creates the output Image instance
 #   image
-# 
+#
+
+# These two classes form the foundation for local configurations
+class AsmConfigs(object):
+    def __init__(self):
+        self.configs={}
+
+    def config(self,name=None,addr=None,ccw=None,cpfile=None,cptrans=None,\
+            dump=None,error=None,msldb=None,nest=None,psw=None,stats=None,\
+            *args,**kwds):
+        if len(args):
+            cls_str="%s %s.config() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s position parameters are not allowed: %s" \
+                % (cls_str,args))
+        if len(kwds):
+            string=""
+            for kwd,val in kwds.items():
+                string="%s,%s=%s" % (string,kwd,val)
+            string=string[1:]
+            cls_str="%s %s.config() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s unrecognized keyword parameter(s): %s" \
+                % (cls_str,string))
+        if not isinstance(name,str):
+            cls_str="%s %s.config() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s 'name' argument must be a string: %s"\
+                % (cls_str,name))
+
+        config=AsmConfig(name,\
+            addr=addr,
+            ccw=ccw,
+            cpfile=cpfile,
+            cptrans=cptrans,
+            dump=dump,
+            error=error,
+            msldb=msldb,
+            nest=nest,
+            psw=psw,
+            stats=stats)
+        
+        n=config._name
+        try:
+            self.configs[n]
+            cls_str="%s %s.config() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s configuration alread defined: %s" % (cls_str,n))
+        except KeyError:
+            self.configs[n]=config
+
+    # This method defines all local configurations
+    def local(self):
+        self.config(name="default")
+        # Add additional calls to the config method here for your local configuration
+        # definitions, specifying a unique name and a keyword argument for each
+        # argument you wish to specify for the configuration.
+        
+    def retrieve(self,name):
+        try:
+            return self.configs[name]
+        except KeyError:
+            cls_str="%s %s.retrieve() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s undefined local configuration: %s" % (cls_str,name))
+
+class AsmConfig(object):
+    psw_formats=["S","360","67","BC","EC","380","XA","E370","E390","Z","none"]
+    def __init__(self,name,addr=None,ccw=None,cpfile=None,cptrans=None,dump=None,\
+                 error=None,msldb=None,nest=None,psw=None,stats=None):
+        if not isinstance(name,str):
+            cls_str="%s %s.__init__() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s 'name' argument must be a string: %s" % name)
+        self._name=name
+
+        self.addr(addr)
+        self.ccw(ccw)
+        self.cpfile(cpfile)
+        self.cptrans(cptrans)
+        self.dump(dump)
+        self.error(error)
+        self.msldb(msldb)
+        self.nest(nest)
+        self.psw(psw)
+        self.stats(stats)
+
+    def addr(self,addr=None):
+        if addr is not None and addr not in [16,24,31,64]:
+            cls_str="%s %s.addr() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s 'addr' argument must be either 16, 24, 31 or 64: %s"\
+                % (cls_str,addr))
+        self._addr=addr
+
+    def ccw(self,ccw=None):
+        if ccw is not None and ccw not in [0,1,"none"]:
+            cls_str="%s %s.ccw() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s 'ccw' argument must be either 0, 1 or 'none': %s" \
+                % (cls_str,ccw))
+        self._ccw=ccw
+
+    def cpfile(self,cpfile=None):
+        if cpfile is not None and not isinstance(cpfile,str):
+            cls_str="%s %s.cpfile() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s 'cpfile' argument must be a string: %s"\
+                % (cls_str,cpfile))
+        self._cpfile=cpfile
+
+    def cptrans(self,cptrans=None):
+        if cptrans is not None and not isinstance(cptrans,str):
+            cls_str="%s %s.cptrans() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s 'cptrans' argument must be a string: %s"\
+                % (cls_str,cptrans))
+        self._cptrans=cptrans
+
+    def dump(self,dump=None):
+        if dump is not None and dump not in [True,False]:
+            cls_str="%s %s.dump() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s 'dump' argument must be either True or False: %s" \
+                % (cls_str,dump))
+        self._dump=dump
+
+    def error(self,error=None):
+        if error is not None and error not in [0,1,2]:
+            cls_str="%s %s.error() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s 'error' argument must be 0, 1 or 2: %s" \
+                % (cls_str,error))
+        self._error=error
+
+    def msldb(self,msldb=None):
+        if msldb is not None and not isinstance(msldb,str):
+            raise ValueError("%s 'msldb' argument must be a string: %s" \
+                % (cls_str,msldb))
+        self._msldb=msldb
+
+    def nest(self,nest=None):
+        if nest is not None and not isinstance(nest,int) and nest<1:
+            cls_str="%s %s.nest() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s 'nest' argument must be an integer >=1: %s" \
+                % (cls_str,nest))
+        self._nest=nest
+
+    def psw(self,psw=None):
+        if psw is not None and psw not in AsmConfig.psw_formats:
+            cls_str="%s %s.psw() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s 'psw' argument not a recognized format: %s" \
+                % (cls_str,psw))
+        self._psw=psw
+
+    def stats(self,stats=None):
+        if stats is not None and stats not in [True,False]:
+            cls_str="%s %s.stats() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s 'stats' argument must be either True or False: %s" \
+                % (cls_str,stats))
+        self._stats=stats
+
+local=AsmConfigs()
+# Establish the documented default command-line options
+local.config(\
+    name="default",
+    addr=None,
+    ccw=None,
+    cptrans="94C",
+    dump=False,
+    error=2,
+    msldb="msl.txt",
+    nest=20,
+    stats=False)
+import asmlocal   # This will add the local configurations.
+
 
 # This class manages output options directed to the assembler.  None implies the output
 # is not written the file system (although it might be created internally).
@@ -1659,7 +1884,8 @@ class AsmOut(object):
 
 class Assembler(object):
     # Recognized debug options.  May be used directly in argparse choices argument
-    debug=["stmt","tokens","insns","exp","tracexp","classify","grammar"]
+    debug=["stmt","tokens","insns","exp","tracexp","classify","grammar",\
+        "continuation"]
     # Values recognized in bimodal PSW's
     bimodes={0:0,1:1,24:0,31:1}
     bi67modes={0:0,1:1,24:0,32:1}   # S/360 Model 67 bimodal addressing
@@ -1717,6 +1943,12 @@ class Assembler(object):
     #   debug       The global Debug Manager to be used by the instance.  In None
     #               is specified, one will be generated.  Defaults to None.
     #   dump        Causes completed CSECT's, region's and image to be printed
+    #   eprint      Forces printing of errors when they occur in either error
+    #               levels 1 or 2.
+    #   error       Specifies the error level:
+    #                 0  - AssemblerErrors not trapped, immediate failure occurs
+    #                 1  - prints errors on sysout when encountered
+    #                 2  - lists errors at end of listing
     #   nest        Specify the number of nested include files allowed.  Defaults to
     #               20.
     #   ccw         Specify the initial execution mode for CCW's: 0 or 1 or 'none'.
@@ -1731,7 +1963,7 @@ class Assembler(object):
     #   otrace      A list of the machine instructions or assembler directives to
     #               be traced in all passs including initial parsing.
     #   stats       Specigy True to enable statistics reporting at end of pass 2.  
-    #               Should be False if an external driving is updating statistics.
+    #               Should be False if an external driver is updating statistics.
     def __init__(self,machine,msl,aout,addr=None,debug=None,dump=False,eprint=False,\
                  error=2,nest=20,ccw=None,psw=None,ptrace=[],otrace=[],cpfile=None,\
                  cptrans="94C",stats=False):
@@ -1766,10 +1998,8 @@ class Assembler(object):
         # Error handling flag
         self.error=error
         self.fail=self.error==0
-        self.eprint=self.error==1
+        self.eprint=eprint or error==1  # Prints errors when encountered
 
-        self.eprint=eprint          # Prints errors when encountered
-        
         # Statistics flag
         self.stats=stats
 
@@ -1779,13 +2009,8 @@ class Assembler(object):
       #
 
         # Statement classifier regular expressions and other RE users. 
-        # See __init_res() and __classifier() and related _spp methods
-        self.cmtre=None       # Recognizes comment statements
-        self.empre=None       # Recognizes empty statements
-        self.insre=None       # Recognizes statements without labels
-        self.lblre=None       # Recognizes statements with labels
+        # See __init_res() and related _spp methods
         self.sqtre=None       # Recognizes a single quoted string (TITLE, COPY)
-        self.mhlre=None       # Recognizes MHELP operand
         self.__init_res()     # Create regular expressions for __classifier() method
 
         # Statement operand parsers. See __init_parsers() method
@@ -1888,8 +2113,11 @@ class Assembler(object):
 
     # Performs generic AssemblerError exception handling
     def __ae_excp(self,ae,stmt,string="",debug=False):
-        stmt.error=True
-        stmt.ignore=True
+        #stmt.ignore=True
+        if not ae.info:
+            stmt.ignore=True
+            stmt.error=True
+            stmt.aes.append(ae)
         self.img._error(ae)
         if debug:
             print("%s DEBUG - AE %s" % (string,ae))
@@ -1901,67 +2129,26 @@ class Assembler(object):
     # This method classifies a statement and updates an instance of Stmt
     def __classifier(self,s,debug=False):
         # debug is controlled by debug option 'stmt'
-        cls_str="assembler.py - %s.__classifier() -" % self.__class__.__name__
+        #print("__classifier: [%s]" % s.lineno)
         
         # This uses the StmtFields object to parse the statement fields
-        # This should replace all of the remaining regular expression logic
-        # when all statements use this mechanism for name and operand handling.
-        # Until then statement field parsing is done twice.
-        s.fields=StmtFields()
-        s.fields.parse(self,s,debug=debug)
-        
+        s.fields=fields=StmtFields()
 
-        # Now use legacy field recognizer -- this will eventually go away
-        stmt=s.stmt  # Extract input line from Stmt instance
+        fields.parse(self,s,debug=debug)
+        s.classified()
 
-        # Recognize a line containing:        INST [REST-OF-LINE]
-        mo=self.insre.match(stmt)
-        if mo is None:
-            if debug:
-                print("%s DEBUG insre no match: '%s'" % (cls_str,stmt))
-        else:
-            if debug:
-                print("%s DEBUG insre match:    %s" % (cls_str,list( mo.groups())) )
-            s.classified(mo.group(2),remainder=mo.group(4),rempos=mo.start(4)+1)
-            return
-
-        # Recognize a line containing: SYMBOL INST [REST-OF-LINE]
-        mo=self.lblre.match(stmt)
-        if mo is None:
-            if debug:
-                print("%s DEBUG lblre no match: '%s'" % (cls_str,stmt))
-        else:
-            if debug:
-                print("%s DEBUG lblre match:    %s" % (cls_str,list( mo.groups())) )
-            s.classified(mo.group(3),label=mo.group(1),remainder=mo.group(5),\
-                rempos=mo.start(5)+1)
-            return
-
-        # Recognize a line containing:   # A comment only or blank line
-        mo=self.cmtre.match(stmt)
-        if mo is None:
-            if debug:
-                print("%s DEBUG cmtre no match: '%s'" % (cls_str,stmt) )
-        else:
-            if debug:
-                print("%s DEBUG cmtre match:    '%s'" % (cls_str,mo.string) )
-            s.ignore=True
-            return
-
-        # Recognize a line containing no content
-        mo=self.empre.match(stmt)
-        if mo is None:
-            if debug:
-                print("%s DEBUG empre no match: '%s'" % (cls_str,stmt) )
-        else:
-            if debug:
-                print("%s DEBUG empre match:    '%s'" % (cls_str,mo.string) )
-            s.ignore=True
-            return
-
-        # Don't know what to do...die
-        raise AssemblerError(line=s.lineno,\
-            msg="%s\nUnrecognized line format" % stmt)
+    # Perform normal assembler continuation handling of multi-line statements.
+    # This creates a single string of operands (in the StmtOperands object) for
+    # parsing or special processing
+    def __continuation(self,s,debug=False):
+        #print("__continuation: [%s]" % s.lineno)
+        fields=s.fields
+        try:
+            fields.normal(s.line)
+        except asmcards.LineError as le:
+            raise AssemblerError(source=le.source,line=s.lineno,msg=le.msg) \
+                from None
+        s.continuation()
 
     # Define how directives are processed in each pass
     def __define_dir(self,iset,insn,spp=None,parser=None,pass1=None,pass2=None,\
@@ -2075,44 +2262,11 @@ class Assembler(object):
     def __init_res(self,debug=False):
         # debug is controlled by debug option 'stmt'
 
-        # Recognize an empty line containing nothing but white space
-        # (the * does not have to start the line)
-        p="%s^%s*$" % (multiline,ws)
-        self.empre=re.compile(p)
-        if debug:
-            print("empre pattern: '%s'" % self.empre.pattern)
-
-        # Recognize a line containing: '*' or '.*' comment or nothing but white space 
-        # (the # does not have to start the line)
-        p="%s^%s*%s%s" % (multiline,ws,cmt,stuff)
-        self.cmtre=re.compile(p)
-        if debug:
-            print("cmtre pattern: '%s'" % self.cmtre.pattern)
-
-        # Recognize a line containing: SYMBOL INST [REST-OF-LINE]
-        p="%s(%s)(%s+)(%s)(%s*)(%s)" % (multiline,label,ws,inst,ws,stuff)
-        self.lblre=re.compile(p)
-        if debug:
-            print("lblre pattern: '%s'" % self.lblre.pattern)
-
-        # Recognize a line containing:        INST [REST-OF-LINE]
-        p="%s(%s+)(%s)(%s*)(%s)"   % (multiline,ws,inst,ws,stuff)
-        self.insre=re.compile(p)
-        if debug:
-            print("insre pattern: '%s'" % self.insre.pattern)
-
         # Recognizes a single quoted string in directives (TITLE and COPY)
         p=r"'[^']*'"
         self.sqtre=re.compile(p)
         if debug:
             print("sqtre pattern: '%s'" % self.titre.pattern)
-            
-        # Recognizes MHELP self-defining term
-        p="%s([0-9]+|[bB]'[01]+')(%s)" % (multiline,stuff)
-        self.mhlre=re.compile(p)
-        if debug:
-            print("mhlre pattern: '%s'" % self.mhlre.pattern)
-        
 
     # This method initializes among other things, the methods used in each pass
     # for each directive or machine instruction.  The following table summarizes
@@ -2670,6 +2824,7 @@ class Assembler(object):
     #  3. XMODE directive setting
     #  4. Assembler directive
     def __oper_id(self,stmt,debug=False):
+        #print("__oper_id [%s]" % stmt.lineno)
         cls_str="assembler.py - %s.__oper_id() -" % self.__class__.__name__
         if not isinstance(stmt,Stmt):
             raise ValueError("%s 'stmt' argument must be an instance of Stmt: %s" \
@@ -2792,17 +2947,22 @@ class Assembler(object):
             print("%s DEBUG parsing remainder of statement: '%s'" % (cls_str,stmt.rem))
 
         # Perform the actual parse of the operands returning the Scope object
+        eo=None
         try:
             gs=asmpasses.do_parse(stmt,scope=scope)
         except ParserAbort as eo:
-            eo.print()
-            self.__error(eo.print(string=True))
+            pass
 
         # Reset the cbtrace debug option
         if cbtrace:
             self.dm.enable("cbtrace")
         else:
             self.dm.disable("cbtrace")
+
+        # The parser caved entirely, so treat it as failed parse with the 
+        # information from the parser.
+        if eo:
+            raise AssemblerError(line=stmt.lineno,msg=eo.print(string=True))
 
         # Process any parser related errors
         mgr=gs.mgr
@@ -2830,6 +2990,18 @@ class Assembler(object):
         sdebug=debug
         fail=self.fail
 
+        # Classifies statement and identify statement fields: lable, instruction, and
+        # operands.
+        # Raises an AssemblerError if the statement structure makes no sense
+        if fail:
+            self.__classifier(s,debug=self.dm.isdebug("classify"))
+        else:
+            try:
+                self.__classifier(s,debug=self.dm.isdebug("classify"))
+            except AssemblerError as ae:
+                self.__ae_excp(ae,s,string=cls_str,debug=sdebug)
+                return
+
         # Access the Macro Language when defining macros
         # The Macro Language will return 'True' if the statement was handled
         if fail:
@@ -2853,14 +3025,14 @@ class Assembler(object):
         # Classifies statement and identify statement fields: lable, instruction, and
         # operands.
         # Raises an AssemblerError if the statement structure makes no sense
-        if fail:
-            self.__classifier(s,debug=self.dm.isdebug("classify"))
-        else:
-            try:
-                self.__classifier(s,debug=self.dm.isdebug("classify"))
-            except AssemblerError as ae:
-                self.__ae_excp(ae,s,string=cls_str,debug=sdebug)
-                return
+        #if fail:
+        #    self.__classifier(s,debug=self.dm.isdebug("classify"))
+        #else:
+        #    try:
+        #        self.__classifier(s,debug=self.dm.isdebug("classify"))
+        #    except AssemblerError as ae:
+        #        self.__ae_excp(ae,s,string=cls_str,debug=sdebug)
+        #        return
 
         if s.ignore:
             if sdebug:
@@ -2880,6 +3052,15 @@ class Assembler(object):
         else:
             try:
                 self.__oper_id(s,debug=self.dm.isdebug("classify"))
+            except AssemblerError as ae:
+                self.__ae_excp(ae,s,string=cls_str,debug=sdebug)
+                return
+
+        if fail:
+            self.__continuation(s,debug=self.dm.isdebug("continuation"))
+        else:
+            try:
+                self.__continuation(s,debug=self.dm.isdebug("continuation"))
             except AssemblerError as ae:
                 self.__ae_excp(ae,s,string=cls_str,debug=sdebug)
                 return
@@ -4597,6 +4778,7 @@ class AsmPasses(object):
 
     # Returns the language processor global scope object after parsing the statement
     def do_parse(self,stmt,scope):
+        #print("AsmPasses.do_parse(): stmt.rem: %s" % stmt.rem)
         return self.parser.lang.analyze(stmt.rem,scope=scope,\
             recovery=False,lines=False,fail=False)
 
@@ -6549,6 +6731,9 @@ class Image(object):
             return st[:-1]
         for stmt in self.source:
             stmt.print(locsize=locsize)  
+
+# import local configurations
+import asmlocal
 
 if __name__ == "__main__":
     raise NotImplementedError("assembler.py - intended for import use only")

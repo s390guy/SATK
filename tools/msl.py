@@ -102,11 +102,11 @@ def parse_args():
     parser.add_argument("-f","--fail",action="store_true",default=False,\
         help="fail upon detection of an error, otherwise report at process end")
 
-    # Force failure upon detecting an error
+    # Produce a statement cross reference listing
     parser.add_argument("-x","--xref",action="store_true",default=False,\
         help="produce a statement cross reference listing")
 
-    # Force failure upon detecting an error
+    # Dump the database Python content of the internal Python database objects.
     parser.add_argument("--dump",choices=["full","summary"],\
         help="dumps the the database entries' Python content")
 

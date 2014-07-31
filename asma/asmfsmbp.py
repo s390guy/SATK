@@ -1444,6 +1444,7 @@ class FieldParser(AsmFSMParser):
 
     def ACT_Operands(self,value,state,trace=False):
         gs=self.scope()
+        #print("ACT_Operands value: %s" % value)
         gs.Operands(value)
         state.atend()
 
@@ -1454,6 +1455,8 @@ class FieldParser(AsmFSMParser):
 
     def Lexer(self):
         return Parsers.flexer
+
+
 
 #
 #  +-----------------------------------------+
@@ -3098,10 +3101,15 @@ class Parsers(object):
     #   assembler.Stmt object augmented by information from the
     #   asmfsmbp.AsmParserError object if available.
     def parse_statement(self,stmt,parser,scope=None):
+        first=stmt.line.first()       # First (maybe only) raw input line
+        #print("[%s] first: %s" % (stmt.lineno,first))
+        if first.empty:
+            stmt.empty=True
+            return
         try:
-            self.__parse(parser,stmt.line.text,scope=scope)
+            self.__parse(parser,first.content,scope=scope)
         except AsmParserError as ape:
-            raise assembler.AssemblerError(source=stmt.source,line=stmt.lineno,\
+            raise assembler.AssemblerError(source=first.source,line=stmt.lineno,\
                 linepos=ape.token.linepos+1,msg=ape.msg) from None
 
 

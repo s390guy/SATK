@@ -15,7 +15,7 @@
 #     You should have received a copy of the GNU General Public License
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
-# System/360 in instructions and instruction sets in Machine Specification Language
+# System/360 instructions and instruction sets in Machine Specification Language
 
 # Include machine instruction formats
 # Uses MSLPATH when searching for include files
