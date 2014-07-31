@@ -1,0 +1,321 @@
+# Copyright (C) 2014 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+# System/370 Extended Architecture instructions and instruction sets in 
+# Machine Specification Language
+
+# Include machine instruction formats
+# Uses MSLPATH when searching for include files
+include formats.msl
+
+cpu s370XA         # Generic S/370-XA CPU
+    addrmax 31
+    ccw CCW1
+    psw PSWXA
+    base s370XA-base  s370XA-extended s370XA-io
+    features s370XA-MVCIN
+    features s370XA-SERVC
+    features s370XA-SIE
+
+
+# STANDARD INSTRUCTIONS (see below for I/O instructions)
+inst A      5A   RXA            # ADD (32)
+inst AD     6A   RXA            # ADD NORMALIZED (LH)
+inst ADR    2A   RR             # ADD NORMALIZED (LH)
+inst AE     7A   RXA            # ADD NORMALIZED (SH)
+inst AER    3A   RR             # ADD NORMALIZED (SH)
+inst AH     4A   RXA            # ADD HALFWORD
+inst AL     5E   RXA            # ADD LOGICAL (32)
+inst ALR    1E   RR             # ADD LOGICAL (32)
+inst AP     FA   SSB            # ADD DECIMAL
+inst AR     1A   RR             # ADD (32)
+inst AU     7E   RXA            # ADD UNNORMALIZED (SH)
+inst AUR    3E   RR             # ADD UNNORMALIZED (SH)
+inst AW     6E   RXA            # ADD UNNORMALIZED (LH)
+inst AWR    2E   RR             # ADD UNNORMALIZED (LH)
+inst AXR    36   RR             # ADD NORMALIZED (EH)
+inst BAL    45   RXA            # BRANCH AND LINK
+inst BALR   05   RR             # BRANCH AND LINK
+inst BAS    4D   RXA            # BRANCH AND SAVE
+inst BASSM  0C   RR             # BRANCH AND SAVE AND SET MODE            
+inst BASR   0D   RR             # BRANCH AND SAVE
+inst BC     47   RXA            # BRANCH ON CONDITION
+inst BCR    07   RR             # BRANCH ON CONDITION
+inst BCT    46   RXA            # BRANCH ON COUNT (32)
+inst BCTR   06   RR             # BRANCH ON COUNT (32)
+inst BSM    0B   RR             # BRANCH AND SET MODE
+inst BXH    86   RSA            # BRANCH ON INDEX HIGH (32)
+inst BXLE   87   RSA            # BRANCH ON INDEX LOW OR EQUAL (32)
+inst C      59   RXA            # COMPARE (32)
+inst CD     69   RXA            # COMPARE (LH)
+inst CDR    29   RR             # COMPARE (LH)
+inst CDS    BB   RSA            # COMPARE DOUBLE AND SWAP
+inst CE     79   RXA            # COMPARE (SH)
+inst CER    39   RR             # COMPARE (SH)
+inst CFC    B21A S0             # COMPARE AND FORM CODEWORD
+inst CH     49   RXA            # COMPARE HALFWORD
+inst CL     55   RXA            # COMPARE LOGICAL (32)
+inst CLI    95   SI             # COMPARE LOGICAL (immediate)
+inst CLC    D5   SSA            # COMPARE LOGICAL (character)
+inst CLCL   0F   RR             # COMPARE LOGICAL LONG (character)
+inst CLM    BD   RSB            # COMPARE LOGICAL UNDER MASK
+inst CLR    15   RR             # COMPARE LOGICAL (32)
+inst CP     F9   SSB            # COMPARE DECIMAL
+inst CR     19   RR             # COMPARE (32)
+inst CS     BA   RSA            # COMPARE AND SWAP
+inst CVB    4F   RXA            # CONVERT TO BINARY (32)
+inst CVD    4E   RXA            # CONVERT TO DECIMAL (32)
+inst D      5D   RXA            # DIVIDE (32<64)
+inst DD     6D   RXA            # DIVIDE (LH)
+inst DE     7D   RXA            # DIVIDE (SH)
+inst DER    3D   RR             # DIVIDE (SH)
+inst DDR    2D   RR             # DIVIDE (LH)
+inst DIAG   83   RXA     P      # DIAGNOSE
+inst DP     FD   SSB            # DIVIDE DECIMAL
+inst DR     1D   RR             # DIVIDE
+inst DXR    B22D RRE            # DIVIDE (EH)
+inst ED     DE   SSA            # EDIT
+inst EDMK   DF   SSA            # EDIT AND MARK
+inst EPAR   B226 RRE            # EXTRACT PRIMARY ADDRESS SPACE NUMBER
+inst ESAR   B227 RRE            # EXTRACT SECONARY ADDRESS SPACE NUMBER
+inst EX     44   RXA            # EXECUTE
+inst HDR    24   RR             # HALVE (LH)
+inst HER    34   RR             # HALVE (SH)
+inst IAC    B224 RRE            # INSERT ADDRESS SPACE CONTROL
+inst IC     43   RXA            # INSERT CHARACTER
+inst ICM    BF   RSB            # INSERT CHARACTER UNDER MASK
+inst IPK    B20B S0      P      # INSERT PSW KEY
+inst IPM    B222 S0      P      # INSERT PROGRAM MASK
+inst IPTE   B221 RRE     P      # INVALIDATA PAGE TABLE ENTRY
+inst ISKE   B229 RRE     P      # INSERT STORAGE KEY EXTENDED
+inst IVSK   B223 RRE     P      # INSERT VIRTUAL STORAGE KEY
+inst L      58   RXA            # LOAD (32)
+inst LA     41   RXA            # LOAD ADDRESS
+inst LASP   E500 SSE1    P      # LOAD ADDRESS SPACE CONTROL
+inst LCDR   23   RR             # LOAD COMPLEMENT (LH)
+inst LCER   33   RR             # LOAD COMPLEMENT (SH)
+inst LCR    13   RR             # LOAD COMPLEMENT (32)
+inst LCTL   B7   RSA     P      # LOAD CONTROL
+inst LD     68   RXA            # LOAD (LH)
+inst LDR    28   RR             # LOAD (LH)
+inst LE     78   RXA            # LOAD (SH)
+inst LER    38   RR             # LOAD (SH)
+inst LH     48   RXA            # LOAD HALFWORD
+inst LM     98   RSA            # LOAD MULTIPLE (32)
+inst LNDR   21   RR             # LOAD NEGATIVE (LH)
+inst LNER   31   RR             # LOAD NEGATIVE (SH)
+inst LNR    11   RR             # LOAD NEGATIVE (32)
+inst LPDR   20   RR             # LOAD POSITIVE (LH)
+inst LPER   30   RR             # LOAD POSITIVE (SH)
+inst LPR    10   RR             # LOAD POSITIVE (32)
+inst LPSW   8200 S0      P      # LOAD PROGRAM STATUS WORD
+inst LR     18   RR             # LOAD (32)
+inst LRA    B1   RXA     P      # LOAD REAL ADDRESS
+inst LRDR   25   RR             # LOAD ROUNDED (LH<EH)
+inst LRER   35   RR             # LOAD ROUNDED (SH<LH)
+inst LTDR   22   RR             # LOAD AND TEST (LH)
+inst LTER   32   RR             # LOAD AND TEST (SH)
+inst LTR    12   RR             # LOAD AND TEST (32)
+inst M      5C   RXA            # MULTIPLY (64<32)
+inst MC     AF   SI             # MONITOR CALL
+inst MD     6C   RXA            # MULTIPLY (LH)
+inst MDR    2C   RR             # MULTIPLY (LH)
+inst ME     7C   RXA            # MULTIPLY (SH)
+inst MER    3C   RR             # MULTIPLY (SH)
+inst MH     4C   RXA            # MULTIPLY HALFWORD (32)
+inst MP     FC   SSB            # MULTIPLY DECIMAL
+inst MR     1C   RR             # MULTIPLY (63<32)
+inst MVC    D2   SSA            # MOVE (character)
+inst MVCK   D9   SSD            # MOVE WITH KEY
+inst MVCL   0E   RR             # MOVE CHARACTER LONG
+inst MVCP   DA   SSD            # MOVE TO PRIMARY
+inst MVCS   DB   SSD            # MOVE TO SECONDARY
+inst MVI    92   SI             # MOVE (immediate)
+inst MVN    D1   SSA            # MOVE NUMERICS
+inst MVO    F1   SSA            # MOVE WITH OFFSET
+inst MVZ    D3   SSA            # MOVE NUMERICS
+inst MXD    67   RXA            # MULTIPLY (EH<LH)
+inst MXDR   27   RR             # MULTIPLY (EH<LH)
+inst MXR    26   RR             # MULTIPLY (EH)
+inst N      54   RXA            # AND (32)
+inst NC     D4   SSA            # AND (character)
+inst NI     94   SI             # AND (immediate)
+inst NR     14   RR             # AND (32)
+inst O      56   RXA            # OR (32)
+inst OC     D6   SSA            # OR (character)
+inst OI     96   SI             # OR (immediate)
+inst OR     16   RR             # OR (32)
+inst PACK   F2   SSB            # PACK
+inst PC     B218 S0             # PROGRAM CALL
+inst PT     B228 RRE     P      # PROGRAM TRANSFER
+inst PTLB   B20D S0      P      # PURGE TLB
+inst RRBE   B22A RRE     P      # RESET REFERENCE BIT EXTENDED
+inst S      5B   RXA            # SUBTRACT (32)
+inst SAC    B219 S0      P      # SET ADDRESS SPACE CONTROL
+inst SCK    B204 S0      P      # SET CLOCK
+inst SCKC   B206 S0      P      # SET CLOCK COMPARATOR
+inst SD     6B   RXA            # SUBTRACT NORMALIZED (LH)
+inst SDR    2B   RR             # SUBTRACT NORMALIZED (LH)
+inst SE     7B   RXA            # SUBTRACT NORMALIZED (SH)
+inst SER    3B   RR             # SUBTRACT NORMALIZED (SH)
+inst SH     4B   RXA            # SUBTRACT HALFWORD
+inst SIGP   AE   RSA     P      # SIGNAL PROCESSOR
+inst SL     5F   RXA            # SUBTRACT LOGICAL (32)
+inst SLA    8B   RSA1           # SHIFT LEFT SINGLE
+inst SLDA   8F   RSA1           # SHIFT LEFT DOUBLE
+inst SLDL   8D   RSA1           # SHIFT LEFT DOUBLE LOGICAL
+inst SLL    89   RSA1           # SHIFT LEFT SINGLE LOGICAL (32)
+inst SLR    1F   RR             # SUBTRACT LOGICAL (32)
+inst SP     FB   SSB            # SUBTRACT DECIMAL
+inst SPKA   B20A S0      P      # SET PSW KEY FROM ADDRESS
+inst SPM    04   RR      P      # SET PROGRAM MASK
+inst SPT    B208 S0      P      # SET CPU TIMER
+inst SPX    B210 S0      P      # SET PREFIX
+inst SR     1B   RR             # SUBTRACT (32)
+inst SRDA   8E   RSA1           # SHIFT RIGHT DOUBLE
+inst SRDL   8C   RSA1           # SHIFT RIGHT DOUBLE LOGICAL
+inst SRL    88   RSA1           # SHIFT RIGHT SINGLE LOGICAL (32)
+inst SRP    F0   SSC            # SHIFT AND ROUND DECIMAL
+inst SSAR   B225 RRE            # SET SECONDARY ADDRESS SPACE NUMBER
+inst SSKE   B22B RRE     P      # SET STORAGE KEY EXTENDED
+inst SSM    8000 S0      P      # SET SYSTEM MASK
+inst ST     50   RXA            # STORE (32)
+inst STAP   B212 S0      P      # STORE CPU ADDRESS
+inst STC    42   RXA            # STORE CHARACTER
+inst STCK   B205 S0      P      # STORE CLOCK
+inst STCKC  B207 S0      P      # STORE CLOCK COMPARATOR
+inst STCTL  B6   RSA     P      # STORE CONTROL
+inst STPT   B209 S0      P      # STORE CPU TIMER
+inst STH    40   RXA            # STORE HALFWORD
+inst STIDP  B202 S0      P      # STORE PROCESSOR ID
+inst STD    60   RXA            # STORE (L)
+inst STE    70   RXA            # STORE (S)
+inst STM    90   RSA            # STORE MULTIPLE (32)
+inst STNSM  AC   SI      P      # STORE THEN AND SYSTEM MASK
+inst STOSM  AD   SI      P      # STORE THEN OR SYSTEM MASK
+inst STPX   B211 S0      P      # STORE PREFIX
+inst SU     7F   RXA            # SUBTRACT UNNORMALIZED (SH)
+inst SUR    3F   RR             # SUBTRACT UNNORMALIZED (SH)
+inst SVC    0A   I              # SUPERVISOR CALL
+inst SW     6F   RXA            # SUBTRACT UNNORMALIZED (LH)
+inst SWR    2F   RR             # SUBTRACT UNNORMALIZED (LH)
+inst SXR    37   RR             # SUBTRACT NORMALIZED (EH)
+inst TB     B22C RRE     P      # TEST BLOCK
+inst TM     91   SI             # TEST UNDER MASK
+inst TPROT  E501 SSE2    P      # TEST PROTECTION
+inst TR     DC   SSA            # TRANSLATE
+inst TRACE  99   RSA            # TRACE
+inst TRT    DD   SSA            # TRANSLATE AND TEST
+inst TS     9300 S0             # TEST AND SET
+inst UNPK   F3   SSB            # UNPACK
+inst UPT    0102 E              # UPDATE TREE
+inst X      57   RXA            # EXCLUSIVE OR (32)
+inst XC     D7   SSA            # EXCLUSIVE OR (character)
+inst XI     97   SI             # EXCLUSIVE OR (immediate)
+inst XR     17   RR             # EXCLUSIVE OR (32)
+inst ZAP    F8   SSB            # ZERO AND ADD
+
+# INPUT/OUTPUT INSTRUCTIONS
+inst CSCH   B230 S0      P      # CLEAR SUBCHANNEL
+inst HSCH   B231 S0      P      # HALT SUBCHANNEL
+inst MSCH   B232 S0      P      # MODIFY SUBCHANEL
+inst RCHP   B23B S0      P      # RESET CHANNEL PATH
+inst RSCH   B238 S0      P      # RESUME SUBCHANNEL
+inst SAL    B237 S0      P      # SET ADDRESS LIMIT
+inst SCHM   B23C S0      P      # SET CHANNEL MONITOR
+inst SSCH   B233 S0      P      # START SUBCHANNEL
+inst STCPS  B23A S0      P      # STORE CHANNEL PATH STATUS
+inst STCRW  B239 S0      P      # STORE CHANNEL REPORT WORD
+inst STSCH  B234 S0      P      # STORE SUBCHANNEL
+inst TPI    B236 S0      P      # TEST PENDING INTERRUPTION
+inst TSCH   B235 S0      P      # TEST SUBCHANNEL
+
+# STANDARD EXTENDED MNEMONICS
+inst B      47F  ERXB    E      # BC  15,D1(X1,B1)  Unconditional branch
+inst BE     478  ERXB    E      # BC  8,D1(X1,B1)   Branch on A equal B
+inst BER    078  ER      E      # BCR 8,R           Branch on A equal B (reg)
+inst BH     472  ERXB    E      # BC  2,D1(X1,B1)   Branch on A higher than B
+inst BHR    072  ER      E      # BCR 2,R           Branch on A higher than B (reg)
+inst BL     474  ERXB    E      # BC  4,D1(X1,B1)   Branch on A lower than B
+inst BLR    074  ER      E      # BCR 4,R           Branch on A lower than B (reg)
+inst BM     474  ERXB    E      # BC  4,D1(X1,B1)   Branch on Minus or Mixed
+inst BMR    074  ER      E      # BCR 4,R           Branch on Minus or Mixed (reg)
+inst BNE    477  ERXB    E      # BC  7,D1(X1,B1)   Branch on A not equal B
+inst BNER   077  ER      E      # BCR 8,R           Branch on A not equal B (reg)
+inst BNH    47D  ERXB    E      # BC  13,D1(X1,B1)  Branch on A not higher than B
+inst BNHR   07D  ER      E      # BCR 13,R          Branch on A not higher than B (reg)
+inst BNL    47B  ERXB    E      # BC  11,D1(X1,B1)  Branch on A not lower than B
+inst BNLR   07B  ER      E      # BCR 11,R          Branch on A not lower than B (reg)
+inst BNM    47B  ERXB    E      # BC  11,D1(X1,B1)  Branch on not minus or not mixed
+inst BNMR   07B  ER      E      # BC  11,R          Branch on not minur or not mixed (reg)
+inst BNO    47E  ERXB    E      # BC  14,D1(X1,B1)  Branch on no overflow or not ones
+inst BNOR   07E  ER      E      # BCR 14,R          Branch on no overflow or not ones (reg)
+inst BNP    47D  ERXB    E      # BC  13,D1(X1,B1)  Branch on not plus
+inst BNPR   07D  ER      E      # BCR 13,R          Branch on not plus (reg)
+inst BNZ    477  ERXB    E      # BC  7,D1(X1,B1)   Branch on not zero or zeros
+inst BNZR   077  ER      E      # BCR 7,R           Branch on not zero or zeros (reg)
+inst BO     471  ERXB    E      # BC  1,D1(X1,B1)   Branch on overflow or ones
+inst BOR    071  ER      E      # BCR 1,R           Branch on overflow or ones (reg)
+inst BP     472  ERXB    E      # BC  2,D1(X1,B1)   Branch on plus
+inst BPR    072  ER      E      # BCR 2,R           Branch on plus (reg)
+inst BR     07F  ER      E      # BCR 15,R          Unconditional branch (reg)
+inst BZ     478  ERXB    E      # BC  8,D1(X1,B1)   Branch on zero or zeros
+inst BZR    078  ER      E      # BCR 8,R           Branch on zero or zeros (reg)
+inst NOP    470  ERXB    E      # BC  0,D1(X1,B1)   no operation
+inst NOPR   070  ER      E      # BCR 0,R           no operation (reg)
+
+iset s370XA-base
+    mnemonics A AD ADR AE AER AH AL ALR AP AR AU AUR AW AWR AXR BAL BALR BAS BASR BASSM 
+    mnemonics BC BCR BCT BCTR BSM BXH BXLE C CD CDR CDS CE CER CH CFC
+    mnemonics CL CLC CLCL CLI CLM CLR CP CR CS CVB CVD D DD DDR DE DER DIAG DP DR DXR 
+    mnemonics ED EDMK EPAR ESAR EX HDR HER IAC IC ICM IPK IPM IPTE ISKE IVSK
+    mnemonics L LA LASP LCDR LCER LCR LCTL LD LDR LE LER LH LM LNDR LNER LNR 
+    mnemonics LPDR LPER LPR LPSW LR LRA LRDR LRER LTDR LTER LTR 
+    mnemonics M MC MD MDR ME MER MH MP MR MVC MVCK MVCL MVCP MVCS MVI MVN MVO 
+    mnemonics MVZ MXD MXDR MXR N NC NI NR O OC OI OR PACK PC PT PTLB RRBE S SAC SCK
+    mnemonics SCKC SD SDR SE SER SH SIGP SL SLA SLDA SLDL SLL SLR SP SPKA SPM SPT 
+    mnemonics SPX SR SRDA SRDL SRL SRP SSAR SSKE SSM ST STAP STC STCK STCKC STCTL
+    mnemonics STD STE STH STIDP STM STNSM STOSM STPT STPX SU SUR SVC SW SWR SXR 
+    mnemonics TB TM TPROT TR TRACE TRT TS UNPK UPT X XC XI XR ZAP
+
+iset s370XA-extended
+    mnemonics B BE BER BH BHR BL BLR BM BMR BNE BNER BNH BNHR BNL BNLR BNM BNMR  
+    mnemonics BNO BNOR BNP BNPR BNZ BNZR BO BOR BP BPR BR BZ BZR NOP NOPR
+
+iset s370XA-io
+     mnemonics CSCH HSCH MSCH RCHP RSCH SAL SCHM SSCH STCPS STCRW STSCH TPI TSCH
+
+# INTEPRETIVE EXECUTION FACILITY (January, 1984)
+inst SIE    B214 S0      P      # START INTERPRETIVE EXECUTION
+
+iset s370XA-SIE
+     mnemonics SIE
+
+     
+# MOVE INVERSE FACILITY
+inst MVCIN  E8  SSA             # MOVE INVERSE
+
+iset s370XA-MVCIN
+    mnemonics MVCIN
+
+
+# SERVICE CALL LOGICAL PROCESSOR FACILITY
+inst SERVC  B220 RRE     PX     # SERVICE CALL
+
+iset s370XA-SERVC
+    mnemonics SERVC
+   
