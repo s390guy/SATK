@@ -2947,11 +2947,11 @@ class Assembler(object):
             print("%s DEBUG parsing remainder of statement: '%s'" % (cls_str,stmt.rem))
 
         # Perform the actual parse of the operands returning the Scope object
-        eo=None
+        parse_eo=None
         try:
             gs=asmpasses.do_parse(stmt,scope=scope)
         except ParserAbort as eo:
-            pass
+            parse_eo=eo
 
         # Reset the cbtrace debug option
         if cbtrace:
@@ -2961,8 +2961,8 @@ class Assembler(object):
 
         # The parser caved entirely, so treat it as failed parse with the 
         # information from the parser.
-        if eo:
-            raise AssemblerError(line=stmt.lineno,msg=eo.print(string=True))
+        if parse_eo:
+            raise AssemblerError(line=stmt.lineno,msg=parse_eo.print(string=True))
 
         # Process any parser related errors
         mgr=gs.mgr
