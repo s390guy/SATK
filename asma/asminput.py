@@ -58,7 +58,7 @@ class SourceEmpty(Exception):
 class SourceError(Exception):
     def __init__(self,msg):
         self.msg=msg
-        super.__init__(msg)
+        super().__init__(msg)
 
 #
 #  +-------------------+
@@ -130,6 +130,10 @@ class InputSource(object):
 class FileSource(InputSource):
     def __init__(self,typ,filename,stmtno=None,srcno=None,legacy=False):
         super().__init__(typ,filename,stmtno=stmtno)
+        if not isinstance(filename,str):
+            cls_str=assembler.eloc(self,"__init__")
+            raise ValueError("%s 'filename' argument must be a string: %s" 
+                % (cls_str,filename))
         self.rname=filename       # Text input file relative path or absolute path
         self.legacy=legacy        # True if legacy line contuation in use.
         self.fileno=srcno         # File number of this source
@@ -201,9 +205,8 @@ class FileSource(InputSource):
                 % (cls_str,self.fname))
         try:
             self.fname,self.fo=pathmgr.ropen(self.rname)
-        except ValueError:
-            raise SourceError("could not open for reading text file: %s" % self.fname) \
-                from None
+        except ValueError as ve:
+            raise SourceError("%s" % ve) from None
 
         self.lineno=0
         self.handler.begin(legacy=self.legacy)
