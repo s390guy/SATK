@@ -3811,7 +3811,7 @@ class Assembler(object):
     def _csect_pass2(self,stmt,trace=False):
         csect=stmt.laddr
         addr1=csect.loc
-        addr2=addr1+(len(csect)-1)
+        addr2=addr1+max(len(csect)-1,0)
         stmt.laddr=[addr1,addr2]
 
     # DC - Define Constant
@@ -4412,7 +4412,7 @@ class Assembler(object):
     def _region_pass2(self,stmt,trace=False):
         region=stmt.laddr
         addr1=region.loc
-        addr2=addr1+(len(region)-1)
+        addr2=addr1+(max(len(region)-1,0))
         stmt.laddr=[addr1,addr2]
 
 
