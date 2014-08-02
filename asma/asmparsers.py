@@ -662,8 +662,8 @@ class PLitDC(expression.PLitSmart):
             raise assembler.AssemblerError(line=token.lineno,linepos=token.linepos,\
                 msg="constant may not be used in an expression")
         literal=groups[3]
-        self.literal=literal[1:-1]   # Drop off starting and ending quotes
-        self.dctype=groups[1]        # Extract the DC type
+        self.literal=literal[1:-1]      # Drop off starting and ending quotes
+        self.dctype=groups[1].upper()   # Extract the DC type
         if self.dctype in PLitDC.chars and len(self.literal) !=1:
             raise assembler.AssemblerError(line=token.lineno,linepos=token.linepos,\
                 msg="character literal restricted to one character: '%s'" %
