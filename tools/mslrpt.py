@@ -121,6 +121,8 @@ class ITBL(Listing):
         return sorted(self.entries,key=ITBL.sort_by_op)
 
     def check_inst(self, this, that):
+        if this.ID in ["IPTE",]:   # Known exceptions
+            return True
         if this.ID != that.ID:
             return False
         if this.format != that.format:

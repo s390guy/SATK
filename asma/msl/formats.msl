@@ -151,7 +151,25 @@ format RIEA
 
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
-#     |    OP     | R1  | R2  |         RELI4         | M3  |     |    XOP    |
+#     |     OP    | R1  |0000 |          RI2          | M3  |0000 |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# RIEA1: MNEMONIC R1,RI2,M3
+#
+format RIEA1
+    length 6
+    xopcode 40 47
+    mach R1 8 11
+    mach RI2 16 31
+    mach M3 32 35
+    source R1 R1
+    source RI2 RI2
+    source M3 M3
+
+
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |    OP     | R1  | R2  |         RELI4         | M3  |0000 |    XOP    |
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #
 # RIEB: MNEMONIC R1,R2,M3,RELI4
@@ -183,6 +201,26 @@ format RIEC
     mach M3 12 15
     mach RELI4 16 31 signed
     mach I2 32 39 signed
+    source R1 R1
+    source I2 I2
+    source M3 M3
+    source RELI4 RELI4
+
+    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  | M3  |         RELI4         |    I2     |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# RIEC1: MNEMONIC R1,I2,M3,RELI4
+#
+format RIEC1
+    length 6
+    xopcode 40 47
+    mach R1 8 11
+    mach M3 12 15
+    mach RELI4 16 31 signed
+    mach I2 32 39
     source R1 R1
     source I2 I2
     source M3 M3
@@ -231,6 +269,7 @@ format RIEE
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #
 # RIEF: MNEMONIC R1,R2,I3,I4,I5
+# Note: the I5 operand is not optional
 #
 format RIEF
     length 6
@@ -294,6 +333,22 @@ format RILC
     source M1 M1
     source RELI2 RELI2
 
+    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  | XOP |                      RI2                      |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# RILD: MNEMONIC R1,RI2
+#
+format RILD
+    length 6
+    xopcode 12 15
+    mach R1 8 11
+    mach RI2 16 47
+    source R1 R1
+    source RI2 RI2
+
 
 #     0     4     8     12    16    20    24    28   31
 #     +-----+-----+-----+-----+-----+-----+-----+-----+
@@ -324,6 +379,27 @@ format RIS
     mach B4 16 19
     mach D4 20 31
     mach I2 32 39 signed
+    source R1 R1
+    source I2 I2
+    source M3 M3
+    source S  B4 D4
+
+
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  | M3  | B4  |        D4       |     I2    |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# RIS: MNEMONIC R1,I2,M3,D4(B4)
+#
+format RIS1
+    length 6
+    xopcode 40 47
+    mach R1 8 11
+    mach M3 12 15
+    mach B4 16 19
+    mach D4 20 31
+    mach I2 32 39
     source R1 R1
     source I2 I2
     source M3 M3
@@ -415,10 +491,6 @@ format RRE1
 format RRE2
     length 4
     xopcode 8 15
-    mach R1 24 27
-    mach R2 28 31
-    source R1 R1
-    source R2 R2
 
 
 #     0     4     8     12    16    20    24    28   31
@@ -445,6 +517,7 @@ format RRFA1        # RRFA = R1,R2[,R3[,M4]]  RRFA1 -- R1,R2,R3
 #     +-----+-----+-----+-----+-----+-----+-----+-----+
 #
 # RRFA2: MNEMONIC R1,R2,R3,M4
+# Note: Neither R3 nor M4 are optional
 #
 format RRFA2        # RRFA = R1,R2[,R3[,M4]]  RRFA2 -- R1,R2,R3,M4
     length 4
@@ -465,6 +538,7 @@ format RRFA2        # RRFA = R1,R2[,R3[,M4]]  RRFA2 -- R1,R2,R3,M4
 #     +-----+-----+-----+-----+-----+-----+-----+-----+
 #
 # RRFB2: MNEMONIC R1,R3,R2,M4
+# Note: M4 is not optional
 #
 format RRFB2        # RRFB = R1,R3,R2[,M4]  RRFB2 -- R1,R3,R2,M4
     length 4
@@ -485,6 +559,7 @@ format RRFB2        # RRFB = R1,R3,R2[,M4]  RRFB2 -- R1,R3,R2,M4
 #     +-----+-----+-----+-----+-----+-----+-----+-----+
 #
 # RRFC: MNEMONIC R1,R2,M3
+# Note: M3 is not optional
 #
 format RRFC
     length 4
@@ -565,6 +640,24 @@ format RRFH
     xopcode 8 15
     mach R1 16 19
     mach R3 24 27
+    mach R2 28 31
+    source R1 R1
+    source R3 R3
+    source R2 R2
+
+    
+#     0     4     8     12    16    20    24    28   31
+#     +-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    |    XOP    | R3  |0000 | R1  | R2  |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# RRFI: MNEMONIC R1,R3,R2
+#
+format RRFI
+    length 4
+    xopcode 8 15
+    mach R3 16 19
+    mach R1 24 27
     mach R2 28 31
     source R1 R1
     source R3 R3
@@ -781,6 +874,30 @@ format RSYB
      source M3 M3
      source SY B2 DL2 DH2
 
+     
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  | M3  | B2  |       DL2       |    DH2    |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# RSYB1: MNEMONIC R1,D2(B2),M3
+#
+#  Note: D2 contributes to DL2 and DH2 fields. 
+#        DH2 contains the high-order 8 bits of the 20-bit D2 displacement
+#        DL2 contains the low-order 12 bits of the 20-bit D2 displacement
+#
+format RSYB1
+     length 6
+     xopcode 40 47
+     mach R1 8 11
+     mach M3 12 15
+     mach B2 16 19
+     mach DL2 20 31
+     mach DH2 32 39
+     source R1 R1
+     source SY B2 DL2 DH2
+     source M3 M3
+
 
 #     0     4     8     12    16    20    24    28   31
 #     +-----+-----+-----+-----+-----+-----+-----+-----+
@@ -947,6 +1064,23 @@ format SIL
     source S1 B1 D1
     source I2 I2
 
+    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    |    XOP    | B1  |        D1       |           I2          |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# SIL1: MNEMONIC D1(B1),I2
+#
+format SIL1
+    length 6
+    xopcode 8 15
+    mach B1 16 19
+    mach D1 20 31
+    mach I2 32 47 signed
+    source S1 B1 D1
+    source I2 I2
+
 
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
@@ -969,6 +1103,27 @@ format SIY
     source SY1 B1 DL1 DH1
     source I2 I2
 
+    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    |     I2    | B1  |       DL1       |    DH1    |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# SIY1: MNEMONIC B1(D1),I2
+#
+#  Note: D1 contributes to DL1 and DH1 fields. 
+#        DH1 contains the high-order 8 bits of the 20-bit D1 displacement
+#        DL1 contains the low-order 12 bits of the 20-bit D1 displacement
+#
+format SIY1
+    length 6
+    xopcode 40 47
+    mach I2 8 15 signed
+    mach B1 16 19
+    mach DL1 20 31
+    mach DH1 32 39
+    source SY1 B1 DL1 DH1
+    source I2 I2
 
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
@@ -1161,6 +1316,26 @@ format SSF2
     source S1 B1 D1
     source S2 B2 D2
     source R3 R3
+
+    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R3  | XOP | B1  |       D1        | B2  |       D2        |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# SSF3: MNEMONIC R3,D1(B1),D2(B3)
+#
+format SSF3
+    length 6
+    xopcode 12 15
+    mach R3 8 11
+    mach B1 16 19
+    mach D1 20 31
+    mach B2 32 35
+    mach D2 36 47
+    source R3 R3
+    source S1 B1 D1
+    source S2 B2 D2
 
 
 #     0     4     8     12   15
