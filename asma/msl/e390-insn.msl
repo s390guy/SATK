@@ -607,8 +607,8 @@ inst BRP    A742 ERIC    E      # BRANCH RELATIVE ON PLUS              (BRC 2,II
 inst BRU    A74F ERIC    E      # UNCONDITIONAL BRANCH RELATIVE        (BRC 15,IMMED)
 inst BRZ    A748 ERIC    E      # BRANCH RELATIVE ON ZERO              (BRC 8,IMMED)
 inst J      A74F ERIC    E      # UNCONDITIONAL "JUMP" RELATIVE        (BRC 15,IMMED)
-inst JAS    A75  RIB     E      # "JUMP" RELATIVE AND SAVE
-inst JCT    A76  RIB     E      # "JUMP" RELATIVE ON COUNT
+inst JAS    A75  RIB     E      # "JUMP" RELATIVE AND SAVE             (BRAS R,IMMED)
+inst JCT    A76  RIB     E      # "JUMP" RELATIVE ON COUNT             (BRCT R,IMMED)
 inst JE     A748 ERIC    E      # "JUMP" RELATIVE ON EQUAL             (BRC 8,IMMED)
 inst JH     A742 ERIC    E      # "JUMP" RELATIVE ON HIGH              (BRC 2,IMMED)
 inst JL     A744 ERIC    E      # "JUMP" RELATIVE ON LOW               (BRC 4,IMMED)
@@ -622,8 +622,8 @@ inst JNP    A74D ERIC    E      # "JUMP" RELATIVE ON NOT PLUS          (BRC 13,I
 inst JNZ    A747 ERIC    E      # "JUMP" RELATIVE ON NOT ZERO(S)       (BRC 7,IMMED)
 inst JO     A741 ERIC    E      # "JUMP" RELATIVE ON ONES/OVERFLOW     (BRC 1,IMMED)
 inst JP     A742 ERIC    E      # "JUMP" RELATIVE ON PLUS              (BRC 2,IIMED)
-inst JXH    84   RSI     E      # "JUMP" RELATIVE ON INDEX HIGH
-inst JXLE   85   RSI     E      # BRANCH RELATIVE ON INDEX LOW OR EQUAL
+inst JXH    84   RSI     E      # "JUMP" RELATIVE ON INDEX HIGH     (BRXH R,R,IMMED)
+inst JXLE   85   RSI     E      # BRANCH RELATIVE ON INDEX LOW OR EQUAL (BRXLE R,R,IM)
 inst JZ     A748 ERIC    E      # "JUMP" RELATIVE ON ZERO              (BRC 8,IMMED)
 
 iset e390-imme-and-rel
