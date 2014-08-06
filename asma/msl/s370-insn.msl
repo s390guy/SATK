@@ -114,7 +114,7 @@ inst MC     AF   SI             # MONITOR CALL
 inst MH     4C   RXA            # MULTIPLY HALFWORD (32)
 inst MR     1C   RR             # MULTIPLY (63<32)
 inst MVC    D2   SSA            # MOVE (character)
-inst MVCL   0E    RR            # MOVE CHARACTER LONG
+inst MVCL   0E   RR             # MOVE CHARACTER LONG
 inst MVI    92   SI             # MOVE (immediate)
 inst MVN    D1   SSA            # MOVE NUMERICS
 inst MVO    F1   SSA            # MOVE WITH OFFSET
@@ -147,6 +147,7 @@ inst SSK    08   RR      P      # SET STORAGE KEY
 inst SSM    8000 S0      P      # SET SYSTEM MASK
 inst ST     50   RXA            # STORE (32)
 inst STC    42   RXA            # STORE CHARACTER
+inst STCM   BE   RSB            # STORE CHARACTERS UNDER MASK
 inst STCK   B205 S0      P      # STORE CLOCK
 inst STCTL  B6   RSA     P      # STORE CONTROL
 inst STH    40   RXA            # STORE HALFWORD
@@ -202,8 +203,9 @@ iset s370-base
     mnemonics A AH AL ALR AR BAL BALR BC BCR BCT BCTR BXH BXLE C CH CL CLC CLCL CLI 
     mnemonics CLM CLR CR CVB CVD D DIAG DR EX IC ICM ISK L LA LCR LCTL LH LM LNR 
     mnemonics LPR LPSW LR LTR M MC MH MR MVC MVCL MVI MVN MVO MVZ N NC NI NR O OC
-    mnemonics OI OR PACK S SCK SH SL SLA SLDA SLDL SLL SLR SPM SR SRA SRDA SRDL SRL SSK
-    mnemonics SSM ST STC STCK STCTL STH STIDP STM SVC TM TR TRT TS UNPK X XC XI XR
+    mnemonics OI OR PACK S SCK SH SL SLA SLDA SLDL SLL SLR SPM SR SRA SRDA SRDL SRL
+    mnemonics SSK SSM ST STC STCM STCK STCTL STH STIDP STM SVC TM TR TRT TS
+    mnemonics UNPK X XC XI XR
 
 iset s370-extended
     mnemonics B BE BER BH BHR BL BLR BM BMR BNE BNER BNH BNHR BNL BNLR BNM BNMR  
