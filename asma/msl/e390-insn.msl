@@ -140,7 +140,9 @@ inst LCR    13   RR             # LOAD COMPLEMENT (32)
 inst LCTL   B7   RSA     P      # LOAD CONTROL
 inst LD     68   RXA            # LOAD (LH)
 inst LDR    28   RR             # LOAD (LH)
+inst LDXR   25   RR             # LOAD ROUNDED (LH<EH)
 inst LE     78   RXA            # LOAD (SH)
+inst LEDR   35   RR             # LOAD ROUNDED (SH<LH)
 inst LER    38   RR             # LOAD (SH)
 inst LH     48   RXA            # LOAD HALFWORD
 inst LM     98   RSA            # LOAD MULTIPLE (32)
@@ -162,6 +164,8 @@ inst LURA   B24B RRE     P      # LOAD USING REAL ADDRESS
 inst M      5C   RXA            # MULTIPLY (64<32)
 inst MC     AF   SI             # MONITOR CALL
 inst MD     6C   RXA            # MULTIPLY (LH)
+inst MDE    7C   RXA            # MULTIPLY (LH<SH)
+inst MDER   3C   RR             # MULTIPLY (LH<SH)
 inst MDR    2C   RR             # MULTIPLY (LH)
 inst ME     7C   RXA            # MULTIPLY (SH)
 inst MER    3C   RR             # MULTIPLY (SH)
@@ -325,20 +329,20 @@ inst NOPR   070  ER      E      # BCR 0,R           no operation (reg)
 iset e390-base
     mnemonics A AD ADR AE AER AH AL ALR AP AR AU AUR AW AWR AXR 
     mnemonics BAKR BAL BALR BAS BASR BASSM BC BCR BCT BCTR BSM BXH BXLE
-    mnemonics C CD CDR CDS CE CER CH CFC CL CLC CLCL CLI CLM CLR CP CR CS 
-    mnemonics CUSE CVB CVD CPYA 
+    mnemonics C CD CDR CDS CE CER CH CFC CL CLC CLCL CLI CLM CLR CP CR CS
+    mnemonics CUSE CVB CVD CPYA
     mnemonics D DD DDR DE DER DIAG DP DR DXR
-    mnemonics EAR ED EDMK EPAR EREG ESAR ESTA EX HDR HER 
+    mnemonics EAR ED EDMK EPAR EREG ESAR ESTA EX HDR HER
     mnemonics IAC IC ICM IPK IPM IPTE ISKE IVSK
-    mnemonics L LA LAE LAM LASP LCDR LCER LCR LCTL LD LDR LE LER LH LM LNDR LNER LNR 
-    mnemonics LPDR LPER LPR LPSW LR LRA LRDR LRER LTDR LTER LTR LURA 
-    mnemonics M MC MD MDR ME MER MH MP MR MSTA MVC MVCDK MVCIN MVCK MVCL MVCP MVCS 
-    mnemonics MVCSK MVPG MVI MVN MVO MVZ MXD MXDR MXR N NC NI NR O OC OI OR
+    mnemonics L LA LAE LAM LASP LCDR LCER LCR LCTL LD LDR LDXR LE LEDR LER LH LM LNDR
+    mnemonics LNER LNR LPDR LPER LPR LPSW LR LRA LRDR LRER LTDR LTER LTR LURA 
+    mnemonics M MC MD MDE MDER MDR ME MER MH MP MR MSTA MVC MVCDK MVCIN MVCK MVCL 
+    mnemonics MVCP MVCS MVCSK MVPG MVI MVN MVO MVZ MXD MXDR MXR N NC NI NR O OC OI OR
     mnemonics PACK PALB PC PR PT PTLB RRBE
     mnemonics S SAC SAR SCK SCKC SD SDR SE SER SERVC SH SIE SIGP SL SLA SLDA SLDL
     mnemonics SLL SLR SP SPKA SPM SPT SPX SR SRA SRDA SRDL SRL SRP SSAR SSKE SSM
     mnemonics ST STAM STAP STC STCK STCKC STCM STCTL STD STE STH STIDP STM STNSM STOSM
-    mnemonics STPT STPX STURA SU SUR SVC SW SWR SXR 
+    mnemonics STPT STPX STURA SU SUR SVC SW SWR SXR
     mnemonics TAR TB TM TPROT TR TRACE TRT TS UNPK UPT X XC XI XR ZAP
 
 iset e390-extended

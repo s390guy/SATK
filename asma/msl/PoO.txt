@@ -589,10 +589,12 @@ LDGR      RRE      B3C1   -     -      -      -     -     -      G
 LDR       RR       28     G     G      G      G     G     G      G
 LDXBR     RRE      B345   -     -      -      -     G     G      G
 LDXBRA    RRFE     B345   -     -      -      -     -     -      G
+LDXR      RR       25     -     -      -      -     G     G      G
 LDY       RXYA     ED65   -     -      -      -     -     -      G
 LE        RXA      78     G     G      G      G     G     G      G
 LEDBR     RRE      B344   -     -      -      -     G     G      G
 LEDBRA    RRFE     B344   -     -      -      -     -     -      G
+LEDR      RR       35     -     -      -      -     G     G      G
 LER       RR       38     G     G      G      G     G     G      G
 LEXBR     RRE      B346   -     -      -      -     G     G      G
 LEXBRA    RRFE     B346   -     -      -      -     -     -      G
@@ -612,12 +614,12 @@ LGFI      RILA     C01    -     -      -      -     -     -      G
 LGFR      RRE      B914   -     -      -      -     -     -      G
 LGFRL     RILB     C4C    -     -      -      -     -     -      G
 LGH       RXE      E315   -     -      -      -     -     -      G
-LGHI      RIA      A79    -     -      -      -     -     -      G
-LGHR      RRE      B907   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+LGHI      RIA      A79    -     -      -      -     -     -      G
+LGHR      RRE      B907   -     -      -      -     -     -      G
 LGHRL     RILB     C44    -     -      -      -     -     -      G
 LGR       RRE      B904   -     -      -      -     -     -      G
 LGRL      RILB     C48    -     -      -      -     -     -      G
@@ -668,12 +670,12 @@ LNXBR     RRE      B341   -     -      -      -     G     G      G
 LNXR      RRE      B361   -     -      -      -     G     G      G
 LOC       RSYB1    EBF2   -     -      -      -     -     -      G
 LOCG      RSYB1    EBE2   -     -      -      -     -     -      G
-LOCGR     RRFC     B9E2   -     -      -      -     -     -      G
-LOCR      RRFC     B9F2   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+LOCGR     RRFC     B9E2   -     -      -      -     -     -      G
+LOCR      RRFC     B9F2   -     -      -      -     -     -      G
 LPD       SSF3     C84    -     -      -      -     -     -      G
 LPDBR     RRE      B310   -     -      -      -     G     G      G
 LPDFR     RRE      B370   -     -      -      -     -     -      G
@@ -724,12 +726,12 @@ LXDR      RRE      B325   -     -      -      -     G     G      G
 LXDTR     RRFD     B3DC   -     -      -      -     -     -      G
 LXE       RXE      ED26   -     -      -      -     G     G      G
 LXEB      RXE      ED06   -     -      -      -     G     G      G
-LXEBR     RRE      B306   -     -      -      -     G     G      G
-LXER      RRE      B326   -     -      -      -     G     G      G
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+LXEBR     RRE      B306   -     -      -      -     G     G      G
+LXER      RRE      B326   -     -      -      -     G     G      G
 LXR       RRE      B365   -     -      -      -     G     G      G
 LY        RXYA     E358   -     -      -      -     -     -      G
 LZDR      RRE1     B375   -     -      -      -     G     G      G
@@ -754,8 +756,10 @@ MC        SI       AF     -     G      G      G     G     G      G
 MD        RXA      6C     G     G      G      G     G     G      G
 MDB       RXE      ED1C   -     -      -      -     G     G      G
 MDBR      RRE      B31C   -     -      -      -     G     G      G
+MDE       RXA      7C     -     -      -      -     G     G      G
 MDEB      RXE      ED0C   -     -      -      -     G     G      G
 MDEBR     RRE      B30C   -     -      -      -     G     G      G
+MDER      RR       3C     -     -      -      -     G     G      G
 MDR       RR       2C     G     G      G      G     G     G      G
 MDTR      RRFA1    B3D0   -     -      -      -     -     -      G
 MDTRA     RRFA2    B3D0   -     -      -      -     -     -      G
@@ -778,14 +782,14 @@ MP        SSB      FC     G     G      G      G     G     G      G
 MR        RR       1C     G     G      G      G     G     G      G
 MS        RXA      71     -     -      -      -     G     G      G
 MSCH      S0       B232   -     -      P      P     P     P      P
-MSD       RXF      ED3F   -     -      -      -     -     G      G
-MSDB      RXF      ED1F   -     -      -      -     G     G      G
-MSDBR     RRD      B31F   -     -      -      -     G     G      G
-MSDR      RRD      B33F   -     -      -      -     -     G      G
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+MSD       RXF      ED3F   -     -      -      -     -     G      G
+MSDB      RXF      ED1F   -     -      -      -     G     G      G
+MSDBR     RRD      B31F   -     -      -      -     G     G      G
+MSDR      RRD      B33F   -     -      -      -     -     G      G
 MSE       RXF      ED2F   -     -      -      -     -     G      G
 MSEB      RXF      ED0F   -     -      -      -     G     G      G
 MSEBR     RRD      B30F   -     -      -      -     G     G      G
@@ -834,14 +838,14 @@ MYHR      RRFH     B33D   -     -      -      -     -     -      G
 MYL       RXF      ED39   -     -      -      -     -     -      G
 MYLR      RRFH     B339   -     -      -      -     -     -      G
 MYR       RRFH     B33B   -     -      -      -     -     -      G
-N         RXA      54     G     G      G      G     G     G      G
-NC        SSA      D4     G     G      G      G     G     G      G
-NG        RXE      E380   -     -      -      -     -     -      G
-NGR       RRE      B980   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+N         RXA      54     G     G      G      G     G     G      G
+NC        SSA      D4     G     G      G      G     G     G      G
+NG        RXE      E380   -     -      -      -     -     -      G
+NGR       RRE      B980   -     -      -      -     -     -      G
 NGRK      RRFA1    B9E4   -     -      -      -     -     -      G
 NI        SI       94     G     G      G      G     G     G      G
 NIAI      IE       B2FA   -     -      -      -     -     -      G
@@ -890,14 +894,14 @@ PKA       SSA      E9     -     -      -      -     -     G      G
 PKU       SSA      E1     -     -      -      -     -     G      G
 PLO       SSE1     EE     -     -      -      -     G     G      G
 POPCNT    RRE      B9E1   -     -      -      -     -     -      G
-PPA       RRFC     B2EB   -     -      -      -     -     -      G
-PR        E        0101   -     -      -      G     G     G      G
-PT        RRE      B228   -     P      P      P     P     P      P
-PTF       RRE1     B9A2   -     -      -      -     -     -      P
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+PPA       RRFC     B2EB   -     -      -      -     -     -      G
+PR        E        0101   -     -      -      G     G     G      G
+PT        RRE      B228   -     P      P      P     P     P      P
+PTF       RRE1     B9A2   -     -      -      -     -     -      P
 PTFF      E        0104   -     -      -      -     -     -      G
 PTI       RRE      B99E   -     -      -      -     -     -      G
 PTLB      S0       B20D   -     P      P      P     P     P      P
@@ -946,14 +950,14 @@ SEBR      RRE      B30B   -     -      -      -     G     G      G
 SER       RR       3B     G     G      G      G     G     G      G
 SERVC     RRE      B220   -     -      P X    P X   P X   P X    P X
 SFASR     RRE1     B385   -     -      -      -     -     -      G
-SFPC      RRE1     B384   -     -      -      -     G     G      G
-SG        RXE      E309   -     -      -      -     -     -      G
-SGF       RXE      E319   -     -      -      -     -     -      G
-SGFR      RRE      B919   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+SFPC      RRE1     B384   -     -      -      -     G     G      G
+SG        RXE      E309   -     -      -      -     -     -      G
+SGF       RXE      E319   -     -      -      -     -     -      G
+SGFR      RRE      B919   -     -      -      -     -     -      G
 SGR       RRE      B909   -     -      -      -     -     -      G
 SGRK      RRFA1    B9E9   -     -      -      -     -     -      G
 SH        RXA      4B     G     G      G      G     G     G      G
@@ -1002,14 +1006,14 @@ SQE       RXE      ED34   -     -      -      -     G     G      G
 SQEB      RXE      ED14   -     -      -      -     G     G      G
 SQEBR     RRE      B314   -     -      -      -     G     G      G
 SQER      RRE      B245   -     -      -      -     G     G      G
-SQXBR     RRE      B316   -     -      -      -     G     G      G
-SQXR      RRE      B336   -     -      -      -     G     G      G
-SR        RR       1B     G     G      G      G     G     G      G
-SRA       RSA1     8A     G     G      G      G     G     G      G
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+SQXBR     RRE      B316   -     -      -      -     G     G      G
+SQXR      RRE      B336   -     -      -      -     G     G      G
+SR        RR       1B     G     G      G      G     G     G      G
+SRA       RSA1     8A     G     G      G      G     G     G      G
 SRAG      RSA2     EB0A   -     -      -      -     -     -      G
 SRAK      RSYA     EBDC   -     -      -      -     -     -      G
 SRDA      RSA1     8E     G     G      G      G     G     G      G
@@ -1058,14 +1062,14 @@ STFPC     S0       B29C   -     -      -      -     G     G      G
 STG       RXE      E324   -     -      -      -     -     -      G
 STGRL     RILB     C4B    -     -      -      -     -     -      G
 STH       RXA      40     G     G      G      G     G     G      G
-STHH      RXYA     E3C7   -     -      -      -     -     -      G
-STHRL     RILB     C47    -     -      -      -     -     -      G
-STHY      RXYA     E370   -     -      -      -     -     -      G
-STIDC     S0       B203   -     P      -      -     -     -      -
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+STHH      RXYA     E3C7   -     -      -      -     -     -      G
+STHRL     RILB     C47    -     -      -      -     -     -      G
+STHY      RXYA     E370   -     -      -      -     -     -      G
+STIDC     S0       B203   -     P      -      -     -     -      -
 STIDP     S0       B202   -     P      P      P     P     P      P
 STM       RSA      90     G     G      G      G     G     G      G
 STMG      RSA2     EB24   -     -      -      -     -     -      G
@@ -1114,14 +1118,14 @@ TDCDT     RXE      ED54   -     -      -      -     -     -      G
 TDCET     RXE      ED50   -     -      -      -     -     -      G
 TDCXT     RXE      ED58   -     -      -      -     -     -      G
 TDGDT     RXE      ED55   -     -      -      -     -     -      G
-TDGET     RXE      ED51   -     -      -      -     -     -      G
-TDGXT     RXE      ED59   -     -      -      -     -     -      G
-TEND      RRE2     B2F8   -     -      -      -     -     -      G
-THDER     RRE      B358   -     -      -      -     G     G      G
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+TDGET     RXE      ED51   -     -      -      -     -     -      G
+TDGXT     RXE      ED59   -     -      -      -     -     -      G
+TEND      RRE2     B2F8   -     -      -      -     -     -      G
+THDER     RRE      B358   -     -      -      -     G     G      G
 THDR      RRE      B359   -     -      -      -     G     G      G
 TIO       S0       9D00   P     P      -      -     -     -      -
 TM        SI       91     G     G      G      G     G     G      G
@@ -1186,17 +1190,17 @@ TRAP2     E        01FF   -     -      -      -     G     G      G
 SPM       RR       04     P     P      P      P     P     P      P
 BALR      RR       05     G     G      G      G     G     G      G
 BCTR      RR       06     G     G      G      G     G     G      G
-NOPR      ER       070    GE    GE     GE     GE    GE    GE     GE
 BCR       RR       07     G     G      G      G     G     G      G
+NOPR      ER       070    GE    GE     GE     GE    GE    GE     GE
 BOR       ER       071    GE    GE     GE     GE    GE    GE     GE
 BPR       ER       072    GE    GE     GE     GE    GE    GE     GE
 BHR       ER       072    GE    GE     GE     GE    GE    GE     GE
 BMR       ER       074    GE    GE     GE     GE    GE    GE     GE
 BLR       ER       074    GE    GE     GE     GE    GE    GE     GE
-BNER      ER       077    GE    GE     GE     GE    GE    GE     GE
 BNZR      ER       077    GE    GE     GE     GE    GE    GE     GE
-BER       ER       078    GE    GE     GE     GE    GE    GE     GE
+BNER      ER       077    GE    GE     GE     GE    GE    GE     GE
 BZR       ER       078    GE    GE     GE     GE    GE    GE     GE
+BER       ER       078    GE    GE     GE     GE    GE    GE     GE
 BNMR      ER       07B    GE    GE     GE     GE    GE    GE     GE
 BNLR      ER       07B    GE    GE     GE     GE    GE    GE     GE
 BNHR      ER       07D    GE    GE     GE     GE    GE    GE     GE
@@ -1237,6 +1241,7 @@ LTDR      RR       22     G     G      G      G     G     G      G
 LCDR      RR       23     G     G      G      G     G     G      G
 HDR       RR       24     G     G      G      G     G     G      G
 LRDR      RR       25     -     G      G      G     G     G      G
+LDXR      RR       25     -     -      -      -     G     G      G
 MXR       RR       26     -     G      G      G     G     G      G
 MXDR      RR       27     -     G      G      G     G     G      G
 LDR       RR       28     G     G      G      G     G     G      G
@@ -1253,12 +1258,14 @@ LTER      RR       32     G     G      G      G     G     G      G
 LCER      RR       33     G     G      G      G     G     G      G
 HER       RR       34     G     G      G      G     G     G      G
 LRER      RR       35     -     G      G      G     G     G      G
+LEDR      RR       35     -     -      -      -     G     G      G
 AXR       RR       36     -     G      G      G     G     G      G
 SXR       RR       37     -     G      G      G     G     G      G
 LER       RR       38     G     G      G      G     G     G      G
 CER       RR       39     G     G      G      G     G     G      G
 AER       RR       3A     G     G      G      G     G     G      G
 SER       RR       3B     G     G      G      G     G     G      G
+MDER      RR       3C     -     -      -      -     G     G      G
 MER       RR       3C     G     G      G      G     G     G      G
 DER       RR       3D     G     G      G      G     G     G      G
 AUR       RR       3E     G     G      G      G     G     G      G
@@ -1273,22 +1280,22 @@ BCT       RXA      46     G     G      G      G     G     G      G
 NOP       ERXB     470    GE    GE     GE     GE    GE    GE     GE
 BC        RXA      47     G     G      G      G     G     G      G
 BO        ERXB     471    GE    GE     GE     GE    GE    GE     GE
-BP        ERXB     472    GE    GE     GE     GE    GE    GE     GE
 BH        ERXB     472    GE    GE     GE     GE    GE    GE     GE
+BP        ERXB     472    GE    GE     GE     GE    GE    GE     GE
 BM        ERXB     474    GE    GE     GE     GE    GE    GE     GE
 BL        ERXB     474    GE    GE     GE     GE    GE    GE     GE
-BNZ       ERXB     477    GE    GE     GE     GE    GE    GE     GE
 BNE       ERXB     477    GE    GE     GE     GE    GE    GE     GE
-BZ        ERXB     478    GE    GE     GE     GE    GE    GE     GE
-BE        ERXB     478    GE    GE     GE     GE    GE    GE     GE
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+BNZ       ERXB     477    GE    GE     GE     GE    GE    GE     GE
+BE        ERXB     478    GE    GE     GE     GE    GE    GE     GE
+BZ        ERXB     478    GE    GE     GE     GE    GE    GE     GE
 BNL       ERXB     47B    GE    GE     GE     GE    GE    GE     GE
 BNM       ERXB     47B    GE    GE     GE     GE    GE    GE     GE
-BNP       ERXB     47D    GE    GE     GE     GE    GE    GE     GE
 BNH       ERXB     47D    GE    GE     GE     GE    GE    GE     GE
+BNP       ERXB     47D    GE    GE     GE     GE    GE    GE     GE
 BNO       ERXB     47E    GE    GE     GE     GE    GE    GE     GE
 B         ERXB     47F    GE    GE     GE     GE    GE    GE     GE
 LH        RXA      48     G     G      G      G     G     G      G
@@ -1331,19 +1338,20 @@ CE        RXA      79     G     G      G      G     G     G      G
 AE        RXA      7A     G     G      G      G     G     G      G
 SE        RXA      7B     G     G      G      G     G     G      G
 ME        RXA      7C     G     G      G      G     G     G      G
+MDE       RXA      7C     -     -      -      -     G     G      G
 DE        RXA      7D     G     G      G      G     G     G      G
 AU        RXA      7E     G     G      G      G     G     G      G
-SU        RXA      7F     G     G      G      G     G     G      G
-SSM       S0       8000   P     P      P      P     P     P      P
-LPSW      S0       8200   P     P      P      P     P     P      P
-DIAG      RXA      83     P     P      P      P     P     P      P
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
-WRD       SI       84     P     P      -      -     -     -      -
-JXH       RSI      84     -     -      -      -     GE    GE     GE
+SU        RXA      7F     G     G      G      G     G     G      G
+SSM       S0       8000   P     P      P      P     P     P      P
+LPSW      S0       8200   P     P      P      P     P     P      P
+DIAG      RXA      83     P     P      P      P     P     P      P
 BRXH      RSI      84     -     -      -      -     G     G      G
+JXH       RSI      84     -     -      -      -     GE    GE     GE
+WRD       SI       84     P     P      -      -     -     -      -
 BRXLE     RSI      85     -     -      -      -     G     G      G
 RDD       SI       85     P     P      -      -     -     -      -
 JXLE      RSI      85     -     -      -      -     GE    GE     GE
@@ -1389,17 +1397,17 @@ NILL      RIA      A57    -     -      -      -     -     -      G
 OIHH      RIA      A58    -     -      -      -     -     -      G
 OIHL      RIA      A59    -     -      -      -     -     -      G
 OILH      RIA      A5A    -     -      -      -     -     -      G
-OILL      RIA      A5B    -     -      -      -     -     -      G
-LLIHH     RIA      A5C    -     -      -      -     -     -      G
-LLIHL     RIA      A5D    -     -      -      -     -     -      G
-LLILH     RIA      A5E    -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+OILL      RIA      A5B    -     -      -      -     -     -      G
+LLIHH     RIA      A5C    -     -      -      -     -     -      G
+LLIHL     RIA      A5D    -     -      -      -     -     -      G
+LLILH     RIA      A5E    -     -      -      -     -     -      G
 LLILL     RIA      A5F    -     -      -      -     -     -      G
-TMH       RIA      A70    -     -      -      -     G     G      G
 TMLH      RIA      A70    -     -      -      -     -     G      G
+TMH       RIA      A70    -     -      -      -     G     G      G
 TMLL      RIA      A71    -     -      -      -     -     G      G
 TML       RIA      A71    -     -      -      -     G     G      G
 TMHH      RIA      A72    -     -      -      -     -     -      G
@@ -1415,29 +1423,29 @@ JM        ERIC     A744   -     -      -      -     GE    GE     GE
 JL        ERIC     A744   -     -      -      -     GE    GE     GE
 BRL       ERIC     A744   -     -      -      -     GE    GE     GE
 BRM       ERIC     A744   -     -      -      -     GE    GE     GE
-BRNE      ERIC     A747   -     -      -      -     GE    GE     GE
-BRNZ      ERIC     A747   -     -      -      -     GE    GE     GE
 JNZ       ERIC     A747   -     -      -      -     GE    GE     GE
+BRNE      ERIC     A747   -     -      -      -     GE    GE     GE
 JNE       ERIC     A747   -     -      -      -     GE    GE     GE
+BRNZ      ERIC     A747   -     -      -      -     GE    GE     GE
 JZ        ERIC     A748   -     -      -      -     GE    GE     GE
 JE        ERIC     A748   -     -      -      -     GE    GE     GE
-BRE       ERIC     A748   -     -      -      -     GE    GE     GE
 BRZ       ERIC     A748   -     -      -      -     GE    GE     GE
-BRNM      ERIC     A74B   -     -      -      -     GE    GE     GE
-BRNL      ERIC     A74B   -     -      -      -     GE    GE     GE
+BRE       ERIC     A748   -     -      -      -     GE    GE     GE
 JNL       ERIC     A74B   -     -      -      -     GE    GE     GE
 JNM       ERIC     A74B   -     -      -      -     GE    GE     GE
-BRNH      ERIC     A74D   -     -      -      -     GE    GE     GE
-BRNP      ERIC     A74D   -     -      -      -     GE    GE     GE
+BRNM      ERIC     A74B   -     -      -      -     GE    GE     GE
+BRNL      ERIC     A74B   -     -      -      -     GE    GE     GE
 JNH       ERIC     A74D   -     -      -      -     GE    GE     GE
 JNP       ERIC     A74D   -     -      -      -     GE    GE     GE
+BRNH      ERIC     A74D   -     -      -      -     GE    GE     GE
+BRNP      ERIC     A74D   -     -      -      -     GE    GE     GE
 BRNO      ERIC     A74E   -     -      -      -     GE    GE     GE
 J         ERIC     A74F   -     -      -      -     GE    GE     GE
 BRU       ERIC     A74F   -     -      -      -     GE    GE     GE
 JAS       RIB      A75    -     -      -      -     GE    GE     GE
 BRAS      RIB      A75    -     -      -      -     G     G      G
-BRCT      RIB      A76    -     -      -      -     G     G      G
 JCT       RIB      A76    -     -      -      -     GE    GE     GE
+BRCT      RIB      A76    -     -      -      -     G     G      G
 BRCTG     RIB      A77    -     -      -      -     -     -      G
 LHI       RIA      A78    -     -      -      -     G     G      G
 LGHI      RIA      A79    -     -      -      -     -     -      G
@@ -1445,14 +1453,14 @@ AHI       RIA      A7A    -     -      -      -     G     G      G
 AGHI      RIA      A7B    -     -      -      -     -     -      G
 MHI       RIA      A7C    -     -      -      -     G     G      G
 MGHI      RIA      A7D    -     -      -      -     -     -      G
-CHI       RIA      A7E    -     -      -      -     G     G      G
-CGHI      RIA      A7F    -     -      -      -     -     -      G
-MVCLE     RSA      A8     -     -      -      -     G     G      G
-CLCLE     RSA      A9     -     -      -      -     G     G      G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+CHI       RIA      A7E    -     -      -      -     G     G      G
+CGHI      RIA      A7F    -     -      -      -     -     -      G
+MVCLE     RSA      A8     -     -      -      -     G     G      G
+CLCLE     RSA      A9     -     -      -      -     G     G      G
 STNSM     SI       AC     -     P      P      P     P     P      P
 STOSM     SI       AD     -     P      P      P     P     P      P
 SIGP      RSA      AE     -     P      P      P     P     P      P
@@ -1476,8 +1484,8 @@ STPX      S0       B211   -     P      P      P     P     P      P
 STAP      S0       B212   -     P      P      P     P     P      P
 RRB       S0       B213   -     P      -      -     -     -      -
 SIE       S0       B214   -     -      P      P     P     P      P
-PCF       S0       B218   -     -      -      -     G     -      -
 PC        S0       B218   -     G      G      G     G     G      G
+PCF       S0       B218   -     -      -      -     G     -      -
 SAC       S0       B219   -     P      P      P     P     P      P
 CFC       S0       B21A   -     -      G      G     G     G      G
 SERVC     RRE      B220   -     -      P X    P X   P X   P X    P X
@@ -1501,14 +1509,14 @@ HSCH      S0       B231   -     -      P      P     P     P      P
 MSCH      S0       B232   -     -      P      P     P     P      P
 SSCH      S0       B233   -     -      P      P     P     P      P
 STSCH     S0       B234   -     -      P      P     P     P      P
-TSCH      S0       B235   -     -      P      P     P     P      P
-TPI       S0       B236   -     -      P      P     P     P      P
-SAL       S0       B237   -     -      P      P     P     P      P
-RSCH      S0       B238   -     -      P      P     P     P      P
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+TSCH      S0       B235   -     -      P      P     P     P      P
+TPI       S0       B236   -     -      P      P     P     P      P
+SAL       S0       B237   -     -      P      P     P     P      P
+RSCH      S0       B238   -     -      P      P     P     P      P
 STCRW     S0       B239   -     -      P      P     P     P      P
 STCPS     S0       B23A   -     -      P      P     P     P      P
 RCHP      S0       B23B   -     -      P      P     P     P      P
@@ -1557,14 +1565,14 @@ SRNMB     S0       B2B8   -     -      -      -     -     -      G
 LFAS      S0       B2BD   -     -      -      -     -     -      G
 PPA       RRFC     B2EB   -     -      -      -     -     -      G
 ETND      RRE1     B2EC   -     -      -      -     -     -      G
-TEND      RRE2     B2F8   -     -      -      -     -     -      G
-NIAI      IE       B2FA   -     -      -      -     -     -      G
-TABORT    S0       B2FC   -     -      -      -     -     -      G
-TRAP4     S0       B2FF   -     -      -      -     G     G      G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+TEND      RRE2     B2F8   -     -      -      -     -     -      G
+NIAI      IE       B2FA   -     -      -      -     -     -      G
+TABORT    S0       B2FC   -     -      -      -     -     -      G
+TRAP4     S0       B2FF   -     -      -      -     G     G      G
 LPEBR     RRE      B300   -     -      -      -     G     G      G
 LNEBR     RRE      B301   -     -      -      -     G     G      G
 LCEBR     RRE      B303   -     -      -      -     G     G      G
@@ -1613,19 +1621,19 @@ MYHR      RRFH     B33D   -     -      -      -     -     -      G
 MADR      RRD      B33E   -     -      -      -     -     G      G
 MSDR      RRD      B33F   -     -      -      -     -     G      G
 LPXBR     RRE      B340   -     -      -      -     G     G      G
-LNXBR     RRE      B341   -     -      -      -     G     G      G
-LTXBR     RRE      B342   -     -      -      -     G     G      G
-LCXBR     RRE      B343   -     -      -      -     G     G      G
-LEDBRA    RRFE     B344   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+LNXBR     RRE      B341   -     -      -      -     G     G      G
+LTXBR     RRE      B342   -     -      -      -     G     G      G
+LCXBR     RRE      B343   -     -      -      -     G     G      G
+LEDBRA    RRFE     B344   -     -      -      -     -     -      G
 LEDBR     RRE      B344   -     -      -      -     G     G      G
 LDXBR     RRE      B345   -     -      -      -     G     G      G
 LDXBRA    RRFE     B345   -     -      -      -     -     -      G
-LEXBRA    RRFE     B346   -     -      -      -     -     -      G
 LEXBR     RRE      B346   -     -      -      -     G     G      G
+LEXBRA    RRFE     B346   -     -      -      -     -     -      G
 FIXBRA    RRFE     B347   -     -      -      -     -     -      G
 FIXBR     RRFG     B347   -     -      -      -     G     G      G
 KXBR      RRE      B348   -     -      -      -     G     G      G
@@ -1643,8 +1651,8 @@ FIEBR     RRFG     B357   -     -      -      -     G     G      G
 THDER     RRE      B358   -     -      -      -     G     G      G
 THDR      RRE      B359   -     -      -      -     G     G      G
 DIDBR     RRFB2    B35B   -     -      -      -     G     G      G
-FIDBR     RRFG     B35F   -     -      -      -     G     G      G
 FIDBRA    RRFE     B35F   -     -      -      -     -     -      G
+FIDBR     RRFG     B35F   -     -      -      -     G     G      G
 LPXR      RRE      B360   -     -      -      -     G     G      G
 LNXR      RRE      B361   -     -      -      -     G     G      G
 LTXR      RRE      B362   -     -      -      -     G     G      G
@@ -1669,20 +1677,20 @@ EPSW      RRE      B38C   -     -      -      -     -     G      G
 CELFBR    RRFE     B390   -     -      -      -     -     -      G
 CDLFBR    RRFE     B391   -     -      -      -     -     -      G
 CXLFBR    RRFE     B392   -     -      -      -     -     -      G
-CEFBR     RRE      B394   -     -      -      -     G     G      G
-CEFBRA    RRFE     B394   -     -      -      -     -     -      G
-CDFBRA    RRFE     B395   -     -      -      -     -     -      G
-CDFBR     RRE      B395   -     -      -      -     G     G      G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
-CXFBR     RRE      B396   -     -      -      -     G     G      G
+CEFBR     RRE      B394   -     -      -      -     G     G      G
+CEFBRA    RRFE     B394   -     -      -      -     -     -      G
+CDFBR     RRE      B395   -     -      -      -     G     G      G
+CDFBRA    RRFE     B395   -     -      -      -     -     -      G
 CXFBRA    RRFE     B396   -     -      -      -     -     -      G
-CFEBRA    RRFE     B398   -     -      -      -     -     -      G
+CXFBR     RRE      B396   -     -      -      -     G     G      G
 CFEBR     RRE      B398   -     -      -      -     G     G      G
-CFDBRA    RRFE     B399   -     -      -      -     -     -      G
+CFEBRA    RRFE     B398   -     -      -      -     -     -      G
 CFDBR     RRFG     B399   -     -      -      -     G     G      G
+CFDBRA    RRFE     B399   -     -      -      -     -     -      G
 CFXBR     RRFG     B39A   -     -      -      -     G     G      G
 CFXBRA    RRFE     B39A   -     -      -      -     -     -      G
 CLFEBR    RRFE     B39C   -     -      -      -     -     -      G
@@ -1691,23 +1699,23 @@ CLFXBR    RRFE     B39E   -     -      -      -     -     -      G
 CELGBR    RRFE     B3A0   -     -      -      -     -     -      G
 CDLGBR    RRFE     B3A1   -     -      -      -     -     -      G
 CXLGBR    RRFE     B3A2   -     -      -      -     -     -      G
-CEGBRA    RRFE     B3A4   -     -      -      -     -     -      G
 CEGBR     RRE      B3A4   -     -      -      -     -     -      G
+CEGBRA    RRFE     B3A4   -     -      -      -     -     -      G
 CDGBRA    RRFE     B3A5   -     -      -      -     -     -      G
 CDGBR     RRE      B3A5   -     -      -      -     -     -      G
-CXGBRA    RRFE     B3A6   -     -      -      -     -     -      G
 CXGBR     RRE      B3A6   -     -      -      -     -     -      G
-CGEBRA    RRFE     B3A8   -     -      -      -     -     -      G
+CXGBRA    RRFE     B3A6   -     -      -      -     -     -      G
 CGEBR     RRFG     B3A8   -     -      -      -     -     -      G
-CGDBRA    RRFE     B3A9   -     -      -      -     -     -      G
+CGEBRA    RRFE     B3A8   -     -      -      -     -     -      G
 CGDBR     RRFG     B3A9   -     -      -      -     -     -      G
-CGXBRA    RRFE     B3AA   -     -      -      -     -     -      G
+CGDBRA    RRFE     B3A9   -     -      -      -     -     -      G
 CGXBR     RRFG     B3AA   -     -      -      -     -     -      G
+CGXBRA    RRFE     B3AA   -     -      -      -     -     -      G
 CLGEBR    RRFE     B3AC   -     -      -      -     -     -      G
 CLGDBR    RRFE     B3AD   -     -      -      -     -     -      G
 CLGXBR    RRFE     B3AE   -     -      -      -     -     -      G
-CEFR      RRE      B3B4   -     -      -      -     G     G      G
 CEGR      RRE      B3B4   -     -      -      -     -     -      G
+CEFR      RRE      B3B4   -     -      -      -     G     G      G
 CDFR      RRE      B3B5   -     -      -      -     G     G      G
 CXFR      RRE      B3B6   -     -      -      -     G     G      G
 CFER      RRE      B3B8   -     -      -      -     G     G      G
@@ -1724,31 +1732,31 @@ MDTR      RRFA1    B3D0   -     -      -      -     -     -      G
 MDTRA     RRFA2    B3D0   -     -      -      -     -     -      G
 DDTRA     RRFA2    B3D1   -     -      -      -     -     -      G
 DDTR      RRFA1    B3D1   -     -      -      -     -     -      G
-ADTRA     RRFA2    B3D2   -     -      -      -     -     -      G
 ADTR      RRFA1    B3D2   -     -      -      -     -     -      G
-SDTR      RRFA1    B3D3   -     -      -      -     -     -      G
-SDTRA     RRFA2    B3D3   -     -      -      -     -     -      G
-LDETR     RRFD     B3D4   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+ADTRA     RRFA2    B3D2   -     -      -      -     -     -      G
+SDTRA     RRFA2    B3D3   -     -      -      -     -     -      G
+SDTR      RRFA1    B3D3   -     -      -      -     -     -      G
+LDETR     RRFD     B3D4   -     -      -      -     -     -      G
 LTDTR     RRE      B3D6   -     -      -      -     -     -      G
 FIDTR     RRFE     B3D7   -     -      -      -     -     -      G
 SXTRA     RRFA2    B3D8   -     -      -      -     -     -      G
-MXTR      RRFA1    B3D8   -     -      -      -     -     -      G
-MXTRA     RRFA2    B3D8   -     -      -      -     -     -      G
 SXTR      RRFA1    B3D8   -     -      -      -     -     -      G
-DXTR      RRFA1    B3D9   -     -      -      -     -     -      G
+MXTRA     RRFA2    B3D8   -     -      -      -     -     -      G
+MXTR      RRFA1    B3D8   -     -      -      -     -     -      G
 DXTRA     RRFA2    B3D9   -     -      -      -     -     -      G
+DXTR      RRFA1    B3D9   -     -      -      -     -     -      G
 AXTR      RRFA1    B3DA   -     -      -      -     -     -      G
 AXTRA     RRFA2    B3DA   -     -      -      -     -     -      G
 LXDTR     RRFD     B3DC   -     -      -      -     -     -      G
 LTXTR     RRE      B3DE   -     -      -      -     -     -      G
 FIXTR     RRFE     B3DF   -     -      -      -     -     -      G
 KDTR      RRE      B3E0   -     -      -      -     -     -      G
-CGDTRA    RRFE     B3E1   -     -      -      -     -     -      G
 CGDTR     RRFG     B3E1   -     -      -      -     -     -      G
+CGDTRA    RRFE     B3E1   -     -      -      -     -     -      G
 CUDTR     RRE      B3E2   -     -      -      -     -     -      G
 CSDTR     RRFD     B3E3   -     -      -      -     -     -      G
 CDTR      RRE      B3E4   -     -      -      -     -     -      G
@@ -1757,21 +1765,21 @@ ESDTR     RRE      B3E7   -     -      -      -     -     -      G
 CGXTR     RRFG     B3E9   -     -      -      -     -     -      G
 CGXTRA    RRFE     B3E9   -     -      -      -     -     -      G
 CUXTR     RRE      B3EA   -     -      -      -     -     -      G
-CSXTR     RRFD     B3EB   -     -      -      -     -     -      G
 KXTR      RRE      B3EB   -     -      -      -     -     -      G
+CSXTR     RRFD     B3EB   -     -      -      -     -     -      G
 CXTR      RRE      B3EC   -     -      -      -     -     -      G
 EEXTR     RRE      B3ED   -     -      -      -     -     -      G
 ESXTR     RRE      B3EF   -     -      -      -     -     -      G
-CDGTR     RRE      B3F1   -     -      -      -     -     -      G
 CDGTRA    RRFE     B3F1   -     -      -      -     -     -      G
+CDGTR     RRE      B3F1   -     -      -      -     -     -      G
 CDUTR     RRE      B3F2   -     -      -      -     -     -      G
 CDSTR     RRE      B3F3   -     -      -      -     -     -      G
 CEDTR     RRE      B3F4   -     -      -      -     -     -      G
 QADTR     RRFB2    B3F5   -     -      -      -     -     -      G
 IEDTR     RRFI     B3F6   -     -      -      -     -     -      G
 RRDTR     RRFB2    B3F7   -     -      -      -     -     -      G
-CXGTRA    RRFE     B3F9   -     -      -      -     -     -      G
 CXGTR     RRE      B3F9   -     -      -      -     -     -      G
+CXGTRA    RRFE     B3F9   -     -      -      -     -     -      G
 CXUTR     RRE      B3FA   -     -      -      -     -     -      G
 CXSTR     RRE      B3FB   -     -      -      -     -     -      G
 CEXTR     RRE      B3FC   -     -      -      -     -     -      G
@@ -1781,14 +1789,14 @@ RRXTR     RRFB2    B3FF   -     -      -      -     -     -      G
 STCTL     RSA      B6     -     P      P      P     P     P      P
 LCTL      RSA      B7     -     P      P      P     P     P      P
 LPGR      RRE      B900   -     -      -      -     -     -      G
-LNGR      RRE      B901   -     -      -      -     -     -      G
-LTGR      RRE      B902   -     -      -      -     -     -      G
-LCGR      RRE      B903   -     -      -      -     -     -      G
-LGR       RRE      B904   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+LNGR      RRE      B901   -     -      -      -     -     -      G
+LTGR      RRE      B902   -     -      -      -     -     -      G
+LCGR      RRE      B903   -     -      -      -     -     -      G
+LGR       RRE      B904   -     -      -      -     -     -      G
 LURAG     RRE      B905   -     -      -      -     -     -      P
 LGBR      RRE      B906   -     -      -      -     -     -      G
 LGHR      RRE      B907   -     -      -      -     -     -      G
@@ -1837,14 +1845,14 @@ CFXTR     RRFE     B949   -     -      -      -     -     -      G
 CLGXTR    RRFE     B94A   -     -      -      -     -     -      G
 CLFXTR    RRFE     B94B   -     -      -      -     -     -      G
 CDFTR     RRFE     B951   -     -      -      -     -     -      G
-CDLGTR    RRFE     B952   -     -      -      -     -     -      G
-CDLFTR    RRFE     B953   -     -      -      -     -     -      G
-CXFTR     RRFE     B959   -     -      -      -     -     -      G
-CXLGTR    RRFE     B95A   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+CDLGTR    RRFE     B952   -     -      -      -     -     -      G
+CDLFTR    RRFE     B953   -     -      -      -     -     -      G
+CXFTR     RRFE     B959   -     -      -      -     -     -      G
+CXLGTR    RRFE     B95A   -     -      -      -     -     -      G
 CXLFTR    RRFE     B95B   -     -      -      -     -     -      G
 CGRT      RRFC     B960   -     -      -      -     -     -      G
 CLGRT     RRFC     B961   -     -      -      -     -     -      G
@@ -1893,14 +1901,14 @@ ALHHHR    RRFA1    B9CA   -     -      -      -     -     -      G
 CHHR      RRE      B9CD   -     -      -      -     -     -      G
 CLHHR     RRE      B9CF   -     -      -      -     -     -      G
 AHHLR     RRFA1    B9D8   -     -      -      -     -     -      G
-SHHLR     RRFA1    B9D9   -     -      -      -     -     -      G
-ALHHLR    RRFA1    B9DA   -     -      -      -     -     -      G
-CHLR      RRE      B9DD   -     -      -      -     -     -      G
-CLHLR     RRE      B9DF   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+SHHLR     RRFA1    B9D9   -     -      -      -     -     -      G
+ALHHLR    RRFA1    B9DA   -     -      -      -     -     -      G
+CHLR      RRE      B9DD   -     -      -      -     -     -      G
+CLHLR     RRE      B9DF   -     -      -      -     -     -      G
 POPCNT    RRE      B9E1   -     -      -      -     -     -      G
 LOCGR     RRFC     B9E2   -     -      -      -     -     -      G
 NGRK      RRFA1    B9E4   -     -      -      -     -     -      G
@@ -1928,50 +1936,50 @@ JLNOP     ERILC    C004   -     -      -      -     -     GE     GE
 LGFI      RILA     C01    -     -      -      -     -     -      G
 JLO       ERILC    C014   -     -      -      -     -     GE     GE
 BROL      ERILC    C014   -     -      -      -     -     GE     GE
-BRPL      ERILC    C024   -     -      -      -     -     GE     GE
-JLH       ERILC    C024   -     -      -      -     -     GE     GE
-JLP       ERILC    C024   -     -      -      -     -     GE     GE
 BRHL      ERILC    C024   -     -      -      -     -     GE     GE
+JLP       ERILC    C024   -     -      -      -     -     GE     GE
+JLH       ERILC    C024   -     -      -      -     -     GE     GE
+BRPL      ERILC    C024   -     -      -      -     -     GE     GE
 BRCL      RILC     C04    -     -      -      -     -     G      G
+BRML      ERILC    C044   -     -      -      -     -     GE     GE
 JLL       ERILC    C044   -     -      -      -     -     GE     GE
 JLM       ERILC    C044   -     -      -      -     -     GE     GE
-BRML      ERILC    C044   -     -      -      -     -     GE     GE
 BRLL      ERILC    C044   -     -      -      -     -     GE     GE
 BRASL     RILB     C05    -     -      -      -     -     G      G
 JASL      RILB     C05    -     -      -      -     -     GE     GE
 XIHF      RILA     C06    -     -      -      -     -     -      G
 XILF      RILA     C07    -     -      -      -     -     -      G
-BRNZL     ERILC    C074   -     -      -      -     -     GE     GE
+BRNEL     ERILC    C074   -     -      -      -     -     GE     GE
 JLNZ      ERILC    C074   -     -      -      -     -     GE     GE
 JLNE      ERILC    C074   -     -      -      -     -     GE     GE
-BRNEL     ERILC    C074   -     -      -      -     -     GE     GE
+BRNZL     ERILC    C074   -     -      -      -     -     GE     GE
 IIHF      RILA     C08    -     -      -      -     -     -      G
-JLE       ERILC    C084   -     -      -      -     -     GE     GE
-JLZ       ERILC    C084   -     -      -      -     -     GE     GE
-BRZL      ERILC    C084   -     -      -      -     -     GE     GE
 BRNLL     ERILC    C084   -     -      -      -     -     GE     GE
-BREL      ERILC    C084   -     -      -      -     -     GE     GE
-JLNM      ERILC    C084   -     -      -      -     -     GE     GE
-JLNL      ERILC    C084   -     -      -      -     -     GE     GE
+JLZ       ERILC    C084   -     -      -      -     -     GE     GE
+JLE       ERILC    C084   -     -      -      -     -     GE     GE
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+BRZL      ERILC    C084   -     -      -      -     -     GE     GE
+JLNM      ERILC    C084   -     -      -      -     -     GE     GE
+JLNL      ERILC    C084   -     -      -      -     -     GE     GE
 BRNML     ERILC    C084   -     -      -      -     -     GE     GE
+BREL      ERILC    C084   -     -      -      -     -     GE     GE
 IILF      RILA     C09    -     -      -      -     -     -      G
 NIHF      RILA     C0A    -     -      -      -     -     -      G
 NILF      RILA     C0B    -     -      -      -     -     -      G
 OIHF      RILA     C0C    -     -      -      -     -     -      G
 OILF      RILA     C0D    -     -      -      -     -     -      G
-BRNHL     ERILC    C0D4   -     -      -      -     -     GE     GE
 BRNPL     ERILC    C0D4   -     -      -      -     -     GE     GE
 JLNP      ERILC    C0D4   -     -      -      -     -     GE     GE
 JLNH      ERILC    C0D4   -     -      -      -     -     GE     GE
+BRNHL     ERILC    C0D4   -     -      -      -     -     GE     GE
 LLIHF     RILA     C0E    -     -      -      -     -     -      G
 BRNOL     ERILC    C0E4   -     -      -      -     -     GE     GE
 LLILF     RILA     C0F    -     -      -      -     -     -      G
-JLU       ERILC    C0F4   -     -      -      -     -     GE     GE
 BRUL      ERILC    C0F4   -     -      -      -     -     GE     GE
+JLU       ERILC    C0F4   -     -      -      -     -     GE     GE
 MSGFI     RILA     C20    -     -      -      -     -     -      G
 MSFI      RILA     C21    -     -      -      -     -     -      G
 SLGFI     RILA     C24    -     -      -      -     -     -      G
@@ -2005,14 +2013,14 @@ CLHRL     RILB     C67    -     -      -      -     -     -      G
 CGRL      RILB     C68    -     -      -      -     -     -      G
 CLGRL     RILB     C6A    -     -      -      -     -     -      G
 CGFRL     RILB     C6C    -     -      -      -     -     -      G
-CRL       RILB     C6D    -     -      -      -     -     -      G
-CLGFRL    RILB     C6E    -     -      -      -     -     -      G
-CLRL      RILB     C6F    -     -      -      -     -     -      G
-BPP       SMI      C7     -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+CRL       RILB     C6D    -     -      -      -     -     -      G
+CLGFRL    RILB     C6E    -     -      -      -     -     -      G
+CLRL      RILB     C6F    -     -      -      -     -     -      G
+BPP       SMI      C7     -     -      -      -     -     -      G
 MVCOS     SSF2     C80    -     -      -      -     -     -      G
 ECTG      SSF2     C81    -     -      -      -     -     -      G
 LPD       SSF3     C84    -     -      -      -     -     -      G
@@ -2052,8 +2060,8 @@ ALG       RXE      E30E   -     -      -      -     -     -      G
 CVBG      RXE      E30E   -     -      -      -     -     -      G
 LRVG      RXE      E30F   -     -      -      -     -     -      G
 LT        RXYA     E312   -     -      -      -     -     -      G
-LRV       RXE      E313   -     -      -      -     -     G      G
 LRAY      RXYA     E313   -     -      -      -     -     -      P
+LRV       RXE      E313   -     -      -      -     -     G      G
 LGF       RXE      E314   -     -      -      -     -     -      G
 LGH       RXE      E315   -     -      -      -     -     -      G
 LLGF      RXE      E316   -     -      -      -     -     -      G
@@ -2061,14 +2069,14 @@ LLGT      RXE      E317   -     -      -      -     -     -      G
 AGF       RXE      E318   -     -      -      -     -     -      G
 SGF       RXE      E319   -     -      -      -     -     -      G
 ALGF      RXE      E31A   -     -      -      -     -     -      G
-SLGF      RXE      E31B   -     -      -      -     -     -      G
-MSGF      RXE      E31C   -     -      -      -     -     -      G
-DSGF      RXE      E31D   -     -      -      -     -     -      G
-LRVH      RXE      E31F   -     -      -      -     -     G      G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+SLGF      RXE      E31B   -     -      -      -     -     -      G
+MSGF      RXE      E31C   -     -      -      -     -     -      G
+DSGF      RXE      E31D   -     -      -      -     -     -      G
+LRVH      RXE      E31F   -     -      -      -     -     G      G
 CG        RXE      E320   -     -      -      -     -     -      G
 CLG       RXE      E321   -     -      -      -     -     -      G
 STG       RXE      E324   -     -      -      -     -     -      G
@@ -2117,14 +2125,14 @@ LGAT      RXYA     E385   -     -      -      -     -     -      G
 MLG       RXE      E386   -     -      -      -     -     -      G
 DLG       RXE      E387   -     -      -      -     -     -      G
 ALCG      RXE      E388   -     -      -      -     -     -      G
-SLBG      RXE      E389   -     -      -      -     -     -      G
-STPQ      RXE      E38E   -     -      -      -     -     -      G
-LPQ       RXE      E38F   -     -      -      -     -     -      G
-LLGC      RXE      E390   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+SLBG      RXE      E389   -     -      -      -     -     -      G
+STPQ      RXE      E38E   -     -      -      -     -     -      G
+LPQ       RXE      E38F   -     -      -      -     -     -      G
+LLGC      RXE      E390   -     -      -      -     -     -      G
 LLGH      RXE      E391   -     -      -      -     -     -      G
 LLC       RXYA     E394   -     -      -      -     -     -      G
 LLH       RXYA     E395   -     -      -      -     -     -      G
@@ -2173,14 +2181,14 @@ TRACG     RSA2     EB0F   -     -      -      -     -     -      P
 CSY       RSLB     EB14   -     -      -      -     -     -      G
 RLLG      RSA2     EB1C   -     -      -      -     -     -      G
 RLL       RSA2     EB1D   -     -      -      -     -     G      G
-CLMH      RSC      EB20   -     -      -      -     -     -      G
-CLMY      RSYB     EB21   -     -      -      -     -     -      G
-CLT       RSYB     EB23   -     -      -      -     -     -      G
-STMG      RSA2     EB24   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+CLMH      RSC      EB20   -     -      -      -     -     -      G
+CLMY      RSYB     EB21   -     -      -      -     -     -      G
+CLT       RSYB     EB23   -     -      -      -     -     -      G
+STMG      RSA2     EB24   -     -      -      -     -     -      G
 STCTG     RSA2     EB25   -     -      -      -     -     -      G
 STMH      RSA2     EB26   -     -      -      -     -     -      G
 CLGT      RSYB     EB2B   -     -      -      -     -     -      G
@@ -2229,14 +2237,14 @@ LAX       RSYA     EBF7   -     -      -      -     -     -      G
 LAA       RSYA     EBF8   -     -      -      -     -     -      G
 LAAL      RSYA     EBFA   -     -      -      -     -     -      G
 BRXHG     RIED     EC44   -     -      -      -     -     -      G
-BRXLG     RIED     EC45   -     -      -      -     -     -      G
-RISBLG    RIEF     EC51   -     -      -      -     -     -      G
-RNSBG     RIEF     EC54   -     -      -      -     -     -      G
-RISBG     RIEF     EC55   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+BRXLG     RIED     EC45   -     -      -      -     -     -      G
+RISBLG    RIEF     EC51   -     -      -      -     -     -      G
+RNSBG     RIEF     EC54   -     -      -      -     -     -      G
+RISBG     RIEF     EC55   -     -      -      -     -     -      G
 ROSBG     RIEF     EC56   -     -      -      -     -     -      G
 RXSBG     RIEF     EC57   -     -      -      -     -     -      G
 RISBGN    RIEF     EC59   -     -      -      -     -     -      G
@@ -2274,8 +2282,8 @@ CEB       RXE      ED09   -     -      -      -     G     G      G
 AEB       RXE      ED0A   -     -      -      -     G     G      G
 SEB       RXE      ED0B   -     -      -      -     G     G      G
 MDEB      RXE      ED0C   -     -      -      -     G     G      G
-DEB       RXE      ED0D   -     -      -      -     G     G      G
 MAEB      RXF      ED0D   -     -      -      -     G     G      G
+DEB       RXE      ED0D   -     -      -      -     G     G      G
 MSEB      RXF      ED0F   -     -      -      -     G     G      G
 TCEB      RXE      ED10   -     -      -      -     G     G      G
 TCDB      RXE      ED11   -     -      -      -     G     G      G
@@ -2285,14 +2293,14 @@ SQDB      RXE      ED15   -     -      -      -     G     G      G
 MEEB      RXE      ED17   -     -      -      -     G     G      G
 KDB       RXE      ED18   -     -      -      -     G     G      G
 CDB       RXE      ED19   -     -      -      -     G     G      G
-ADB       RXE      ED1A   -     -      -      -     G     G      G
-SDB       RXE      ED1B   -     -      -      -     G     G      G
-MDB       RXE      ED1C   -     -      -      -     G     G      G
-DDB       RXE      ED1D   -     -      -      -     G     G      G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+ADB       RXE      ED1A   -     -      -      -     G     G      G
+SDB       RXE      ED1B   -     -      -      -     G     G      G
+MDB       RXE      ED1C   -     -      -      -     G     G      G
+DDB       RXE      ED1D   -     -      -      -     G     G      G
 MADB      RXF      ED1E   -     -      -      -     G     G      G
 MSDB      RXF      ED1F   -     -      -      -     G     G      G
 LDE       RXE      ED24   -     -      -      -     G     G      G
@@ -2360,10 +2368,10 @@ BPR       ER       072    GE    GE     GE     GE    GE    GE     GE
 BHR       ER       072    GE    GE     GE     GE    GE    GE     GE
 BMR       ER       074    GE    GE     GE     GE    GE    GE     GE
 BLR       ER       074    GE    GE     GE     GE    GE    GE     GE
-BNER      ER       077    GE    GE     GE     GE    GE    GE     GE
 BNZR      ER       077    GE    GE     GE     GE    GE    GE     GE
-BER       ER       078    GE    GE     GE     GE    GE    GE     GE
+BNER      ER       077    GE    GE     GE     GE    GE    GE     GE
 BZR       ER       078    GE    GE     GE     GE    GE    GE     GE
+BER       ER       078    GE    GE     GE     GE    GE    GE     GE
 BNMR      ER       07B    GE    GE     GE     GE    GE    GE     GE
 BNLR      ER       07B    GE    GE     GE     GE    GE    GE     GE
 BNHR      ER       07D    GE    GE     GE     GE    GE    GE     GE
@@ -2380,22 +2388,22 @@ JM        ERIC     A744   -     -      -      -     GE    GE     GE
 JL        ERIC     A744   -     -      -      -     GE    GE     GE
 BRL       ERIC     A744   -     -      -      -     GE    GE     GE
 BRM       ERIC     A744   -     -      -      -     GE    GE     GE
-BRNE      ERIC     A747   -     -      -      -     GE    GE     GE
-BRNZ      ERIC     A747   -     -      -      -     GE    GE     GE
 JNZ       ERIC     A747   -     -      -      -     GE    GE     GE
+BRNE      ERIC     A747   -     -      -      -     GE    GE     GE
 JNE       ERIC     A747   -     -      -      -     GE    GE     GE
+BRNZ      ERIC     A747   -     -      -      -     GE    GE     GE
 JZ        ERIC     A748   -     -      -      -     GE    GE     GE
 JE        ERIC     A748   -     -      -      -     GE    GE     GE
-BRE       ERIC     A748   -     -      -      -     GE    GE     GE
 BRZ       ERIC     A748   -     -      -      -     GE    GE     GE
-BRNM      ERIC     A74B   -     -      -      -     GE    GE     GE
-BRNL      ERIC     A74B   -     -      -      -     GE    GE     GE
+BRE       ERIC     A748   -     -      -      -     GE    GE     GE
 JNL       ERIC     A74B   -     -      -      -     GE    GE     GE
 JNM       ERIC     A74B   -     -      -      -     GE    GE     GE
-BRNH      ERIC     A74D   -     -      -      -     GE    GE     GE
-BRNP      ERIC     A74D   -     -      -      -     GE    GE     GE
+BRNM      ERIC     A74B   -     -      -      -     GE    GE     GE
+BRNL      ERIC     A74B   -     -      -      -     GE    GE     GE
 JNH       ERIC     A74D   -     -      -      -     GE    GE     GE
 JNP       ERIC     A74D   -     -      -      -     GE    GE     GE
+BRNH      ERIC     A74D   -     -      -      -     GE    GE     GE
+BRNP      ERIC     A74D   -     -      -      -     GE    GE     GE
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
@@ -2406,47 +2414,47 @@ BRU       ERIC     A74F   -     -      -      -     GE    GE     GE
 JLNOP     ERILC    C004   -     -      -      -     -     GE     GE
 JLO       ERILC    C014   -     -      -      -     -     GE     GE
 BROL      ERILC    C014   -     -      -      -     -     GE     GE
-BRPL      ERILC    C024   -     -      -      -     -     GE     GE
-JLH       ERILC    C024   -     -      -      -     -     GE     GE
-JLP       ERILC    C024   -     -      -      -     -     GE     GE
 BRHL      ERILC    C024   -     -      -      -     -     GE     GE
+JLP       ERILC    C024   -     -      -      -     -     GE     GE
+JLH       ERILC    C024   -     -      -      -     -     GE     GE
+BRPL      ERILC    C024   -     -      -      -     -     GE     GE
+BRML      ERILC    C044   -     -      -      -     -     GE     GE
 JLL       ERILC    C044   -     -      -      -     -     GE     GE
 JLM       ERILC    C044   -     -      -      -     -     GE     GE
-BRML      ERILC    C044   -     -      -      -     -     GE     GE
 BRLL      ERILC    C044   -     -      -      -     -     GE     GE
-BRNZL     ERILC    C074   -     -      -      -     -     GE     GE
+BRNEL     ERILC    C074   -     -      -      -     -     GE     GE
 JLNZ      ERILC    C074   -     -      -      -     -     GE     GE
 JLNE      ERILC    C074   -     -      -      -     -     GE     GE
-BRNEL     ERILC    C074   -     -      -      -     -     GE     GE
-JLE       ERILC    C084   -     -      -      -     -     GE     GE
-JLZ       ERILC    C084   -     -      -      -     -     GE     GE
-BRZL      ERILC    C084   -     -      -      -     -     GE     GE
+BRNZL     ERILC    C074   -     -      -      -     -     GE     GE
 BRNLL     ERILC    C084   -     -      -      -     -     GE     GE
-BREL      ERILC    C084   -     -      -      -     -     GE     GE
+JLZ       ERILC    C084   -     -      -      -     -     GE     GE
+JLE       ERILC    C084   -     -      -      -     -     GE     GE
+BRZL      ERILC    C084   -     -      -      -     -     GE     GE
 JLNM      ERILC    C084   -     -      -      -     -     GE     GE
 JLNL      ERILC    C084   -     -      -      -     -     GE     GE
 BRNML     ERILC    C084   -     -      -      -     -     GE     GE
-BRNHL     ERILC    C0D4   -     -      -      -     -     GE     GE
+BREL      ERILC    C084   -     -      -      -     -     GE     GE
 BRNPL     ERILC    C0D4   -     -      -      -     -     GE     GE
 JLNP      ERILC    C0D4   -     -      -      -     -     GE     GE
 JLNH      ERILC    C0D4   -     -      -      -     -     GE     GE
+BRNHL     ERILC    C0D4   -     -      -      -     -     GE     GE
 BRNOL     ERILC    C0E4   -     -      -      -     -     GE     GE
-JLU       ERILC    C0F4   -     -      -      -     -     GE     GE
 BRUL      ERILC    C0F4   -     -      -      -     -     GE     GE
+JLU       ERILC    C0F4   -     -      -      -     -     GE     GE
 NOP       ERXB     470    GE    GE     GE     GE    GE    GE     GE
 BO        ERXB     471    GE    GE     GE     GE    GE    GE     GE
-BP        ERXB     472    GE    GE     GE     GE    GE    GE     GE
 BH        ERXB     472    GE    GE     GE     GE    GE    GE     GE
+BP        ERXB     472    GE    GE     GE     GE    GE    GE     GE
 BM        ERXB     474    GE    GE     GE     GE    GE    GE     GE
 BL        ERXB     474    GE    GE     GE     GE    GE    GE     GE
-BNZ       ERXB     477    GE    GE     GE     GE    GE    GE     GE
 BNE       ERXB     477    GE    GE     GE     GE    GE    GE     GE
-BZ        ERXB     478    GE    GE     GE     GE    GE    GE     GE
+BNZ       ERXB     477    GE    GE     GE     GE    GE    GE     GE
 BE        ERXB     478    GE    GE     GE     GE    GE    GE     GE
+BZ        ERXB     478    GE    GE     GE     GE    GE    GE     GE
 BNL       ERXB     47B    GE    GE     GE     GE    GE    GE     GE
 BNM       ERXB     47B    GE    GE     GE     GE    GE    GE     GE
-BNP       ERXB     47D    GE    GE     GE     GE    GE    GE     GE
 BNH       ERXB     47D    GE    GE     GE     GE    GE    GE     GE
+BNP       ERXB     47D    GE    GE     GE     GE    GE    GE     GE
 BNO       ERXB     47E    GE    GE     GE     GE    GE    GE     GE
 B         ERXB     47F    GE    GE     GE     GE    GE    GE     GE
 SVC       I        0A     G     G      G      G     G     G      G
@@ -2472,8 +2480,8 @@ LLIHH     RIA      A5C    -     -      -      -     -     -      G
 LLIHL     RIA      A5D    -     -      -      -     -     -      G
 LLILH     RIA      A5E    -     -      -      -     -     -      G
 LLILL     RIA      A5F    -     -      -      -     -     -      G
-TMH       RIA      A70    -     -      -      -     G     G      G
 TMLH      RIA      A70    -     -      -      -     -     G      G
+TMH       RIA      A70    -     -      -      -     G     G      G
 TMLL      RIA      A71    -     -      -      -     -     G      G
 TML       RIA      A71    -     -      -      -     G     G      G
 TMHH      RIA      A72    -     -      -      -     -     -      G
@@ -2488,8 +2496,8 @@ CHI       RIA      A7E    -     -      -      -     G     G      G
 CGHI      RIA      A7F    -     -      -      -     -     -      G
 JAS       RIB      A75    -     -      -      -     GE    GE     GE
 BRAS      RIB      A75    -     -      -      -     G     G      G
-BRCT      RIB      A76    -     -      -      -     G     G      G
 JCT       RIB      A76    -     -      -      -     GE    GE     GE
+BRCT      RIB      A76    -     -      -      -     G     G      G
 BRCTG     RIB      A77    -     -      -      -     -     -      G
 BRC       RIC      A74    -     -      -      -     G     G      G
 CGIT      RIEA     EC70   -     -      -      -     -     -      G
@@ -2618,12 +2626,13 @@ LTDR      RR       22     G     G      G      G     G     G      G
 LCDR      RR       23     G     G      G      G     G     G      G
 HDR       RR       24     G     G      G      G     G     G      G
 LRDR      RR       25     -     G      G      G     G     G      G
+LDXR      RR       25     -     -      -      -     G     G      G
 MXR       RR       26     -     G      G      G     G     G      G
-MXDR      RR       27     -     G      G      G     G     G      G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+MXDR      RR       27     -     G      G      G     G     G      G
 LDR       RR       28     G     G      G      G     G     G      G
 CDR       RR       29     G     G      G      G     G     G      G
 ADR       RR       2A     G     G      G      G     G     G      G
@@ -2638,12 +2647,14 @@ LTER      RR       32     G     G      G      G     G     G      G
 LCER      RR       33     G     G      G      G     G     G      G
 HER       RR       34     G     G      G      G     G     G      G
 LRER      RR       35     -     G      G      G     G     G      G
+LEDR      RR       35     -     -      -      -     G     G      G
 AXR       RR       36     -     G      G      G     G     G      G
 SXR       RR       37     -     G      G      G     G     G      G
 LER       RR       38     G     G      G      G     G     G      G
 CER       RR       39     G     G      G      G     G     G      G
 AER       RR       3A     G     G      G      G     G     G      G
 SER       RR       3B     G     G      G      G     G     G      G
+MDER      RR       3C     -     -      -      -     G     G      G
 MER       RR       3C     G     G      G      G     G     G      G
 DER       RR       3D     G     G      G      G     G     G      G
 AUR       RR       3E     G     G      G      G     G     G      G
@@ -2673,13 +2684,13 @@ DXR       RRE      B22D   -     -      G      G     G     G      G
 PGIN      RRE      B22E   -     -      -      -     P     P      P
 PGOUT     RRE      B22F   -     -      -      -     P     P      P
 BAKR      RRE      B240   -     -      -      G     G     G      G
-CKSM      RRE      B241   -     -      -      -     G     G      G
-SQDR      RRE      B244   -     -      -      -     G     G      G
-SQER      RRE      B245   -     -      -      -     G     G      G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+CKSM      RRE      B241   -     -      -      -     G     G      G
+SQDR      RRE      B244   -     -      -      -     G     G      G
+SQER      RRE      B245   -     -      -      -     G     G      G
 STURA     RRE      B246   -     -      -      P     P     P      P
 EREG      RRE      B249   -     -      -      G     G     G      G
 ESTA      RRE      B24A   -     -      -      G     G     G      G
@@ -2729,13 +2740,13 @@ KDBR      RRE      B318   -     -      -      -     G     G      G
 CDBR      RRE      B319   -     -      -      -     G     G      G
 ADBR      RRE      B31A   -     -      -      -     G     G      G
 SDBR      RRE      B31B   -     -      -      -     G     G      G
-MDBR      RRE      B31C   -     -      -      -     G     G      G
-DDBR      RRE      B31D   -     -      -      -     G     G      G
-LDER      RRE      B324   -     -      -      -     G     G      G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+MDBR      RRE      B31C   -     -      -      -     G     G      G
+DDBR      RRE      B31D   -     -      -      -     G     G      G
+LDER      RRE      B324   -     -      -      -     G     G      G
 LXDR      RRE      B325   -     -      -      -     G     G      G
 LXER      RRE      B326   -     -      -      -     G     G      G
 SQXR      RRE      B336   -     -      -      -     G     G      G
@@ -2777,21 +2788,21 @@ CFEBR     RRE      B398   -     -      -      -     G     G      G
 CEGBR     RRE      B3A4   -     -      -      -     -     -      G
 CDGBR     RRE      B3A5   -     -      -      -     -     -      G
 CXGBR     RRE      B3A6   -     -      -      -     -     -      G
-CEFR      RRE      B3B4   -     -      -      -     G     G      G
 CEGR      RRE      B3B4   -     -      -      -     -     -      G
+CEFR      RRE      B3B4   -     -      -      -     G     G      G
 CDFR      RRE      B3B5   -     -      -      -     G     G      G
 CXFR      RRE      B3B6   -     -      -      -     G     G      G
 CFER      RRE      B3B8   -     -      -      -     G     G      G
 LDGR      RRE      B3C1   -     -      -      -     -     -      G
 CDGR      RRE      B3C5   -     -      -      -     -     -      G
 CXGR      RRE      B3C6   -     -      -      -     -     -      G
-LGDR      RRE      B3CD   -     -      -      -     -     -      G
-LTDTR     RRE      B3D6   -     -      -      -     -     -      G
-LTXTR     RRE      B3DE   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+LGDR      RRE      B3CD   -     -      -      -     -     -      G
+LTDTR     RRE      B3D6   -     -      -      -     -     -      G
+LTXTR     RRE      B3DE   -     -      -      -     -     -      G
 KDTR      RRE      B3E0   -     -      -      -     -     -      G
 CUDTR     RRE      B3E2   -     -      -      -     -     -      G
 CDTR      RRE      B3E4   -     -      -      -     -     -      G
@@ -2841,13 +2852,13 @@ DSGFR     RRE      B91D   -     -      -      -     -     -      G
 KMAC      RRE      B91E   -     -      -      -     -     G      G
 LRVR      RRE      B91F   -     -      -      -     -     G      G
 CLGR      RRE      B921   -     -      -      -     -     -      G
-STURG     RRE      B925   -     -      -      -     -     -      G
-LBR       RRE      B926   -     -      -      -     -     -      G
-LHR       RRE      B927   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+STURG     RRE      B925   -     -      -      -     -     -      G
+LBR       RRE      B926   -     -      -      -     -     -      G
+LHR       RRE      B927   -     -      -      -     -     -      G
 KMF       RRE      B92A   -     -      -      -     -     -      G
 KMO       RRE      B92B   -     -      -      -     -     -      G
 KM        RRE      B92E   -     -      -      -     -     G      G
@@ -2897,13 +2908,13 @@ ETND      RRE1     B2EC   -     -      -      -     -     -      G
 LZER      RRE1     B374   -     -      -      -     G     G      G
 LZDR      RRE1     B375   -     -      -      -     G     G      G
 LZXR      RRE1     B376   -     -      -      -     G     G      G
-SFPC      RRE1     B384   -     -      -      -     G     G      G
-SFASR     RRE1     B385   -     -      -      -     -     -      G
-EFPC      RRE1     B38C   -     -      -      -     G     G      G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+SFPC      RRE1     B384   -     -      -      -     G     G      G
+SFASR     RRE1     B385   -     -      -      -     -     -      G
+EFPC      RRE1     B38C   -     -      -      -     G     G      G
 ESEA      RRE1     B99D   -     -      -      -     -     -      P
 PTF       RRE1     B9A2   -     -      -      -     -     -      P
 PALB      RRE2     B248   -     -      -      G     G     G      G
@@ -2914,8 +2925,8 @@ MDTR      RRFA1    B3D0   -     -      -      -     -     -      G
 DDTR      RRFA1    B3D1   -     -      -      -     -     -      G
 ADTR      RRFA1    B3D2   -     -      -      -     -     -      G
 SDTR      RRFA1    B3D3   -     -      -      -     -     -      G
-MXTR      RRFA1    B3D8   -     -      -      -     -     -      G
 SXTR      RRFA1    B3D8   -     -      -      -     -     -      G
+MXTR      RRFA1    B3D8   -     -      -      -     -     -      G
 DXTR      RRFA1    B3D9   -     -      -      -     -     -      G
 AXTR      RRFA1    B3DA   -     -      -      -     -     -      G
 AHHHR     RRFA1    B9C8   -     -      -      -     -     -      G
@@ -2953,13 +2964,13 @@ QADTR     RRFB2    B3F5   -     -      -      -     -     -      G
 RRDTR     RRFB2    B3F7   -     -      -      -     -     -      G
 QAXTR     RRFB2    B3FD   -     -      -      -     -     -      G
 RRXTR     RRFB2    B3FF   -     -      -      -     -     -      G
-CRDTE     RRFB2    B98F   -     -      -      -     -     -      P
-LPTEA     RRFB2    B9AA   -     -      -      -     -     -      P
-PPA       RRFC     B2EB   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+CRDTE     RRFB2    B98F   -     -      -      -     -     -      P
+LPTEA     RRFB2    B9AA   -     -      -      -     -     -      P
+PPA       RRFC     B2EB   -     -      -      -     -     -      G
 CGRT      RRFC     B960   -     -      -      -     -     -      G
 CLGRT     RRFC     B961   -     -      -      -     -     -      G
 CRT       RRFC     B972   -     -      -      -     -     -      G
@@ -3009,13 +3020,13 @@ CGXTRA    RRFE     B3E9   -     -      -      -     -     -      G
 CDGTRA    RRFE     B3F1   -     -      -      -     -     -      G
 CXGTRA    RRFE     B3F9   -     -      -      -     -     -      G
 CFDTR     RRFE     B941   -     -      -      -     -     -      G
-CLGDTR    RRFE     B942   -     -      -      -     -     -      G
-CLFDTR    RRFE     B943   -     -      -      -     -     -      G
-CFXTR     RRFE     B949   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+CLGDTR    RRFE     B942   -     -      -      -     -     -      G
+CLFDTR    RRFE     B943   -     -      -      -     -     -      G
+CFXTR     RRFE     B949   -     -      -      -     -     -      G
 CLGXTR    RRFE     B94A   -     -      -      -     -     -      G
 CLFXTR    RRFE     B94B   -     -      -      -     -     -      G
 CDFTR     RRFE     B951   -     -      -      -     -     -      G
@@ -3065,13 +3076,13 @@ STAM      RSA      9B     -     -      -      G     G     G      G
 MVCLE     RSA      A8     -     -      -      -     G     G      G
 CLCLE     RSA      A9     -     -      -      -     G     G      G
 SIGP      RSA      AE     -     P      P      P     P     P      P
-STCTL     RSA      B6     -     P      P      P     P     P      P
-LCTL      RSA      B7     -     P      P      P     P     P      P
-CS        RSA      BA     -     G      G      G     G     G      G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+STCTL     RSA      B6     -     P      P      P     P     P      P
+LCTL      RSA      B7     -     P      P      P     P     P      P
+CS        RSA      BA     -     G      G      G     G     G      G
 CDS       RSA      BB     -     G      G      G     G     G      G
 SRL       RSA1     88     G     G      G      G     G     G      G
 SLL       RSA1     89     G     G      G      G     G     G      G
@@ -3104,8 +3115,8 @@ ICM       RSB      BF     -     G      G      G     G     G      G
 CLMH      RSC      EB20   -     -      -      -     -     -      G
 STCMH     RSC      EB2C   -     -      -      -     -     -      G
 ICMH      RSC      EB80   -     -      -      -     -     -      G
-JXH       RSI      84     -     -      -      -     GE    GE     GE
 BRXH      RSI      84     -     -      -      -     G     G      G
+JXH       RSI      84     -     -      -      -     GE    GE     GE
 BRXLE     RSI      85     -     -      -      -     G     G      G
 JXLE      RSI      85     -     -      -      -     GE    GE     GE
 TP        RSLA     EBC0   -     -      -      -     -     G      G
@@ -3121,13 +3132,13 @@ CDZT      RSLB     EDAA   -     -      -      -     -     -      G
 CXZT      RSLB     EDAB   -     -      -      -     -     -      G
 ECAG      RSYA     EB4C   -     -      -      -     -     -      G
 SRAK      RSYA     EBDC   -     -      -      -     -     -      G
-SLAK      RSYA     EBDD   -     -      -      -     -     -      G
-SRLK      RSYA     EBDE   -     -      -      -     -     -      G
-SLLK      RSYA     EBDF   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+SLAK      RSYA     EBDD   -     -      -      -     -     -      G
+SRLK      RSYA     EBDE   -     -      -      -     -     -      G
+SLLK      RSYA     EBDF   -     -      -      -     -     -      G
 LANG      RSYA     EBE4   -     -      -      -     -     -      G
 LAOG      RSYA     EBE6   -     -      -      -     -     -      G
 LAXG      RSYA     EBE7   -     -      -      -     -     -      G
@@ -3177,13 +3188,13 @@ M         RXA      5C     G     G      G      G     G     G      G
 D         RXA      5D     G     G      G      G     G     G      G
 AL        RXA      5E     G     G      G      G     G     G      G
 SL        RXA      5F     G     G      G      G     G     G      G
-STD       RXA      60     G     G      G      G     G     G      G
-MXD       RXA      67     -     G      G      G     G     G      G
-LD        RXA      68     G     G      G      G     G     G      G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+STD       RXA      60     G     G      G      G     G     G      G
+MXD       RXA      67     -     G      G      G     G     G      G
+LD        RXA      68     G     G      G      G     G     G      G
 CD        RXA      69     G     G      G      G     G     G      G
 AD        RXA      6A     G     G      G      G     G     G      G
 SD        RXA      6B     G     G      G      G     G     G      G
@@ -3198,6 +3209,7 @@ CE        RXA      79     G     G      G      G     G     G      G
 AE        RXA      7A     G     G      G      G     G     G      G
 SE        RXA      7B     G     G      G      G     G     G      G
 ME        RXA      7C     G     G      G      G     G     G      G
+MDE       RXA      7C     -     -      -      -     G     G      G
 DE        RXA      7D     G     G      G      G     G     G      G
 AU        RXA      7E     G     G      G      G     G     G      G
 SU        RXA      7F     G     G      G      G     G     G      G
@@ -3232,14 +3244,14 @@ CVDG      RXE      E32E   -     -      -      -     -     -      G
 STRVG     RXE      E32F   -     -      -      -     -     -      G
 CGF       RXE      E330   -     -      -      -     -     -      G
 CLGF      RXE      E331   -     -      -      -     -     -      G
-STRV      RXE      E33E   -     -      -      -     -     G      G
-STRVH     RXE      E33F   -     -      -      -     -     G      G
-BCTG      RXE      E346   -     -      -      -     -     -      G
-NG        RXE      E380   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+STRV      RXE      E33E   -     -      -      -     -     G      G
+STRVH     RXE      E33F   -     -      -      -     -     G      G
+BCTG      RXE      E346   -     -      -      -     -     -      G
+NG        RXE      E380   -     -      -      -     -     -      G
 OG        RXE      E381   -     -      -      -     -     -      G
 XG        RXE      E382   -     -      -      -     -     -      G
 MLG       RXE      E386   -     -      -      -     -     -      G
@@ -3288,14 +3300,14 @@ TDCDT     RXE      ED54   -     -      -      -     -     -      G
 TDGDT     RXE      ED55   -     -      -      -     -     -      G
 TDCXT     RXE      ED58   -     -      -      -     -     -      G
 TDGXT     RXE      ED59   -     -      -      -     -     -      G
-MAEB      RXF      ED0D   -     -      -      -     G     G      G
-MSEB      RXF      ED0F   -     -      -      -     G     G      G
-MADB      RXF      ED1E   -     -      -      -     G     G      G
-MSDB      RXF      ED1F   -     -      -      -     G     G      G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+MAEB      RXF      ED0D   -     -      -      -     G     G      G
+MSEB      RXF      ED0F   -     -      -      -     G     G      G
+MADB      RXF      ED1E   -     -      -      -     G     G      G
+MSDB      RXF      ED1F   -     -      -      -     G     G      G
 MAE       RXF      ED2E   -     -      -      -     -     G      G
 MSE       RXF      ED2F   -     -      -      -     -     G      G
 MAYL      RXF      ED38   -     -      -      -     -     -      G
@@ -3344,14 +3356,14 @@ SHY       RXYA     E37B   -     -      -      -     -     -      G
 MHY       RXYA     E37C   -     -      -      -     -     -      G
 LGAT      RXYA     E385   -     -      -      -     -     -      G
 LLC       RXYA     E394   -     -      -      -     -     -      G
-LLH       RXYA     E395   -     -      -      -     -     -      G
-LLGTAT    RXYA     E39C   -     -      -      -     -     -      G
-LLGFAT    RXYA     E39D   -     -      -      -     -     -      G
-LAT       RXYA     E39F   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+LLH       RXYA     E395   -     -      -      -     -     -      G
+LLGTAT    RXYA     E39C   -     -      -      -     -     -      G
+LLGFAT    RXYA     E39D   -     -      -      -     -     -      G
+LAT       RXYA     E39F   -     -      -      -     -     -      G
 LBH       RXYA     E3C0   -     -      -      -     -     -      G
 LLCH      RXYA     E3C2   -     -      -      -     -     -      G
 STCH      RXYA     E3C3   -     -      -      -     -     -      G
@@ -3396,18 +3408,18 @@ STPX      S0       B211   -     P      P      P     P     P      P
 STAP      S0       B212   -     P      P      P     P     P      P
 RRB       S0       B213   -     P      -      -     -     -      -
 SIE       S0       B214   -     -      P      P     P     P      P
-PCF       S0       B218   -     -      -      -     G     -      -
 PC        S0       B218   -     G      G      G     G     G      G
+PCF       S0       B218   -     -      -      -     G     -      -
 SAC       S0       B219   -     P      P      P     P     P      P
 CFC       S0       B21A   -     -      G      G     G     G      G
-IPM       S0       B222   -     -      P      P     P     P      P
-CSCH      S0       B230   -     -      P      P     P     P      P
-HSCH      S0       B231   -     -      P      P     P     P      P
-MSCH      S0       B232   -     -      P      P     P     P      P
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+IPM       S0       B222   -     -      P      P     P     P      P
+CSCH      S0       B230   -     -      P      P     P     P      P
+HSCH      S0       B231   -     -      P      P     P     P      P
+MSCH      S0       B232   -     -      P      P     P     P      P
 SSCH      S0       B233   -     -      P      P     P     P      P
 STSCH     S0       B234   -     -      P      P     P     P      P
 TSCH      S0       B235   -     -      P      P     P     P      P
@@ -3456,14 +3468,14 @@ MVHI      SIL1     E54C   -     -      -      -     -     -      G
 CHHSI     SIL1     E554   -     -      -      -     -     -      G
 CGHSI     SIL1     E558   -     -      -      -     -     -      G
 CHSI      SIL1     E55C   -     -      -      -     -     -      G
-NIY       SIY      E354   -     -      -      -     -     -      G
-TMY       SIY      EB51   -     -      -      -     -     -      G
-MVIY      SIY      EB52   -     -      -      -     -     -      G
-CLIY      SIY      EB55   -     -      -      -     -     -      G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
 
+NIY       SIY      E354   -     -      -      -     -     -      G
+TMY       SIY      EB51   -     -      -      -     -     -      G
+MVIY      SIY      EB52   -     -      -      -     -     -      G
+CLIY      SIY      EB55   -     -      -      -     -     -      G
 OIY       SIY      EB56   -     -      -      -     -     -      G
 XIY       SIY      EB57   -     -      -      -     -     -      G
 ASI       SIY1     EB6A   -     -      -      -     -     -      G
@@ -3539,7 +3551,7 @@ MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
           RILD               0     0       0     0     0     0      1
           RIS                0     0       0     0     0     0      2
           RIS1               0     0       0     0     0     0      2
-          RR                48    57      57    57    57    57     57
+          RR                48    57      57    57    60    60     60
           RRD                0     0       0     0     4     8      8
           RRE                0    10      13    25   108   122    219
           RRE1               0     0       0     0     6     6     10
@@ -3565,7 +3577,7 @@ MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
           RSYA               0     0       0     0     0     0     15
           RSYB               0     0       0     0     0     0      5
           RSYB1              0     0       0     0     0     0      4
-          RXA               47    50      50    51    52    52     52
+          RXA               47    50      50    51    53    53     53
           RXE                0     0       0     0    28    36     81
 MSL DATABASE REPORT - Statistics
 
@@ -3590,4 +3602,4 @@ MNEMONIC  FORMAT  OPCODE  s360  s370  s370XA  e370  e390  s390  s390x
           SSF2               0     0       0     0     0     0      2
           SSF3               0     0       0     0     0     0      2
 
-           Tot.            175   239     245   264   459   537   1069
+           Tot.            175   239     245   264   463   541   1073
