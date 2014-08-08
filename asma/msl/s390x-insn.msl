@@ -57,6 +57,7 @@ cpu s390x        # Generic z/Architecture CPU in z/Architecture Mode
     features s390x-tod-steering       # September, 2005
     features s390x-compare-swap-save  # April, 2007
     features s390x-dfp                # April, 2007
+    features s390x-dfp-rounding       # April, 2007
     features s390x-extract-cpu-time   # April, 2007
     features s390x-fp-sign-handling   # April, 2007
     features s390x-fpr-gr-transfer    # April, 2007
@@ -962,10 +963,19 @@ inst TDGXT  ED59 RXE            # TEST DATA GROUP (ED)
 iset s390x-dfp
     mnemonics ADTR AXTR CDGTR CDSTR CDTR CDUTR CEDTR CEXTR CGDTR CGXTR CSDTR
     mnemonics CSXTR CUDTR CUXTR CXGTR CXSTR CXTR CXUTR DDTR DXTR EEDTR EEXTR
-    mnemonics ESDTR ESXTR FIDTR FIXTR IEDTR IEXTR KDTR KXTR LDETR LDXTR LTDTR LTXTR
-    mnemonics LXDTR MDTR MXTR QADTR QAXTR RRDTR RRXTR SDTR SLDT SLXT SRDT SRXT SXTR
-    mnemonics TDCDT TDCET TDCXT TDGDT TDGET TDGXT
+    mnemonics ESDTR ESXTR FIDTR FIXTR IEDTR IEXTR KDTR KXTR LDETR LDXTR LEDTR
+    mnemonics LTDTR LTXTR LXDTR MDTR MXTR QADTR QAXTR RRDTR RRXTR SDTR SLDT
+    mnemonics SLXT SRDT SRXT SXTR TDCDT TDCET TDCXT TDGDT TDGET TDGXT
 
+    
+# DECIMAL FLOATING POINT ROUNDING FACILITY
+inst SRNMT  B2B9 S0             # SET DFP ROUNDING MODE
+
+# See IBM z/Architecture Principles of Operation, SA22-7832-05, April, 2007
+# TR instructions
+iset s390x-dfp-rounding
+    mnemonics SRNMT
+    
     
 # DECIMAL FLOATING POINT ZONED-CONVERSION FACILITY (September, 2012)
 inst CDZT   EDAA RSLB           # CONVERT FROM ZONED (LD)
