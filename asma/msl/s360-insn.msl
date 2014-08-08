@@ -459,7 +459,7 @@ iset s360-extended
 # of systems, but is indirectly implied based upon the variations encountered.
 
 inst CIO    9B   RSA            # CONTROL IO (360-20 only)          DA,FS,B1(D1)
-inst HIO    9E   SI      P      # HALT IO
+inst HIO    9E00 S0      P      # HALT IO
 inst SIO    9C00 S0      P      # START IO
 inst TCH    9F00 S0      P      # TEST CHANNEL
 inst TIO    9D00 S0      P      # TEST IO

@@ -215,7 +215,7 @@ iset s370-extended
 # INPUT/OUTPUT INSTRUCTIONS
 inst CLRIO  9D01 S0      P      # CLEAR IO
 inst HDV    9E01 S0      P      # HALD DEVICE
-inst HIO    9E   SI      P      # HALT IO
+inst HIO    9E00 S0      P      # HALT IO
 inst SIOF   9C01 S0      P      # START IO FAST RELEASE
 inst SIO    9C00 S0      P      # START IO
 inst STIDC  B203 S0      P      # STORE CHANNEL ID
