@@ -147,7 +147,7 @@ inst MER    3C   RR             # MULTIPLY (SH)
 inst MH     4C   RXA            # MULTIPLY HALFWORD (32)
 inst MP     FC   SSB            # MULTIPLY DECIMAL
 inst MR     1C   RR             # MULTIPLY (63<32)
-inst MSTA   51   RRE            # MODIFY STACKED STATE
+inst MSTA   B247 RRE1           # MODIFY STACKED STATE
 inst MVC    D2   SSA            # MOVE (character)
 inst MVCK   D9   SSD            # MOVE WITH KEY
 inst MVCL   0E   RR             # MOVE CHARACTER LONG
@@ -177,7 +177,7 @@ inst PTLB   B20D S0      P      # PURGE TLB
 inst RRBE   B22A RRE     P      # RESET REFERENCE BIT EXTENDED
 inst S      5B   RXA            # SUBTRACT (32)
 inst SAC    B219 S0      P      # SET ADDRESS SPACE CONTROL
-inst SAR    B34E RRE            # SET ACCESS
+inst SAR    B24E RRE            # SET ACCESS
 inst SCK    B204 S0      P      # SET CLOCK
 inst SCKC   B206 S0      P      # SET CLOCK COMPARATOR
 inst SD     6B   RXA            # SUBTRACT NORMALIZED (LH)

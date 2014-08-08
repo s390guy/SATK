@@ -172,7 +172,7 @@ inst MER    3C   RR             # MULTIPLY (SH)
 inst MH     4C   RXA            # MULTIPLY HALFWORD (32)
 inst MP     FC   SSB            # MULTIPLY DECIMAL
 inst MR     1C   RR             # MULTIPLY (63<32)
-inst MSTA   51   RRE            # MODIFY STACKED STATE
+inst MSTA   B247 RRE1           # MODIFY STACKED STATE
 inst MVC    D2   SSA            # MOVE (character)
 inst MVCDK  E50F SSE2           # MOVE WITH DESTINATION KEY
 inst MVCIN  E8   SSA            # MOVE INVERSE
@@ -206,7 +206,7 @@ inst PTLB   B20D S0      P      # PURGE TLB
 inst RRBE   B22A RRE     P      # RESET REFERENCE BIT EXTENDED
 inst S      5B   RXA            # SUBTRACT (32)
 inst SAC    B219 S0      P      # SET ADDRESS SPACE CONTROL
-inst SAR    B34E RRE            # SET ACCESS
+inst SAR    B24E RRE            # SET ACCESS
 inst SCK    B204 S0      P      # SET CLOCK
 inst SCKC   B206 S0      P      # SET CLOCK COMPARATOR
 inst SD     6B   RXA            # SUBTRACT NORMALIZED (LH)
@@ -412,7 +412,7 @@ inst LPDBR  B310 RRE            # LOAD POSITIVE (LB)
 inst LPEBR  B300 RRE            # LOAD POSITIVE (SB)
 inst LPXBR  B340 RRE            # LOAD POSITIVE (EB)
 inst LTDBR  B312 RRE            # LOAD AND TEXT (LB)
-inst LTEBR  B312 RRE            # LOAD AND TEST (SB)
+inst LTEBR  B302 RRE            # LOAD AND TEST (SB)
 inst LTXBR  B342 RRE            # LOAD AND TEST (EB)
 
 inst LXDB   ED05 RXE            # LOAD LENGTHENED (EB<LB)
@@ -421,7 +421,7 @@ inst LXEB   ED06 RXE            # LOAD LENGTHENED (EB<SB)
 inst LXEBR  B306 RRE            # LOAD LENGTHENED (EB<SB)
 inst MADB   ED1E RXF            # MULTIPLY AND ADD (LB)
 inst MADBR  B31E RRD            # MULTIPLY AND ADD (LB)
-inst MAEB   ED0D RXF            # MULTIPLY AND ADD (SB)
+inst MAEB   ED0E RXF            # MULTIPLY AND ADD (SB)
 inst MAEBR  B30E RRD            # MULTIPLY AND ADD (SB)
 inst MDB    ED1C RXE            # MULTIPLY (LB)
 inst MDBR   B31C RRE            # MULTIPLY (LB)
@@ -662,7 +662,7 @@ iset e390-RP
 
 
 # SET ADDRESS SPACE CONTROL FAST FACILITY (February, 1993)
-inst SACF   B270 S0             # SET ADDRESS SPACE CONTROL FAST
+inst SACF   B279 S0             # SET ADDRESS SPACE CONTROL FAST
 
 iset e390-SACF
     mnemonics SACF

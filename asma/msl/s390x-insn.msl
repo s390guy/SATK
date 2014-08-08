@@ -279,7 +279,7 @@ inst LRDR   25   RR             # LOAD ROUNDED (LH<EH)
 inst LRER   35   RR             # LOAD ROUNDED (SH<LH)
 inst LTDBR  B312 RRE            # LOAD AND TEXT (LB)
 inst LTDR   22   RR             # LOAD AND TEST (LH)
-inst LTEBR  B312 RRE            # LOAD AND TEST (SB)
+inst LTEBR  B302 RRE            # LOAD AND TEST (SB)
 inst LTER   32   RR             # LOAD AND TEST (SH)
 inst LTR    12   RR             # LOAD AND TEST (32)
 inst LTXBR  B342 RRE            # LOAD AND TEST (EB)
@@ -300,7 +300,7 @@ inst LZXR   B376 RRE1           # LOAD ZERO (E)
 inst M      5C   RXA            # MULTIPLY (64<32)
 inst MADB   ED1E RXF            # MULTIPLY AND ADD (LB)
 inst MADBR  B31E RRD            # MULTIPLY AND ADD (LB)
-inst MAEB   ED0D RXF            # MULTIPLY AND ADD (SB)
+inst MAEB   ED0E RXF            # MULTIPLY AND ADD (SB)
 inst MAEBR  B30E RRD            # MULTIPLY AND ADD (SB)
 inst MC     AF   SI             # MONITOR CALL
 inst MD     6C   RXA            # MULTIPLY (LH)
@@ -327,7 +327,7 @@ inst MSDBR  B31F RRD            # MULTIPLY AND SUBTRACT (LB)
 inst MSEB   ED0F RXF            # MULTIPLY AND SUBTRACT (SB)
 inst MSEBR  B30F RRD            # MULTIPLY AND SUBTRACT (SB)
 inst MSR    B252 RRE            # MULTIPLY SINGLE
-inst MSTA   51   RRE            # MODIFY STACKED STATE
+inst MSTA   B247 RRE1           # MODIFY STACKED STATE
 inst MVC    D2   SSA            # MOVE (character)
 inst MVCDK  E50F SSE2           # MOVE WITH DESTINATION KEY
 inst MVCIN  E8   SSA            # MOVE INVERSE
@@ -370,8 +370,8 @@ inst RP     B277 S0             # RESUME PROGRAM
 inst RRBE   B22A RRE     P      # RESET REFERENCE BIT EXTENDED
 inst S      5B   RXA            # SUBTRACT (32)
 inst SAC    B219 S0      P      # SET ADDRESS SPACE CONTROL
-inst SACF   B270 S0             # SET ADDRESS SPACE CONTROL FAST
-inst SAR    B34E RRE            # SET ACCESS
+inst SACF   B279 S0             # SET ADDRESS SPACE CONTROL FAST
+inst SAR    B24E RRE            # SET ACCESS
 inst SCK    B204 S0      P      # SET CLOCK
 inst SCKC   B206 S0      P      # SET CLOCK COMPARATOR
 inst SCKPF  0107 E       P      # SET CLOCK PROGRAMMABLE FIELD
@@ -486,7 +486,7 @@ inst ALC    E398 RXE            # ADD LOGICAL WITH CARRY (32)
 inst ALCG   E388 RXE            # ADD LOGICAL WITH CARRY (64)
 inst ALCGR  B988 RRE            # ADD LOGICAL WITH CARRY (64)
 inst ALCR   B998 RRE            # ADD LOGICAL WITH CARRY (32)
-inst ALG    E30E RXE            # ADD LOGICAL (64)
+inst ALG    E30A RXE            # ADD LOGICAL (64)
 inst ALGF   E31A RXE            # ADD LOGICAL (64<32)
 inst ALGFR  B91A RRE            # ADD LOGICAL (64<32)
 inst ALGR   B90A RRE            # ADD LOGICAL (64)
@@ -503,7 +503,7 @@ inst CDGBR  B3A5 RRE            # CONVERT FROM FIXED (LB<64)
 inst CDGR   B3C5 RRE            # CONVERT FROM FIXED (LH<64)
 inst CDSG   EB3E RSA2           # COMPARE DOUBLE AND SWAP (64)
 inst CEGBR  B3A4 RRE            # CONVERT FROM FIXED (SB<64)
-inst CEGR   B3B4 RRE            # CONVERT FROM FIXED (SH<64)
+inst CEGR   B3C4 RRE            # CONVERT FROM FIXED (SH<64)
 inst CG     E320 RXE            # COMPARE (64)
 inst CGDBR  B3A9 RRFG           # CONVERT TO FIXED (64<LB)
 inst CGDR   B3C9 RRFG           # CONVERT TO FIXED (64<LH)
@@ -533,7 +533,7 @@ inst DSG    E30D RXE            # DIVIDE SINGLE (64)
 inst DSGF   E31D RXE            # DIVIDE SINGLE (64<32)
 inst DSGFR  B91D RRE            # DIVIDE SINGLE (64<32)
 inst DSGR   B90D RRE            # DIVIDE SINGLE (64)
-inst EPSW   B38C RRE            # EXTRACT PSW
+inst EPSW   B98D RRE            # EXTRACT PSW
 inst EREGG  B90E RRE            # EXTRACT STACKED REGISTERS (64)
 inst ESEA   B99D RRE1    P      # EXTRACT AND SET EXTENDED AUTHORITY
 inst ICMH   EB80 RSC            # INSERT CHARACTERS UNDER MASK (HIGH)
@@ -571,7 +571,7 @@ inst LPGR   B900 RRE            # LOAD POSITIVE (64)
 inst LPQ    E38F RXE            # LOAD PAIR FROM QUADWORD
 inst LPSWE  B2B2 S0      P      # LOAD PSW EXTENDED
 inst LRAG   E303 RXE     P      # LOAD REAL ADDRESS (64)
-inst LRV    E313 RXE            # LOAD REVERSED (32)
+inst LRV    E31E RXE            # LOAD REVERSED (32)
 inst LRVG   E30F RXE            # LOAD REVERSED (64)
 inst LRVGR  B90F RRE            # LOAD REVERSED (64)
 inst LRVH   E31F RXE            # LOAD REVERSED (16)
@@ -932,7 +932,7 @@ inst FIXTR  B3DF RRFE           # LOAD FP INTEGER (ED)
 inst IEDTR  B3F6 RRFI           # INSERT BIASED EXPONENT (LD)
 inst IEXTR  B3FE RRFI           # INSERT BIASED EXPONENT (ED)
 inst KDTR   B3E0 RRE            # COMPARE AND SIGNAL (LD)
-inst KXTR   B3EB RRE            # COMPARE AND SIGNAL (ED)
+inst KXTR   B3E8 RRE            # COMPARE AND SIGNAL (ED)
 inst LDETR  B3D4 RRFD           # LOAD LENGTHENED (LD<SD)
 inst LDXTR  B3DD RRFE           # LOAD ROUNDED (LD<ED)
 inst LEDTR  B3D5 RRFE           # LOAD ROUNDED (SD<LD)
@@ -950,7 +950,7 @@ inst SLDT   ED40 RXF            # SHIFT SIGNIFICAND LEFT (LD)
 inst SLXT   ED48 RXF            # SHIFT SIGNIFICAND LEFT (ED)
 inst SRDT   ED41 RXF            # SHIFT SIGNIFICAND RIGHT (LD)
 inst SRXT   ED49 RXF            # SHIFT SIGNIFICAND RIGHT (ED)
-inst SXTR   B3D8 RRFA1          # SUBTRACT (ED)
+inst SXTR   B3DB RRFA1          # SUBTRACT (ED)
 inst TDCDT  ED54 RXE            # TEST DATA CLASS (LD)
 inst TDCET  ED50 RXE            # TEST DATA CLASS (SD)
 inst TDCXT  ED58 RXE            # TEST DATA CLASS (ED)
@@ -993,7 +993,7 @@ iset s390x-dfp-zoned-conv
 inst AGHIK  ECD9 RIED           # ADD IMMEDIATE (64<16)
 inst AGRK   B9E8 RRFA1          # ADD (64)
 inst AHIK   ECD8 RIED           # ADD (32<16)
-inst ALGHSIK ECD8 RIED          # ADD LOGICAL WITH SIGNED IMMEDIATE (64<16)
+inst ALGHSIK ECDB RIED          # ADD LOGICAL WITH SIGNED IMMEDIATE (64<16)
 inst ALGRK  B9EA RRFA1          # ADD LOGICAL (64)
 inst ALHSIK ECDA RIED           # ADD LOGICAL WITH SIGNED IMMEDIATE (32<16)
 inst ALRK   B9FA RRFA1          # ADD LOGICAL (32)
@@ -1199,7 +1199,7 @@ inst MDTRA  B3D0 RRFA2          # MULTIPLY (LD)
 inst MXTRA  B3D8 RRFA2          # MULTIPLY (ED)
 inst SDTRA  B3D3 RRFA2          # SUBTRACT (LD)
 inst SRNMB  B2B8 S0             # SET BFP ROUNDING MODE
-inst SXTRA  B3D8 RRFA2          # SUBTRACT (ED)
+inst SXTRA  B3DB RRFA2          # SUBTRACT (ED)
 
 # See IBM z/Architecture Principles of Operation, SA22-7832-08, August, 2010
 # F instructions
@@ -1483,7 +1483,7 @@ inst LRAY   E313 RXYA    P      # LOAD REAL ADDRESS (32)
 inst LY     E358 RXYA           # LOAD (32)
 inst MSY    E351 RXYA           # MULTIPLY SINGLE (32)
 inst MVIY   EB52 SIY            # MOVE (IMMEDIATE)
-inst NIY    E354 SIY            # AND (IMMEDIATE)
+inst NIY    EB54 SIY            # AND (IMMEDIATE)
 inst NY     E354 RXYA           # AND (32)
 inst OIY    EB56 SIY            # OR (IMMEDIATE)
 inst OY     E356 RXYA           # OR (32)
@@ -1592,7 +1592,7 @@ iset s390x-pop-count
 
 
 # PROCESSOR ASSIST FACILITY (September, 2012)
-inst PPA    B2EB RRFC           # PERFORM PROCESSOR ASSIST
+inst PPA    B2E8 RRFC           # PERFORM PROCESSOR ASSIST
 
 # See IBM z/Architecture Principles of Operation, SA22-7832-09, September, 2012
 # PA instruction
