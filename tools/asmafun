@@ -34,6 +34,7 @@ fi
 # Usage: asma_env option value
 #   Options supported:
 #       addr    16|24|31|64|cpu     Sets the listing address size or uses MSL CPU
+#       arch    string              Sets the assembly target instruction set
 #       ccw     0|1|disable|cpu     Sets the XMODE CCW setting or uses MSL CPU
 #       cpfile  file|reset     Sets the code page file
 #       cptrans defn|reset     Sect the code page translation definition
@@ -42,8 +43,9 @@ fi
 #       dump    enable|disable Enables or disables hex dump of image file in listing
 #       error   0|1|2|default  Sets the error handling level
 #       image   file|noimage   Sets the image file or disables it
-#       init    msl            Sets the MSLPATH
-#       init    python         Sets the PYTHONPATH
+#       init    tools          Sets path to msl.py and asma.py
+#       init    msl            Sets the default MSLPATH (not required)
+#       init    python         Sets the PYTHONPATH (not required)
 #       list    file|nolist    Sets the listing file or disables it
 #       nest    n|default      Sets the input nesting level or lets it default
 #       psw     s|s360|67|BC|EC|380|XA|E370|E290|Z|disable|cpu
@@ -53,6 +55,7 @@ fi
 #       reset   ccw|deck|list|msl|rc|store
 #       stats   enable|disable Enables or disables statistics reporting
 #       store   file|nostore   Sets the STORE command file or disables it
+#       target  string         Sets the assembly target instruction set
 #       vmc     file|novmc     Sets the virtual machine STORE command file or disables
 asma_env()
 {   
@@ -72,6 +75,9 @@ asma_env()
                 *) echo "invalid addr option value: ${2}" ; return 1 ;;
             esac
             ;;
+        #"arch")
+        #    asma_arch=" --arch=${2}"
+        #    ;;
         "ccw")
             case ${2} in
                 "0")  asma_ccw=" -w 0" ;;
@@ -129,10 +135,13 @@ asma_env()
                     PYTHONPATH=${PYTHONPATH}:${SATK_DIR}/tools/ipl
                     PYTHONPATH=${PYTHONPATH}:${SATK_DIR}/tools
                     export PYTHONPATH
+                    #export ASMA=${SATK_DIR}/tools/asma.py
+                    #export MSL=${SATK_DIR}/tools/msl.py
+                    ;;
+                "tools")
                     export ASMA=${SATK_DIR}/tools/asma.py
                     export MSL=${SATK_DIR}/tools/msl.py
                     ;;
-             
             *) echo "invalid init option value: ${2}" ; return 1 ;;
             esac
             ;;
@@ -208,6 +217,7 @@ asma_env()
                      asma_addr="" ;;
                 "all")
                     asma_env reset addr
+                    asma_env reset arch
                     asma_env reset ccw
                     asma_env reset cpfile
                     asma_env reset cptrans
@@ -223,6 +233,7 @@ asma_env()
                     asma_env reset rc
                     asma_env reset store
                     ;;
+                "arch")   asma_arch=""   ;;
                 "ccw")    asma_ccw=""    ;;
                 "cpfile") asma_cpfile="" ;;
                 "cpu")    asma_cpu=""    ;;
@@ -258,6 +269,9 @@ asma_env()
                  asma_store=" -s ${2}"
              fi
              ;;
+         "target")
+            asma_arch=" -t ${2}"
+            ;;
          "vmc")
              if [ "${2}" = "novmc" ]
              then 
@@ -285,7 +299,8 @@ asma()
     ccp="${asma_cpfile}${asma_cptrans}"
     cdebug="${asma_debug}${asma_oper}"
     clist="${asma_dump}${asma_list}"
-    copt="${asma_msl}${asma_cpu}${asma_addr}${asma_psw}${asma_error}${asma_stats}"
+    copt="${asma_arch}${asma_msl}${asma_cpu}${asma_addr}${asma_psw}${asma_error}"
+    copt="${copt}${asma_stats}"
     cmd="${asma} ${copt}${ccp}${cdebug}${cout}${clist} ${1}"
     if [ "${2}" = "echo" ]
     then

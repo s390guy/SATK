@@ -58,12 +58,12 @@ class RangeCheckError(Exception):
 # the constructed instruction.
 class Builder(object):
     type_check=True     # method argument type check switch
-    def __init__(self,machine,msl,trace=False):
+    def __init__(self,machine,msl,msldft=None,trace=False):
         # Each of these lists is indexed by number of bits in a field.  The first
         # entry (index 0) is nonsensical, because you need at least 1 bit for a field.
         # The second entry in the signed field (index 1) is nonsensical because you
         # you need at least two bits for a signed value, one for the sign and one for
-        # two's complement value.  Thes lists are used to ensure values can fit within
+        # two's complement value.  These lists are used to ensure values can fit within
         # a machine instruction field.  An AssemblerError is generated if the value
         # supplied by the assembler is out of range.
 
@@ -105,11 +105,11 @@ class Builder(object):
         self.addrsize=None   # Maximum address size supported by the CPU
         self.ccw=None        # Expected CCw format used by the CPU
         self.psw=None        # Expected PSW format used by the CPU
-        self.cache=self.__getMachine(machine,msl)
+        self.cache=self.__getMachine(machine,msl,msldft=msldft)
 
     # Create the MSL cache and supply maximum address size for listing
-    def __getMachine(self,mach,mslfile):
-        mslproc=msldb.MSL()
+    def __getMachine(self,mach,mslfile,msldft=None):
+        mslproc=msldb.MSL(default=msldft)
         mslproc.build(mslfile,fail=True)
         cpux=mslproc.expand(mach)   # Return the expanded version of cpu
         self.addrsize=cpux.addrmax  # Set the maximum address size for CPU

@@ -1939,6 +1939,7 @@ class Assembler(object):
     #   machine     The string ID of the targeted system or cpu in the MSL database
     #   msl         Path the Machine Specification Language database source
     #   aout        AsmOut object describing output characteristics.
+    #   msldft      Default MSL directory if MSLPATH not defined
     #   addr        Size of addresses in this assembly.  Overrides MSL CPU statement
     #   debug       The global Debug Manager to be used by the instance.  In None
     #               is specified, one will be generated.  Defaults to None.
@@ -1964,9 +1965,9 @@ class Assembler(object):
     #               be traced in all passs including initial parsing.
     #   stats       Specigy True to enable statistics reporting at end of pass 2.  
     #               Should be False if an external driver is updating statistics.
-    def __init__(self,machine,msl,aout,addr=None,debug=None,dump=False,eprint=False,\
-                 error=2,nest=20,ccw=None,psw=None,ptrace=[],otrace=[],cpfile=None,\
-                 cptrans="94C",stats=False):
+    def __init__(self,machine,msl,aout,msldft=None,addr=None,debug=None,dump=False,\
+                 eprint=False,error=2,nest=20,ccw=None,psw=None,ptrace=[],otrace=[],\
+                 cpfile=None,cptrans="94C",stats=False):
 
         # Before we do anything else start my timers
         Stats.start("objects_p")
@@ -2025,7 +2026,8 @@ class Assembler(object):
         # Define how to process passes.
         self.passes=self.__init_passes()      # List of Pass instances
         # Create the machine instruction construction engine and CPU related values
-        self.builder=insnbldr.Builder(machine,msl,trace=self.dm.isdebug("insns"))
+        self.builder=insnbldr.Builder(machine,msl,msldft=msldft,\
+            trace=self.dm.isdebug("insns"))
         self.addrsize=self.builder.addrsize   # Maximum address size in bits
         self.xmode={}
         self.__init_xmode(ccw,psw) # Initialize XMODE settings
@@ -3674,7 +3676,7 @@ class Assembler(object):
     # INSTRUCTION AND DIRECTIVE PASS PROCESSING METHODS
     #
     # All methods share the same signature:  
-    #      method_name(Stmt-instance,debug=False)
+    #      method_name(Stmt-instance,trace=False)
     # These methods are called by the public assemble() method
     #
     # These methods do not need to validate operand quantity or the presenct of

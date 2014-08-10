@@ -22,11 +22,16 @@
 # The mdoules includes the following classes:
 #   dir_tree     Class useful in managing directory trees.
 #   DM           A Debug Manager that interfaces with the argparse class.
+#   PathMgr      Manages one or more environment variables each of which defines 
+#                a directory search order using the native platforms path conventions
+#                for locating relative paths to files, opening the file when found.
+#   TextPrint    Simple utility for printing multiple lines of text with line numbers.
 #
 # The module includes the following functions:
 #   byte2str     Converts a bytes list or bytearray into a string without encoding
 #   pythonpath   A function that allows management of the PYTHONPATH from within a
 #                module.
+#   satkdir      Determines the absolute path to an SATK directory
 #   satkroot     Determines the absolute path to the SATK root directory
 # 
 
@@ -85,7 +90,7 @@ class dir_tree(object):
         self.dirs=[]
         self.files=[]
         self._recurse(self.root)
-        
+
     def _ckix_arg(self,arg,name):
         if arg is None:
             return ([],[])
@@ -109,13 +114,13 @@ class dir_tree(object):
             else:
                 raise ValueError("satkutil.py - dir_tree - %s requires second "
                     "element to be a list: %s" % (name,exc))
-        
+
         if len(exlist)>0 and len(inlist)>0:
             exlist=[]
         return (inlist,exlist)
-        
+
     # Parse the filter lists presented for directori
-        
+
     # For a given directory, accumulate the list of its sub directories and files.
     # Return the two lists as a tuple.
     # Do not override this method.
@@ -146,7 +151,7 @@ class dir_tree(object):
                     continue
                 filepaths.append(path)
         return (dirpaths,filepaths)
-        
+
     # Populate the class attributes self.dirs and self.files with fully qualified
     # paths contained within the root directory.
     # Do not override this method.
@@ -249,6 +254,7 @@ class dir_tree(object):
             for x in self.files:
                 method(x)
 
+
 #
 # +-----------------+
 # |                 |
@@ -287,7 +293,7 @@ class DM(object):
                  cmdline="debug"):
         self.cmdline=cmdline       # Argparser command line argument
         self.flags={}              # Debug flags
-         
+
         if isinstance(appl,list):
             a=appl
         elif isinstance(appl,str):
@@ -295,15 +301,15 @@ class DM(object):
         else:
             raise ValueError("satkutil - DM.__init__() - 'appl' must be a list or "
                 "a string: %s" % appl)
-            
+
         # Establish application specific debug options
         self.appl=a
         for x in self.appl:
             self.flag(x)
-        
+
         # Langutil based application
         self.langutil=langutil
-        
+
         # Parser based application
         if self.langutil:
             self.parser=True       # Langutil requires a parser
@@ -314,7 +320,7 @@ class DM(object):
             self.lexer=True        # Parser requires a lexer
         else:
             self.lexer=lexer
-        
+
         # Establish the language component debug option.
         if self.langutil:
             self.flag("kdebug")    # Display keyword types
@@ -349,7 +355,7 @@ class DM(object):
             raise ValueError("%s.disable() - invalid debug flag: '%s'" \
                     % (self.__class__.__name__,x)) from None
         self.flags[dflag]=False
-    
+
     # Enable a defined debug flag
     def enable(self,dflag):
         try:
@@ -416,11 +422,13 @@ class DM(object):
 # Instance arguments:
 #    'variable'   A single string or list of strings identifying the supported
 #                 environment variables.
+#    default      The default directory if an environment variable is not defined.
+#                 Defaults to None.
 class PathMgr(object):
-    def __init__(self,variable=None,debug=False):
+    def __init__(self,variable=None,default=None,debug=False):
         self.debug=debug          # Enable debugging of all methods
         self.paths={}             # Dictionary of supported paths
-        
+
         if variable is None:
             return
         elif isinstance(variable,list):
@@ -437,9 +445,9 @@ class PathMgr(object):
             clstr="satkutil.py - %s.__init__() -" % (self.__class__.__name__)
             raise ValueError("%s 'variable' argument must be a list or str: %s" \
                 % (clsstr,variable))
-        
+
         for v in vars:
-            self.path(v)
+            self.path(v,default=default)
 
     # Returns a list of file names in the path files with the specified extension.
     # File names are not absolute.  ropen() method required to access the file.
@@ -480,15 +488,16 @@ class PathMgr(object):
                     if x not in files:
                         files.append(x)
         return files
-        
 
     # Registers an environment variable to be used for file search paths by the
     # application.
     #
     # Method arguments:
     #   variable    Environment variable string.
+    #   default     Specifies a default directory if the environment variable is
+    #               unavailable
     #   debug       Specify True to enable debug message generation.
-    def path(self,variable,debug=False):
+    def path(self,variable,default=None,debug=False):
         if not isinstance(variable,str):
             clsstr="satkutil.py - %s.path() -" % self.__class__.__name
             raise ValueError("%s 'variable' argument must be a string: %s" \
@@ -505,27 +514,36 @@ class PathMgr(object):
             rawlist=path.split(os.pathsep)
         except KeyError:
             # Environment variable is not defined so ignore it
-            if ldebug:
-                print("satkutil.py - %s.path() - environment variable not "
-                    "defined: '%s'" % (self.__class__.__name__,variable))
-            
+            if default is not None:
+                if not isinstance(default,str):
+                    clsstr="satkutil.py - %s.path() -" % self.__class__.__name
+                    raise ValueError("%s 'default' argument must be a string: %s" \
+                        % (clsstr,default))
+                if ldebug:
+                    print("satkutil.py - %s.path() - environment variable %s not "
+                          "defined, using default path: '%s'" \
+                          % (self.__class__.__name__,variable,default))
+                rawlist=[default,]
+            else:
+                if ldebug:
+                    print("satkutil.py - %s.path() - environment variable not "
+                        "defined: '%s'" % (self.__class__.__name__,variable))
 
-        #rawlist=path.split(os.pathsep)
         if ldebug:
-            print("satkutil.py - %s.path() - path list: %s" \
+            print("satkutil.py - %s.path() - rawpath list: %s" \
                 % (self.__class__.__name__,rawlist))
 
         for p in rawlist:
             pathlist.append(p.strip())
-            
+
         # Add current working directory if not already in the path
         curwd=os.getcwd()
         if curwd not in pathlist:
             pathlist.append(curwd)
-            
+
         # Register the recognized path
         self.paths[variable]=pathlist
-        
+
     # Opens the file in the specified mode and returns the file object.  If supplied,
     # the predefined path variable is used to find the supplied relative path.
     # If an path variable is not supplied, or an absolute path is supplied, standard
@@ -584,12 +602,14 @@ class PathMgr(object):
 
         raise ValueError("could not open in mode '%s' file '%s' with path: %s" \
             % (mode,filename,variable))
-        
+
+    # Perform the actual opening of the file
     def osopen(self,filename,mode,debug=False):
         if debug:
              print("satkutil.py - %s.osopen() - trying: open('%s','%s')" \
                    % (self.__class__.__name__,filename,mode))
         return open(filename,mode)
+
 
 # This class accepts a string as its instance argument and will format the
 # string for printing with line numbers.  It will either print the formatted
@@ -685,19 +705,31 @@ def method_name(method):
 
 # Add a relative directory dynamically to the PYTHONPATH search path
 def pythonpath(dir,debug=False):
-    if os.path.isabs(dir):
-        raise ValueError("satkutil.py - pythonpath() - 'dir' argument must be a "
-            "relative path: '%s'" % dir)
-    root=satkroot()
-    if debug:
-        print("satkutil.py - pythonpath() - SATK root: '%s'" % root)
-    path=[os.path.join(root,dir),]
+    #if os.path.isabs(dir):
+    #    raise ValueError("satkutil.py - pythonpath() - 'dir' argument must be a "
+    #        "relative path: '%s'" % dir)
+    #root=satkroot()
+    #if debug:
+    #    print("satkutil.py - pythonpath() - SATK root: '%s'" % root)
+    #path=[os.path.join(root,dir),]
+    path=[satkdir(dir,debug=debug),]
     if debug:
         print("satkutil.py - pythonpath() - adding path: '%s'" % path[0])
     path.extend(sys.path)
     sys.path=path
     if debug:
         print("satkutil.py - pythonpath() - sys.path=%s" % sys.path)
+
+
+# Determine an SATK directory based upon the root
+def satkdir(reldir,debug=False):
+    if os.path.isabs(reldir):
+        raise ValueError("satkutil.py - satkdir() - 'reldir' argument must be a "
+            "relative path: '%s'" % reldir)
+    root=satkroot()
+    if debug:
+        print("satkutil.py - satkdir() - SATK root: '%s'" % root)
+    return os.path.join(root,reldir)
 
 
 # Determine the SATK root directory from where this module resides.

@@ -24,11 +24,15 @@
 import argparse          # Access the command line parser
 import sys               # Access the exit method
 
+# Setup PYTHONPATH
+import satkutil
+satkutil.pythonpath("asma")        # Provides path to msldb
+satkutil.pythonpath("tools/lang")  # Provides path to sopl
+
 # ASMA imports
 import msldb             # Access the database
 
 copyright="msl.py Copyright (C) %s Harold Grovesteen" % "2014"
-
 
 #
 #  +----------------------------+
@@ -51,7 +55,7 @@ class MSLIF(object):
         self.dump=args.dump            # Dump the final output DB
 
         # The Machine Language Specification Processor
-        self.dbp=msldb.MSL()
+        self.dbp=msldb.MSL(default=satkutil.satkdir("asma/msl",debug=False))
 
     def run(self):
         keep=self.expand is not None

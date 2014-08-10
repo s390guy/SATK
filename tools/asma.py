@@ -30,10 +30,24 @@ import_start_w=wall_start=time.time()
 import argparse
 import sys
 
+# Setup PYTHONPATH
+import satkutil
+satkutil.pythonpath("asma")
+satkutil.pythonpath("tools/lang")
+satkutil.pythonpath("tools/ipl")
+
 # ASMA imports
 import assembler
 
 class ASMA(object):
+    # Default MSL database file and CPU for recognized generic architecture
+    archs={"s360": ("s360-insn.msl",  "s360"),
+           "s370": ("s370-insn.msl",  "s370"),
+           "370xa":("s370XA-insn.msl","s370XA"),
+           "e370": ("e370-insn.msl",  "e370"),
+           "e390": ("e390-insn.msl",  "e390"),
+           "s390": ("s390x-insn.msl", "s390"),
+           "s390x":("s390x-insn.msl", "s390x")}
     def __init__(self,args,dm):
         self.dm=dm                # Global Debug Manager instance
         self.args=args            # Command line arguments
@@ -52,7 +66,11 @@ class ASMA(object):
             rc=args.rc,\
             vmc=args.vmc)
 
-        self.assembler=assembler.Assembler(args.cpu,args.msldb,self.aout,\
+        msl,cpu=self.target()
+
+        #self.assembler=assembler.Assembler(args.cpu,args.msldb,self.aout,\
+        self.assembler=assembler.Assembler(cpu,msl,self.aout,\
+            msldft=satkutil.satkdir("asma/msl"),\
             addr=args.addr,\
             debug=dm,\
             dump=args.dump,\
@@ -150,6 +168,36 @@ class ASMA(object):
         
         print(stats.report())
 
+    # Determine target cpu and MSL database file from --target or --cpu
+    def target(self):
+        msl=None
+        cpu=None
+        args=self.args
+        
+        # Try the --target argument
+        try:
+            msl,cpu=ASMA.archs[args.target]
+        except KeyError:
+            pass
+
+        # If present try --cpu argument
+        if args.cpu is not None: 
+            c=args.cpu
+            seps=c.count("=")
+            if seps!=1:
+                print("invalid --cpu argument ignored: %s" % c)
+            file_cpu=c.split("=")
+            msl=file_cpu[0]
+            cpu=file_cpu[1]
+
+        if msl is None or cpu is None:
+            print("argument error: could not identify target instruction set by "
+                "either --arch or --cpu")
+            sys.exit(1)
+
+        return (msl,cpu)
+
+
 # Parse the command line arguments
 def parse_args(dm):
     parser=argparse.ArgumentParser(prog="asma.py",
@@ -157,8 +205,14 @@ def parse_args(dm):
         description="from assembler source create a bare-metal usable file")
 
     # Source input file (Note: attribute source in the parser namespace will be a list)
-    parser.add_argument("source",\
-        help="input assembler source file path",nargs=1)
+    parser.add_argument("source",nargs=1,\
+        help="input assembler source path.  Relative path requires ASMPATH "
+             "environment variable directory search order")
+
+    parser.add_argument("-t","--target",
+        choices=list(ASMA.archs.keys()),
+        help="target instruction set architecture. If not used --msldb and --cpu are "
+            "required")
 
     # Override MSL maximum address size
     # May be specified in a local configuration
@@ -166,8 +220,10 @@ def parse_args(dm):
         help="override target CPU maximum address size in listing")
 
     # Machine Target
-    parser.add_argument("-c","--cpu",required=True,
-        help="MSL database target cpu, for example, '2025'")
+    parser.add_argument("-c","--cpu",metavar="MSLFILE=CPU",
+        help="identifies the CPU and its MSL file targeted by the assembly. MSLFILE "
+             "must be found in the default MSL directory or a directory specified by "
+             "the MSLPATH environment variable")
 
     # Dump the completed CSECT's, region's and image
     # May be specified in a local configuration
@@ -192,8 +248,8 @@ def parse_args(dm):
         help="assembly listing file")
 
     # Machine Specification Language database source file
-    parser.add_argument("-m","--msldb",default="msl.txt",
-        help="path to MSL database source file")
+    #parser.add_argument("-m","--msldb",
+    #    help="path to MSL database source file, overrides file implied by --target")
 
     # Maximum depth of nested input sources.
     # May be specified in a local configuration

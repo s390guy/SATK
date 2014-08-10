@@ -25,12 +25,16 @@ import argparse          # Access the command line parser
 import functools         # Access complex sorting sequences
 import sys               # Access the exit method
 
+# Setup PYTHONPATH
+import satkutil          # Access utility functions
+satkutil.pythonpath("asma")        # Provides path to msldb
+satkutil.pythonpath("tools/lang")  # Provides path to sopl
+
 # ASMA imports
 import msldb             # Access the database
 
 # SATK imports
 from listing import *    # Access the formatted report tools
-import satkutil          # Access utility functions
 
 
 this_module="mslrpt.py"
@@ -399,6 +403,7 @@ class ITBLE(object):
 
 class MSLRPT(object):
     PATHVAR="MSLPATH"
+    DEFAULT=satkutil.satkdir("asma/msl",debug=False)
     def __init__(self,args):
         self.report=args.report        # Report requested.  See run() method
         self.cpus=[]
@@ -428,7 +433,7 @@ class MSLRPT(object):
         self.line=args.line
 
     def __find_files(self):
-        msl=msldb.MSL()
+        msl=msldb.MSL(default=MSLRPT.DEFAULT)
         path=msl.opath # Reach in and get the path manager
         return path.files(MSLRPT.PATHVAR,ext=".msl")
 
@@ -436,7 +441,7 @@ class MSLRPT(object):
         files=self.__find_files()
         mslf={}
         for filename in sorted(files):
-            msl=msldb.MSL()
+            msl=msldb.MSL(default=MSLRPT.DEFAULT)
             errors=msl.build(filename)
             if errors:
                 print("MSL errors encountered in file: %s" % f)
@@ -475,7 +480,7 @@ class MSLRPT(object):
             files[filename]=fn
         dbs={}
         for filename in files.keys():
-            msl=msldb.MSL()
+            msl=msldb.MSL(default=MSLRPT.DEFAULT)
             errors=msl.build(filename)
             if errors:
                 print("MSL errors encountered in file: %s" % filename)

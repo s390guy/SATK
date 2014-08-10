@@ -1346,20 +1346,24 @@ class System(MSLDBE):
 #  +----------------------------------------------+
 #
 
+# Instance Argument:
+#   default   A string identifying the default directory for includes if MSLPATH
+#             is not defined.
 class MSL(sopl.SOPL):
     statements={"cpu":CPU,
                 "format":Format,
                 "inst":Inst,
                 "iset":Iset}
-    def __init__(self):
+    def __init__(self,default=None):
         self.db=MSLDB()          # The master database being built
 
         # Attribute supplied by the build() method
         self.fail=False          # Immediate failure flag
         self.xref=None           # MSLxref object if build(xref=True)
 
-        # Instantiate super class.  Use 'MSLPATH' environment variable for includes.
-        super().__init__(variable="MSLPATH",debug=False)
+        # Instantiate super class.  Use 'MSLPATH' environment variable for includes
+        # or supplied default directory.
+        super().__init__(variable="MSLPATH",default=default,debug=False)
 
     # Processes SOPL Statmeent and Parameter objects, creating the MSL database.
     # Method arguments:

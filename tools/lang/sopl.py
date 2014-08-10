@@ -182,12 +182,14 @@ class Statement(Parameter):
 # Instance arguments:
 #   variable   Environment variable to be used for include file searches.  Default
 #              is 'PATH' environment variable.
+#   default    Default directory if path environment variable is missing
 #   debug      Specify True to enable PathMgr debugging
 class SOPL(object):
-    def __init__(self,variable="PATH",debug=False):
+    def __init__(self,variable="PATH",default=None,debug=False):
         self.fail=False         # If True fail immediately on an error
         self.soplpath=variable  # Environment variable used for includes
-        self.opath=satkutil.PathMgr(variable=self.soplpath,debug=debug)
+        self.opath=\
+            satkutil.PathMgr(variable=self.soplpath,default=default,debug=debug)
 
         # This is a dictionary of statement line id's mapped to a list of valid
         # parameter line id's.  It is built by the subclass calling regStmt() method.
