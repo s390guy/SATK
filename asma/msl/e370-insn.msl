@@ -29,6 +29,7 @@ cpu e370          # Generic ESA/370 CPU
     features e370-MOVE-INVERSE
     features e370-MOVE-PAGE
     features e370-MOVE-WITH-KEY
+    features e370-VM
     include CUSE
 
 
@@ -341,6 +342,13 @@ inst MVCSK  E50E SSE2           # MOVE WITH SOURCE KEY
 
 iset e370-MOVE-WITH-KEY
     mnemonics MVCDK MVCSK
+
+
+# VM SPECIFIC
+inst IUCV  B2F0 S0       P      # INTER-USER COMMUNICATIONS VEHICLE
+
+iset e370-VM
+    mnemonics IUCV
 
 
 # COMPARE UNTIL SUBSTRING EQUAL

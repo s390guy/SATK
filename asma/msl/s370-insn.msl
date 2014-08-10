@@ -43,27 +43,13 @@ cpu s370         # Generic S/370 CPU
     features s370-SUSPEND-RESUME
     features s370-TEST-BLOCK
     features s370-TRANSLATION
+    features s370-VM
 
 cpu s370BC       # Generic S/370 Compatibility Mode CPU
     addrmax 24
     ccw CCW0
     psw PSWBC
     base s370-base s370-DECIMAL s370-extended s370-io
-
-
-# DECIMAL INSTRUCTIONS
-#inst AP     FA   SSB            # ADD DECIMAL
-#inst CP     F9   SSB            # COMPARE DECIMAL
-#inst DP     FD   SSB            # DIVIDE DECIMAL
-#inst ED     DE   SSA            # EDIT
-#inst EDMK   DF   SSA            # EDIT AND MARK
-#inst MP     FC   SSB            # MULTIPLY DECIMAL
-#inst SP     FB   SSB            # SUBTRACT DECIMAL
-#inst SRP    F0   SSC            # SHIFT AND ROUND DECIMAL
-#inst ZAP    F8   SSB            # ZERO AND ADD
-
-#iset s370-DECIMAL
-#    mnemonics AP CP DP ED EDMK MP SP SRP ZAP
 
 
 # STANDARD INSTRUCTIONS (see below for I/O instructions)
@@ -274,6 +260,7 @@ inst ZAP    F8   SSB            # ZERO AND ADD
 iset s370-DECIMAL
     mnemonics AP CP DP ED EDMK MP SP SRP ZAP
 
+
 # DIRECT CONTROL FEATURE
 inst RDD    85   SI      P      # READ DIRECT
 inst WRD    84   SI      P      # WRITE DIRECT
@@ -437,6 +424,13 @@ inst STOSM AD   SI       P      # STORE THEN OR SYSTEM MASK
 
 iset s370-TRANSLATION
     mnemonics LRA PTLB RRB STNSM STOSM
+
+
+# VM SPECIFIC
+inst IUCV  B2F0 S0       P      # INTER-USER COMMUNICATIONS VEHICLE
+
+iset s370-VM
+    mnemonics IUCV
 
 
 # PROCESSOR SPECIFIC INSTRUCTIONS

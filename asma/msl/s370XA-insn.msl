@@ -30,6 +30,7 @@ cpu s370XA         # Generic S/370-XA CPU
     features s370XA-MVCIN
     features s370XA-SERVC
     features s370XA-SIE
+    features s370XA-VM
 
 
 # STANDARD INSTRUCTIONS (see below for I/O instructions)
@@ -320,4 +321,10 @@ inst SERVC  B220 RRE     PX     # SERVICE CALL
 
 iset s370XA-SERVC
     mnemonics SERVC
-   
+
+
+# VM SPECIFIC
+inst IUCV  B2F0 S0       P      # INTER-USER COMMUNICATIONS VEHICLE
+
+iset s370XA-VM
+    mnemonics IUCV

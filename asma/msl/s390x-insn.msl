@@ -35,6 +35,7 @@ cpu s390          # Generic z/Architecture CPU in ESA/390 Mode
     features s390x-translate-2        # December, 2000
     features s390x-HFP-multiply-add   # October, 2001
     features s390x-msa                # June, 2003
+    features s390x-vm
 
 cpu s390x        # Generic z/Architecture CPU in z/Architecture Mode
     addrmax 64
@@ -89,6 +90,7 @@ cpu s390x        # Generic z/Architecture CPU in z/Architecture Mode
     features s390x-misc-inst-ext      # September, 2012
     features s390x-proc-assist        # September, 2012
     features s390x-trans-exe          # September, 2012
+    features s390x-vm
 
 
 # STANDARD INSTRUCTIONS FROM ESA/390 (see below for I/O instructions)
@@ -1647,3 +1649,10 @@ inst TEND   B2F8 RRE2           # TRANSACTION END
 # TX instructions
 iset s390x-trans-exe
     mnemonics ETND NTSTG TABORT TBEGIN TEND
+
+
+# VM SPECIFIC
+inst IUCV  B2F0 S0       P      # INTER-USER COMMUNICATIONS VEHICLE
+
+iset s390x-vm
+    mnemonics IUCV

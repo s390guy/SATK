@@ -50,6 +50,7 @@ cpu e390          # Generic ESA/390 CPU
     features e390-subspace-group
     features e390-translate-1
     features e390-trap-facility
+    features e390-vm
 
 
 # STANDARD INSTRUCTIONS (see below for I/O instructions) (September, 1990)
@@ -704,3 +705,10 @@ inst TRAP4  B2FF S0             # TRAP (four-byte)
 
 iset e390-trap-facility
     mnemonics TRAP2 TRAP4
+
+
+# VM SPECIFIC
+inst IUCV  B2F0 S0       P      # INTER-USER COMMUNICATIONS VEHICLE
+
+iset e390-vm
+    mnemonics IUCV
