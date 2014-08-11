@@ -47,7 +47,12 @@ class ASMA(object):
            "e370": ("e370-insn.msl",  "e370"),
            "e390": ("e390-insn.msl",  "e390"),
            "s390": ("s390x-insn.msl", "s390"),
-           "s390x":("s390x-insn.msl", "s390x")}
+           "s390x":("s390x-insn.msl", "s390x"),
+           "24":   ("all-insn.msl",   "24"),
+           "31":   ("all-insn.msl",   "31"),
+           "64":   ("all-insn.msl",   "64")}
+    target_choices=\
+        ["s360","s370","370xa","e370","e390","s390","s390x","24","31","64"]
     def __init__(self,args,dm):
         self.dm=dm                # Global Debug Manager instance
         self.args=args            # Command line arguments
@@ -68,7 +73,6 @@ class ASMA(object):
 
         msl,cpu=self.target()
 
-        #self.assembler=assembler.Assembler(args.cpu,args.msldb,self.aout,\
         self.assembler=assembler.Assembler(cpu,msl,self.aout,\
             msldft=satkutil.satkdir("asma/msl"),\
             addr=args.addr,\
@@ -192,7 +196,7 @@ class ASMA(object):
 
         if msl is None or cpu is None:
             print("argument error: could not identify target instruction set by "
-                "either --arch or --cpu")
+                "either --target or --cpu")
             sys.exit(1)
 
         return (msl,cpu)
@@ -207,85 +211,86 @@ def parse_args(dm):
     # Source input file (Note: attribute source in the parser namespace will be a list)
     parser.add_argument("source",nargs=1,\
         help="input assembler source path.  Relative path requires ASMPATH "
-             "environment variable directory search order")
+             "environment variable directory search order.")
 
-    parser.add_argument("-t","--target",
-        choices=list(ASMA.archs.keys()),
-        help="target instruction set architecture. If not used --msldb and --cpu are "
-            "required")
+    parser.add_argument("-t","--target",default="24",choices=ASMA.target_choices,\
+        help="target instruction set architecture.  Defaults to 24.")
 
     # Override MSL maximum address size
     # May be specified in a local configuration
     parser.add_argument("-a","--addr",type=int,choices=[16,24,31,64],\
-        help="override target CPU maximum address size in listing")
+        help="overrides target CPU maximum address size in listing.")
 
     # Machine Target
     parser.add_argument("-c","--cpu",metavar="MSLFILE=CPU",
         help="identifies the CPU and its MSL file targeted by the assembly. MSLFILE "
              "must be found in the default MSL directory or a directory specified by "
-             "the MSLPATH environment variable")
+             "the MSLPATH environment variable.")
 
     # Dump the completed CSECT's, region's and image
     # May be specified in a local configuration
     parser.add_argument("-d","--dump",action="store_true",default=False,\
-        help="listing provides the image content in storage dump format")
+        help="listing provides the image content in storage dump format.")
 
     # Specify error handling level
     # May be specified in a local configuration
     parser.add_argument("-e","--error",type=int,choices=[0,1,2],default=2,\
-        help="specify error handling level")
+        help="specifies error handling level.")
 
     # Generic list directed IPL option
     parser.add_argument("-g","--gldipl",
-        help="directory containing list directed IPL files")
+        help="identifies the directory containing list directed IPL files.  If "
+             "omitted, no files are created")
 
     # Path and filename of the written binary image file
     parser.add_argument("-i","--image",
-        help="binary image file containing content")
+        help="binary image file containing content.  If omitted, no file is created.")
 
     # Machine Specification Language database source file
     parser.add_argument("-l","--listing",
-        help="assembly listing file")
-
-    # Machine Specification Language database source file
-    #parser.add_argument("-m","--msldb",
-    #    help="path to MSL database source file, overrides file implied by --target")
+        help="assembly listing file.  If omitted, no listing file is created.")
 
     # Maximum depth of nested input sources.
     # May be specified in a local configuration
     nest_default=20
     parser.add_argument("-n","--nest",type=int,default=nest_default,
-        help="maximum depth of nested input sources (default %s)" % nest_default)
+        help="maximum depth of nested input sources (default %s)." % nest_default)
 
     # Object Deck file name
     parser.add_argument("-o","--object",
-        help="loadable object deck file with assembled content")
+        help="loadable object deck file with assembled content.  If omitted, an "
+             "object deck is not created")
 
     # Specify the initial XMODE PSW format
     psw_formats=["S","360","67","BC","EC","380","XA","E370","E390","Z","none"]
     parser.add_argument("-p","--psw",choices=psw_formats,
-        help="set the initial XMODE PSW format (none disables the PSW directive)")
+        help="set the initial XMODE PSW format (none disables the PSW directive).  "
+             "Overrides the value supplied by the target CPU definition.")
 
     # Hercules RC script file
     parser.add_argument("-r","--rc",
-        help="Hercules RC script file with assembled content")
+        help="Hercules RC script file with assembled content.  If omitted, a script "
+             "file is not created.")
 
     # STORE command file
     parser.add_argument("-s","--store",
-        help="STORE command file with assembled content")
+        help="STORE command file with assembled content.  If omitted, a command file "
+             "is not created.")
 
     # virtual machine STORE ommand file 
     parser.add_argument("-v","--vmc",
-        help="virtual machine STORE command file with assembled content")
+        help="virtual machine STORE command file with assembled content.  If omitted, "
+             "a command file is not created.")
 
     # Specify the initial XMODE CCW format
     parser.add_argument("-w","--ccw",choices=["0","1","none"],
-        help="set the initial XMODE CCW format (none disables the CCW directive)")
+        help="set the initial XMODE CCW format (none disables the CCW directive).  "
+             "Overrides the value supplited by the target CPU definition")
 
     # Define the local default specification
     parser.add_argument("--config",default="default",\
         help="identify the local configuration, if not specified standard defaults "
-            "apply")
+             "apply.  If omitted, documented defaults are used.")
 
     # Specify the code page file
     parser.add_argument("--cpfile",
@@ -307,7 +312,7 @@ def parse_args(dm):
     # Enable statistics reporting
     # May be specified in a local configuration
     parser.add_argument("--stats",action="store_true",default=False,\
-        help="enables statististics reporting")
+        help="enables statististics reporting.")
 
     # Add debug options from Debug Manager
     dm.add_argument(parser,help="enable debug option")

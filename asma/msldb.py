@@ -430,9 +430,9 @@ class CPU(MSLDBE):
             s="%s\n    addrmax parameter required, missing" % s
             error=True
 
-        if self.psw is None:
-            s="%s\n    psw parameter required, missing" % s
-            error=True
+        #if self.psw is None:
+        #    s="%s\n    psw parameter required, missing" % s
+        #    error=True
 
         if error:
             raise MSLError(loc=self.loc,\
@@ -589,7 +589,7 @@ class CPUX(object):
         except KeyError:
             return
         del self.inst[old]
-        inst.name=new
+        inst.ID=new
         self.inst[new]=inst
   
     def summarize(self,indent="",string=False,sort=False):

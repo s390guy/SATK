@@ -2102,8 +2102,6 @@ class Assembler(object):
         self.pon=True         # Assume "PRINT ON" directive
         self.pgen=True        # Assume "PRINT GEN" directive
         self.pdata=False      # Assume "PRINT NODATA" directive
-        # Note: Presently macros are not supported.  The GEN and NOGEN options have
-        # no effect today.
         
         # Stop object timers
         Stats.stop("objects_w")

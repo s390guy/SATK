@@ -531,6 +531,7 @@ class MSLRPT(object):
             self.cpus.append( ("e390-insn.msl","e390") )
             self.cpus.append( ("s390x-insn.msl","s390") )
             self.cpus.append( ("s390x-insn.msl","s390x") )
+            self.cpus.append( ("all-insn.msl","24") )
             self.inst_report()
         else:
             raise ValueError("unexpected --report argument: %s" % self.report)
