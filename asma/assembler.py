@@ -564,7 +564,7 @@ class AssemblerError(Exception):
 # This exception is also raised in the event of a user related problem.  It has the
 # identical arguments as the AssemblerError exception.  However, this exception is
 # never caught by the assembler.  The user of the assembler may want to do some
-# orderly cleanup but should 
+# orderly cleanup.
 class AssemblerAbort(Exception):
     def __init__(self,line=None,linepos=None,msg="ASMA ABORT!"):
         self.msg=msg         # Text associated with the error
@@ -987,8 +987,9 @@ class Storage(Operand):
                 % (cls_str,self.fields))
         # Make sure we are good to go before leaving
         if not isinstance(self.base,int) or not isinstance(self.disp,int):
-            raise ValueError("%s could not set base/displacement: %s/%s" \
-                % (cls_str,self.base,self.disp))
+            cls_str=eloc(self,"resolve")
+            raise ValueError("%s [%s] could not set base/displacement: %s/%s" \
+                % (cls_str,stmt.lineno,self.base,self.disp))
 
     def source_error(self):
         return "unexpected index register (error=%s)" % self.source
@@ -1489,7 +1490,8 @@ class Stmt(object):
         # Note: self.insn is an MSLentry object
         oprs=self.insn.src_oprs(debug=debug)
         if debug:
-            print("%s DEBUG %s oprs: %s" % (cls_str,self.insn.mnemonic,oprs))
+            print("%s DEBUG %s format %s oprs: %s" \
+                % (cls_str,self.insn.mnemonic,self.insn_fmt.ID,oprs))
         lst=[]
         for op in oprs:
             cls=Stmt.types[op]
@@ -2125,6 +2127,13 @@ class Assembler(object):
             print(ae)
         else:
             pass
+
+    # Checks to make sure the current active section is assigned
+    def __check_cur_sec(self,lineno=None):
+        if self.cur_sec is None:
+            self.__abort(line=lineno,\
+                msg="FATAL ERROR: No active control section. "
+                    "Likely missing CSECT directive following START.")
 
     # This method classifies a statement and updates an instance of Stmt
     def __classifier(self,s,debug=False):
@@ -3402,7 +3411,7 @@ class Assembler(object):
         if self.cur_reg is None:
             self.__abort(line=line,\
                 msg="FATAL ERROR: can not activate CSECT because no active region "
-                    "present, START likely missing")
+                    "present. START likely missing.")
 
         self.cur_reg.append(csect)
         if debug:
@@ -3493,6 +3502,7 @@ class Assembler(object):
         # Establish the content for this statement 
         stmt.content=bin
         # Assign to it its '*' value
+        self.__check_cur_sec(lineno=stmt.lineno)
         self.cur_sec.assign(bin)
         # If a label is present, assign it this value and length
         self.__label_create(stmt)
@@ -3825,13 +3835,15 @@ class Assembler(object):
         edebug=self.dm.isdebug("exp")
         operands=stmt.parsed
         area=Area()
+        self.__check_cur_sec(lineno=stmt.lineno)
+        cur_sec=self.cur_sec
         for opr in stmt.parsed:
             # opr is DCDS instance.  Use the Constant instances in DCDS.unrolled
             if trace:
                 print("%s operand: %s" % (cls_str,opr))
             for con in opr.unrolled:
                 bin=Binary(con.align,con.length)
-                self.cur_sec.assign(bin)
+                cur_sec.assign(bin)
                 if trace:
                     print("%s - cur_sec %s _alloc=%s" \
                         % (cls_str,self.cur_sec,self.cur_sec._alloc))
@@ -3867,6 +3879,7 @@ class Assembler(object):
     def _drop_pass1(self,stmt,trace=False):
         bin=Binary(0,0)    # Create a dummy Binary instance for the statement
         stmt.content=bin   # Establish the DROP statement's binary content
+        self.__check_cur_sec(lineno=stmt.lineno)
         self.cur_sec.assign(bin)   # Assign to it its '*' value
         self.__label_create(stmt)  # If a label is present, assign it this value
         # Nothing else to do in pass 1
@@ -4012,6 +4025,7 @@ class Assembler(object):
         bin=Binary(2,length)   # Always put instructions on half word boundary
 
         # Assign space in the active section for the machine instruction
+        self.__check_cur_sec(lineno=stmt.lineno)
         self.cur_sec.assign(bin)
 
         # Update the stmt instance with instruction format and content information
@@ -4059,6 +4073,11 @@ class Assembler(object):
 
         bin=Binary(0,0)    # Create a dummy Binary instance for the statement
         stmt.content=bin   # Establish the ORG statements binary content
+        self.__check_cur_sec(stmt.lineno)  # Check that a CSECT is active
+        #if self.cur_sec is None:
+        #    self.__abort(line=line,\
+        #        msg="FATAL ERROR: No active control section. "
+        #            "Likely missing CSECT directive following START")
         self.cur_sec.assign(bin)   # Assign to it its '*' value
         addr1=bin.loc              # Save value for listing
         self.__label_create(stmt)  # If a label is present, assign it this value
