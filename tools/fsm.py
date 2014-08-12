@@ -87,7 +87,7 @@ class FSM(object):
         self.trace(trace)      # Initialize tracing
         #
         # FSM processing state initialized by the start() method
-        self._started=False    # Wehn started, True
+        self._started=False    # When started, True
         self._terminated=True  # When started, False
         self._scope=None       # Global scope share with processing states
 

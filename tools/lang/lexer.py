@@ -24,6 +24,8 @@
 # Python imports:
 import re
 
+this_module="lexer.py"
+
 # The following public classes are provided by the lexer module:
 #   Token    Represents a portion of a string recognized by a Type instance.
 #            Instances of Token or a subclass of Token are returned by a Lexer 
@@ -716,6 +718,162 @@ class Lexer(object):
         print("\n%s Defined Types\n" % self.__class__.__name__)
         for x in self.typs:
             print("%s" % x)
+
+# +------------------------------------------+
+# |                                          |
+# |  THE CONTEXT SENSITIVE LEXICAL ANALYZER  |
+# |                                          |
+# +------------------------------------------+
+
+# This stateless recognizer operates on a specific position within a string and
+# determines if any of its registered token types matches.  It provides a single
+# 'context' in which recognition occurs.
+class Recognizer(object):
+    def __init__(self, name):
+        self.name=name
+        self.typs=[]        # List of Type instances for recognized tokens
+        self.tids=[]        # List of Type tids for detection of duplicates
+
+    # Returns an instance of Token when one of the associated types is recognized
+    # in the supplied string.  Othewise, a LexerError exception is raised.
+    # Method arguments:
+    #    string  The string being converted into lexical tokens.  Required
+    #    pos     The position within the string at which recognition begins.
+    #            Defaults to 0.
+    #    line    The line number associated with the pos argument.  Defaults to 0.
+    #    linepos The position within the current line being recognized.  Defaults to 0.
+    # Exception:
+    #    LexerError if not match is found
+    def recognize(self,string,pos=0,line=0,linepos=0):
+        for typ in self.typs:
+            if self.eos and isinstance(typ,EOSType):  # put pseudo token type test here
+                continue
+            try:
+                return typ.match(string,pos,line,linepos)
+            except LexerError:
+                continue
+        # None token types associated with this context matches the string
+        raise LexerError(pos=pos,line=line,linepos=linepos)
+        
+    # Associates the supplied Type instance with the Lexer for token recognition.
+    # Method arguments:
+    #   t  a Type instance to be recognized.  Whether type ids of the
+    #      same name are allowed is dictated by the Lexer 'dup' argument.
+    # If the grammar flag was used when the lexer was created, 
+    def type(self,t):
+        if not isinstance(t,Type) or isinstance(t,(EmptyType,EOSType)):
+            cls_str="%s - %s.type() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s 't' argument not a Type object or type unsupported:"
+                ": %s" % (cls_str,t))
+
+        if t.tid in self.tids:
+            cls_str="%s - %s.type() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s - context %s duplicate type id: '%s'" \
+                % (cls_str,self.name,t.tid))
+
+        self.typs.append(t)
+        self.tids.append(t.tid)
+        
+    # Print the list of registered tokens
+    def types(self):
+        print("\n%s Recognizer Defined Types\n" % self.name)
+        for x in self.typs:
+            print("%s" % x)
+
+
+# Context Sensitive Lexical Analyzer.  Expects to be subclassed.
+# It is the responsibility of the user of the subclass to determine when recognition
+# contexts change.
+class CSLA(object):
+    def __init__(self):
+        self.ctxs={}      # Defined stateless recognizers
+        
+        # Current string being recognized under different contexts
+        # See start() method
+        self.string=None  # Current string being recognized
+        self.curctx=None  # Current context in use for recognition
+        self.pos=None     # Current position being recognized
+        self.eosfnd=False # True when EOS found in the current string
+        
+        # Initialize the subclass
+        self.init()
+        
+    # Set the current context for the string being recognized
+    def context(self,name):
+        try:
+           self.curctx=self.ctxs[ctx]
+        except KeyError:
+           cls_str="%s - %s.context() -" % (this_module,self.__class__.__name__)
+           raise ValueError("%s context not defined: %s" % (cls_str,ctx))
+
+    # Create a new context to which types are added.
+    def ctx(self,name):
+        try:
+            self.ctxs[name]
+            cls_str="%s - %s.ctx() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s context already created: %s" % (cls_str,name))
+        except KeyError:
+            self.ctxs[name]=Recognizer(name)
+
+    # Allows the subclass to initalize the various contexts
+    def init(self):
+        clsname=self.__class__.__name__
+        cls_str="%s - %s.init() -" % (this_module,clsname)
+        raise NotImplementedError("%s subclass %s must provide init() method" \
+            % (cls_str,clsname))
+
+    # Returns the next token recognized by the current context
+    # Method Argument:
+    #   line   Provides a line number for returned tokens.  Defaults to zero
+    # Returns:
+    #   Token object for recognized token type or 
+    #   EOS token when End-of-String condition detected
+    # Exception:
+    #   LexerError when no token type is recognized.
+    #   ValueError if attempts to recognize a token after End-of-String condition
+    def recognize(self,line=0):
+        # Detect EOS condition
+        if self.pos>=self.eospos:
+            if self.eosfnd:
+                cls_str="%s - %s.recognize() -" \
+                    % (this_module,self.__class__.__name__)
+                raise ValueError("%s context %s already found EOS:\n[%s] %s" \
+                    % (cls_str,self.curctx.name,line,self.string))
+            self.eosfnd=True
+            return EOSType.match(self.pos,line,self.pos)  
+
+        # Otherwise see if a token can be identified
+        tok=self.curtxt.recognize(self.string,pos=self.pos,line=line)
+        self.pos=tok.end  # Look next time from where we left off in the string
+        return tok
+
+    # Start context sensitive recognition of a new string from a given position
+    # Method Arguments:
+    #   string   The string being recognized
+    #   name     The name of the initial context to be recognized
+    #   pos      The starting position of the recognition within the string.
+    #            Defaults to zero, the first character of the string.
+    # Following the start() method, the recognize() method will return the next
+    # token recognized and the context() method will set a new context.
+    def start(self,string,name,pos=0):
+        self.context(name)   # Establish the initial context
+        self.string=string
+        self.pos=pos
+        self.eosfnd=False
+
+    # Add a token type to an existing context for recognition
+    # Method Arguments:
+    #   name   The name of the registered context to which a token type is being added
+    #   t      The Type object being added to the context.
+    def type(self,name,t):
+        try:
+            ctx=self.ctxs[name]
+        except KeyError:
+            cls_str="%s - %s.type() -" % (this_module,self.__class__.__name__)
+            raise ValueError("%s 'name' argument is an undefined context: %s" \
+                % (cls_str,name))
+        ctx.type(t)
+
 
 if __name__ == "__main__":
     raise NotImplementedError("lexer.py - must only be imported")

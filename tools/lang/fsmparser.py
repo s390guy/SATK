@@ -27,7 +27,8 @@ import lexer      # Access the lexical analyzer.
 
 this_module="fsmparser.py"
 
-# This FSM provides parsing services based upon the SATK lexical analyzer.
+# This FSM provides parsing services based upon the SATK single context lexical
+# analyzer.
 #
 # Instance Arguments:
 #   lex        Lexical analyzer used for parsing.
@@ -37,33 +38,47 @@ this_module="fsmparser.py"
 #   trace      Enable (True) or disable (False) tracing of state actions.  Defaults to 
 #              False.
 # Instance methods:
+#   parse      Parse a string using the lexical analyzer
 #   stack      Allows a previously processed token to be placed on a LIFO stack
 #   unstack    Removes a previously processed token from the LIFO stack
 class FSMParser(fsm.FSM):
     def __init__(self,lex,scls=None,external=None,init="init",trace=False):
         super().__init__(trace=trace)
-        if not isinstance(lex,lexer.Lexer):
+        if not isinstance(lex,(lexer.Lexer,lexer.CSLA)):
             cls_str="%s - %s.__init__() -" % (this_module,self.__class__.__name__)
             raise ValueError("%s 'lex' argument must be an instance of "
-                "lexer.Lexer: %s" % (cls_str,lex))
+                "lexer.Lexer or lexer.CSLA: %s" % (cls_str,lex))
 
         self.lex=lex              # Lexical analyzer used for parsing
+        self.ctx=isinstance(lex,lexer.CSLA)  # Context Sensitive lexer in use
         self.scopecls=scls        # Class to create for my scope
         self.external=external    # External assistance object
         self._stack=[]            # A holding place for potential look aheads
         self._unstacked=None      # Queued token from stack for input to FSM
 
-        self.init(init)
-     
-    # Uses the FSM to recognize a string converting it into lexical tokens.
-    # Returns the global scope object constructed during the parse.
-    def parse(self,string,scope=None,fail=False,lines=False,line=1):
+        self.init(init)  # Initiatlize FSM states
+
+    def __init_scope(self,scope=None):
         if self.scopecls is not None:
             scop=self.scopecls()
             scop.init()
         else:
             scop=scope   # If not defined with the parser, use the one supplied here.
-        self.start(scope=scop)
+        return scop
+
+    def csparse(self,string,context,scope=None,line=1):
+        cls_str="%s - %s.csparse():" % (this_module,self.__class__.__name__)
+        raise NotImplementedError("%s csparse() method not supported" % cls_str)
+
+    # Uses the FSM to recognize a string converting it into lexical tokens.
+    # Returns the global scope object constructed during the parse.
+    def parse(self,string,scope=None,fail=False,lines=False,line=1):
+        #if self.scopecls is not None:
+        #    scop=self.scopecls()
+        #    scop.init()
+        #else:
+        #    scop=scope   # If not defined with the parser, use the one supplied here.
+        self.start(scope=self.__init_scope(scope=scope))
         done=False
         for token in self.lex.tokenize(string,pos=0,fail=fail,lines=lines,line=line):
             #print("fsmparser.parse - token: %s" % token)
@@ -79,7 +94,7 @@ class FSMParser(fsm.FSM):
             if done:
                 self.lex.stop()
         return self.scope()
-     
+
     # Saves a previously presented token on a pushdown stack
     def stack(self,token,trace=None):
         if trace is not None:
@@ -103,6 +118,61 @@ class FSMParser(fsm.FSM):
         if trace is not None:
             print("FSM:%s token unstacked: %s" % (trace,token))
         return
+
+# This FSM provides parsing services based upon the SATK multiple context lexical
+# analyzer.
+#
+# Instance Arguments:
+#   lex        Lexical analyzer used for parsing.
+#   external   External object providing assistance.  Defaults to None.
+#   init       Specify the initial FSMState instance name of the FSM.  
+#              Defaults to 'init'.
+#   trace      Enable (True) or disable (False) tracing of state actions.  Defaults to 
+#              False.
+#
+# Instance Methods:
+#   context    Set a new context for continued parsing
+#   csparse    Perform a context sensitive parse on a string
+class FSMContext(FSMParser):
+    def __init__(self,lex,scls=None,external=None,init="init",trace=False):
+        super().__init__(lex,scls=scls,external=external,init=init,trace=trace)
+
+    # Set a new context in the lexer
+    def context(self,name):
+        self.lex.context(name)
+
+    # Perform a context sensitive parse
+    # Method Arguments:
+    #   string   The string being recognized
+    #   context  The name of the initial context
+    #   scope    The scope object to used.  Defaults to None.
+    #   line     The line number of the line being parsed
+    # Exceptions
+    #   LexerError if current context does not match any token types
+    def csparse(self,string,context,scope=None,line=1):
+        self.start(scope=self.__init_scope(scope=scope))
+        self.lex.start(string,context)
+
+        while True:
+            token=self.lex.recognize(line=line)  # May raise LexerError
+            done=self.machine(token)
+            if done:
+                break
+
+        return self.scope()
+
+    def parse(self,string,scope=None,fail=False,lines=False,line=1):
+        cls_str="%s - %s.parse():" % (this_module,self.__class__.__name__)
+        raise NotImplementedError("%s parse() method not supported" % cls_str)
+    
+    def stack(self,token,trace=None):
+        cls_str="%s - %s.stack():" % (this_module,self.__class__.__name__)
+        raise NotImplementedError("%s stack() method not supported" % cls_str)
+        
+    def unstack(self,trace=None):
+        cls_str="%s - %s.unstack():" % (this_module,self.__class__.__name__)
+        raise NotImplementedError("%s unstack() method not supported" % cls_str)
+
 
 # This class facilitates the management of scope within the FSM.  It  is recommended
 # that this class or a subclass be used at least to manage global  FSM processing scope.
@@ -133,9 +203,9 @@ class PState(fsm.FSMState):
             if not isinstance(value,lexer.Token):
                 cls_str="%s - %s.ActID() -" % (this_module,self.__class__.__name__)
                 raise ValueError("%s 'value' argument must be an instance of "
-                    "lexer.Type: %s" % (cls_str,value))
+                    "lexer.Token: %s" % (cls_str,value))
         return value.tid
-        
+
     # Returns the global PScope object of the parser.
     def scope(self):
         return self.fsm.scope()
