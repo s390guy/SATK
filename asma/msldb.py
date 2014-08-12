@@ -681,7 +681,7 @@ class Format(MSLDBE):
     lengths=[2,4,6]   # Valid instruction length sizes in bytes
     # The sops source operand names are tightly coupled to ASMA.  Changes there or
     # here must be coordinated.  This dictionary maps source operand type to the 
-    # number of machine fields it to which it provides values.
+    # number of machine fields to which it provides values.
     sops={"I":1,"M":1,"R":1,"RELI":1,"RI":1,"S":2,\
           "SY":3,"SL":3,"SR":3,"SX":3,"SYL":4,"SYX":4}
     mflds=["B","D","DH","DL","I","L","M","R","RELI","RI","X"]

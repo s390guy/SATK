@@ -341,7 +341,7 @@ inst L      58   RXA            # LOAD (32)
 inst LA     41   RXA            # LOAD ADDRESS
 inst LAE    51   RXA            # LOAD ADDRESS EXTENDED
 inst LAM    9A   RSA            # LOAD ACCESS MULTIPLE
-inst LASP   E500 SSE1    P      # LOAD ADDRESS SPACE CONTROL
+inst LASP   E500 SSE2    P      # LOAD ADDRESS SPACE CONTROL
 inst LCDBR  B313 RRE            # LOAD COMPLEMENT (LB)
 inst LCDR   23   RR             # LOAD COMPLEMENT (LH)
 inst LCEBR  B303 RRE            # LOAD COMPLEMENT (SB)
@@ -605,8 +605,8 @@ inst BCTGR  B946 RRE            # BRANCH ON COUNT (64)
 inst BRASL  C05  RILB           # BRANCH RELATIVE AND SAVE LONG
 inst BRCL   C04  RILC           # BRANCH RELATIVE ON CONDITION LONG
 inst BRCTG  A77  RIB            # BRANCH RELATIVE ON COUNT (64)
-inst BRXHG  EC44 RIED           # BRANCH RELATIVE ON INDEX HIGH (64)
-inst BRXLG  EC45 RIED           # BRANCH RELATIVE ON INDEX LOW OR HIGH (64)
+inst BRXHG  EC44 RIEE           # BRANCH RELATIVE ON INDEX HIGH (64)
+inst BRXLG  EC45 RIEE           # BRANCH RELATIVE ON INDEX LOW OR HIGH (64)
 inst BXHG   EB44 RSYA           # BRANCH ON INDEX HIGH (64)
 inst BXLEG  EB45 RSYA           # BRANCH ON INDEX LOW OR EQUAL (64)
 inst CDGBR  B3A5 RRE            # CONVERT FROM FIXED (LB<64)
@@ -680,7 +680,7 @@ inst LPGFR  B910 RRE            # LOAD POSITIVE (64<32)
 inst LPGR   B900 RRE            # LOAD POSITIVE (64)
 inst LPQ    E38F RXE            # LOAD PAIR FROM QUADWORD
 inst LPSWE  B2B2 S0      P      # LOAD PSW EXTENDED
-inst LRAG   E303 RXE     P      # LOAD REAL ADDRESS (64)
+inst LRAG   E303 RXYA    P      # LOAD REAL ADDRESS (64)
 inst LRV    E31E RXE            # LOAD REVERSED (32)
 inst LRVG   E30F RXE            # LOAD REVERSED (64)
 inst LRVGR  B90F RRE            # LOAD REVERSED (64)
@@ -1247,8 +1247,8 @@ iset s390x-ext-immed
 # EXTENDED TRANSLATION FACILITY 2 (October, 2000)
 inst CLCLU  EB8F RSA2           # COMPARE LOGICAL LONG UNICODE
 inst MVCLU  EB8E RSA2           # MOVE LONG UNICODE 
-inst PKA    E9   SSA            # PACK ASCII
-inst PKU    E1   SSA            # PACK UNICODE
+inst PKA    E9   SSF1           # PACK ASCII
+inst PKU    E1   SSF1           # PACK UNICODE
 inst TP     EBC0 RSLA           # TEST DECIMAL
 inst TROO   B993 RRE            # TRANSLATE ONE TO ONE
 inst TROT   B992 RRE            # TRANSLATE ONE TO TWO
@@ -1621,7 +1621,7 @@ inst LDY    ED65 RXYA           # LOAD (L)
 inst LEY    ED64 RXYA           # LOAD (S)
 inst LGB    E377 RXYA           # LOAD BYTE (64)
 inst LHY    E378 RXYA           # LOAD HALFWORD (32)
-inst LMY    EB98 RSLB           # LOAD MULTIPLE (32)
+inst LMY    EB98 RSYA           # LOAD MULTIPLE (32)
 inst LRAY   E313 RXYA    P      # LOAD REAL ADDRESS (32)
 inst LY     E358 RXYA           # LOAD (32)
 inst MSY    E351 RXYA           # MULTIPLY SINGLE (32)
@@ -1638,7 +1638,7 @@ inst STCY   E372 RXYA           # STORE CHARACTER
 inst STDY   ED67 RXYA           # STORE (L)
 inst STEY   ED66 RXYA           # STORE (S)
 inst STHY   E370 RXYA           # STORE HALFWORD
-inst STMY   EB90 RSLB           # STORE MULTIPLE
+inst STMY   EB90 RSYA           # STORE MULTIPLE
 inst STY    E350 RXYA           # STORE (32)
 inst SY     E35B RXYA           # SUBTRACT (3)
 inst TMY    EB51 SIY            # TEST UNDER MASK

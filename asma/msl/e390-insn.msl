@@ -134,7 +134,7 @@ inst L      58   RXA            # LOAD (32)
 inst LA     41   RXA            # LOAD ADDRESS
 inst LAE    51   RXA            # LOAD ADDRESS EXTENDED
 inst LAM    9A   RSA            # LOAD ACCESS MULTIPLE
-inst LASP   E500 SSE1    P      # LOAD ADDRESS SPACE CONTROL
+inst LASP   E500 SSE2    P      # LOAD ADDRESS SPACE CONTROL
 inst LCDR   23   RR             # LOAD COMPLEMENT (LH)
 inst LCER   33   RR             # LOAD COMPLEMENT (SH)
 inst LCR    13   RR             # LOAD COMPLEMENT (32)
