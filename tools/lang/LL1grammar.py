@@ -1,5 +1,5 @@
-#!/usr/bin/python3.3
-# Copyright (C) 2013 Harold Grovesteen
+#!/usr/bin/python3
+# Copyright (C) 2013,2014 Harold Grovesteen
 #
 # This file is part of SATK.
 #                                                                      
@@ -26,7 +26,7 @@ import functools  # Access to compare function to key function
 
 # SATK imports:
 import lexer
-from parser import CBM   # Access Callback Manager static methods
+import satkutil
 
 # +--------------------------------+
 # |  Exceptions Raised by Grammar  |
@@ -2254,8 +2254,16 @@ class ID(LL1Sem):
             self.cvt_rep(":1")
 
     def __str__(self):
-        rec=CBM.mname(self.rec)
-        rep=CBM.mname(self.rep)
+        if self.rec is None:
+            rec=""
+        else:
+            rec=satkutil.method_name(self.rec)
+        #rec=CBM.mname(self.rec)
+        if self.rep is None:
+            rep=""
+        else:
+            rep=satkutil.method_name(self.rep)
+        #rep=CBM.mname(self.rep)
         return "ID('%s',%s,min=%s,max=%s,rec=%s,rep=%s,resync=%s,trace=%s)" \
             % (self.tpid,self.typ,self.min,self.max,rec,rep,self.resync,self.trace)
 
