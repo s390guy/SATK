@@ -1,4 +1,4 @@
-#!/usr/bin/python3.3
+#!/usr/bin/python3
 # Copyright (C) 2013, 2014 Harold Grovesteen
 #
 # This file is part of SATK.
@@ -705,13 +705,6 @@ def method_name(method):
 
 # Add a relative directory dynamically to the PYTHONPATH search path
 def pythonpath(dir,debug=False):
-    #if os.path.isabs(dir):
-    #    raise ValueError("satkutil.py - pythonpath() - 'dir' argument must be a "
-    #        "relative path: '%s'" % dir)
-    #root=satkroot()
-    #if debug:
-    #    print("satkutil.py - pythonpath() - SATK root: '%s'" % root)
-    #path=[os.path.join(root,dir),]
     path=[satkdir(dir,debug=debug),]
     if debug:
         print("satkutil.py - pythonpath() - adding path: '%s'" % path[0])

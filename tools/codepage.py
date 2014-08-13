@@ -1,4 +1,4 @@
-#!/usr/bin/python3.3
+#!/usr/bin/python3
 # Copyright (C) 2014 Harold Grovesteen
 #
 # This file is part of SATK.
@@ -21,9 +21,15 @@
 # found in the ${SATK_DIR}/tools/lang directory.  The tool also supports a string
 #
 
+this_module="codepage.py"
+copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014")
+
 # Python imports:
+import sys        # Access the Python system interface for exits and version checking
+if sys.hexversion<0x03030000:
+    raise NotImplementedError("%s requires Python version 3.3 or higher, "
+        "found: %s.%s" % (this_module,sys.version_info[0],sys.version_info[1]))
 import argparse       # Access Python command line parser
-import sys            # Access the Python system interface for exits.
 
 # SATK imports:
 if __name__ == "__main__":
@@ -33,9 +39,6 @@ if __name__ == "__main__":
 else:
     # Access the Statement-Oriented Parameter Language Tool Kit from PYTHONPATH
     import sopl
-
-this_module="codepage.py"
-copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014")
 
 default=\
 """

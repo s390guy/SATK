@@ -1,5 +1,5 @@
-#!/usr/bin/python3.3
-# Copyright (C) 2012,2013 Harold Grovesteen
+#!/usr/bin/python3
+# Copyright (C) 2012-2014 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -17,12 +17,17 @@
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
 # This module is intended to be imported for use by other modules
+
+this_module="elfs370.py"
+copyright_years="2012-2014"
+
+import sys
+if sys.hexversion<0x03030000:
+    raise NotImplementedError("%s requires Python version 3.3 or higher, "
+        "found: %s.%s" % (this_module,sys.version_info[0],sys.version_info[1]))
 import os
 import os.path
 import PyELF
-import sys
-
-copyright_years="2012,2013"
 
 class elfbin(object):
     s390=22
@@ -93,7 +98,7 @@ class elfs370(object):
             elf=PyELF.elf(self.filename)
             elf.prt()
         sys.exit(0)
-    
+
 def parser_args():
     parser=argparse.ArgumentParser(prog="inventory.py",
         epilog="inventory.py Copyright (C) %s Harold Grovesteen" % copyright_years, 
@@ -104,11 +109,11 @@ def parser_args():
         help="enables printing of the input filename")
 
     return parser.parse_args()  
-      
+
 if __name__ == "__main__":
     e=elfs370(parser_args())
     e.convert()
-    
+
     #if len(sys.argv)<2 or len(sys.argv)>3:
     #    usage()
     #    sys.exit(1)

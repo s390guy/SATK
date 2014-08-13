@@ -1,5 +1,5 @@
-#!/usr/bin/python3.3
-# Copyright (C) 2013 Harold Grovesteen
+#!/usr/bin/python3
+# Copyright (C) 2013,2014 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -117,7 +117,7 @@ class lds_base(object):
         #return lst
     def suffix(self,script,indent=""):
         return script
-            
+
 class lds_script(lds_base):
     def __init__(self):
         self.cmdlist=[]
@@ -245,7 +245,7 @@ class lds_memory(lds_base):
         return "%s\n%sMEMORY\n{\n" % (script,indent)
     def suffix(self,script,indent=""):
         return "%s%s}\n\n" % (script,indent)
-        
+
 class lds_out(lds_base):
     types=["NOLOAD","DSECT","COPY","INFO","OVERLAY",None]
     constraints=["ONLY_IF_RO","ONLY_IF_RW",None]
@@ -322,7 +322,7 @@ class lds_out(lds_base):
             phdr=":%s" % self.phdr
         
         return "%s%s} %s %s %s\n\n" % (script,indent,reg,atlma,phdr)
-        
+
 class lds_phdr(lds_base):
     types={"PT_NULL":0,
            "PT_LOAD":1,
@@ -421,7 +421,7 @@ class lds_target(lds_base):
         self.target=target
     def body(self,script,indent=""):
         return "%s%sTARGET(%s)\n" % (script,indent,self.target)
-            
+
 class sort(object):
     # Utility class for sequencing output.  The staticmethod is used by the 
     # functools comp_to_key to create a key function usable by the sorted() built-in
@@ -429,15 +429,6 @@ class sort(object):
     @staticmethod
     def compare(a,b):
         return a.__cmp__(b)
-        #if a.seq<b.seq:
-        #    return -1
-        #if a.seq>b.seq:
-        #    return 1
-        #if a.pos<b.pos:
-        #    return -1
-        #if a.pos>b.pos:
-        #    return 1
-        #return 0
     def __init__(self,seq,pos,obj):
         self.seq=seq
         self.pos=pos

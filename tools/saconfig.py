@@ -1,5 +1,5 @@
-#!/usr/bin/python3.3
-# Copyright (C) 2013 Harold Grovesteen
+#!/usr/bin/python3
+# Copyright (C) 2013,2014 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -68,12 +68,16 @@
 # Statements are free form.  Standard comments (starting with a '#') are allowed.
 # Minimal input requires a SYSTEM statement. 
 
-copyright_years="2013"
+this_module="saconfig.py"
+copyright_years="2013,2014"
 
 # Python imports:
+import sys
+if sys.hexversion<0x03030000:
+    raise NotImplementedError("%s requires Python version 3.3 or higher, "
+        "found: %s.%s" % (this_module,sys.version_info[0],sys.version_info[1]))
 import argparse
 import os
-import sys
 
 # SATK imports:
 import satkutil

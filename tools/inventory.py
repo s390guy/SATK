@@ -1,5 +1,5 @@
-#!/usr/bin/python3.3
-# Copyright (C) 2013 Harold Grovesteen
+#!/usr/bin/python3
+# Copyright (C) 2013,2014 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -16,16 +16,20 @@
 #     You should have received a copy of the GNU General Public License
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
+this_module="inventory.py"
+copyright_years="2013,2014"
+
 # Python imports:
+import sys        # Access system exit function and Python version information
+if sys.hexversion<0x03030000:
+    raise NotImplementedError("%s requires Python version 3.3 or higher, "
+        "found: %s.%s" % (this_module,sys.version_info[0],sys.version_info[1]))
 import argparse   # Access the command line parser module
 import functools  # Access cmp_to_key for sorting
 import os         # Access OS facilities.
-import sys        # Access system exit function
 
 # SATK imports:
 import satkutil   # Access utilities.
-
-copyright_years="2013"
 
 class analyze(object):
     # Returns the relative path from a root

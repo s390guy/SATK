@@ -1,5 +1,5 @@
-#!/usr/bin/python3.3
-# Copyright (C) 2013 Harold Grovesteen
+#!/usr/bin/python3
+# Copyright (C) 2013,2014 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -409,7 +409,7 @@ class Listing(object):
     def title(self):
         cls_str="%s - %s.init() -" % (this_module,self.__class__.__name__)
         raise NotImplementedError("%s subclass must provide title() method" % cls_str)
-        
+
 
 # This object is used in conjunction with the Listing Manager to allow multiple lines
 # to be generated and returned individually to the manager object.
@@ -439,11 +439,11 @@ class Multiline(object):
         self._more=details   # Method called when buffer needs more lines
         self._in_more=False
         self._done=False     # Force end when buffer empty.  DO NOT CALL more()!
-        
+
         # More than one detail line may be created.  The following list is used to 
         # buffer such details lines until requested by the detail() method.
         self._buffer=[]
-    
+
     # Return a detail line from the buffer.
     # An IndexError indicates the buffer is empty
     def _pop(self):

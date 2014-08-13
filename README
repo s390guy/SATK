@@ -1,6 +1,6 @@
                            SATK - Stand-alone Tool Kit
 
-Copyright (C) 2012,2013 Harold Grovesteen                     
+Copyright (C) 2012-2014 Harold Grovesteen                     
 
 SATK is intended to assist in the development of stand-alone, or baremetal, programs 
 on mainframe compatible systems.  While targeting the Hercules emulator, nothing
@@ -40,6 +40,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
+
 LICENSING
 ---------
 
@@ -53,6 +54,12 @@ modifications to a package using this licensing.  The Simplified BSD License can
 found in the file LICENSE.txt in the xforth directory.  The file forth_words.py in
 the xforth directory contains public domain software.  See the xforth file forth.py
 for details of the original package on which this directory is based.
+
+
+REQUIREMENTS
+------------
+Python 3.3 or higher            www.python.org
+
 
 Contact the author, Harold Grovesteen, on the hercules-390 Yahoo group or at
 Harold Grovesteen

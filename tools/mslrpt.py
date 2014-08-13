@@ -1,4 +1,4 @@
-#!/usr/bin/python3.3
+#!/usr/bin/python3
 # Copyright (C) 2014 Harold Grovesteen
 #
 # This file is part of SATK.
@@ -20,10 +20,16 @@
 # Specification Language (MSL) database files. For a description of the MSL, see
 # module msldb.py.
 
+this_module="mslrpt.py"
+copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014")
+
 # Python imports:
+import sys               # Access the exit method
+if sys.hexversion<0x03030000:
+    raise NotImplementedError("%s requires Python version 3.3 or higher, "
+        "found: %s.%s" % (this_module,sys.version_info[0],sys.version_info[1]))
 import argparse          # Access the command line parser
 import functools         # Access complex sorting sequences
-import sys               # Access the exit method
 
 # Setup PYTHONPATH
 import satkutil          # Access utility functions
@@ -36,9 +42,6 @@ import msldb             # Access the database
 # SATK imports
 from listing import *    # Access the formatted report tools
 
-
-this_module="mslrpt.py"
-copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014")
 
 # This wraps a msldb.CPUX object with report information
 class CPU(object):

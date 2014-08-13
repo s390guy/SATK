@@ -20,9 +20,15 @@
 # (MSL) database generted by the msldb module.  For a description of the MSL, see
 # module msldb.py.
 
-# PYthon imports:
+this_module="msl.py"
+copyright="msl.py Copyright (C) %s Harold Grovesteen" % "2014"
+
+# Python imports:
+import sys               # Access the exit method and Python version information
+if sys.hexversion<0x03030000:
+    raise NotImplementedError("%s requires Python version 3.3 or higher, "
+        "found: %s.%s" % (this_module,sys.version_info[0],sys.version_info[1]))
 import argparse          # Access the command line parser
-import sys               # Access the exit method
 
 # Setup PYTHONPATH
 import satkutil
@@ -32,7 +38,6 @@ satkutil.pythonpath("tools/lang")  # Provides path to sopl
 # ASMA imports
 import msldb             # Access the database
 
-copyright="msl.py Copyright (C) %s Harold Grovesteen" % "2014"
 
 #
 #  +----------------------------+

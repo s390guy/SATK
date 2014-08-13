@@ -1,4 +1,4 @@
-#!/usr/bin/python3.3
+#!/usr/bin/python3
 # Copyright (C) 2014 Harold Grovesteen
 #
 # This file is part of SATK.
@@ -22,13 +22,18 @@ this_module="asma.py"
 copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014")
 
 # Python imports
+import sys
+if sys.hexversion<0x03030000:
+    raise NotImplementedError("%s requires Python version 3.3 or higher, "
+        "found: %s.%s" % (this_module,sys.version_info[0],sys.version_info[1]))
 import time
-# Remember start times for updating
+
+# Remember start times for updating as early as possible
 import_start=process_start=time.process_time()
 import_start_w=wall_start=time.time()
 
 import argparse
-import sys
+
 
 # Setup PYTHONPATH
 import satkutil
