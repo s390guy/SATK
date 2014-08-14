@@ -2111,7 +2111,7 @@ class Assembler(object):
 
     def __abort(self,line,msg):
         self.aborted=True
-        raise AssemblerAbort(line=line,msg=msg)
+        raise AssemblerAbort(line=line,msg=msg) from None
 
     # Performs generic AssemblerError exception handling
     def __ae_excp(self,ae,stmt,string="",debug=False):
@@ -2132,7 +2132,7 @@ class Assembler(object):
     def __check_cur_sec(self,lineno=None):
         if self.cur_sec is None:
             self.__abort(line=lineno,\
-                msg="FATAL ERROR: No active control section. "
+                msg="FATAL USER ERROR: No active control section. "
                     "Likely missing CSECT directive following START.")
 
     # This method classifies a statement and updates an instance of Stmt
@@ -3410,8 +3410,8 @@ class Assembler(object):
 
         if self.cur_reg is None:
             self.__abort(line=line,\
-                msg="FATAL ERROR: can not activate CSECT because no active region "
-                    "present. START likely missing.")
+                msg="FATAL USER ERROR: can not activate CSECT because no active "
+                    "region present. START likely missing.")
 
         self.cur_reg.append(csect)
         if debug:

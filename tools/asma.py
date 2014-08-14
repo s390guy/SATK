@@ -125,8 +125,12 @@ class ASMA(object):
             stats.stop("pass0_w")
 
         # All of the parsed and sane statements are now queued for assembly
-        
-        self.assembler.assemble()
+        try:
+            self.assembler.assemble()
+        except assembler.AssemblerAbort as aae:
+            print(aae)
+            sys.exit(1)
+
         self.assemble_end_w=time.time()
         self.assemble_end=time.process_time()
 
