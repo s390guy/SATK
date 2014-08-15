@@ -572,13 +572,18 @@ class inventory(object):
         src=os.path.join(self.root,"src")
         self.src_tree=satkutil.dir_tree(src,hidden=True,
             files=[[".S",],None])
-        
+
         samples=os.path.join(self.root,"samples")
         self.samples_tree=satkutil.dir_tree(samples,hidden=True,
             files=[[".S",],None])
         
         tools=os.path.join(self.root,"tools")
         self.tools_tree=satkutil.dir_tree(tools,hidden=True,
+            dirs=[None,["__pycache__",]],
+            files=[None,[".pyc","~"]])
+        
+        asma=os.path.join(self.root,"asma")
+        self.asma_tree=satkutil.dir_tree(asma,hidden=True,\
             dirs=[None,["__pycache__",]],
             files=[None,[".pyc","~"]])
         
@@ -607,6 +612,10 @@ class inventory(object):
                 else:
                     if self.bashopt:
                         self.bash.add_file(path)
+            for path in self.asma_tree.files:
+                if analyze.suffix(path,pysfx):
+                    if self.pyopt:
+                        self.py.add_file(path)
 
     # Validate shebangs and analyze file content
     def analysis2(self):
@@ -821,6 +830,10 @@ def parse_args():
         help="report option: Python import relationships")
     parser.add_argument("-o","--objects",action="store_true",default=False,\
         help="report option: Python object locations")
+    #parser.add_argument("-A","--ASMA",action="store_true",default=False,
+    #    help="report option: ASMA import relationships")
+    #parser.add_argument("-O","--OBJECTS",action="store_true",default=False,
+    #    help="report option: ASMA import relationships")
     parser.add_argument("-s","--structs",action="store_true",default=False,\
         help="report option: Assembler structure locations")
     parser.add_argument("-l","--listing",default="inventory.txt",\
