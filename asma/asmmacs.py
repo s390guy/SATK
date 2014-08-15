@@ -1,4 +1,4 @@
-#!/usr/bin/python3.3
+#!/usr/bin/python3
 # Copyright (C) 2014 Harold Grovesteen
 #
 # This file is part of SATK.
@@ -43,8 +43,8 @@
 # LL1 grammars.
 #
 # The use of the technology discovered by Vaughn Pratt for operator precedence
-# expression evaluation has also proven to be a success.  This technology will
-# be further leveraged by generalizing the implementation to support any operators
+# expression evaluation has also proven to be a success.  This technology has been
+# further leveraged by generalizing the implementation to support any operators
 # and any set of precedence relationships between them.  
 #
 # The ASMA assembler.py module uses a special integration facility based upon the

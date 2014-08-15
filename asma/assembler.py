@@ -1,4 +1,4 @@
-#!/usr/bin/python3.3
+#!/usr/bin/python3
 # Copyright (C) 2014 Harold Grovesteen
 #
 # This file is part of SATK.

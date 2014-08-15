@@ -1,4 +1,4 @@
-#!/usr/bin/python3.3
+#!/usr/bin/python3
 # Copyright (C) 2014 Harold Grovesteen
 #
 # This file is part of SATK.
@@ -36,8 +36,8 @@
 # recognized operands are correct in any way for the statement to which they apply.
 # Whether the correct number of operands were recognized or whether a given recognized
 # operand is correct for a specific statement in a specific position is also left for
-# determination by the  aseembler, the language processor in SATK language tools
-# terminonlogy.  
+# determination by the  assembler, the language processor in SATK language tools
+# terminonlogy.
 #
 # For the DC and DS statements, being more narrowly focused, the Python object 
 # resulting from the parse is always correct for the statement.  As in the general

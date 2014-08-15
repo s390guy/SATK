@@ -1,4 +1,4 @@
-#!/usr/bin/python3.3
+#!/usr/bin/python3
 # Copyright (C) 2014 Harold Grovesteen
 #
 # This file is part of SATK.
@@ -41,8 +41,11 @@ this_module="cards.py"
 copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014")
 
 # Python imports:
+import sys          # Access the system module for exiting and version information
+if sys.hexversion<0x03030000:
+    raise NotImplementedError("%s requires Python version 3.3 or higher, "
+        "found: %s.%s" % (this_module,sys.version_info[0],sys.version_info[1]))
 import argparse     # Access the command-line argument parser
-import sys          # Access the system module for exiting
 
 # SATK imports: None
 # ASMA imports: None
