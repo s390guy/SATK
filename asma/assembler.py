@@ -283,10 +283,10 @@ class AsmStats(object):
 
     # Supply the number of assembler statements processed for per/statement stats
     def statements(self,number):
-        if not isinstance(number,int):
-            cls_str=eloc(self,"statements")
-            raise ValueError("%s 'number' argument must be an integer: %s" \
-                % (cls_str,number))
+        assert isinstance(number,int),\
+            "%s 'number' argument must be an integer: %s"\
+                % (eloc(self,"statements"),number)
+
         self.stmts=number
 
     # Stop a timer
@@ -317,6 +317,7 @@ class AsmStats(object):
             raise ValueError("%s timer already created: %s" % (cls_str,timer))
         except KeyError:
             self.timers[tname]=AsmWallTimer(tname)
+
 
 # This class implements a single usage timer.  Once created it may be started once
 # and stopped once.  After which it may be report the elapsed process time between
@@ -499,14 +500,28 @@ import msldb        # Access the Format class for type checking
 Stats.stop("import_w")
 Stats.stop("import_p")
 
-# This is the base class for the assembler.  It assembles individiual assembler
-# statements presented to it.  Final output is returned in the form of an Image
-# class instance.  The image class attributes are the various forms of output from
-# the ASMA assembler.
+
 #
-# It is the responsibility of the instantiator to present the individual statements
-# to the class instance for assembly and determine the destination of the returned 
-# attributes of the returned Image instance.
+#  +--------------------------------+
+#  |                                |
+#  |   Assembler Parser Exception   |
+#  |                                | 
+#  +--------------------------------+
+#
+
+# This exception is used by parsers to indicate a problem encountered in Parsing
+# See modules asmfsmbp.py and asmfsmcs.py for usage
+
+class AsmParserError(Exception):
+    def __init__(self,token,msg=""):
+        self.msg=msg         # Text associated with the error
+        self.token=token     # Lexcal token in error.
+
+        string=""
+        if len(self.msg)>0:
+            string="%s: " % self.msg
+        string="%s%s" % (string,self.token)
+        super().__init__(string)
 
 #
 #  +-------------------------------------+
@@ -528,12 +543,10 @@ class AssemblerError(Exception):
             return 0
         return item.line
     def __init__(self,source=None,line=None,linepos=None,msg="",info=False):
-        if (line is not None) and (not isinstance(line,int)):
-            cls_str=eloc(self,"__init__")
-            string="%s 'line' argument must be None or integer:" % cls_str
-            string="%s\n    line: %s" % (string,line)
-            string="%s\n    msg='%s'" % (string,msg)
-            raise ValueError(string)
+        assert line is None or isinstance(line,int),\
+            "%s 'line' argument must be None or integer:\n    line: %s\n    msg='%s'"\
+                % (eloc(self,"__init__"),line,msg)
+
         self.msg=msg         # Text associated with the error
         if source is not None:
             source.linepos=linepos  # Position relative to start of the line
@@ -578,6 +591,22 @@ class AssemblerAbort(Exception):
             string="%s[%s]" % (string,self.line)
         if len(self.msg)>0:
             string="%s %s" % (string,self.msg)
+        super().__init__(string)
+
+#
+#  +-----------------+
+#  |                 |
+#  |   Label Error   |
+#  |                 | 
+#  +-----------------+
+#
+
+class LabelError(Exception):
+    def __init__(self,label,ltok=None,msg=""):
+        self.msg=msg         # Text associated with the error
+        self.ltok=ltok       # Lexical token where label occurs
+        self.label=label     # Label for which error is detected
+        string="%s: %s" % (self.msg,self.label)
         super().__init__(string)
 
 
@@ -1201,7 +1230,7 @@ class StmtFields(object):
         self.operpos=None   # Operand starting position in logical line
         self.operands=None  # Operand string and possible comment field
         self.oprnd=None     # StmtOperands object.
-        
+
     def __str__(self):
         if self.comment:
             return "%s: comment silent=%s" % (self.__class__.__name__,self.silent)
@@ -1219,18 +1248,14 @@ class StmtFields(object):
     # Handle normal line continuation conventions.
     # May raise asmcards.LineError exception
     def normal(self,lineo):
-        if not isinstance(lineo,asminput.Line):
-            cls_str=eloc(self,"normal")
-            raise ValueError("%s 'lineo' must be an instance of asminput.Line: %s"\
-                % (cls_str,lineo))
-        #if self.operpos is None:
-             # No operands detected after operation field so nothing to be done here
-        #     return
+        assert isinstance(lineo,asminput.Line),\
+            "%s 'lineo' must be an instance of asminput.Line: %s" \
+                % (eloc(self,"normal"),lineo)
 
         # Handle normal continuation conventions.  May raise asmcards.LineError
         lineo.normal()
         self.text=lineo.text
-        
+
         if self.operpos is None:
              # No operands detected after operation field so nothing to be done here
              return
@@ -1249,8 +1274,11 @@ class StmtFields(object):
         self.source=line.source
         self.empty=line.empty
 
-        # Do not parse comment lines
-        if line.comment or line.empty:
+        # Do not parse comment lines or empty lines
+        if line.comment:
+            self.normal(line)  # Set up listing line
+            return
+        if line.empty:
             return
 
         # May raise AssemblerError 
@@ -1299,22 +1327,18 @@ class StmtFields(object):
 class StmtOperands(object):
     def __init__(self,logline,pos):
         #print("StmtOperands: %s,%s" % (logline,pos))
-        if not isinstance(logline,asmcards.LogLine):
-            cls_str=eloc(self,"__init__")
-            raise ValueError("%s 'line' argument must be an instance of "
-                "asmcards.LogLine: %s" % (cls_str,logline))
-                 # asminput.Line object
-        if not isinstance(pos,int):
-            cls_str=eloc(self,"__init__")
-            raise ValueError("%s 'pos' argument must be an integer: %s" \
-                % (cls_str,pos))        
+        assert isinstance(logline,asmcards.LogLine),\
+            "%s 'line' argument must be an instance of smcards.LogLine: %s" \
+                % (eloc(self,"__init__"),logline)
+        assert isinstance(pos,int),\
+            "%s 'pos' argument must be an integer: %s" \
+                % (eloc(self,"__init__"),pos)        
         
         self.logline=logline             # The asmcards.LogLine object
         self.pos=pos                     # position of operands in logical line
         # Input control object from asmcards.LogLine object
         self.ictl=logline.ictl           # Needed to handle lexical tokens
         logical_line=logline.line        # The entire logical line string
-        #print("StmtOperands: logical_line: %s" % logical_line)
         self.operands=logical_line[pos:] # Extract just the operands
 
 #
@@ -1341,7 +1365,7 @@ class Stmt(object):
            "SYX":StorageExt}              # addr or addr(integer) or int(int,int)
 
     def __init__(self,line,trace=False):
-        self.line=line                    # Input Line instance
+        self.line=line                    # asminput.Line object
         line.validate()                   # Validate the logical line
         self.source=line.source           # Input line source info.
         self.lineno=line.lineno           # Global Line number of statement
@@ -1411,8 +1435,16 @@ class Stmt(object):
         #
         # Evaluation may occur in either Pass 1 or Pass 2 depending on the needs of
         # the statment
-
         self.operands=[]  
+
+        # This attribute is used to contain a global scope object from a FSM-based
+        # parser.  The scope object is specific to the statement operation and is 
+        # tightly coupled to the _operation_Pass1() and _operation_Pass2() methods.
+        # This is returned by the __parsefsm() method usually called by the
+        # _spp_operation() method.  It is the logical equivalent of the previous
+        # self.operands attribute following the __parse() method.  Evalutation
+        # will update this attribute with results.
+        self.gscope=None
 
         # Provided by Assembler._insn_Pass1() method
         self.format=None           # msldb.Format instance for instruction
@@ -1524,7 +1556,7 @@ class Stmt(object):
 
             try:
                 opr.evaluate(debug=debug,trace=trace)
-            except asmparsers.LableError as le:
+            except LabelError as le:
                 raise AssemblerError(line=self.lineno,source=self.source,\
                     msg="undefined label: %s" % le.label) from None
 
@@ -1664,10 +1696,8 @@ class AsmConfigs(object):
             cls_str="%s %s.config() -" % (this_module,self.__class__.__name__)
             raise ValueError("%s unrecognized keyword parameter(s): %s" \
                 % (cls_str,string))
-        if not isinstance(name,str):
-            cls_str="%s %s.config() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s 'name' argument must be a string: %s"\
-                % (cls_str,name))
+        assert isinstance(name,str),\
+            "%s 'name' argument must be a string: %s" % (eloc(self,"config"),name)
 
         config=AsmConfig(name,\
             addr=addr,
@@ -1700,18 +1730,18 @@ class AsmConfigs(object):
         try:
             return self.configs[name]
         except KeyError:
-            cls_str="%s %s.retrieve() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s undefined local configuration: %s" % (cls_str,name))
+            raise ValueError("%s undefined local configuration: %s" \
+                % (eloc(self,"retrieve"),name))
 
 class AsmConfig(object):
     psw_formats=["S","360","67","BC","EC","380","XA","E370","E390","Z","none"]
     def __init__(self,name,addr=None,ccw=None,cpfile=None,cptrans=None,dump=None,\
                  error=None,msldb=None,nest=None,psw=None,stats=None):
-        if not isinstance(name,str):
-            cls_str="%s %s.__init__() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s 'name' argument must be a string: %s" % name)
-        self._name=name
+        assert isinstance(name,str),\
+            "%s 'name' argument must be a string: %s" \
+                % (eloc(self,"__init__"),name)
 
+        self._name=name
         self.addr(addr)
         self.ccw(ccw)
         self.cpfile(cpfile)
@@ -1724,72 +1754,73 @@ class AsmConfig(object):
         self.stats(stats)
 
     def addr(self,addr=None):
-        if addr is not None and addr not in [16,24,31,64]:
-            cls_str="%s %s.addr() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s 'addr' argument must be either 16, 24, 31 or 64: %s"\
-                % (cls_str,addr))
+        assert addr is None or addr in [16,24,31,64],\
+            "%s 'addr' argument must be either 16, 24, 31 or 64: %s" \
+                % (eloc(self,"addr"),addr)
+
         self._addr=addr
 
     def ccw(self,ccw=None):
-        if ccw is not None and ccw not in [0,1,"none"]:
-            cls_str="%s %s.ccw() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s 'ccw' argument must be either 0, 1 or 'none': %s" \
-                % (cls_str,ccw))
+        assert ccw is None or ccw in [0,1,"none"],\
+            "%s 'ccw' argument must be either 0, 1 or 'none': %s" \
+                % (eloc(self,"ccw"),ccw)
+
         self._ccw=ccw
 
     def cpfile(self,cpfile=None):
-        if cpfile is not None and not isinstance(cpfile,str):
-            cls_str="%s %s.cpfile() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s 'cpfile' argument must be a string: %s"\
-                % (cls_str,cpfile))
+        assert cpfile is None or isinstance(cpfile,str),\
+            "%s 'cpfile' argument must be a string: %s" \
+                % (eloc(self,"cpfile"),cpfile)
+
         self._cpfile=cpfile
 
     def cptrans(self,cptrans=None):
-        if cptrans is not None and not isinstance(cptrans,str):
-            cls_str="%s %s.cptrans() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s 'cptrans' argument must be a string: %s"\
-                % (cls_str,cptrans))
+        assert cptrans is None or isinstance(cptrans,str),\
+            "%s 'cptrans' argument must be a string: %s" \
+                % (eloc(self,"cptrans"),cptrans)
+
         self._cptrans=cptrans
 
     def dump(self,dump=None):
-        if dump is not None and dump not in [True,False]:
-            cls_str="%s %s.dump() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s 'dump' argument must be either True or False: %s" \
-                % (cls_str,dump))
+        assert dump is None or dump in [True,False],\
+            "%s 'dump' argument must be either True or False: %s" \
+                % (eloc(self,"dump"),dump)
+
         self._dump=dump
 
     def error(self,error=None):
-        if error is not None and error not in [0,1,2]:
-            cls_str="%s %s.error() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s 'error' argument must be 0, 1 or 2: %s" \
-                % (cls_str,error))
+        assert error is None or error in [0,1,2,3],\
+            "%s 'error' argument must be 0, 1, 2 or 3: %s" \
+                % (eloc(self,"error"),error)
+
         self._error=error
 
     def msldb(self,msldb=None):
-        if msldb is not None and not isinstance(msldb,str):
-            raise ValueError("%s 'msldb' argument must be a string: %s" \
-                % (cls_str,msldb))
+        assert msldb is None or isinstance(msldb,str),\
+            "%s 'msldb' argument must be a string: %s" \
+                % (eloc(self,"msldb"),msldb)
+
         self._msldb=msldb
 
     def nest(self,nest=None):
-        if nest is not None and not isinstance(nest,int) and nest<1:
-            cls_str="%s %s.nest() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s 'nest' argument must be an integer >=1: %s" \
-                % (cls_str,nest))
+        assert nest is None or (isinstance(nest,int) and nest>=1),\
+            "%s 'nest' argument must be an integer >=1: %s" \
+                % (eloc(self,nest),nest)
+
         self._nest=nest
 
     def psw(self,psw=None):
-        if psw is not None and psw not in AsmConfig.psw_formats:
-            cls_str="%s %s.psw() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s 'psw' argument not a recognized format: %s" \
-                % (cls_str,psw))
+        assert psw is None or psw in AsmConfig.psw_formats,\
+            "%s 'psw' argument not a recognized format: %s" \
+                % (eloc(self,"psw"),psw)
+
         self._psw=psw
 
     def stats(self,stats=None):
-        if stats is not None and stats not in [True,False]:
-            cls_str="%s %s.stats() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s 'stats' argument must be either True or False: %s" \
-                % (cls_str,stats))
+        assert stats is None or stats in [True,False],\
+            "%s 'stats' argument must be either True or False: %s" \
+                % (eloc(self,"stats"),stats)
+
         self._stats=stats
 
 local=AsmConfigs()
@@ -1884,6 +1915,15 @@ class AsmOut(object):
     def write_vmc(self,module,vmcfile,silent=False):
         self.write_file(module,self.vmc,"wt",vmcfile,"STORE command",silent=silent)
 
+
+# This is the base class for the assembler.  It assembles individiual assembler
+# statements presented to it.  Final output is returned in the form of an Image
+# class instance.  The image class attributes are the various forms of output from
+# the ASMA assembler.
+#
+# It is the responsibility of the instantiator to present the individual statements
+# to the class instance for assembly and determine the destination of the returned 
+# attributes of the returned Image instance.
 class Assembler(object):
     # Recognized debug options.  May be used directly in argparse choices argument
     debug=["stmt","tokens","insns","exp","tracexp","classify","grammar",\
@@ -2084,6 +2124,11 @@ class Assembler(object):
 
         self.cur_reg=None     # Current active Region into which Sections are added
         self.cur_sec=None     # Current active Section into which Content is added
+        
+        # Unnamed REGION and CSECT if created.  
+        # These objects are maintained here not via the symbol table.
+        self.unname_reg=None  # The unnamed region if created
+        self.unname_sec=None  # The unnamed section if created
 
         # Global assembly state attributes
         self.aborted=False    # Set to True if an AssemblerAbort is raised
@@ -2115,7 +2160,6 @@ class Assembler(object):
 
     # Performs generic AssemblerError exception handling
     def __ae_excp(self,ae,stmt,string="",debug=False):
-        #stmt.ignore=True
         if not ae.info:
             stmt.ignore=True
             stmt.error=True
@@ -2128,12 +2172,44 @@ class Assembler(object):
         else:
             pass
 
+    # Checks to make sure the current active region is assigned
+    # If not assigned, if necessary, it creates an unnamed region, and activates the
+    # unnamed region
+    #
+    # Active region state is unchanged if it is assigned.  It is only not assigned
+    # in the case where an assembly has neither a CSECT nor START in the assembly and
+    # binary content has been created or locations are allocated.
+    # Method Arguments:
+    #   start   Assigns the starting address of the region.  Defaults to 0
+    #   debug   Enables debug messages if True.
+    def __check_cur_reg(self,start=0,debug=False):
+        if self.cur_reg is not None:
+            return
+        # No current region.  This occurs only is an assembly lacks a START directive.
+        # The START directive will always create either a named or unnamed region
+        # and activate it.
+        if self.unname_reg is None:
+            # Unnamed region does not exist, so create it
+            self.unname_reg=self.__region_unname(0,debug=debug)
+        # Activate the unnamed region.  This can result in an unassigned active 
+        # section if the unnamed region just created is activated.
+        self.__region_activate(self.unname_reg,debug=debug)
+
     # Checks to make sure the current active section is assigned
-    def __check_cur_sec(self,lineno=None):
-        if self.cur_sec is None:
-            self.__abort(line=lineno,\
-                msg="FATAL USER ERROR: No active control section. "
-                    "Likely missing CSECT directive following START.")
+    # If not, if necessary, it creates an unnamed section and activates it
+    #
+    # An active section is not assigned when the assembly has neither a START nor
+    # a CSECT statement.  Automatic creation of an unnamed section occurs when
+    # binary content is created or space is allocated without an active section.
+    def __check_cur_sec(self,debug=False):
+        if self.cur_sec is not None:
+            return
+        # Unnamed section does not exist, create it
+        if self.unname_sec is None:
+            self.unname_sec=self.__csect_unname(debug=debug)
+        # Automatically activate the unnamed section
+        # Activation may trigger creation of an unnamed region if one is not active
+        self.__csect_activate(self.unname_sec,debug=debug)
 
     # This method classifies a statement and updates an instance of Stmt
     def __classifier(self,s,debug=False):
@@ -2308,7 +2384,7 @@ class Assembler(object):
     #    PSWE390   "common"     _pswbi_pass1   _pswbi_pass2
     #    PSWZ      "common"     _pswz_pass1    _pswz_pass2
     #    REGION    "common"     _region_pass1  _region_pass2
-    #    START     "common"     _start_pass1   _region_pass2
+    #    START     "common"     _start_pass1   _start_pass2
     #    TITLE     _spp_title       --             --
     #    USING     "common"     _using_pass1   _using_pass2
     #    XMODE     _spp_xmode       --             --
@@ -2564,14 +2640,13 @@ class Assembler(object):
         #
         #         SPACE [n]
         self.__define_dir(dset,"SPACE",spp=self._spp_space,optional=True)
-     
 
-        # START - start a new region
+
+        # START - start a new control section and optionally a new region
         #
         # label START address
-        self.__define_dir(dset,"START",parser="common",\
-            pass1=self._start_pass1,pass2=self._region_pass2,optional=False,\
-            min=1,max=1,cls=[Single,])
+        self.__define_dir(dset,"START",spp=self._spp_start,\
+            pass1=self._start_pass1,pass2=self._start_pass2,optional=True,)
 
 
         # TITLE - set listing title
@@ -2833,13 +2908,13 @@ class Assembler(object):
     #  3. XMODE directive setting
     #  4. Assembler directive
     def __oper_id(self,stmt,debug=False):
-        #print("__oper_id [%s]" % stmt.lineno)
-        cls_str="assembler.py - %s.__oper_id() -" % self.__class__.__name__
-        if not isinstance(stmt,Stmt):
-            raise ValueError("%s 'stmt' argument must be an instance of Stmt: %s" \
-                % (cls_str,stmt))
+        assert isinstance(stmt,Stmt),\
+            "%s 'stmt' argument must be an instance of Stmt: %s" \
+                % (eloc(self,"__oper_id"),stmt)
 
         idebug=self.dm.isdebug("insns")
+        if idebug:
+            cls_str=eloc(self,"__oper_id")
         lineno=stmt.lineno
 
         # Locate the instruction or statement data
@@ -2851,7 +2926,7 @@ class Assembler(object):
             macro=self.MM.find(stmt.instu)
             asmpasses=macro.passes(self)    # Pass myself, so my methods can be found
             if idebug:
-                print("%s DEBUB found macro: %s" % cls_str,stmt.inst)
+                print("%s DEBUB found macro: %s" % (cls_str,stmt.inst))
         except KeyError:
             # Macro not found, try to identify the instruction mnemonic
             try:
@@ -2885,6 +2960,11 @@ class Assembler(object):
 
         if asmpasses is None:
             stmt.error=True   # Mark this statement to avoid future processing
+            #print(stmt.fields)
+            # See comment in asmfsmbp.Parsers.parse_statement() method's handling
+            # of the assembler.AsmParserError exception for why we are doing this
+            # here.
+            stmt.fields.normal(stmt.line)  # See comment in asmfsmbp.Parsers.
             raise AssemblerError(line=lineno,\
                 msg="unrecognized instruction or directive: '%s'" % stmt.inst)
 
@@ -2910,10 +2990,10 @@ class Assembler(object):
     # validated for conformity to instruction operand formats.  Symbols have not
     # been created.
     def __parse(self,stmt):
-        cls_str="assembler.py - %s.__parse() -" % self.__class__.__name__
-        if not isinstance(stmt,Stmt):
-            raise ValueError("%s 'stmt' argument must be an instance of Stmt: %s" \
-                % (cls_str,stmt))
+        cls_str=eloc(self,"__parse()")
+        assert isinstance(stmt,Stmt),\
+            "%s 'stmt' argument must be an instance of Stmt: %s" \
+                % (cls_str,stmt)
 
         idebug=self.dm.isdebug("insns") or stmt.trace
         sdebug=self.dm.isdebug("stmt") or stmt.trace
@@ -2987,8 +3067,9 @@ class Assembler(object):
             print(string)
         return stmt
 
-    def __parsefsm(self,stmt,parser):
-        pass
+    #def __parsefsm(self,stmt,parser,required=False):
+    #    fsmp=self.fsmp
+    #    scope=fsmp.parse_operands(stmt,"start",required=required
 
     def __pre_process(self,s,debug=False):
         cls_str="assembler.py - %s.__pre_process() -" % self.__class__.__name__
@@ -3030,18 +3111,6 @@ class Assembler(object):
         if macdefn:
             s.ignore=True  # Intercepted, so no need to do anything more with this
             return
-
-        # Classifies statement and identify statement fields: lable, instruction, and
-        # operands.
-        # Raises an AssemblerError if the statement structure makes no sense
-        #if fail:
-        #    self.__classifier(s,debug=self.dm.isdebug("classify"))
-        #else:
-        #    try:
-        #        self.__classifier(s,debug=self.dm.isdebug("classify"))
-        #    except AssemblerError as ae:
-        #        self.__ae_excp(ae,s,string=cls_str,debug=sdebug)
-        #        return
 
         if s.ignore:
             if sdebug:
@@ -3285,6 +3354,16 @@ class Assembler(object):
         stmt.prdir=True           # This statement requires processing during listing
         stmt.ignore=True          # No more processing needed by assembler passes
 
+    # Special pre-processor for START directive
+    def _spp_start(self,stmt,debug=False):
+        fsmp=self.fsmp
+        # Either of these two methods may raise an AssemblerError
+        scope=fsmp.parse_scope(stmt,"start")
+        #print(scope.expr_list)
+        #print(scope.region_tok)
+        scope.Pass0(stmt,fsmp,debug=debug)
+
+        stmt.gscope=scope
 
     # Special pre-processing for TITLE directive
     def _spp_title(self,stmt,debug=False):
@@ -3382,46 +3461,52 @@ class Assembler(object):
         try:
             template=self.templates[name]
         except KeyError:
-            cls_str="assembler.py - %s.__build_structure() -" % self.__class__.__name__
             raise ValueError("%s [%s] undefined structure template: %s" \
-                % (cls_str,stmt.lineno,name))
+                % (eloc(self,"__build_structure"),stmt.lineno,name))
             
         return template.build(stmt,values)
 
     def __csect_activate(self,section,debug=False):
-        cls_str="assembler.py - %s.__csect_activate() -" % self.__class__.__name__
-        if not isinstance(section,Section) and not section.dummy:
-            raise ValueError("%s 'section' argument must be a CSECT: %s"\
-                % (cls_str,region))
+        assert isinstance(section,Section),\
+            "%s 'section' argument must be a CSECT: %s" \
+                % (eloc(self,"__csect_activate"),section)
+        assert not section._dummy,"%s 'section' argument must be a CSECT: %s" \
+            % (eloc(self,"__csect_activate"),section)
 
         self.cur_reg=section.container
         self.cur_sec=section
-        if debug:
-            print("%s current active region is:  '%s'" % (cls_str,self.cur_reg.name))
-            print("%s current active section is: '%s'" % (cls_str,self.cur_sec.name))
+
+        if __debug__:
+            if debug:
+                cls_str=eloc(self,"__csect_activate")
+                print("%s current active region is:  '%s'" \
+                    % (cls_str,self.cur_reg.name))
+                print("%s current active section is: '%s'" \
+                    % (cls_str,self.cur_sec.name))
 
     # Creates a new CSECT, adds it to the active region and symbol table.
     # Returns the new Section instance to the caller.    
     def __csect_new(self,line,csect_name,debug=False):
         csect=Section(csect_name)
-        if debug:
-            cls_str="assembler.py - %s.__csect_new() -" % self.__class__.__name__
-            print("%s Created new: %s" % (cls_str,csect))
+        if __debug__:
+            if debug:
+                cls_str=eloc(self,"__csect_new()")
+                print("%s Created new: %s" % (cls_str,csect))
 
-        if self.cur_reg is None:
-            self.__abort(line=line,\
-                msg="FATAL USER ERROR: can not activate CSECT because no active "
-                    "region present. START likely missing.")
-
+        self.__check_cur_reg(debug=debug)
         self.cur_reg.append(csect)
-        if debug:
-            print("%s added %s to current region: '%s'" \
-                % (cls_str,csect.name,self.cur_reg.name))
+
+        if __debug__:
+            if debug:
+                print("%s added %s to current region: '%s'" \
+                    % (cls_str,csect.name,self.cur_reg.name))
 
         symbol=SymbolContent(csect)
         self.__symbol_define(symbol,line)
-        if debug:
-            print("%s CSECT added to symbol table: '%s'" % (cls_str,csect_name))
+
+        if __debug__:
+            if debug:
+                print("%s CSECT added to symbol table: '%s'" % (cls_str,csect_name))
 
         return csect
 
@@ -3436,31 +3521,71 @@ class Assembler(object):
                 msg="symbol is not a CSECT: '%s'" % sect_name)
         return sect
 
+    # Determines if it is safe to create a new named csect.
+    # Raises an AssemblerError if not.
+    def __csect_safe(self,stmt,sect_name):
+        try:
+            self.__symbol_ref(sect_name)
+            # Success by this method means the named CSECT is already defined
+            raise AssemblerError(line=stmt.lineno,\
+                msg="can not create CSECT, CSECT name defined: %s" % sect_name)
+        except KeyError:
+            pass
+
+    # Create an unnamed control section and regiser it with the active region
+    def __csect_unname(self,debug=False):
+        section=Section("")
+        
+        if __debug__:
+            if debug:
+                cls_str=eloc(self,"__csect_unname")
+                print("%s Created new: %s" % (cls_str,section))
+                    
+        self.__check_cur_reg(debug=debug)
+        self.cur_reg.append(section)
+
+        if __debug__:
+            if debug:
+                print("%s added %s to current region: '%s'" \
+                    % (cls_str,section.name,self.cur_reg.name))
+                
+        return section
+
+    # Tests whether the unnamed control section can be created.
+    def __csect_unname_safe(self,stmt):
+        if self.unname_sec:
+            raise AssemblerError(line=stmt.lineno,msg="unnamed CSECT already exists")
+
     def __dsect_activate(self,section,debug=False):
         cls_str="assembler.py - %s.__dsect_activate() -" % self.__class__.__name__
-        if not isinstance(section,Section) or not section.isdummy():
-            raise ValueError("%s 'section' argument must be a DSECT: %s"\
-                % (cls_str,region))
+        assert isinstance(section,Section) and section.isdummy(),\
+            "%s 'section' argument must be a DSECT: %s" \
+                % (eloc(self,"__dsect_activate"),section)
 
         self.cur_sec=section
-        if debug:
-            print("%s current active region is:  '%s'" % (cls_str,self.cur_reg))
-            print("%s current active section is: '%s'" % (cls_str,self.cur_sec.name))
+        if __debug__:
+            if debug:
+                cls_str=eloc(self,"__dsect_activate")
+                print("%s current active region is:  '%s'" % (cls_str,self.cur_reg))
+                print("%s current active section is: '%s'" \
+                    % (cls_str,self.cur_sec.name))
 
     # Creates a new CSECT, adds it to the active region and symbol table.
     # Returns the new Section instance to the caller.    
     def __dsect_new(self,line,dsect_name,debug=False):
         dsect=Section(dsect_name,dummy=True)
-        if debug:
-            cls_str="assembler.py - %s.__dsect_new() -" % self.__class__.__name__
-            print("%s Created new: %s" % (cls_str,dsect))
+        if __debug__:
+            if debug:
+                cls_str=eloc(self,"__dsect_new")
+                print("%s Created new: %s" % (cls_str,dsect))
 
         self.dsects.append(dsect)
-
         symbol=SymbolContent(dsect)
         self.__symbol_define(symbol,line)
-        if debug:
-            print("%s DSECT added to symbol table: '%s'" % (cls_str,dsect_name))
+
+        if __debug__:
+            if debug:
+                print("%s DSECT added to symbol table: '%s'" % (cls_str,dsect_name))
 
         return dsect
 
@@ -3496,13 +3621,14 @@ class Assembler(object):
     #   stmt       The Stmt instance for which the new content is being created
     #   alignment  Alignement of the binary content.
     #   length     Length of the binary content (can be zero)
-    def __new_content(self,stmt,alignment=0,length=0):
+    def __new_content(self,stmt,alignment=0,length=0,debug=False):
         # Create Binary instance for the new content
         bin=Binary(alignment,length)
         # Establish the content for this statement 
         stmt.content=bin
+        # Make sure a section exists to which the binary content is added
+        self.__check_cur_sec(debug=debug)
         # Assign to it its '*' value
-        self.__check_cur_sec(lineno=stmt.lineno)
         self.cur_sec.assign(bin)
         # If a label is present, assign it this value and length
         self.__label_create(stmt)
@@ -3510,21 +3636,29 @@ class Assembler(object):
     # The supplied region becomes the active region and its active CSECT the 
     # active CSECT of the assembly.
     def __region_activate(self,region,debug=False):
-        cls_str="assembler.py - %s.__region_activate() -" % self.__class__.__name__
-        if not isinstance(region,Region):
-            raise ValueError("%s 'region' argument must be an instance of Region: %s"\
-                % (cls_str,region))
-        if debug:
-           print("%s region activation started" % cls_str)
+        assert isinstance(region,Region),\
+            "%s 'region' argument must be an instance of Region: %s"\
+                % (eloc(self,"__region_activate"),region)
+        #if not isinstance(region,Region):
+        #    raise ValueError("%s 'region' argument must be an instance of Region: %s"\
+        #        % (cls_str,region))
+        if __debug__:
+            if debug:
+                cls_str=eloc(self,"__region_activate")
+                print("%s region activation started" % cls_str)
+
         self.cur_reg=region
         self.cur_sec=region.cur_sec
-        if debug:
-            print("%s current active region is:  '%s'" % (cls_str,self.cur_reg.name))
-            if self.cur_sec is None:
-                print("%s current active section is: None" % cls_str)
-            else:
-                print("%s current active section is: '%s'" \
-                    % (cls_str,self.cur_sec.name))
+
+        if __debug__:
+            if debug:
+                print("%s current active region is:  '%s'" 
+                    % (cls_str,self.cur_reg.name))
+                if self.cur_sec is None:
+                    print("%s current active section is: None" % cls_str)
+                else:
+                    print("%s current active section is: '%s'" \
+                        % (cls_str,self.cur_sec.name))
 
     # Creates a new region, adds it to the region list and symbol table.
     # Returns the new Region instance to the caller.
@@ -3532,18 +3666,24 @@ class Assembler(object):
         # Now that we have successfully processed the START statement, the new Region
         # instance can be built.
         region=Region(region_name,start)
-        if debug:
-            cls_str="assembler.py - %s.__region_new() -" % self.__class__.__name__
-            print("%s Created new: %s" % (cls_str,region))
-
-        self.imgwip.append(region)
-        if debug:
-            print("%s regions in Img: %s" % (cls_str,len(self.imgwip.elements)))
+        if __debug__:
+            if debug:
+                cls_str=eloc(self,"__region_new")
+                print("%s Created new: %s" % (cls_str,region))
 
         symbol=SymbolContent(region)
         self.__symbol_define(symbol,line)
-        if debug:
-            print("%s region added to symbol table: '%s'" % (cls_str,region_name))
+
+        if __debug__:
+            if debug:
+                print("%s region added to symbol table: '%s'" % (cls_str,region_name))
+
+        self.imgwip.append(region)
+
+        if __debug__:
+            if debug:
+                print("%s regions in Img: %s" % (cls_str,len(self.imgwip.elements)))
+
         return region
 
     # Access symbol table to retrieve a Region instance.
@@ -3568,6 +3708,40 @@ class Assembler(object):
                 msg="symbol is not a region: '%s'" % reg_name)
         # Symbol defines a region so return it without having raised any exceptions
         return region
+
+    # Determines if it is safe to create a new named region
+    # Raises an AssemblerError if not.
+    def __region_safe(self,stmt,reg_name):
+        try:
+            self.__symbol_ref(reg_name)
+            raise AssemblerError(line=stmt.lineno,\
+                msg="can not create named region, region name defined: %s" % reg_name)
+        except KeyError:
+            pass
+
+    # Creates an unnamed region, adding it to the image being created
+    # Returns:
+    #   the created unnamed region
+    def __region_unname(self,start,debug=False):
+        region=Region("",start)
+
+        if __debug__:
+            if debug:
+                cls_str=eloc(self,"__region_unname")
+                print("%s Created new: %s" % (cls_str,region))
+
+        self.imgwip.append(region)
+
+        if __debug__:
+            if debug:
+                print("%s regions in Img: %s" % (cls_str,len(self.imgwip.elements)))
+
+        return region
+
+    def __region_unname_safe(self,stmt):
+        if self.unname_reg:
+            raise AssemblerError(line=stmt.lineno,\
+                msg="unnamed region already existst")
 
     # Returns the address to be used in a structure:
     #   Absolute Address - returns the absolute address
@@ -3716,7 +3890,7 @@ class Assembler(object):
         edebug=self.dm.isdebug("exp")
 
         # Create the binary content and assign a label if present in the statement
-        self.__new_content(stmt,alignment=8,length=8)
+        self.__new_content(stmt,alignment=8,length=8,debug=idebug)
 
     def _ccw0_pass2(self,stmt,trace=False):
         idebug=trace or stmt.trace
@@ -3798,21 +3972,29 @@ class Assembler(object):
         stmt.content.update(bytes,at=0,full=True,finalize=True,trace=idebug)
 
 
-    # CSECT - start or continue a control section
+    # CSECT - start or continue a named or unnamed control section
     # 
-    # label CSECT   # no operands
+    # [label] CSECT    # no operands
     def _csect_pass1(self,stmt,trace=False):
-        # Continue an existing CSECT or start a new one
-        cls_str="assembler.py - %s._csect_pass1() -" % self.__class__.__name__
         cdebug=trace or stmt.trace
 
         csect_name=stmt.label   # Fetch the CSECT name from the label field
-
-        try:
-            csect=self.__csect_ref(stmt,csect_name)
-            # Continuing an existing CSECT
-        except KeyError:
-            csect=self.__csect_new(stmt.lineno,csect_name,debug=cdebug)
+        if csect_name is None:
+            # No label, so the unnamed CSECT is being targeted
+            if self.unname_sec is None:
+                # Create the unnamed CSECT if it does not exist
+                csect=self.__csect_unname(debug=cdebug)
+            else:
+                # Continue the existing unnamed CSECT
+                csect=self.unname_sec
+        else:
+            # Label is present, so targeting a named CSECT
+            try:
+                csect=self.__csect_ref(stmt,csect_name)
+                # Continuing an existing CSECT
+            except KeyError:
+                # Create a new named CSECT
+                csect=self.__csect_new(stmt.lineno,csect_name,debug=cdebug)
 
         # Make the found or newly created CSECT the active section
         self.__csect_activate(csect,debug=cdebug)
@@ -3835,7 +4017,7 @@ class Assembler(object):
         edebug=self.dm.isdebug("exp")
         operands=stmt.parsed
         area=Area()
-        self.__check_cur_sec(lineno=stmt.lineno)
+        self.__check_cur_sec(debug=otrace)
         cur_sec=self.cur_sec
         for opr in stmt.parsed:
             # opr is DCDS instance.  Use the Constant instances in DCDS.unrolled
@@ -3877,9 +4059,10 @@ class Assembler(object):
     #
     # [label] DROP   reg (1-16 operands allowed)
     def _drop_pass1(self,stmt,trace=False):
+        otrace=trace or self.__is_otrace("drop")
         bin=Binary(0,0)    # Create a dummy Binary instance for the statement
         stmt.content=bin   # Establish the DROP statement's binary content
-        self.__check_cur_sec(lineno=stmt.lineno)
+        self.__check_cur_sec(debug=otrace)
         self.cur_sec.assign(bin)   # Assign to it its '*' value
         self.__label_create(stmt)  # If a label is present, assign it this value
         # Nothing else to do in pass 1
@@ -4025,7 +4208,7 @@ class Assembler(object):
         bin=Binary(2,length)   # Always put instructions on half word boundary
 
         # Assign space in the active section for the machine instruction
-        self.__check_cur_sec(lineno=stmt.lineno)
+        self.__check_cur_sec(debug=trace)
         self.cur_sec.assign(bin)
 
         # Update the stmt instance with instruction format and content information
@@ -4074,10 +4257,6 @@ class Assembler(object):
         bin=Binary(0,0)    # Create a dummy Binary instance for the statement
         stmt.content=bin   # Establish the ORG statements binary content
         self.__check_cur_sec(stmt.lineno)  # Check that a CSECT is active
-        #if self.cur_sec is None:
-        #    self.__abort(line=line,\
-        #        msg="FATAL ERROR: No active control section. "
-        #            "Likely missing CSECT directive following START")
         self.cur_sec.assign(bin)   # Assign to it its '*' value
         addr1=bin.loc              # Save value for listing
         self.__label_create(stmt)  # If a label is present, assign it this value
@@ -4435,40 +4614,71 @@ class Assembler(object):
         stmt.laddr=[addr1,addr2]
 
 
-    # START - start a new region
+    # START - start a new control section and an optional region
     #
-    # label START address
+    # [label] START [address][,[region]]
     def _start_pass1(self,stmt,trace=False):
-        # Create a new region
-        cls_str="assembler.py - %s._start_pass1() -" % self.__class__.__name__ 
-        rdebug=trace or stmt.trace
-        etrace=self.dm.isdebug("tracexp") or rdebug
-        edebug=self.dm.isdebug("exp")
+        csect_name=stmt.label
 
-        region_name=stmt.label  # Fetch the region from the statements label field
+        # If the CSECT can not be created an AssemblerError is raised
+        if csect_name:
+            self.__csect_safe(stmt,csect_name)
+        else:
+            self.__csect_unname_safe(stmt)
 
-        if rdebug:
-            print("%s %s operands: %s" % (cls_str,stmt.inst,stmt.operands))
-        # Evaluate the starting address
-        stmt.evaluate_operands(debug=edebug,trace=etrace)
-        operand=stmt.operands[0]
-        start=operand.getValue()
-        if not isinstance(start,int):
-            AssemblerError(line=stmt.lineno,\
-                msg="REGION starting location must be an integer: %s" % start)
+        scope=stmt.gscope   # Scope is a asmfsmcs.START_Scope object
+        region=scope.region
+        start=0
+        if scope.new_region:
+            # Creating a new region too...
+            # If the region can not be created an AssemblerError is generated
+            if region:
+                self.__region_safe(stmt,region)
+            else:
+                self.__region_unname_safe(stmt)
 
-        # Create the new region
-        region=self.__region_new(stmt.lineno,region_name,start,debug=rdebug)
+            # Calculate the region's starting address if provided, use 0 otherwise
+           
+            if scope.expr:
+                start=self.fsmp.evaluate_expr(self,stmt,scope.expr,\
+                    debug=False,trace=False)
 
-        # Make the new region the current one.
-        self.__region_activate(region,debug=rdebug)
+            # Create the new region before creating the control section
+            if region:
+                region=self.__region_new(stmt.lineno,scope.region,start,debug=False)
+                # Named region is now in the symbol table and added to the image
+            else:
+                region=self.__region_unname(start,debug=False)
+                # The unnamed region is now added to the image.
+            # Make the new region the current active region
+            self.__region_activate(region,debug=False)
 
-        # Provide load point listing information if this is the first START statement
+        # Create the new control section
+        if csect_name:
+            csect=self.__csect_new(stmt.lineno,csect_name,debug=False)
+            # Named control section is now in the symbol table and added to the 
+            # current active region.
+        else:
+            csect=self.__csect_unname()
+            # The unnamed control section is now part of the current active region.
+        # If there was no active region, a new unnamed region was automatically
+        # created even if no operands defining a region were supplied.
+
+        # Make the new control section the active one.
+        self.__csect_activate(csect)
+
+        # If this is the first START directive
         if self.load is None:
             self.load=start
-            self.entry=start
+            self.entry=start  # An END directive can supply a different entyr point
 
-        stmt.laddr=region
+        stmt.laddr=csect
+
+    def _start_pass2(self,stmt,trace=False):
+        csect=stmt.laddr
+        addr1=csect.loc
+        addr2=addr1+max(len(csect)-1,0)
+        stmt.laddr=[addr1,addr2]
 
 
     # USING - define base register(s)
@@ -4838,16 +5048,18 @@ class AsmPasses(object):
 # It will clone itself
 class AsmInsn(AsmPasses):
     def __init__(self,ins,fmt,template):
-        cls_str="assembler.py - %s.__init__() -" % self.__class__.__name__
-        if not isinstance(ins,insnbldr.MSLentry):
-            raise ValueError("%s 'insn' argument must be an instance of "
-                "MSLentry: %s" % (cls_str, insn))
-        if not isinstance(fmt,msldb.Format):
-            raise ValueError("%s 'fmt' argument must be an instance of "
-                "msldb.Format: %s" % (cls_str, insn))
-        if not isinstance(template,AsmPasses):
-            raise ValueError("%s 'template' argument must be an instance of "
-                "AsmPasses: %s" % (cls_str,template))
+        if __debug__:
+            #cls_str="assembler.py - %s.__init__() -" % self.__class__.__name__
+            cls_str=eloc(self,"__init__")
+            assert isinstance(ins,insnbldr.MSLentry),\
+                "%s 'insn' argument must be an instance of MSLentry: %s" \
+                    % (cls_str, insn)
+            assert isinstance(fmt,msldb.Format),\
+                "%s 'fmt' argument must be an instance of msldb.Format: %s" \
+                % (cls_str, insn)
+            assert isinstance(template,AsmPasses),\
+                "%s 'template' argument must be an instance of AsmPasses: %s" \
+                    % (cls_str,template)
 
         operands=ins.num_oprs()
         super().__init__(name=ins.mnemonic,parser=template.parser,optional=True,\
@@ -4927,39 +5139,45 @@ class Address(object):
         return addr.lval()
 
     def __init__(self,typ,rel,section,address,length=1):
-        cls_str="assemnbler.py - %s.__init__() -" % self.__class__.__name__
-        if not isinstance(typ,int):
-            raise ValueError("%s 'typ' argument must be an integer: %s" \
-                % (cls_str,typ))
-        if typ==1:
-             if not isinstance(section,Section) and not section.isDummy():
-                 raise ValueError("%s 'section' argument must be DSECT for typ %s: %s"
-                     % (cls_str,typ,section))
-             if address is not None:
-                 raise ValueError("%s 'address' argument must be None for typ %s: %s"
-                     % (cls_str,typ,address))
-        elif typ==2:
-            if not isinstance(section,Section) and section.isDummy():
-                raise ValueError("%s 'section' argument must be CSECT for typ %s: %s"
-                    % (cls_str,typ,section))
-            if address is not None:
-                raise ValueError("%s 'address' argument must be None for typ %s: %s"
-                     % (cls_str,typ,address))
-        elif typ==3:
-            if not isinstance(address,int):
-                raise ValueError("%s 'address' argument must be integer for typ %s: %s"
-                    % (cls_str,typ,address))
-            if rel is not None:
-                raise ValueError("%s 'rel' argument must be None for typ %s: %s"
-                    % (cls_str,typ,rel))
-            if section is not None:
-                raise ValueError("%s 'section' argument must be None for typ %s: %s"
-                    % (cls_str,typ,section))
-        else:
-            raise ValueError("%s 'typ' argument invalid (1-3): %s " % (cls_str,typ))
-        if not isinstance(length,int):
-            raise ValueError("%s 'length' argument must be an integer: %s" \
-                % (cls_str,length))
+        if __debug__:
+            cls_str=eloc(self,"__init__")
+            assert isinstance(typ,int),\
+                "%s 'typ' argument must be an integer: %s" % (cls_str,typ)
+            assert typ>=1 and typ<=3,\
+                "%s 'typ' argument invalid (1-3): %s " % (cls_str,typ)
+            assert isinstance(length,int),\
+                "%s 'length' argument must be an integer: %s" \
+                     % (cls_str,length)
+
+            if typ==1:
+                # Dummy section displacement
+                assert isinstance(section,Section) and section.isdummy(),\
+                    "%s 'section' argument must be DSECT for typ %s: %s" \
+                        % (cls_str,typ,section)
+                assert address is None,\
+                    "%s 'address' argument must be None for typ %s: %s" \
+                        % (cls_str,type,address)
+
+            elif typ==2:
+                # Section relative address
+                assert isinstance(section,Section) and not section.isdummy(),\
+                    "%s 'section' argument must be CSECT for typ %s: %s" \
+                        % (cls_str,typ,section)  
+                assert address is None,\
+                    "%s 'address' argument must be None for typ %s: %s" \
+                        % (cls_str,typ,address)
+
+            else:
+                # Absolute Address
+                assert isinstance(address,int), \
+                    "%s 'address' argument must be integer for typ %s: %s" \
+                        % (cls_str,typ,address)
+                assert rel is None, \
+                     "%s 'rel' argument must be None for typ %s: %s" \
+                         % (cls_str,typ,rel)
+                assert section is None, \
+                     "%s 'section' argument must be None for typ %s: %s" \
+                         % (cls_str,typ,section)
 
         self.value=rel          # Address relative to the section start
         self.section=section    # Section instance in which this address is located
@@ -4991,14 +5209,14 @@ class Address(object):
             % (a,op,b,v))
 
     def _cmp(self,other,op):
-        typo=self.__type(other)
+        typo=self._type(other)
         if typo==0 or typo!=self.typ:    # Can only compare same address types
-            self._no_sup(self,op,other)
+            self._no_sup(op,other)
         if typo==3:       # Both are absolute addresses
             return (self.address,other.address)
         # Both are either DSECT displacements or relative addresses, same rules
         if self.section!=other.section:
-            self._no_sup(self,op,other)
+            self._no_sup(op,other)
         return (self.value,other.value)
 
     def _no_sup(self,op,b):
@@ -5042,22 +5260,22 @@ class Address(object):
 
     # Comparison overloads for addresses
     def __lt__(self,other): 
-        me,other=self._cmp(self,other,"<")
+        me,other=self._cmp(other,"<")
         return me<other
     def __le__(self,other):
-        me,other=self._cmp(self,other,"<=")
+        me,other=self._cmp(other,"<=")
         return me<=other
     def __eq__(self,other):
-        me,other=self._cmp(self,other,"==")
+        me,other=self._cmp(other,"==")
         return me==other
     def __ne__(self,other):
-        me,other=self._cmp(self,other,"!=")
+        me,other=self._cmp(other,"!=")
         return me!=other
     def __gt__(self,other):
-        me,other=self._cmp(self,other,">")
+        me,other=self._cmp(other,">")
         return me>other
     def __ge__(self,other):
-        me,other=self._cmp(self,other,">=")
+        me,other=self._cmp(other,">=")
         return me>=other
 
     # Returns the intgeger value to be used in Base/Displacement calculation.
@@ -5126,11 +5344,10 @@ class DDisp(Address):
         if typo==0:     #    Other is an integer
             new_rel=self._ck(self.value-other,self,"-",other)
             return DDisp(new_rel,self.section)
-        if typo==1: #    Other is a DSECT displacement
+        elif typo==1: #    Other is a DSECT displacement
             if self.section!=other.section:
                 self._no_sup("-",other)
             return self.value-other.value
-
         self._no_sup("-",other)
 
     def __str__(self):
@@ -5168,7 +5385,7 @@ class AbsAddr(Address):
             new_addr=self._ck(\
                 self.address+other,self,"+",other,rsup=rsup)
             return AbsAddr(new_addr,length=self.length)
-        if typo==1: #    other is a DSECT displacement
+        elif typo==1: #    other is a DSECT displacement
                return AbsAddr(self.address+other.value,length=self.length)
         if rsup:
             self.__no_rsup("+",other)
@@ -5180,10 +5397,10 @@ class AbsAddr(Address):
         if typo==0:    #    Other is an integer
             new_addr=self._ck(self.address-other,self,"-",other)
             return AbsAddr(new_addr)
-        if typo==1: #    Other is a DSECT displacement
+        elif typo==1: #    Other is a DSECT displacement
             new_addr=self._ok(self.address-other.value,self,"-",other)
             return AbsAddr(new_addr)
-        if typo==3: #    Other is an absolute address
+        elif typo==3: #    Other is an absolute address
             return self.address-other.address
         self.__no_sup("-",other)
 
@@ -5244,7 +5461,7 @@ class SectAddr(AbsAddr):
         #if typo==1:    #    Other is a DSECT displacement
         #    new_rel=self._ck(self.value-other.value,self,"-",other)
         #    return SectAddr(new_rel,self.section)
-        if typo==2 or typo==1:    #    Other is a relative address (CSECT or DSECT)
+        elif typo==2 or typo==1:   #    Other is a relative address (CSECT or DSECT)
             if self.section!=other.section:
                 self._no_sup("-",other)
             return self.value-other.value
@@ -5318,19 +5535,23 @@ class Base(object):
         return a.__cmp__(b)
 
     def __init__(self,reg,addr,direct=None):
-        cls_str="assembler.py - %s.__init__() -" % self.__class__.__name__
-        if not isinstance(reg,int):
-            raise ValueError("%s 'reg' argument must be an integer: %s" \
-                % (cls_str,reg))
-        if not isinstance(addr,Address):
-            raise ValueError("%s 'addr' argument must be an instance of Address: %s" \
-                % (cls_str,addr))
-        if direct is not None and not isinstance(addr,AbsAddr):
-            raise ValueError("%s 'direct' argument must be None or and instance of "
-                "AbsAddr: %s" % direct)
-        if not addr.isAbsolute() and not addr.isDummy():
-            raise ValueError("%s only relative addresses of DSECT's should occur in: %s"\
-                % (cls_str,addr))
+        if __debug__:
+            cls_str=eloc(self,"__init__")
+            assert isinstance(reg,int),\
+                "%s 'reg' argument must be an integer: %s" % (cls_str,reg)
+            assert isinstance(addr,Address),\
+                "%s 'addr' argument must be an instance of Address: %s" \
+                    % (cls_str,addr)
+            assert (direct is None) or isinstance(direct,AbsAddr),\
+                "%s 'direct' argument must be None or an instance of AbsAddr: %s" \
+                    % (cls_str,direct)
+        # This test does not appear to be needed.
+        #    assert addr.isRelative() or addr.isDummy(),\
+        #        "%s only relative addresses of DSECT's should occur in: %s" \
+        #            % (cls_str,addr)
+        #if not addr.isAbsolute() and not addr.isDummy():
+        #    raise ValueError("%s only relative addresses of DSECT's should occur in: %s"\
+        #        % (cls_str,addr))
 
         # The absolute address associated with this register when used for
         # direct addressing.  This applies to register 0 only for all but one
@@ -5454,6 +5675,7 @@ class Base(object):
         # Note: no checks are performed on the actual displacement.  Different
         # values are allowed for different instruction formats.  Whether the
         # displacement is appropriate for the instruction must be tested elsewhere.
+
 
 # This class manages base registers, USING, DROP and base/disp resolution
 class BaseMgr(object):
@@ -5642,11 +5864,11 @@ class BaseMgr(object):
 
 # This object represents a location within an object module.  Location objects
 # participate in relocation.  They consist of an anchor address and a positive or
-# negative adjustment.  The amchor address may be a section relative address or an
+# negative adjustment.  The anchor address may be a section relative address or an
 # absolute address.  When a section relative address, the section will dictate the
 # ESDID used for the location.  The adjustment is always an integer.
 class Location(object):
-    def __init__(self,anchor,adjustmen=0):
+    def __init__(self,anchor,adjustment=0):
         self.anchor=anchor          # Location's anchor address
         self.adjust=adjustment      # Location's adjustment
 
@@ -5670,15 +5892,13 @@ class LocationCounter(object):
         # If no location is provided, simply leave the location as is.
         if loc is None:
             return
-        if not isinstance(loc,Address):
-            cls_str=eloc(self,"establish")
-            raise ValueError("%s 'loc' argument must be a Address object: %s" \
-                % (cls_str,loc))
-        if not loc.isRelative():
-            cls_str=eloc(self,"establish")
-            raise ValueError("%s 'loc' argument must be a relative address object: %s" \
-                % (cls_str,loc))
-        # Make a copy because we are going to alter it
+        assert isinstance(loc,Address),\
+            "%s 'loc' argument must be a Address object: %s" \
+                % (eloc(self,"establish"),loc)
+        assert loc.isRelative(),\
+            "%s 'loc' argument must be a relative address object: %s" \
+                % (eloc(self,"establish"),loc)
+
         self.location=loc.clone()
 
     def increment(self,length):
@@ -5924,10 +6144,10 @@ class Area(Binary):
         super().__init__(0,0)
         self.elements=[]     # List of accumulated Binary objects in the area
     def append(self,bin):
-        if not isinstance(bin,Binary):
-            cls_str="assembler.py - %s.append() -" % self.__class__.__name__
-            raise ValueError("%s 'bin' argument must be an instance of Binary: %s" \
-                % (cls_str,bin))
+        assert isinstance(bin,Binary),\
+            "%s 'bin' argument must be an instance of Binary: %s" \
+                % (eloc(self,"append"),bin)
+
         self.elements.append(bin)
 
     # This method adjusts the area's Binary instance attributes to conform to the
@@ -6106,7 +6326,7 @@ class Content(Binary):
     # hierarchy tree
     def insert(self):
         cls_str="assembler.py - %s.current() -" % self.__class__.__name__
-        raise NotImplementedError("%s subclass must implement current() method" \
+        raise NotImplementedError("%s subclass must implement insert() method" \
             % self.__class__.__name__)
 
     # Return the current length of the allocated content
@@ -6124,6 +6344,10 @@ class Content(Binary):
             "method" % cls_str)
 
     def updtAttr(self,asm,trace=False):
+        if self.name=="":
+            # Unnamed region or control section not in symbol table,
+            # Nothing to update
+            return
         try:
             ste=asm._getSTE(self.name)
         except KeyError:
@@ -6169,6 +6393,8 @@ class Section(Content):
         return "%s in '%s' @ %s" % (string,self.container.name,self.loc)
 
     def current(self):
+        if self.isdummy():
+            return DDisp(self._current,self)
         return SectAddr(self._current,self)
 
     def dump(self,indent="",string=False):
@@ -6252,14 +6478,17 @@ class Section(Content):
             b.make_barray(trace=trace)
 
     def updtAttr(self,asm,trace=False):
+        if self.name=="":
+            # Unnamed region or csect is not in the symbol table
+            return
         try:
             ste=asm._getSTE(self.name)
         except KeyError:
             cls_str="assembler.py - %s.updtAttr() -" % self.__class__.__name__
             raise ValueError("%s element not in symbol table: %s" \
-                % (cls_str,self))
+                % (cls_str,self)) from None
 
-                                                 # Upate for  CSECT   DSECT
+                                                 # Update for CSECT   DSECT
         ste.attrSet("L",len(self))               #   L         yes     yes
         if not self.isdummy():                   #
             ste.attrSet("value",self.value())    # value       yes     no
@@ -6478,10 +6707,10 @@ class Img(Content):
 class Symbol(lang.STE):
     common_attributes=["L","value"]
     def __init__(self,name,entry,length=1,attr=[]):
-        if not isinstance(entry,(Address,int,Section,Region,Img)):
-            cls_str="assembler.py - %s.__init__() -" % self.__class__.__name__
-            raise ValueError("%s 'value' argument not of supported type: %s" \
-                % (cls_str,entry))
+        assert isinstance(entry,(Address,int,Section,Region,Img)),\
+            "%s 'value' argument not of supported type: %s" \
+                % (eloc(self,"__init__"),entry)
+
         self._attr=self._build_attr(attr)   # symbol's attribute dictionary
         self._entry=entry                   # Original source entry
         self._defined=None       # source statement number defining the symbol
@@ -6589,10 +6818,10 @@ class Symbol(lang.STE):
 
 class SymbolContent(Symbol):
     def __init__(self,entry):
-        if not isinstance(entry,(Section,Region,Img)):
-            cls_str="assembler.py - %s.__init__() -" % self.__class__.__name__
-            raise ValueError("%s 'value' argument not of supported type: %s" \
-                % (cls_str,entry))
+        assert isinstance(entry,(Section,Region,Img)),\
+            "%s 'value' argument not of supported type: %s" \
+                % (eloc(self,"__init__"),entry)
+
         super().__init__(entry.name,entry,attr="I")
 
     def __len__(self):

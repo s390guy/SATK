@@ -207,6 +207,8 @@ class AsmBinary(object):
         ipl_content=""
         for r in regions:
             name=r.name
+            if name=="":
+                name="unnamed"
             address=r.loc.address
             content=r.barray
             filename="%s.bin" % name

@@ -142,7 +142,7 @@ class FileSource(InputSource):
         self.leof=False           # Flas set when at logical end-of-file
         self.fo=None              # Python file object
         self.lineno=None          # File line number
-        self.legacy=legacy        
+        self.legacy=legacy
         self.handler=asmcards.InputHandler()  # line continuation handler
 
     def fini(self):
@@ -297,14 +297,12 @@ class MacroSource(InputSource):
 # This class associates source information of a line with the text itself.
 class Line(object):
     def __init__(self,line,lineno=None,source=None,typ="X",macro=False):
-        if not isinstance(line,asmcards.LogLine):
-            cls_str=assembler.eloc(self,"__init__",module=this_module)
-            raise ValueError("%s 'line' argument must be an instance of "
-                "asmcards.LogLine: %s" % (cls_str,line))
-        if source is not None and not isinstance(source,Source):
-            cls_str=assembler.eloc(self,"__init__",module=this_module)
-            raise ValueError("%s 'source' argument must be an instance of Source: %s" \
-                % (cls_str,source))
+        assert isinstance(line,asmcards.LogLine),\
+            "%s 'line' argument must be an instance of asmcards.LogLine: %s" \
+                % (assembler.eloc(self,"__init__",module=this_module),line)
+        assert (source is None) or isinstance(source,Source),\
+            "%s 'source' argument must be an instance of Source: %s" \
+                % (assembler.eloc(self,"__init__",module=this_module),source)
 
         # typ attribute controls how the line is processed by the assembler
         #   'B' --> This is a macro body statement
@@ -315,6 +313,7 @@ class Line(object):
         #           asmmacs.Expander object
         self.typ=typ         # Line type
         self.logline=line    # asmcards.LogLine object
+        self._normal=False   # normal method() called if True
 
         # THIS ATTRIBUTE IS USED FOR LISTING SOURCE CONTENT
         self.text=None       # Text of logical line of text
@@ -334,7 +333,7 @@ class Line(object):
         # Validate the logical line.  LineError exceptions caught and reraised as
         # assembler errors which must be handled by Stmt instantiator
         self.validate()
-        
+
         # Early comment and empty line detection
         if self.empty:
             self.text=""
@@ -355,8 +354,10 @@ class Line(object):
         logline.normal()
         self.text=logline.line
         self.empty=logline.empty
-        if self.text is None:
-            print("Line.normal(): logline: %s" % (logline))
+        assert isinstance(self.text,str),\
+            "%s text attribute not a string: %s" \
+                % (assembler.eloc(self,"normal",module=this_module),logline)
+        self._normal=True
 
     # Returns the size of the prefix location information before printing
     def prefix(self):
@@ -375,6 +376,14 @@ class Line(object):
             return st
         print(st)
 
+    def print_raw(self):
+        if self._normal:
+            N="N"
+        else:
+            N="."
+        return "\nLine: %s%s\nLogLine: %s\nRaw: %s" \
+            % (self.typ,N,self.logline,self.logline.print_raw())
+
     # Sets the external globally unique line number used in listings.
     def setLineNo(self,n):
         self.lineno=n
@@ -387,8 +396,7 @@ class Line(object):
         except asmcards.LineError as le:
             raise assembler.AssemblerError(source=le.source,line=self.lineno,\
                 msg=le.msg) from None
-        if self.comment:
-            self.text=logline.line
+
 
 # This class buffers input lines in a LIFO stack of input sources.
 #
@@ -475,9 +483,8 @@ class LineBuffer(object):
     # Retrieve the next input Line object from the current source
     def getline(self):
         if self._end:
-            cls_str=assembler.eloc(self,"getline")
             raise ValueError("%s input statements present after END statement" \
-                % cls_str)
+                % assembler.eloc(self,"getline"))
 
         # This while statement ends with:
         #   - a BufferEmtpy exception being raised (to tell assembler input is done)

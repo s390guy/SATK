@@ -243,7 +243,7 @@ def parse_args(dm):
 
     # Specify error handling level
     # May be specified in a local configuration
-    parser.add_argument("-e","--error",type=int,choices=[0,1,2],default=2,\
+    parser.add_argument("-e","--error",type=int,choices=[0,1,2,3],default=2,\
         help="specifies error handling level.")
 
     # Generic list directed IPL option

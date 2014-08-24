@@ -152,11 +152,10 @@ class Macro(object):
     Arith=asmfsmbp.ArithEval()   # Arithmetic Evaluator
     Binary=asmfsmbp.BinaryEval() # Binary Evaluator
     def __init__(self,prototype,defn=None):
-        if not isinstance(prototype,Prototype):
-            cls_str=assembler.eloc(self,"__init__",module=this_module)
-            raise ValueError("%s 'prototype' argument must be a prototype "
-                "object: %s" % (cls_str,prototype))
-            
+        assert isinstance(prototype,Prototype),\
+            "%s 'prototype' argument must be a prototype " \
+                % (assembler.eloc(self,"__init__",module=this_module),prototype)
+
         self.name=prototype.macid  # Macro Name
         self.prototype=prototype   # Prototype object
         self.engine=MacroEngine()  # My definition in terms of MacroOp objects
@@ -180,12 +179,10 @@ class Macro(object):
             # Update it with the string assigned to the parameter.
             symo.setValue(symid,CVal(value),user=False)
             return
-            
-        # Validate that the value is a list.
-        if not isinstance(value,list):
-            cls_str=assembler.eloc(self,"__initc",module=this_module)
-            raise ValueError("%s 'value' argument must be a list or a string: %s" \
-                % (cls_str,value))
+
+        assert isinstance(value,list),\
+            "%s 'value' argument must be a list or a string: %s" \
+                % (assembler.eloc(self,"__initc",module=this_module),value)
 
         # Create a subscripted symbolic variable to hold the parameter list
         number=len(value)
@@ -417,25 +414,20 @@ class MacroEngine(object):
     # Exceptions:
     #   assembler.AssemblerError may be raised
     def define(self,op,seq=None):
-        if not isinstance(op,MacroOp):
-            cls_str=assembler.eloc(self,"define",module=this_module)
-            raise ValueError("%s 'op' argument must be a MacroOp object: %s" \
-                % (cls_str,op))
-            
-        if self.done:
-            cls_str=assembler.eloc(self,"define",module=this_module)
-            raise ValueError("%s can not add MacroOp, Mend encountered: %s" \
-                % (cls_str,op.__class__.__name__))
-        
+        assert isinstance(op,MacroOp),\
+            "%s 'op' argument must be a MacroOp object: %s" \
+                % (assembler.eloc(self,"define",module=this_module),op)
+        assert not self.done,\
+            "%s can not add MacroOp, Mend encountered: %s" \
+                % (assembler.eloc(self,"define",module=this_module),\
+                    op.__class__.__name__)
+
         # Define the macro directives sequence symbol if provided
         next_loc=len(self.ops)  # Index of operation being added
-        if seq is not None and not isinstance(seq,str):
-            cls_str=assembler.eloc(self,"define",module=this_module)
-            raise ValueError("%s 'seq' argument must be a string or None: %s" \
-                % (cls_str,seq))
-        else:
-            # If the statement has a sequene symbol in its name field, associate
-            # it with the statement's operation index being added.
+        if seq is not None:
+            assert isinstance(seq,str),\
+            "%s 'seq' argument must be a string or None: %s" \
+                % (assembler.eloc(self,"define",module=this_module),seq)
             self.seq[seq]=next_loc
 
         if isinstance(op,MEND):
@@ -594,7 +586,7 @@ class MacroOp(object):
             # Convert PParserError into a MacroError
             msg="%s: '%s'" % (pe.msg,pe.ptok.src.string)
             raise MacroError(msg=msg) from None
-            
+
     def evaluate_expr(self,state,expr,debug=False,trace=False):
         try:
             return expr.evaluate(external=state,debug=debug,trace=False)
@@ -895,10 +887,9 @@ class SETC(MacroOp):
 # Base class for all Macro Variable Symbols
 class MacroSymbol(object):
     def __init__(self,symbol,entrycls):
-        if not isinstance(symbol,SymbolID):
-            cls_str=assembler.eloc(self,"__init__",module=this_module)
-            raise ValueError("%s 'symbol' argument must be a SymbolID object: %s" \
-                % (cls_str,symbol))
+        assert isinstance(symbol,SymbolID),\
+            "%s 'symbol' argument must be a SymbolID object: %s" \
+                % (assembler.eloc(self,"__init__",module=this_module),symbol)
 
         # Note: other rules concerning variable symbols are not enforced here.  They
         # must be enforced during statement processing in a special pre-processor method
@@ -932,14 +923,14 @@ class MacroSymbol(object):
     def getValue(self,symbol):
         # Note: after debugging, these checks should be eliminated.  All access
         # should be through the MacroSymbols object and the checks should occur there
-        if not isinstance(symbol,SymbolID):
-            cls_str=assembler.eloc(self,"getValue",module=this_module)
-            raise ValueError("%s 'symbol' argument must be a SymbolID object: %s" \
-                % (cls_str,symbol))
-        if symbol.var!=self.symbol:
-            cls_str=assembler.eloc(self,"getValue",module=this_module)
-            raise ValueError("%s symbol's variable name ('%s') does not match symbol "
-                "name being referenced: '%s'" % (cls_str,self.symbol,symbol.var))
+        assert isinstance(symbol,SymbolID),\
+            "%s 'symbol' argument must be a SymbolID object: %s" \
+                % (assembler.eloc(self,"getValue",module=this_module),symbol)
+        assert symbol.var==self.symbol,\
+            "%s symbol's variable name ('%s') does not match symbol " \
+                % (assembler.eloc(self,"getValue",module=this_module),\
+                    self.symbol,symbol.var)
+
         return self.values[symbol.sub]
 
     # Sets a value in one of the symbols subscript
@@ -949,22 +940,22 @@ class MacroSymbol(object):
     def setValue(self,symbol,value,user=True):
         # Note: after debugging, these checks should be eliminated.  All access
         # should be through the MacroSymbols object and the checks should occur there
-        if not isinstance(symbol,SymbolID):
-            cls_str=assembler.eloc(self,"setValue",module=this_module)
-            raise ValueError("%s 'symbol' argument must be a SymbolID object: %s" \
-                % (cls_str,symbol))
-        if symbol.var!=self.symbol:
-            cls_str=assembler.eloc(self,"setValue",module=this_module)
-            raise ValueError("%s symbol's variable name ('%s') does not match symbol "
-                "name being referenced: '%s'" % (cls_str,self.symbol,symbol.var))
-        if not isinstance(value,self.entrycls):
-            cls_str=assembler.eloc(self,"setValue",module=this_module)
-            raise ValueError("%s 'value' argument must be an instance of %s: %s" \
-                % (cls_str,self.entrycls.__name__,value))
-        if user and self.ro:
-            cls_str=assembler.eloc(self,"setValue",module=this_module)
-            raise ValueError("%s symbol '%s' read-only, can not set value" \
-                % (cls_str,self.symbol))
+        assert isinstance(symbol,SymbolID),\
+            "%s 'symbol' argument must be a SymbolID object: %s" \
+                % (assembler.eloc(self,"setValue",module=this_module),symbol)
+        assert symbol.var==self.symbol,\
+            "%s symbol's variable name ('%s') does not match symbol name being " \
+                "referenced: '%s'" \
+                % (assembler.eloc(self,"setValue",module=this_module),\
+                    self.symbol,symbol.var)
+        assert isinstance(value,self.entrycls),\
+            "%s 'value' argument must be an instance of %s: %s" \
+                % (assembler.eloc(self,"setValue",module=this_module),\
+                    self.entrycls.__name__,value)
+        assert (not user) or (not self.ro),\
+            "%s symbol '%s' read-only, can not set value" \
+                % (assembler.eloc(self,"setValue",module=this_module),self.symbol)        
+
         self.values[symbol.sub]=value
 
 # This object encapsulates a symbolic variable's reference.  The reference is used
@@ -973,14 +964,12 @@ class MacroSymbol(object):
 # and variable subscripting are all supported.
 class SymbolID(object):
     def __init__(self,variable,subscript=0):
-        if not isinstance(variable,str) or len(variable)==0:
-            cls_str=assembler.eloc(self,"__init__",module=this_module)
-            raise ValueError("%s 'variable' argument must be a non-empty string: %s" \
-                % (cls_str,variable))
-        if variable[0]!='&':
-            cls_str=assembler.eloc(self,"__init__",module=this_module)
-            raise ValueError("%s 'variable' argument must start with an '&': '%s'" \
-                % (cls_str,variable))
+        assert isinstance(variable,str) and len(variable)>0,\
+            "%s 'variable' argument must be a non-empty string: %s" \
+                % (assembler.eloc(self,"__init__",module=this_module),variable)
+        assert variable[0]=='&',\
+            "%s 'variable' argument must start with an '&': '%s'" \
+                % (assembler.eloc(self,"__init__",module=this_module),variable)
 
         self.var=variable        # The symbolic symbols's name (with '&')
         self.sub=None            # Integer or SymbolID of subscript
@@ -1279,10 +1268,10 @@ class CSym(MacroSymbol):
 # this class.
 class CVal(SymbolValue):
     def __init__(self,value=""):
-        if not isinstance(value,str):
-            cls_str=assembler.eloc(self,"__init__",module=this_module)
-            raise ValueError("%s 'value' argument must be a string: %s" \
-                % (cls_str,value))
+        assert isinstance(value,str),\
+            "%s 'value' argument must be a string: %s" \
+                % (assembler.eloc(self,"__init__",module=this_module),value)
+
         super().__init__(value)
         self.__setK()
         self.__translate()
@@ -1796,18 +1785,15 @@ class Invoker(object):
     # has been created.  Actual entry is via the entry() method called by the
     # asminput.MacroSource object during its init() method.
     def invoke(self,stmt):
-        if not isinstance(stmt,assembler.Stmt):
-            cls_str=assembler.eloc(self,"macstmt",module=this_module)
-            raise ValueError("%s 'stmt' argument must be a Stmt object: %s" \
-                % (cls_str,stmt))
+        assert isinstance(stmt,assembler.Stmt),\
+            "%s 'stmt' argument must be a Stmt object: %s" \
+                % (assembler.eloc(self,"macstmt",module=this_module),stmt)
         macro=stmt.macro
-        if not isinstance(macro,Macro):
-            cls_str=assembler.eloc(self,"macstmt",module=this_module)
-            raise ValueError("%s 'macro' argument must be a Macro object: %s" \
-                % (cls_str,stmt))
+        assert isinstance(macro,Macro),\
+            "%s Stmt.macro attribute must be a Macro object: %s" \
+                % (assembler.eloc(self,"macstmt",module=this_module),macro)
 
         self.macro=macro
-        
         self.engine=macro.engine       # MacroEngine object of macro definition
         self.idebug=macro.idebug       # Pick up debug switch from macro definition
         
@@ -1883,10 +1869,10 @@ class Invoker(object):
     # Returns:
     #   the original string or string with variable symbols replaced.
     def symbol_replace(self,line,debug=False):
-        if not isinstance(line,str):
-            cls_str=assembler.eloc(self,"symbol_replace",module=this_module)
-            raise ValueError("%s 'line' argument must be a string: %s" \
-                % (cls_str,line))
+        assert isinstance(line,str),\
+            "%s 'line' argument must be a string: %s" \
+                % (assembler.eloc(self,"symbol_replace",module=this_module),line)
+
         # Note: lines not requiring expansion do not reach this method
         if debug:
             cls_str=assembler.eloc(self,"symbol_replace",module=this_module)
@@ -1905,7 +1891,7 @@ class Invoker(object):
         for sym in syms:
             # sym is a asmfsmbp.SymRefPart object containing a asmfsmbp.SymRefMO
             if debug:
-                print("%s: %s" % sym)
+                print("%s: %s" % (cls_str,sym))
             if sym.beg>pos:
                 new="%s%s" % (new,text[pos:sym.beg])
                 if debug:
@@ -2130,8 +2116,6 @@ class MacroLanguage(object):
     # Process a model statement in a macro definition
     def _model(self,stmt,debug=False):
         flds=stmt.fields
-        #print("_model: fields: %s" % flds)
-        #print("fields.oppos: %s" % flds.oppos)
         if flds.sequence:
             seq=flds.name
             model=" %s" % flds.text[flds.oppos:]
@@ -2155,7 +2139,6 @@ class MacroLanguage(object):
 
         # This method may raise an assembler.AssemblerError.
         scope=self.parsers.parse_operands(stmt,"proto",required=False)
-        #scope=self.__parse(stmt,MacroLanguage.proto,required=False)
         if scope is None:
             pos=[]
             keys={}
@@ -2182,7 +2165,6 @@ class MacroLanguage(object):
         lineno=stmt.lineno
 
         scope=self.parsers.parse_operands(stmt,"ago",required=True)
-        #scope=self.__parse(stmt,MacroLanguage.ago,required=True)
 
         computed=scope.lextoks  # Computed AGO expression lexical tokens
         #print("[%s] computed: %s" % (lineno,computed))
@@ -2215,7 +2197,6 @@ class MacroLanguage(object):
         lineno=stmt.lineno
 
         scope=self.parsers.parse_operands(stmt,"aif",required=True)
-        #scope=self.__parse(stmt,MacroLanguage.aif,required=True)
 
         # Convert arithmetic expression lexical tokens into pratt2.PExpr object
         expr=self.parsers.L2ArithExpr("_AGO",stmt,ltoks=scope.lextoks,debug=debug)
@@ -2281,7 +2262,6 @@ class MacroLanguage(object):
 
         # Parse the operands.
         scope=self.parsers.parse_operands(stmt,"seta",required=True)
-        #scope=self.__parse(stmt,MacroLanguage.seta,required=True)
         if debug:
             print("_SETA: %s scope: %s" % (lineno,scope))
 
@@ -2301,7 +2281,6 @@ class MacroLanguage(object):
 
         # Parse the operands.
         scope=self.parsers.parse_operands(stmt,"setb",required=True)
-        #scope=self.__parse(stmt,MacroLanguage.setb,required=True)
 
         if debug:
             print("_SETB: %s scope: %s" % (lineno,scope))
@@ -2311,16 +2290,13 @@ class MacroLanguage(object):
         self.indefn._setb(lineno,setname,expr)
 
     def _SETC(self,stmt,debug=False):
-        #flds=stmt.fields
         lineno=stmt.lineno
-        #source=stmt.source
         
         # May raise an AssemblerError if name field is not a symbol reference
         setname=self.__set_name(stmt,"SETC")  # SymbolID object for variable being set
 
         # Parse the operands.
         scope=self.parsers.parse_operands(stmt,"setc",required=True)
-        #scope=self.__parse(stmt,MacroLanguage.setc,required=True)
         
         if debug:
             print("_SETC: %s scope: %s" % (lineno,scope))

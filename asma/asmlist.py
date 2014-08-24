@@ -188,7 +188,15 @@ class AsmListing(Listing):
         max_size=iinfo.length
         for r in self.imgwip.elements:
             name=r.name
-            rinfo=imginfo[name]
+            if name=="":
+                # Unnamed region
+                rinfo=Map("","R",r.img_loc,r.value().address,len(r))
+                #print("pos: %s" % rinfo.pos)
+                #print("bound: %s" % rinfo.bound)
+                #print("length: %s" % rinfo.length)
+                #print(rinfo)
+            else:
+                rinfo=imginfo[name]
             max_name=max(max_name,len(name))
             max_pos=max(max_pos,rinfo.pos_end)
             max_addr=max(max_addr,rinfo.bnd_end)
@@ -196,8 +204,12 @@ class AsmListing(Listing):
             reg_list.append(rinfo)
             for c in r.elements:
                 name=c.name
+                if name=="":
+                    # Unnamed section
+                    cinfo=Map("","C",r.img_loc,r.value().address,len(r))
+                else:
+                    cinfo=imginfo[name]
                 max_name=max(max_name,len(name))
-                cinfo=imginfo[name]
                 max_pos=max(max_pos,cinfo.pos_end)
                 max_addr=max(max_addr,cinfo.bnd_end)
                 map_list.append(cinfo)
@@ -547,6 +559,11 @@ class AsmListing(Listing):
             stype=" "
 
         source=stmt.line.text
+        # Leave this to help in debugging a listing line that shows 'None' for
+        # the input statement.
+        #if __debug__:
+        #    if source is None:
+        #        print(stmt.line.print_raw())
 
         data_lines=self.part1_data(stmt)
         if len(data_lines)==0:

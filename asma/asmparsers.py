@@ -309,13 +309,13 @@ ds_desc -> DSDESC
 #  +-----------------+
 #
 
-class LableError(Exception):
-    def __init__(self,label,ltok=None,msg=""):
-        self.msg=msg         # Text associated with the error
-        self.ltok=ltok       # Lexical token where label occurs
-        self.label=label     # Label for which error is detected
-        string="%s: %s" % (self.msg,self.label)
-        super().__init__(string)
+#class LableError(Exception):
+#    def __init__(self,label,ltok=None,msg=""):
+#        self.msg=msg         # Text associated with the error
+#        self.ltok=ltok       # Lexical token where label occurs
+#        self.label=label     # Label for which error is detected
+#        string="%s: %s" % (self.msg,self.label)
+#        super().__init__(string)
 
 #
 #  +---------------------------------------+
@@ -706,7 +706,8 @@ class PLitLabel(expression.PLitSmart):
         try:
             ste=self.external._getSTE_Ref(label,token.line)
         except KeyError:
-            raise LableError(label,ltok=self.src,msg="undefined label") from None
+            raise assembler.LabelError(label,ltok=self.src,msg="undefined label") \
+                from None
 
         value=ste.value()
         if isinstance(value,(assembler.SectAddr,assembler.DDisp,assembler.AbsAddr)):
@@ -751,7 +752,8 @@ class PLitLabelAttr(expression.PLitSmart):
             if trace:
                 print("%s.value() v=%s" % (self.__class__.__name__,v))
         except KeyError:
-            raise LableError(lable,ltok=self.src,msg="undefined label")
+            raise assembler.LabelError(lable,ltok=self.src,msg="undefined label") \
+                from None
         return v
 
     def value(self,debug=False,trace=False):
@@ -1816,7 +1818,7 @@ class AdCon(ConsType):
 
         try:
             expr.evaluate(debug=debug,trace=trace)
-        except LableError as le:
+        except assembler.LabelError as le:
             raise assembler.AssemblerError(line=stmt.lineno,source=stmt.source,\
                 msg="%s: %s" % (le.msg,le.label)) from None 
         # I can trust the result to be either an integer or Address

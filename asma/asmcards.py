@@ -441,6 +441,12 @@ class LogLine(object):
             string="%s\n    %s" % (string,part)
         return "%s\n" % string
 
+    def print_raw(self):
+        string=""
+        for raw in self.rawlines:
+            string="%s\n%s" % (string,raw)
+        return string
+
     def validate(self):
         cls=self.__class__.__name__
         cls_str="%s %s.validate() -" % (this_module,cls)
@@ -450,13 +456,17 @@ class LogLine(object):
 class LogLineRaw(LogLine):
     spaces=" " * 15
     def __init__(self,lines):
-        if not isinstance(lines,list):
-            cls_str="%s %s.__init__() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s 'lines' argument must be a list: %s" \
-                % (cls_str,lines))
-        if len(lines)==0:
-            cls_str="%s %s.__init__() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s 'lines' argument must not be an empty list" % cls_str)
+        assert isinstance(lines,list),\
+            "%s %s.__init__() - 'lines' argument must be a list: %s" \
+                 % (this_module,self.__class__.__name__,lines)
+        assert len(lines)>0,\
+            "%s %s.__init__() - 'lines' argument must not be an empty list" \
+                % (this_module,self.__class__.__name__)
+        if __debug__:
+            for line in lines:
+                assert isinstance(line,Raw),\
+                    "%s %s.__init__() - 'lines' argument must Raw objects: %s" \
+                        % (this_module,self.__class__.__name__,lines)
 
         super().__init__()
         self.rawlines=lines
@@ -467,6 +477,9 @@ class LogLineRaw(LogLine):
         self.empty=first.empty
         if self.comment:
             self.line=first.content.rstrip()
+            assert isinstance(self.line,str),\
+                "%s %s.__init__() - 'line' attribute not a string: %s" \
+                    % (this_module,self.__class__.__name__,self.line)
         if self.empty:
             self.line=""
 
@@ -513,6 +526,9 @@ class LogLineRaw(LogLine):
         if len(line)==0:
             self.empty=True
         self.line=line
+        assert isinstance(self.line,str),\
+            "%s %s.normal() - line attribute not a string: %s" \
+                % (this_module,self.__class__.__name__,self.line)
 
     def use_alt(self):
         return self.ictl.alt
@@ -562,7 +578,7 @@ class LogLineRaw(LogLine):
                          "INTERNAL: first or intermediate line not continued")
                 raw.first=True
             elif n==last:
-                # This is the last of the contineud lines
+                # This is the last of the continued lines
                 if raw.continued:
                     self.error=True
                     raise LineError(raw.lineno,source=raw.source,msg=\

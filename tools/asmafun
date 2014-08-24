@@ -45,6 +45,7 @@ fi
 #       image   file|noimage   Sets the image file or disables it
 #       init    tools          Sets path to msl.py and asma.py
 #       init    msl            Sets the default MSLPATH (not required)
+#       init    optimize       Sets the PYTHONOPTIMIZE variable for -O option
 #       init    python         Sets the PYTHONPATH (not required)
 #       list    file|nolist    Sets the listing file or disables it
 #       nest    n|default      Sets the input nesting level or lets it default
@@ -119,6 +120,7 @@ asma_env()
                 "0") asma_error=" -e 0" ;;
                 "1") asma_error=" -e 1" ;;
                 "2") asma_error=" -e 2" ;;
+                "3") asma_error=" -e 3" ;;
                 "default") asma_env reset error ;;
             *)  echo "invalid error option value: ${2}" ; return 1 ;;
             esac
@@ -127,6 +129,9 @@ asma_env()
             case ${2} in
                 "msl")
                     export MSLPATH=${SATK_DIR}/asma/msl
+                    ;;
+                "optimize")
+                    export PYTHONOPTIMIZE="YES"
                     ;;
                 "python")
                     # Add SATK to the PYTHONPATH for asma use

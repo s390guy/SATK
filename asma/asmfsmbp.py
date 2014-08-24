@@ -25,7 +25,7 @@
 # the assembler.
 #
 # asmparsers.py includes parsers specific to the assembler language.
-# macparsers.py containts parsers specific to the macro language.
+# macparsers.py contains parsers specific to the macro language.
 
 # Python imports: none
 # SATK imports:
@@ -35,7 +35,9 @@ import pratt2               # Access the generalized operator precedence evaluat
 import seqparser            # Access the sequential parser
 # ASMA imports:
 import assembler            # Access the assembler language module
+import asmfsmcs             # Access the context senstive parsers
 import asmmacs              # Access the macro language module
+import asmtokens            # Access standard lexical and pratt2 tokens
 
 this_module="asmfsmbp.py"
 
@@ -72,25 +74,6 @@ xoruc="[Xx][Oo][Rr]"                # Mixed case "XOR"
 
 
 #
-#  +--------------------------------+
-#  |                                |
-#  |   Assembler Parser Exception   |
-#  |                                | 
-#  +--------------------------------+
-#
-
-class AsmParserError(Exception):
-    def __init__(self,token,msg=""):
-        self.msg=msg         # Text associated with the error
-        self.token=token     # Lexcal token in error.
-
-        string=""
-        if len(self.msg)>0:
-            string="%s: " % self.msg
-        string="%s%s" % (string,self.token)
-        super().__init__(string)
-
-#
 #  +------------------------------+
 #  |                              |
 #  |   ASMA Shared Base Classes   |
@@ -115,9 +98,10 @@ class AsmFSMParser(fsmparser.FSMParser):
             % (cls_str,self.__class__.__name__))
 
     def ACT_Expected(self,expected,value,found=None):
+        self.stop()    # Terminate the lexer because we are bailing.
         msg="expected %s, found " % expected
         if found is None:
-            if isinstance(value,EoOperToken):
+            if isinstance(value,asmtokens.EoOperToken):
                 msg="%s%s" % (msg,"end of operands")
             elif isinstance(value,lexer.EOS):
                 msg="%s%s" % (msg,"end of statement")
@@ -125,81 +109,13 @@ class AsmFSMParser(fsmparser.FSMParser):
                 msg='%s"%s"' % (msg,value.string)
         else:
             msg="%s%s" % (msg,found)
-        raise AsmParserError(value,msg=msg)
+        raise assembler.AsmParserError(value,msg=msg)
 
     # This method returns the default lexical analyzer used by all macro statements.
     # Override this method to utilize a different lexical analyzer.
     def Lexer(self):
         return Parsers.lexer
 
-# Base class for AsmFSMParser scopes supporting expressions and compound strings.
-# Other parsers may continue to utilize fsmparser.PScope.
-class AsmFSMScope(fsmparser.PScope):
-    def __init__(self):
-        super().__init__()
-
-    def ck_parens(self,value):
-        if self._parens!=0:
-            raise AsmParserError(value,msg="unbalanced parenthesis")
-
-    def init(self):
-        self._string=None
-        self._lextoks=[]
-        self._parens=0
-
-    def expr_end(self):
-        self._parens=0
-        expr=self._lextoks
-        self._lextoks=[]
-        return expr
-
-    def lparen(self,value):
-        self._parens+=1
-        self.token(value)
-        
-    def rparen(self,value):
-        self.parens-=1
-        self.token(value)
-
-    # Start accumulation of a compound string.
-    def str_begin(self,value):
-        if not isinstance(value,StringToken):
-            cls_str=assembler.eloc(self,"str_begin",module=this_module)
-            raise ValueError("%s 'value' argument must be a StringToken object: %s"\
-                % (cls_str,value))
-        if self._string is not None:
-            cls_str=assembler.eloc(self,"str_begin",module=this_module)
-            raise ValueError("%s '_string' attribute is not None when starting a "
-                "compound string: %s" % (cls_str,self.string_accum))
-        self._string=value
-
-    # Adds additional string content to the compound string
-    def str_cont(self,value):
-        if not isinstance(value,StringToken):
-            cls_str=assembler.eloc(self,"str_cont",module=this_module)
-            raise ValueError("%s 'value' argument must be a StringToken object: %s"\
-                % (cls_str,value))
-        if not isinstance(self._string,StringToken):
-            cls_str=assembler.eloc(self,"str_cont",module=this_module)
-            raise ValueError("%s '_string' attribute must be a StringToken object: %s" \
-                % (cls_str,self.string))
-        self._string.extend(value)
-
-    # Returns the StringToken object of the accumulated string.
-    def str_end(self):
-        if self._string is None:
-            return
-        if not isinstance(self._string,StringToken):
-            cls_str=assembler.eloc(self,"str_end",module=this_module)
-            raise ValueError("%s '_string' attribute must be a StringToken object: %s" \
-                % (cls_str,gs.string))
-        accum=self._string
-        self._string=None
-        return accum
-
-    # Adds lexical tokens to an expression
-    def token(self,tok):
-        self._lextoks.append(tok)
 
 class AsmFSMState(fsmparser.PState):
     def __init__(self,state,pfx="",exit=None):
@@ -283,18 +199,18 @@ class LexicalToken(lexer.Token):
 # This division operator implements the assembler specific behavior of returning
 # a value of zero when division by zero occurs.  Otherwise the pratt2.PFloorDiv
 # object handles the division operation.
-class PAsmDiv(pratt2.PFloorDiv):
-    def __init__(self,src=None):
-        super().__init__(src)
+#class PAsmDiv(pratt2.PFloorDiv):
+#    def __init__(self,src=None):
+#        super().__init__(src)
     # Infix arithmetic operation: left divided by right, ignoring remainder
-    def calc_led(self,parser,left,right,external=None,debug=False,trace=False):
-        if right==0:
-            return 0
-        return super().calc_led(parser,left,right,external=external,\
-            debug=debug,trace=trace)
+#    def calc_led(self,parser,left,right,external=None,debug=False,trace=False):
+#        if right==0:
+#            return 0
+#        return super().calc_led(parser,left,right,external=external,\
+#            debug=debug,trace=trace)
 
 # This pratt2.PLit subclass accesses the current location counter.  It is used
-# in expressions where the '*' symbol is being used to reference the currne location
+# in expressions where the '*' symbol is being used to reference the current location
 # (as opposed to being the multiplication operator).
 class PLitCur(AsmPrattToken):
     def __init__(self,token):
@@ -330,35 +246,6 @@ class PLitKAttr(AsmPrattToken):
             print("%s val: %s" % (cls_str,val))
         return val
 
-# This class allows a symbol to be used as a factor within an expression.
-# It retrieves from the symbol table the symbol's value and passes it to
-# the Pratt expression evaluator
-class PLitLabel(AsmPrattToken):
-    def __init__(self,token):
-        super().__init__(token)
-
-    def value(self,external=None,debug=False,trace=False):
-        # external is the Assembler object
-        token=self.src
-        label=token.extract()
-
-        # Note: this method will raise a KeyError excpetion if the symbol
-        # is not found.
-        try:
-            ste=external._getSTE_Ref(label,token.line)
-        except KeyError:
-            raise LableError(label,ltok=self.src,msg="undefined label") from None
-
-        value=ste.value()
-        if isinstance(value,(assembler.SectAddr,assembler.DDisp,assembler.AbsAddr)):
-            value.length=ste.attrGet("L")
-            if trace:
-                print("%s.convert() v=%s,length=%s" \
-                    % (self.__class__.__name__,value,value.length))
-        else:
-            if trace:
-                print("%s.value() v=%s" % (self.__class__.__name__,value))
-        return value
 
 # This pratt2.PLit object references to a symbolic symbol's N' attribute
 #class PLitNAttr(pratt2.PLit):
@@ -369,30 +256,6 @@ class PLitNAttr(AsmPrattToken):
     def value(self,external=None,debug=False,trace=False):
         return external.lcls._reference_symbol(self.symid).getAttr("N")
 
-# This pratt2 PLit object is used for all self defining terms.  It will evaluate
-# the term's value when instantiated as opposed to when referenced during evaluation.
-# This latter behavior is used by PLitTID and PLitSmart.  This eliminates the need
-# to do the convertion evertime the expression is evaluated in a macro invocation.
-#class PLitSD(pratt2.PLit):
-class PLitSD(AsmPrattToken):
-    def __init__(self,token):
-        super().__init__(token)
-        self.sdval=self.src.convert()   # Self-defining term's integer value
-    def value(self,external=None,debug=False,trace=False):
-        v=self.sdval
-        if trace:
-            print("%s.value() v=%s" % (self.__class__.__name__,v))
-        return v
-
-# This pratt2 PLit object is used to process strings encountered in logical
-# expressions.  The only context in which this occurs is in string comparisons of
-# the EBCDIC value of the string.
-class BPLitStr(AsmPrattToken):
-    def __init__(self,token):
-        super().__init__(token)
-        self._ebcdic=assembler.CPTRANS.a2e(self.src.string)
-    def value(self,external=None,debug=False,trace=False):
-        return self._ebcdic
 
 # This pratt2 PLit object is used for all symbolic variable references.  It handles
 # accessing the current macro symbol dictionary and accessing the symbol's subscript
@@ -478,37 +341,18 @@ class BPLitSym(PLitSym):
 # line starting with the position 0.  By updating the tokens, error reporting 
 # reflects the actual statement and character positions of the assembly.
 
-class AOperToken(LexicalToken):
-    # converts an arithmetic operator as a string into a pratt2 module Operator classs
-    ptokens={"+":pratt2.PAdd,
-             "-":pratt2.PSub,
-             "*":pratt2.PMul,
-             "/":PAsmDiv}
-    def __init__(self):
-        super().__init__()
-        # This flag used to trigger current location counter for * instead of multiply
-        # The parser must recognize this condition and set the iscur attribute to
-        # True.
-        self.iscur=False 
-    # Returns a pratt2 PToken object with myself as the sourc
-    def ptoken(self):
-        if self.iscur:
-            return PLitCur(self)
-        # Add logic for Current location PToken
-        cls=AOperToken.ptokens[self.extract()]
-        return cls(src=self)
-
-class AOperType(lexer.Type):
-    def __init__(self,debug=False):
-        super().__init__("AOPER","[\+\-\*\/]",tcls=AOperToken,debug=debug)
-
-AOPER=AOperType()
-
-class CommaType(lexer.Type):
-    def __init__(self,debug=False):
-        super().__init__("COMMA",",",tcls=LexicalToken,debug=debug)
-        
-COMMA=CommaType()
+AOPER=asmtokens.AOperType()
+COMMA=asmtokens.CommaType()
+EOO=asmtokens.EoOperType()
+EOS=lexer.EOSType()
+LABEL=asmtokens.LabelType()
+LPAREN=asmtokens.LParenType()
+RPAREN=asmtokens.RParenType()
+SDBIN=asmtokens.SDBinType()
+SDCHR=asmtokens.SDChrType()
+SDDEC=asmtokens.SDDecType()
+SDHEX=asmtokens.SDHexType()
+STRING=asmtokens.StringType()
 
 class CompToken(LexicalToken):
     ptokens={"EQ":pratt2.PEQ,
@@ -528,7 +372,7 @@ class CompToken(LexicalToken):
     def ptoken(self):
         cls=CompToken.ptokens[self.extract().upper()]
         return cls(src=self)
-        
+
 class CompType(lexer.Type):
     # Groups 0     1                  2
     pattern="(%s)(%s|%s|%s|%s|%s|%s)(%s)" \
@@ -538,16 +382,8 @@ class CompType(lexer.Type):
 
 COMPARE=CompType()
 
-class EoOperToken(LexicalToken):
-    def __init__(self):
-        super().__init__()
-
-class EoOperType(lexer.Type):
-    def __init__(self,debug=False):
-        super().__init__("EOO",spaces,tcls=EoOperToken,mo=True,debug=debug)
-
-EOO=EoOperType()
-EOS=lexer.EOSType()
+#EOO=asmtokens.EoOperType()
+#EOS=lexer.EOSType()
 
 class EqualToken(LexicalToken):
     def __init__(self):
@@ -571,17 +407,7 @@ class KeywordType(lexer.Type):
 
 KEYWORD=KeywordType()
 
-class LabelToken(LexicalToken):
-    def __init__(self):
-        super().__init__()
-    def ptoken(self):
-        return PLitLabel(self)
-
-class LabelType(lexer.Type):
-    def __init__(self,debug=False):
-        super().__init__("LABEL",label,tcls=LabelToken,mo=True,debug=debug)
-        
-LABEL=LabelType()
+#LABEL=asmtokens.LabelType()
 
 class LogGenToken(LexicalToken):
     bitwise_ops={"AND":pratt2.PBWAnd,
@@ -692,18 +518,7 @@ class LogNotType(LogGenNotType):
 
 LOGNOT=LogNotType()
 
-class LParenToken(LexicalToken):
-    def __init__(self):
-        super().__init__()
-    # Returns a pratt2 PToken object with myself as the source
-    def ptoken(self):
-        return pratt2.PLParen(src=self)
-
-class LParenType(lexer.Type):
-    def __init__(self,debug=False):
-        super().__init__("LPAREN","[\(]",tcls=LParenToken,debug=debug)
-
-LPAREN=LParenType()
+#LPAREN=asmtokens.LParenType()
 
 class NAttrToken(LexicalToken):
     def __init__(self):
@@ -765,93 +580,15 @@ class ParameterType(lexer.Type):
 
 PARM=ParameterType()
 
-class RParenToken(LexicalToken):
-    def __init__(self):
-        super().__init__()
-    # Returns a pratt2 PToken object with myself as the source
-    def ptoken(self):
-        return pratt2.PRParen(src=self)
+#RPAREN=asmtokens.RParenType()
 
-class RParenType(lexer.Type):
-    def __init__(self,debug=False):
-        super().__init__("RPAREN","[\)]",tcls=RParenToken,debug=debug)
+#SDBIN=asmtokens.SDBinType()
 
-RPAREN=RParenType()
+#SDCHR=asmtokens.SDChrType()
 
-class SDBinToken(LexicalToken):
-    def __init__(self):
-        super().__init__()
-    def convert(self):
-        # Convert BINARY self defining term to integer (ignoring leading B and quotes)
-        return int(self.string[2:-1],2)
-    # Returns a pratt2 PToken object (defined above) with myself as the source
-    def ptoken(self):
-        return PLitSD(self)
+#SDDEC=asmtokens.SDDecType()
 
-class SDBinType(lexer.Type):
-    def __init__(self,debug=False):
-        super().__init__("SDBIN","[Bb]'[01]+'",tcls=SDBinToken,debug=debug)
-
-SDBIN=SDBinType()
-
-class SDChrToken(LexicalToken):
-    ebcdic=["C","CE"]
-    def __init__(self):
-        super().__init__()
-    def convert(self):
-        groups=self.groups()
-        char=groups[1]
-        # Ignore the surrounding single quotes and pick the first char.  The second
-        # group, index 1, in the regular expression pattern used by SDChrType will be
-        # either: 'x' or ''''.  In either case the character following the first
-        # single quote is the one we are interested in using.
-        char=char[1]
-        desc=groups[0]
-        if desc.upper() in SDChrToken.ebcdic:
-            char=assembler.CPTRANS.a2e(char)
-        return ord(char)
-    # Returns a pratt2 PToken object (defined above) with myself as the source
-    def ptoken(self):
-        return PLitSD(self)
-
-class SDChrType(lexer.Type):
-    def __init__(self,debug=False):
-        #  Groups                 0            1
-        super().__init__("SDCHR","([Cc][EeAa]?)(''''|'[^']')",mo=True,\
-            tcls=SDChrToken,debug=debug)
-
-SDCHR=SDChrType()
-
-class SDDecToken(LexicalToken):
-    def __init__(self):
-        super().__init__()
-    def convert(self):
-        return int(self.string,10)
-    # Returns a pratt2 PToken object (defined above) with myself as the source
-    def ptoken(self):
-        return PLitSD(self)
-
-class SDDecType(lexer.Type):
-    def __init__(self,debug=False):
-        super().__init__("SDDEC","[0-9]+",tcls=SDDecToken,debug=debug)
-
-SDDEC=SDDecType()
-
-class SDHexToken(LexicalToken):
-    def __init__(self):
-        super().__init__()
-    def convert(self):
-        # Convert HEX self defining term to integer (ignoring leading H and quotes)
-        return int(self.string[2:-1],16)
-    # Returns a pratt2 PToken object (defined above) with myself as the source
-    def ptoken(self):
-        return PLitSD(self)
-
-class SDHexType(lexer.Type):
-    def __init__(self,debug=False):
-        super().__init__("SDHEX","[Xx]'[0-9a-fA-F]+'",tcls=SDHexToken,debug=debug)
-
-SDHEX=SDHexType()
+#SDHEX=asmtokens.SDHexType()
 
 class SeqToken(LexicalToken):
     def __init__(self):
@@ -863,105 +600,7 @@ class SeqType(lexer.Type):
 
 SEQSYM=SeqType()
 
-# This token is extended to allow recognition of two adjacent singe quotes to be
-# recognized as a single quote in the internal representation of a string.  This
-# token requires assistance by the parser to successfully handle this case.  The way
-# this works is not intuitive which is why this lengthy explanation is provided.
-# It is based upon the rule that valid strings will always contain an even number
-# of single quotes.
-# 
-# The regular expression of the StringType object recognizes this basic pattern: '.*'
-# This includes two single quotes with nothing between them or any set of characters
-# which are not single quotes.
-#
-# Applying this regular expression to a string that includes successive single quotes
-# results in multiple string tokens in succession being recognized.  In this example,
-# each recognized character sequence is identified by the beginning and ending
-# characters in the diagram, '<' and '>'.
-#
-#      'X''abc'''
-#      <-><---><>
-#       1   2   3  <---StringToken object number
-# 
-# The characters actually provided in each of the StingToken object's string attribute
-# is as follows, the content being surrounded here by double quotes:
-#
-#   1.  self.string contains  "X'"
-#   2.  self.string contains  "abc'"
-#   3.  self.string contains  "'"
-#
-# The overridden init() method performs the removal of the initial single quote,
-# allowing the final quote to end up becoming the single quote as expected when
-# additional characters are added to the string.
-#
-# The extend method() allows the next StringToken object to contribute to the 
-# content of the first StringToken object.  Here is the content of the first
-# StringToken object after extending it by the second and third objects:
-#
-#   after extending with object 2, object 1 contains  "X'abc'"
-#   after extending with object 3, object 1 contains  "X'abc''"
-#
-# It is the application of the original StringToken object's extend() method that
-# drives the need for parser assistance.
-#
-# The convert method() is used to access the internal representation of the
-# StringToken object and this results in this final result: "X'abc'".
-# This final result is the intent of the original coding.  Assigning such a string
-# to a SETC symbolic variable, allows it to be used in a macro SETA statement as
-# a self-defining term.
-#
-# Implementation Limitation: Until the asmparsers module is enhanced to utilize this 
-# StringToken object, single quotes will continue to prohibited in DC assembler
-# directive character constants.
-class StringToken(LexicalToken):
-    def __init__(self):
-        super().__init__()
-
-    def atoken(self):
-        cls_str=assembler.eloc(self,"atoken",module=this_module)
-        raise NotImplementedError("%s TID:%s must not be recognized in "
-            "arithemetic expressions" % (cls_str,self.tid))
-        
-    def btoken(self):
-        return BPLitStr(self)
-
-    def convert(self):
-        # Because self.string does not contain a leading single quote having it
-        # removed in the overridden init() method, it is only necessary to remove
-        # the trailing single quote.
-        return self.string[:-1]
-        
-    # This method allows for the logical extension of a string token, allowing two
-    # successive quotes to be converted into one in the final result.
-    def extend(self,ltok):
-        if not isinstance(ltok,StringToken):
-            cls_str=assembler.eloc(self,"extend",module=this_module)
-            raise ValueError("%s 'ltok' argument must be another StringToken "
-                "object: %s" % (cls_str,ltok))
-
-        self.string="%s%s" % (self.string,ltok.string)
-        self.end=ltok.end
-
-    # Override the lexer.token init() method to insert additional logic at that
-    # point.
-    def init(self,tid,string,beg,end,line=0,linepos=0,eols=0,ignore=False,mo=None):
-        super().init(tid,string,beg,end,\
-            line=line,linepos=linepos,eols=eols,ignore=ignore,mo=mo)
-        # remove the leading single quote of the string.  This forms the basis
-        # of the extend method()
-        self.string=self.string[1:]   # String not contains xxxxxx'
-
-    def ptoken(self):
-        cls_str=assembler.eloc(self,"atoken",module=this_module)
-        raise NotImplementedError("%s TID:%s must only be recognized in binary "
-            "expressions" % (cls_str,self.tid))
-
-class StringType(lexer.Type):
-    def __init__(self,debug=False):
-        pattern="'[^']*'"
-        super().__init__("STRING",pattern,tcls=StringToken,debug=debug)
-
-STRING=StringType()
+#STRING=asmtokens.StringType()
 
 # This object processes a regular expression match object created by one of the
 # SymRefType regular expression patterns.  This allows the match object to be
@@ -1106,7 +745,7 @@ class ArithEval(pratt2.PParser):
             raise pratt2.PParserError(ptok=ptok,msg="empty SETC symbol or string")
         try:
             sdscope=Parsers.sdterm.parse(string)
-        except AsmParserError as mpe:
+        except assembler.AsmParserError as mpe:
             # Convert to a pratt parser error 
             raise pratt2.PParserError(ptok=ptok,msg=mpe.msg) from None
         # Convert the SDDEC, SDHEX, SDCHR or SDBIN lexical token into an integer
@@ -1117,7 +756,9 @@ class ArithEval(pratt2.PParser):
         # Initialize my operator precedence values
         self.operator(pratt2.PBWNot,lbp=None,rbp=100,symbol="NOT",\
             isinfix=False,isunary=True)
-        self.operator(pratt2.PFloorDiv,lbp=50,rbp=None,symbol="/",\
+        #self.operator(pratt2.PFloorDiv,lbp=50,rbp=None,symbol="/",\
+        #    isinfix=True,isunary=False)
+        self.operator(asmtokens.PAsmDiv,lbp=50,rbp=None,symbol="/",\
             isinfix=True,isunary=False)
         self.operator(pratt2.PMul,lbp=50,rbp=None,symbol="*",\
             isinfix=True,isunary=False)
@@ -1376,7 +1017,7 @@ class FieldParser(AsmFSMParser):
         init.action([EOO,],self.ACT_NameNone)
         init.error(self.ACT_ExpectedName)
         self.state(init)
- 
+
         # Looking for spaces before the operation field
         op_spaces=fsmparser.PState("op_spaces")
         op_spaces.action([EOO,],self.ACT_Oper)
@@ -1483,7 +1124,7 @@ class AddressParser(AsmFSMParser):
         adjust.action([EOO,EOS],self.ACT_End)  # No adjustment, done  
         adjust.error(self.ACT_ExpectedAdjustment)
         self.state(adjust)
-        
+
         # State after an infix operator
         rh=fsmparser.PState("rh")
         rh.action([LPAREN,],self.ACT_LPAREN)                          #  rh
@@ -1572,7 +1213,8 @@ class AddressParser(AsmFSMParser):
         return "infix"
 
 # Shared between AddressParser, ArithParser, MHELPParser and SPACEParser
-class AddrScope(AsmFSMScope):
+#class AddrScope(AsmFSMScope):
+class AddrScope(asmtokens.AsmFSMScope):
     def __init__(self):
         super().__init__()
     def __str__(self):
@@ -1639,7 +1281,8 @@ class ArithParser(AsmFSMParser):
         return "init"
 
 # Shared between ArithParser, MHELPParser and SPACEParser
-class AScope(AsmFSMScope):
+#class AScope(AsmFSMScope):
+class AScope(asmtokens.AsmFSMScope):
     def __init__(self):
         super().__init__()
     def __str__(self):
@@ -1820,8 +1463,10 @@ class MNOTEParser(AsmFSMParser):
         gs=self.scope()
         gs.rparen(value)
         return "init"
-        
-class MNOTEScope(AsmFSMScope):
+
+
+#class MNOTEScope(AsmFSMScope):
+class MNOTEScope(asmtokens.AsmFSMScope):
     def __init__(self):
         super().__init__()
 
@@ -1883,7 +1528,8 @@ class BinaryParser(AsmFSMParser):
         gs.rparen(value)
         return "oper"
 
-class BScope(AsmFSMScope):
+#class BScope(AsmFSMScope):
+class BScope(asmtokens.AsmFSMScope):
     def __init__(self):
         super().__init__()
     def __str__(self):
@@ -1983,7 +1629,7 @@ class AGOParser(AsmFSMParser):
         return "isend"
 
     def ACT_MissingOperand(self,value,state,trace=False):
-        raise AsmParserError(value,msg="AGO required operand field missing")
+        raise assembler.AsmParserError(value,msg="AGO required operand field missing")
 
     def ACT_MoreSeq(self,value,state,trace=False):
         return "next"
@@ -2006,7 +1652,8 @@ class AGOParser(AsmFSMParser):
         return "comp"
 
 #class AGOScope(fsmparser.PScope):
-class AGOScope(AsmFSMScope):
+#class AGOScope(AsmFSMScope):
+class AGOScope(asmtokens.AsmFSMScope):
     def __init__(self):
         super().__init__()
     def init(self):
@@ -2100,7 +1747,8 @@ class AIFParser(AsmFSMParser):
         gs.seq=value
         return "end"
 
-class AIFScope(AsmFSMScope):
+#class AIFScope(AsmFSMScope):
+class AIFScope(asmtokens.AsmFSMScope):
     def __init__(self):
         super().__init__()
     def __str__(self):
@@ -2229,7 +1877,8 @@ class CharParser(AsmFSMParser):
     def ACT_Sub_String_Start(self,value,state,trace=False):
         return "subst"
 
-class CScope(AsmFSMScope):
+#class CScope(AsmFSMScope):
+class CScope(asmtokens.AsmFSMScope):
     def __init__(self):
         super().__init__()
 
@@ -2297,7 +1946,7 @@ class SymDefnParser(AsmFSMParser):
 
     def __ACT_Expected(self,expected,value):
         msg="expected %s, found %s" % (expected,value.string)
-        raise AsmParserError(value,msg=msg)
+        raise assembler.AsmParserError(value,msg=msg)
 
     def ACT_Done(self,value,state,trace=False):
         state.atend()
@@ -2309,7 +1958,7 @@ class SymDefnParser(AsmFSMParser):
         self.ACT_Expected("symbolic variable definition",value)
 
     def ACT_Error_NoDefs(self,value,state,trace=False):
-        raise AsmParserError(value,\
+        raise assembler.AsmParserError(value,\
             msg="symbolic variable definition(s) missing")
 
     def ACT_Next_Defn(self,value,state,trace=False):
@@ -2662,7 +2311,8 @@ class ParameterParser(AsmFSMParser):
         return "new_parm"   # Otherwise on to next parm
 
 #class ParameterScope(fsmparser.PScope):
-class ParameterScope(AsmFSMScope):
+#class ParameterScope(AsmFSMScope):
+class ParameterScope(asmtokens.AsmFSMScope):
     def __init__(self):
         super().__init__()  # Calls init() method
 
@@ -2777,7 +2427,7 @@ class PrototypeParser(AsmFSMParser):
         srmo=SymRefMO(value.mo)
         symid=srmo.symid
         if srmo.subscripted:
-            raise AsmParserError(value,\
+            raise assembler.AsmParserError(value,\
                 msg="protoype statement parameter may not be subscripted: %s" % symid)
         gs=self.scope()
         gs.pos_parm=symid
@@ -2962,6 +2612,7 @@ class Parsers(object):
     lexer=None    # Lexical analyzer used by the shared operand recognizer
     flexer=None   # Lexical analyzer used by the generic statement field recognizer
     plexer=None   # Lexical analyzer used by the macro parameter recognizer
+    #csla=None     # Context sensitive lexical analyzer (all defined contexts)
     # Established by __init_parsers() method
     sdterm=None   # Self-defining term recognizer used by ArithEval.sdterm()
     def __init__(self,asm):
@@ -2969,12 +2620,20 @@ class Parsers(object):
         self.parsers={}   # Dictionary of parsers by name (see init() method)
         self.lexers={}    # Dictionary of lexers (see __init_lexers() method)
 
+    def __fetch_parser(self,parser):
+        try:
+            return self.parsers[parser]
+        except KeyError:
+            cls_str=assembler.eloc(self,"__parse",module=this_module)
+            raise ValueError("%s undefined parser: '%s'" % (cls_str,parser))
+
     def __init_lexers(self,dm):
         self.lexers["lexer"]=Parsers.lexer=AsmLexer(dm).init()
         self.lexers["flexer"]=Parsers.flexer=FieldLexer(dm).init()
         self.lexers["plexer"]=Parsers.plexer=ParameterLexer(dm).init()
 
     def __init_parsers(self,dm):
+        # Single context FSM parsers
         self.parsers["addr"]=AddressParser(dm)
         self.parsers["fields"]=FieldParser(dm)
         self.parsers["mhelp"]=MHELPParser(dm)
@@ -2990,16 +2649,36 @@ class Parsers(object):
         self.parsers["setc"]=CharParser(dm)
         self.parsers["space"]=SPACEParser(dm)
         self.parsers["symd"]=SymDefnParser(dm)
+        
+        # Context sensitive FSM parsers
+        self.parsers["start"]=asmfsmcs.START_Parser(dm)
 
     def __parse(self,parser,string,scope=None):
-        try:
-            fsmp=self.parsers[parser]
-        except KeyError:
-            cls_str=assembler.eloc(self,"__parse",module=this_module)
-            raise ValueError("%s undefined parser: '%s'" % (cls_str,parser))
+        if isinstance(parser,str):
+            try:
+                fsmp=self.parsers[parser]
+            except KeyError:
+                cls_str=assembler.eloc(self,"__parse",module=this_module)
+                raise ValueError("%s undefined parser: '%s'" % (cls_str,parser))
+        else:
+            fsmp=parser
 
         # This may raise an AsmParserError that should be caught by the caller.
         return fsmp.parse(string,scope=scope)
+
+    def evaluate_expr(self,asm,stmt,expr,debug=False,trace=False):
+        try:
+            return expr.evaluate(external=asm,debug=debug,trace=False)
+        except pratt2.PParserError as pe:
+            # Convert PParserError into an AssemblerError
+            ltok=pe.ptok.src
+            msg="%s: '%s'" % (pe.msg,ltok.string)
+            raise assembler.AssemblerError(line=stmt.lineno,linepos=ltok.pos,\
+                msg=msg) from None
+            #raise MacroError(msg=msg) from None
+        except assembler.LabelError as le:
+            raise assembler.AssemblerError(line=stmt.lineno,linepos=le.ltok.linepos,\
+                msg=le.msg) from None
 
     def init(self):
         dm=self.asm.dm
@@ -3016,13 +2695,17 @@ class Parsers(object):
         # Note: for some unexplained reason, if left to default, tokens picks up
         # the list from the previous expr.  Force the argument to be empty
         expr=ArithExpr(desc,lineno,tokens=[])
-        if debug:
-            print("%s: %s expr before: %s" % (desc,lineno,expr))
+        if __debug__:
+            if debug:
+                print("%s: %s expr before: %s" % (desc,lineno,expr))
+
         for ltok in ltoks:
             ltok.update(lineno,operpos,source)
             expr.token(ltok.atoken())
-        if debug:
-            print("%s: %s expr after: %s" % (desc,lineno,expr))
+
+        if __debug__:
+            if debug:
+                print("%s: %s expr after: %s" % (desc,lineno,expr))
         return expr
 
     # Creates a asmfsmbp.BinaryExpr object from a list of lexical token objects
@@ -3042,6 +2725,14 @@ class Parsers(object):
         if debug:
             print("%s: %s expr after: %s" % (desc,lineno,expr))
         return expr
+
+    # Update a lexical token with its actual position in the statement.
+    # Users of the parser are encouraged to use this method rather than 
+    def ltoken_update(self,stmt,ltok):
+        lineno=stmt.lineno
+        source=stmt.source
+        operpos=stmt.fields.operpos
+        ltok.update(lineno,operpos,source)
 
     # Perform a parse using the supplied FSM-based parser on statement operands.
     # Method arguments:
@@ -3082,7 +2773,32 @@ class Parsers(object):
         try:
             # Returns a asmfsmbp.xxxScope object
             return self.__parse(parser,string,scope=scope)
-        except AsmParserError as ape:
+        except assembler.AsmParserError as ape:
+            raise assembler.AssemblerError(source=stmt.source,line=stmt.lineno,\
+                linepos=ape.token.linepos+flds.operpos+1,msg=ape.msg) from None
+
+    # This is equivalent to parse_operands() but always returns a scope object.
+    def parse_scope(self,stmt,parser,scope=None):
+        prsr=self.__fetch_parser(parser)
+        flds=stmt.fields
+        assert flds is not None,\
+            "%s Stmt.fields is required: %s" \
+                % (assembler.eloc(self,"parse",module=this_module),flds)
+        string=flds.operands
+
+        if scope is None:
+            scp=scope
+        else:
+            scp=prsr._init_scope()
+
+        if string is None:
+            return scp
+
+        # There are operands to parse...
+        try:
+            # Returns a likely subclassed asmfsmbp.AsmFSMScope object
+            return self.__parse(prsr,string,scope=scp)
+        except assembler.AsmParserError as ape:
             raise assembler.AssemblerError(source=stmt.source,line=stmt.lineno,\
                 linepos=ape.token.linepos+flds.operpos+1,msg=ape.msg) from None
 
@@ -3108,9 +2824,39 @@ class Parsers(object):
             return
         try:
             self.__parse(parser,first.content,scope=scope)
-        except AsmParserError as ape:
+        except assembler.AsmParserError as ape:
+            # Formation of the entire logical statement from continued lines has
+            # not happened yet.  Why?  Because we need to parse the first statement
+            # into its fields (which we do in this method) so that the operation
+            # can be identified.  This identification is performed in 
+            # the assembler.__operid() method (called after this method).  Based 
+            # upon the identification, it is then known whether a macro is being
+            # invoked and the alternative continuation convensions apply.  As of
+            # yet the alternative macro continuation conventions are not yet
+            # supported.
+            # 
+            # Because the error found here, without continuation conventions being
+            # applied the listing has no logical line and reports "None" for the
+            # statement.  To address this siutation we will now apply normal
+            # continuation conventions to create the logical statement used in the
+            # listing. 
+            #
+            # Note, if the asmlist module handled raw input lines this could go away.
+            # Until then we will do it here.
+            stmt.fields.normal(stmt.line)
             raise assembler.AssemblerError(source=first.source,line=stmt.lineno,\
                 linepos=ape.token.linepos+1,msg=ape.msg) from None
+
+    # Helper method for scopes that perform their own Pass 0 processing.  Its
+    # primary goal is to convert an AsmParserError into an AssemblerError
+    def Pass0(self,stmt,scope,debug=False):
+        try:
+            scope.Pass0(stmt,self,debug=debug)
+        except assmebler.AsmParserError as ape:
+            raise assembler.AssemblerError(source=stmt.source,line=stmt.lineno,\
+                 linepos=ape.token.linepos+1,msg=ape.msg) from None
+            # Note: the exception assumes that the lexical token in the exception
+            # has been updated to reflect actual positions within the statement.
 
 
 if __name__ == "__main__":
