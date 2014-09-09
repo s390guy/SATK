@@ -173,6 +173,15 @@ if __name__ == "__main__":
     #res.match("'abc'")
     #res.match("'abc''def'")
 
-    sdchr=retest("([Cc][EeAa]?)(''''|'[^']')")
-    sdchr.match("C'a'")
-    sdchr.match("C''''")
+    #sdchr=retest("([Cc][EeAa]?)(''''|'[^']')")
+    #sdchr.match("C'a'")
+    #sdchr.match("C''''")
+    
+    pattern="([%s]')?([%s][%s0-9]*)" % ("KkNn","A-Za-z","A-Za-z")
+    lattr=retest(pattern)
+    lattr.match("Alabel")
+    lattr.match("K'Alabel")
+    lattr.match("N'Alable")
+    lattr.match("A'Alable")
+    lattr.match("K'")
+    

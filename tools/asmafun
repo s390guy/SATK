@@ -76,9 +76,6 @@ asma_env()
                 *) echo "invalid addr option value: ${2}" ; return 1 ;;
             esac
             ;;
-        #"arch")
-        #    asma_arch=" --arch=${2}"
-        #    ;;
         "ccw")
             case ${2} in
                 "0")  asma_ccw=" -w 0" ;;

@@ -181,8 +181,8 @@ class AsmStats(object):
         try:
             return self.timers[tname]
         except KeyError:
-            cls_str=eloc(self,method_name)
-            raise ValueError("%s %s timer does not exist" % (cls_str,tname))
+            raise ValueError("%s %s timer does not exist" \
+                % (eloc(self,method_name),tname))
             
     # Returns whether a timer has been created
     def available(self,tname):
@@ -201,8 +201,8 @@ class AsmStats(object):
     def proc_timer(self,tname):
         try:
             timer=self.timers[tname]
-            cls_str=eloc(self,"proc_timer")
-            raise ValueError("%s timer already created: %s" % (cls_str,timer))
+            raise ValueError("%s timer already created: %s" \
+                % (eloc(self,"proc_timer"),timer))
         except KeyError:
             self.timers[tname]=AsmProcTimer(tname)
 
@@ -251,8 +251,8 @@ class AsmStats(object):
         if not timer.started():
             return None
         if not timer.stopped():
-            cls_str=eloc(self,"report_time")
-            print("%s WARNING: stopping timer for reporting: %s" % (cls_str,tname))
+            print("%s WARNING: stopping timer for reporting: %s" \
+                % (eloc(self,"report_time"),tname))
             timer.stop()
         return timer.elapsed()
 
@@ -336,26 +336,24 @@ class AsmTimer(object):
     # Return the current time.  The subclass controls how the time is acquired and the
     # type of time being monitored.
     def _get_time(self):
-        cls_str=eloc(self,"__get_time")
-        raise NotImplementedError("%s subclass must implement _get_time() method" \
-            % cls_str)
+        raise NotImplementedError("%s subclass %s must implement _get_time() method" \
+            % (eloc(self,"_get_time"),self.__class__.__name__))
 
     # Return the time elapsed time is fractional seconds
     def elapsed(self):
-        if self.begin is None:
-            cls_str=eloc(self,"elapsed")
-            raise ValueError("%s %s timer has not been started" % (cls_str,self.name))
-        if self.end is None:
-            cls_str=eloc(self,"elapsed")
-            raise ValueError("%s %s timer is still running" % (cls_str,self.name))
+        assert self.begin is not None,\
+            "%s %s timer has not been started" % (eloc(self,"elapsed"),self.name)
+        assert self.end   is not None,\
+            "%s %s timer is still running" % (eloc(self,"elapsed"),self.name)
+
         return self.end-self.begin
 
     # Set the timer's start time from an external time source, causing timer to be
     # in the running state.
     def set_start(self,time):
-        if self.running():
-            cls_str=eloc(self,"set_start")
-            raise ValueError("%s %s timer is already running" % (cls_str,self.name))
+        assert not self.running(),\
+            "%s %s timer is already running" % (eloc(self,"set_start"),self.name)
+
         self.begin=time
 
     # Set the timer's end time from an external time source, causing the running
@@ -363,22 +361,20 @@ class AsmTimer(object):
     # Method argument:
     #   time   A time value of the correct time for the timer
     def set_stop(self,time):
-        if not self.running():
-            cls_str=eloc(self,"set_start")
-            raise ValueError("%s %s timer is not running" % (cls_str,self.name))
-        if time<self.begin:
-            cls_str=eloc(self,"set_start")
-            raise ValueError("%s %s 'time' argument must be less than start "
-                "time (%s): %s" % (cls_str,self.name,self.begin,time))
+        assert self.running(),\
+            "%s %s timer is not running" % (eloc(self,"set_start"),self.name)
+        assert time>=self.begin,\
+            "%s %s 'time' argument must be less than start time (%s): %s" \
+                % (eloc(self,"set_start"),self.name,self.begin,time)
+
         self.end=time
 
     # Start the timer
     def start(self):
-        begin=self._get_time()
-        if self.started():
-            cls_str=eloc(self,"start")
-            raise ValueError("%s %s timer already started" % (cls_str,self.name))
-        self.begin=begin
+        assert not self.started(),\
+            "%s %s timer already started" % (eloc(self,"start"),self.name)
+
+        self.begin=self._get_time()
 
     # Returns True if timer is running
     def running(self):
@@ -390,9 +386,10 @@ class AsmTimer(object):
 
     # Stop the timer
     def stop(self):
-        if self.stopped():
-            cls_str=eloc(self,"stop")
-            raise ValueError("%s %s timer already stopped" % (cls_str,self.name))
+        assert not self.stopped(),\
+            "%s %s timer already stopped" % (cls_str,self.name) \
+                % (eloc(self,"stop"),self.name)
+
         self.end=self._get_time()
 
     # Returns True if the timer is stopped
@@ -495,6 +492,7 @@ import asmparsers   # Access all of my parsers of statement operands
 import expression   # Access to Pratt parser interface
 import insnbldr     # Access the machine instruction construction machinery
 import asmfsmbp     # Access the finite state machine parsing technology
+import asmfsmcs     # Access objects related to context sensitive parsing
 import msldb        # Access the Format class for type checking
 
 Stats.stop("import_w")
@@ -548,6 +546,7 @@ class AssemblerError(Exception):
                 % (eloc(self,"__init__"),line,msg)
 
         self.msg=msg         # Text associated with the error
+        self.linepos=linepos # Error location in the line
         if source is not None:
             source.linepos=linepos  # Position relative to start of the line
         self.source=source   # source statement source information generating the error
@@ -555,18 +554,19 @@ class AssemblerError(Exception):
         self.info=info       # If True, not an error, an informational message
 
         # This results in the following location strings
-        # [stmt] @[line:pos]-fileno  
-        # [stmt] [lineno:position]   source fileno is None
-        # [stmt] [lineno]-fileno     source linepos is None
-        # [stmt] [lineno]            source fileno and source linepos are None
-        # [stmt]                     source or its attributes are None
-        # or no position             line and source are all None
+        # [line] @[line:pos]-fileno  source is present
+        # [line:linepos]             line and position in line is availalbe
+        # [line]                     only line is available
+        # or no position             line and source are both None
         src=""
         string=""
-        if self.source is not None:
+        if self.source:
             src=" @%s" % self.source
-        if self.line is not None:
-            string="%s%s" % (self.line,src)
+        if self.line:
+            if self.linepos:
+                string="[%s:%s]" % (self.line,self.linepos)
+            else:
+                string="[%s]%s" % (self.line,src)
         if len(string)>0:
             string="%s " % string
         if len(self.msg)>0:
@@ -603,11 +603,10 @@ class AssemblerAbort(Exception):
 
 class LabelError(Exception):
     def __init__(self,label,ltok=None,msg=""):
-        self.msg=msg         # Text associated with the error
         self.ltok=ltok       # Lexical token where label occurs
         self.label=label     # Label for which error is detected
-        string="%s: %s" % (self.msg,self.label)
-        super().__init__(string)
+        self.msg="%s: %s" % (msg,self.label)
+        super().__init__(self.msg)
 
 
 #
@@ -1094,9 +1093,8 @@ class StorageExt(Storage):
             if typ == "L":
                 return max(0,self.length-1) 
 
-        cls_str="assembler.py - %s.field() -" % self.__class__.__name__
         raise ValueError("%s upsupported machine type requested: %s index=%s" \
-            % (cls_str,typ,self.isIndex))
+            % (eloc(self,"field"),typ,self.isIndex))
 
     def resolve(self,asm,stmt,opn,trace=False):
         if self.fields==0x100:
@@ -1152,9 +1150,8 @@ class StorageExt(Storage):
             self.laddr=disp
             self.__setNdxLen(self.values[1])
         else:
-            cls_str="assembler.py - %s.resolve() -" % self.__class__.__name__
             raise ValueError("%s unexpected self.fields: 0x%03X" \
-                % (cls_str,self.fields))
+                % (eloc(self,"resolve"),self.fields))
 
         # Make sure we are good to go before leaving
         if not isinstance(self.base,int) or not isinstance(self.disp,int):
@@ -1179,9 +1176,8 @@ class StorageExt(Storage):
             return "explicit base register must be an integer (error=%s): %s" \
                 % (hex(self.fields),self.values[2])
 
-        cls_str="assembler.py - %s.source_error() -"
         raise ValueError("%s unexpected expression value (error=%s): %s" \
-            % (cls_str,hex(self.fields),self.values))
+            % (eloc(self,"source_error"),hex(self.fields),self.values))
 
 #
 #  +--------------------------------+
@@ -1513,26 +1509,36 @@ class Stmt(object):
                     cls=asmpasses.operand_cls[x]
                     oprs.append(cls(name))
                     n+=1
-            if debug:
-                print("%s DEBUG %s.oprs: %s" % (cls_str,self.insn,oprs))
+
+            if __debug__:
+                if debug:
+                    print("%s DEBUG %s.oprs: %s" \
+                        % (eloc(self,"create_types"),self.insn,oprs))
+
             self.oprs=oprs
             return
 
         # Create machine instruction types
         # Note: self.insn is an MSLentry object
         oprs=self.insn.src_oprs(debug=debug)
-        if debug:
-            print("%s DEBUG %s format %s oprs: %s" \
-                % (cls_str,self.insn.mnemonic,self.insn_fmt.ID,oprs))
+
+        if __debug__:
+            if debug:
+                print("%s DEBUG %s format %s oprs: %s" % (eloc(self,"create_types"),\
+                    self.insn.mnemonic,self.insn_fmt.ID,oprs))
+
         lst=[]
         for op in oprs:
             cls=Stmt.types[op]
-            #isindex=op[-1]=="X"
-            if debug:
-                print("%s DEBUG creating Operand subclass: %s('%s')" \
-                    % (cls_str,cls.__name__,op))
+
+            if __debug__:
+                if debug:
+                    print("%s DEBUG creating Operand subclass: %s('%s')" \
+                        % (eloc(self,"create_types"),cls.__name__,op))
+
             opro=cls(op)
             lst.append(opro)
+
         self.oprs=lst
 
     # Return the location of the statement.  This is the value of the '*' symbol
@@ -1551,8 +1557,10 @@ class Stmt(object):
         cls_str="assembler.py - %s.evaluate_operands() -" % self.__class__.__name__
         for n in range(len(self.operands)):
             opr=self.operands[n]
-            if trace:
-                print("%s operand: %s" % (cls_str,opr))
+
+            if __debug__:
+                if trace:
+                    print("%s operand: %s" % (eloc(self,"evaluate_operands"),opr))
 
             try:
                 opr.evaluate(debug=debug,trace=trace)
@@ -1568,12 +1576,22 @@ class Stmt(object):
     # May raise an IndexError.  Used by parser callback routines.
     def get_operand(self,ndx):
         opr=self.oprs[ndx]
-        if self.trace:
-            cls_str="assembler.py - %s.get_operand() -" % self.__class__.__name__
-            print("%s returning to parser oprs[%s]: %s" % (cls_str,ndx,opr))
+
+        if __debug__:
+            if self.trace:
+                print("%s returning to parser oprs[%s]: %s" \
+                    % (eloc(self,"get_operand"),ndx,opr))
+
         return opr
 
     # Return the location following this statement
+    # Returns:
+    #   None            If either Stmt.content or content.loc are None
+    #   Address object  The address of the content plus its length
+    # This is needed to ensure that the current location counter is updated after
+    # a statement.  This is needed for directives that may reference the current
+    # location counter but themselves do not have any binary content that tracks
+    # the location counter.  This occurs particularly with the EQU directive.
     def next(self):
         content=self.content
         if content is None:
@@ -1618,10 +1636,9 @@ class Stmt(object):
                    msg ="%s requires %s-%s operands, found: %s" \
                        % (passes.name,min_num,max_num,present))
             else:
-                 cls_str="assembler.py - %s.validate() -" % self.__class__.__name__
                  raise ValueError("%s instruction %s AsmPasses.operands_ok() " 
                      "returned unexpected problem error number: %s" \
-                     % (cls_str,passes.name,error))
+                     % (eloc(self,"validate"),passes.name,error))
 
         # Validate parsed expressions are valid for the Operand with which they are
         # associate.  All Parsed objects have a three element list (Parsed.exprs)
@@ -1637,9 +1654,9 @@ class Stmt(object):
         #   AssemblerError may be raised if an error is encountered
         for n in range(len(self.parsed)):
             obj=self.parsed[n]
-            if isinstance(obj,asmparsers.DCDS):
-                self.operands.append(obj)
-                continue
+            #if isinstance(obj,asmparsers.DCDS):
+            #    self.operands.append(obj)
+            #    continue
             # Must be a Parsed object
             obj.validate_operand(self.lineno,n+1,trace=self.trace)
             # Safe to add to list of actual operands found
@@ -2053,7 +2070,7 @@ class Assembler(object):
 
         # Statement classifier regular expressions and other RE users. 
         # See __init_res() and related _spp methods
-        self.sqtre=None       # Recognizes a single quoted string (TITLE, COPY)
+        self.sqtre=None       # Recognizes a single quoted string (COPY)
         self.__init_res()     # Create regular expressions for __classifier() method
 
         # Statement operand parsers. See __init_parsers() method
@@ -2103,8 +2120,9 @@ class Assembler(object):
         self.lineno=1         # Next statement number for source listing
         self.stmts=[]         # List of parsed Stmt instances
         self.cur_stmt=None    # In numbered pass processing, current Stmt instance
+        self.cur_pass=0       # Current Pass
 
-        # In pass processing, * location after previous stmt.
+        # Current Location Counter - value of an asterisk in address expression
         self.cur_loc=LocationCounter()
 
         # These attributes are constructed and manipulated during the various 
@@ -2214,7 +2232,6 @@ class Assembler(object):
     # This method classifies a statement and updates an instance of Stmt
     def __classifier(self,s,debug=False):
         # debug is controlled by debug option 'stmt'
-        #print("__classifier: [%s]" % s.lineno)
         
         # This uses the StmtFields object to parse the statement fields
         s.fields=fields=StmtFields()
@@ -2226,7 +2243,6 @@ class Assembler(object):
     # This creates a single string of operands (in the StmtOperands object) for
     # parsing or special processing
     def __continuation(self,s,debug=False):
-        #print("__continuation: [%s]" % s.lineno)
         fields=s.fields
         try:
             fields.normal(s.line)
@@ -2238,7 +2254,6 @@ class Assembler(object):
     # Define how directives are processed in each pass
     def __define_dir(self,iset,insn,spp=None,parser=None,pass1=None,pass2=None,\
                      optional=True,min=None,max=None,cls=[],debug=False):
-        cls_str="assembler.py - %s.__define_dir() -" % self.__class__.__name__
         if parser is None:
             parsr=None
         else:
@@ -2246,7 +2261,8 @@ class Assembler(object):
                 parsr=self.parsers[parser]
             except KeyError:
                 raise ValueError("%s unrecognized parser for insn '%s': '%s'" \
-                    % (cls_str,insn.mnemonic,parser))
+                    % (eloc(self,"__define_dir"),insn.mnemonic,parser))
+
         dr=AsmPasses(insn,spp=spp,parser=parsr,pass1=pass1,pass2=pass2,\
             optional=optional,min=min,max=max,cls=cls)
         iset[dr.name]=dr
@@ -2303,23 +2319,9 @@ class Assembler(object):
             parser.grammar()
             print("")
 
-        parser=asmparsers.DCParser(self.dm,asm=self)    
-        self.parsers["dc"]=parser
-        if gdebug:
-            print("Grammar of 'dc' parser:")
-            parser.grammar()
-            print("")
-
-        parser=asmparsers.DSParser(self.dm,asm=self)
-        self.parsers["ds"]=parser
-        if gdebug:
-            print("Grammar of 'ds' parser:")
-            parser.grammar()
-            print("")
-        
         # These lexical analyzers are assigned to Assembler class attributes.
         Assembler.lexer=asmfsmbp.AsmLexer(self.dm).init()
-        
+
         # These syntactical analyzers are assigned to Assembler class attributes,
         # and are not part of the Assembler object's parsers attribute dictionary.
         self.fsmp=asmfsmbp.Parsers(self).init()
@@ -2347,11 +2349,12 @@ class Assembler(object):
     def __init_res(self,debug=False):
         # debug is controlled by debug option 'stmt'
 
-        # Recognizes a single quoted string in directives (TITLE and COPY)
+        # Recognizes a single quoted string in directives (COPY only)
         p=r"'[^']*'"
         self.sqtre=re.compile(p)
-        if debug:
-            print("sqtre pattern: '%s'" % self.titre.pattern)
+        if __debug__:
+            if debug:
+                print("sqtre pattern: '%s'" % self.titre.pattern)
 
     # This method initializes among other things, the methods used in each pass
     # for each directive or machine instruction.  The following table summarizes
@@ -2363,8 +2366,8 @@ class Assembler(object):
     #    CCW1      "common"     _ccw1_pass1    _ccw1_pass2
     #    COPY      _spp_copy        --             --
     #    CSECT     "common"     _csect_pass1       --
-    #    DC        "dc"         _dcds_pass1    _dc_pass2
-    #    DS        "ds"         _dcds_pass1        --
+    #    DC        _spp_dcds    _dcds_pass1    _dc_pass2
+    #    DS        _spp_dcds    _dcds_pass1        --
     #    DSECT     "common"     _dsect_pass1       --
     #    END       _spp_end     _end_pass1     _end_pass2
     #    ENTRY     "common"     _entry_pass1   _entry_pass2
@@ -2384,7 +2387,7 @@ class Assembler(object):
     #    PSWE390   "common"     _pswbi_pass1   _pswbi_pass2
     #    PSWZ      "common"     _pswz_pass1    _pswz_pass2
     #    REGION    "common"     _region_pass1  _region_pass2
-    #    START     "common"     _start_pass1   _start_pass2
+    #    START     _spp_start   _start_pass1   _start_pass2
     #    TITLE     _spp_title       --             --
     #    USING     "common"     _using_pass1   _using_pass2
     #    XMODE     _spp_xmode       --             --
@@ -2431,12 +2434,11 @@ class Assembler(object):
             min=0,max=0)
 
 
-        # DC - Define Constant
+        # DC - Define Constant (Extended)
         #
         # [label] DC   desc'values',...
-        self.__define_dir(dset,"DC",parser="dc",\
-            pass1=self._dcds_pass1,pass2=self._dc_pass2,\
-            min=1,max=None)
+        self.__define_dir(dset,"DC",spp=self._spp_dcds,\
+            pass1=self._dcds_pass1,pass2=self._dc_pass2,optional=False)
 
 
         # DROP - Remove a previous base register assignment
@@ -2448,11 +2450,11 @@ class Assembler(object):
             min=1,max=16,cls=drop_cls)
 
 
-        # DS - Define Storage
+        # DS - Define Constant
         #
-        # [label] DS   desc,...
-        self.__define_dir(dset,"DS",parser="ds",pass1=self._dcds_pass1,\
-            min=1,max=None)
+        # [label] DS   desc'values',...
+        self.__define_dir(dset,"DS",spp=self._spp_dcds,\
+            pass1=self._dcds_pass1,optional=False)
 
 
         # DSECT - start of continue a dummy section
@@ -2875,17 +2877,15 @@ class Assembler(object):
             try:
                 self.__xmode_setting("CCW",ccw,Assembler.ccw_xmode)
             except KeyError:
-                cls_str=assembler.eloc(self,"__init_xmode")
                 raise ValueError("%s 'ccw' xmode argument invalid: %s" \
-                    % (cls_str,ccw)) from None
+                    % (eloc(self,"__init_xmode"),ccw)) from None
 
         if psw is not None:  # External override provided
             try:
                 self.__xmode_setting("PSW",psw,Assembler.psw_xmode)
             except KeyError:
-                cls_str=assembler.eloc(self,"__init_xmode")
                 raise ValueError("%s 'psw' xmode argument invalid: %s" \
-                    % (cls_str,psw)) from None
+                    % (eloc(self,"__init_xmode"),psw)) from None
 
 
     # Returns True if a given STE subclass or name is defined in the symbol table,
@@ -2960,7 +2960,7 @@ class Assembler(object):
 
         if asmpasses is None:
             stmt.error=True   # Mark this statement to avoid future processing
-            #print(stmt.fields)
+
             # See comment in asmfsmbp.Parsers.parse_statement() method's handling
             # of the assembler.AsmParserError exception for why we are doing this
             # here.
@@ -3067,15 +3067,11 @@ class Assembler(object):
             print(string)
         return stmt
 
-    #def __parsefsm(self,stmt,parser,required=False):
-    #    fsmp=self.fsmp
-    #    scope=fsmp.parse_operands(stmt,"start",required=required
-
     def __pre_process(self,s,debug=False):
-        cls_str="assembler.py - %s.__pre_process() -" % self.__class__.__name__
-        if not isinstance(s,Stmt):
-            raise ValueError("%s 's' argument must be an instance of Stmt: %s" \
-                % (cls_str,s))
+        cls_str=eloc(self,"__pre_process")
+        assert isinstance(s,Stmt),\
+            "%s 's' argument must be an instance of Stmt: %s" \
+                % (cls_str,s)
 
         sdebug=debug
         fail=self.fail
@@ -3113,13 +3109,15 @@ class Assembler(object):
             return
 
         if s.ignore:
-            if sdebug:
-                print("%s DEBUG: empty line: %s\n    %s" \
-                    % (cls_str,s.lineno,s.stmt))
+            if __debug__:
+                if sdebug:
+                    print("%s DEBUG: empty line: %s\n    %s" \
+                        % (cls_str,s.lineno,s.stmt))
             return
 
-        if sdebug:
-            print("%s DEBUG: classified statement\n    %s" % (cls_str,s))
+        if __debug__:
+            if sdebug:
+                print("%s DEBUG: classified statement\n    %s" % (cls_str,s))
 
         # Identifies the operation in the operation field and updatas Stmt attributes
         # for further processing of the statement
@@ -3190,6 +3188,31 @@ class Assembler(object):
         else:
             self.xmode[mode]=v
 
+    # Semi-private method intended to provide information about an internal error
+    # while processing a line during Pass 0.
+    # Returns: an information string
+    def _error_pass0(self):
+        lines=self.img.source
+        if len(lines):
+            last=lines[-1]
+            if isinstance(last,asminput.Line):
+                last=last.text
+            return "Pass 0 INTERNAL ERROR WHILE PROCESSING THIS OR NEXT INPUT " \
+                "LINE\n    %s" % last
+        return "Pass 0 INTERNAL ERROR WHILE PROCESSING FIRST INPUT LINE"
+
+    # Semi-private method intended to provide information about an internal error
+    # while processing a statement in Pass 1 or 2.
+    # Returns: an information string
+    def _error_passn(self):
+        if self.cur_stmt:
+            line=self.cur_stmt.line
+            line="[%s] %s" % (self.cur_stmt.lineno,line.text)
+            return "Pass %s INTERNAL ERROR WHILE PROCESSING THIS STATEMENT\n    %s" \
+                % (self.cur_pass,line)
+        return "Pass %s INTERNAL ERROR LIKELY DURING PRE- OR POST-PASS PROCESSING" \
+            % self.cur_pass
+
     # Generic routine for handling comma separate operands in pre-processed statements
     def __spp_operands(self,stmt,debug=False):
         # Extract the operand field from the statement
@@ -3205,7 +3228,6 @@ class Assembler(object):
             operands=[operands,]
         return operands
 
-
     # Special pre-processing for COPY directive
     def _spp_copy(self,stmt,debug=False):
         operfld=stmt.rem
@@ -3216,6 +3238,17 @@ class Assembler(object):
         fname=data[1:-1]   # remove single quotes "include file name"
         self.LB.newFile(fname,stmtno=stmt.lineno)
         stmt.ignore=True        
+
+
+    # Special pre-processing for DS/DC directives
+    def _spp_dcds(self,stmt,debug=False):
+        fsmp=self.fsmp
+        # Either of these two methods may raise an AssemblerError
+        # Create asmfsmcs.DCDS_Scope by parser
+        scope=fsmp.parse_scope(stmt,"dcds",required=True)
+        # Use scope to complete Pass 0
+        scope.Pass0(stmt,fsmp,debug=debug)
+        stmt.gscope=scope
 
 
     # Special pre-processing for EJECT directive
@@ -3339,6 +3372,7 @@ class Assembler(object):
                         % (ndx+1,original))
         stmt.ignore=True          # No more processing for a PRINT directive
 
+
     # Special pre-processsor for SPACE directive
     def _spp_space(self,stmt,debug=False):
         fsmp=self.fsmp
@@ -3354,27 +3388,28 @@ class Assembler(object):
         stmt.prdir=True           # This statement requires processing during listing
         stmt.ignore=True          # No more processing needed by assembler passes
 
+
     # Special pre-processor for START directive
     def _spp_start(self,stmt,debug=False):
         fsmp=self.fsmp
         # Either of these two methods may raise an AssemblerError
         scope=fsmp.parse_scope(stmt,"start")
-        #print(scope.expr_list)
-        #print(scope.region_tok)
         scope.Pass0(stmt,fsmp,debug=debug)
 
         stmt.gscope=scope
+
 
     # Special pre-processing for TITLE directive
     def _spp_title(self,stmt,debug=False):
         stmt.prdir=True           # This statement requires processing during listing
         stmt.ignore=True          # No more processing needed by assembler passes
         operfld=stmt.rem
-        mo=self.sqtre.match(operfld)
-        if mo is None:
-            return
-        data=operfld[mo.pos:mo.endpos]
-        stmt.plist=data[1:-1]     # New title in listing
+        scope=self.fsmp.parse_operands(stmt,"title",required=True)
+        token=scope.str_end()     # asmtokens.StringToken object
+        # Extract the string, double quotes handles by the token
+        data=token.convert()
+        # Handle double ampersands here
+        stmt.plist=data.replace("&&","&")    # New title in listing
 
 
     # Special pre-processing for XMODE directive
@@ -3445,6 +3480,7 @@ class Assembler(object):
         for dc in self.dcs:
             dc.content.insert(trace=trace)
 
+
     #
     # METHODS USED BY STATEMENT PROCESSING METHODS
     #
@@ -3475,6 +3511,7 @@ class Assembler(object):
 
         self.cur_reg=section.container
         self.cur_sec=section
+        self.cur_loc.establish(section.current())
 
         if __debug__:
             if debug:
@@ -3488,10 +3525,10 @@ class Assembler(object):
     # Returns the new Section instance to the caller.    
     def __csect_new(self,line,csect_name,debug=False):
         csect=Section(csect_name)
+
         if __debug__:
             if debug:
-                cls_str=eloc(self,"__csect_new()")
-                print("%s Created new: %s" % (cls_str,csect))
+                print("%s Created new: %s" % (eloc(self,"__csect_new"),csect))
 
         self.__check_cur_reg(debug=debug)
         self.cur_reg.append(csect)
@@ -3499,14 +3536,15 @@ class Assembler(object):
         if __debug__:
             if debug:
                 print("%s added %s to current region: '%s'" \
-                    % (cls_str,csect.name,self.cur_reg.name))
+                    % (eloc(self,"__csect_new"),csect.name,self.cur_reg.name))
 
         symbol=SymbolContent(csect)
         self.__symbol_define(symbol,line)
 
         if __debug__:
             if debug:
-                print("%s CSECT added to symbol table: '%s'" % (cls_str,csect_name))
+                print("%s CSECT added to symbol table: '%s'" \
+                    % (eloc(self,"__csect_new"),csect_name))
 
         return csect
 
@@ -3535,20 +3573,20 @@ class Assembler(object):
     # Create an unnamed control section and regiser it with the active region
     def __csect_unname(self,debug=False):
         section=Section("")
-        
+
         if __debug__:
             if debug:
-                cls_str=eloc(self,"__csect_unname")
-                print("%s Created new: %s" % (cls_str,section))
-                    
+                print("%s Created new: %s" \
+                    % (eloc(self,"__csect_unname"),section))
+
         self.__check_cur_reg(debug=debug)
         self.cur_reg.append(section)
 
         if __debug__:
             if debug:
                 print("%s added %s to current region: '%s'" \
-                    % (cls_str,section.name,self.cur_reg.name))
-                
+                    % (eloc(self,"__csect_unname"),section.name,self.cur_reg.name))
+
         return section
 
     # Tests whether the unnamed control section can be created.
@@ -3557,12 +3595,12 @@ class Assembler(object):
             raise AssemblerError(line=stmt.lineno,msg="unnamed CSECT already exists")
 
     def __dsect_activate(self,section,debug=False):
-        cls_str="assembler.py - %s.__dsect_activate() -" % self.__class__.__name__
         assert isinstance(section,Section) and section.isdummy(),\
             "%s 'section' argument must be a DSECT: %s" \
                 % (eloc(self,"__dsect_activate"),section)
 
         self.cur_sec=section
+
         if __debug__:
             if debug:
                 cls_str=eloc(self,"__dsect_activate")
@@ -3574,10 +3612,10 @@ class Assembler(object):
     # Returns the new Section instance to the caller.    
     def __dsect_new(self,line,dsect_name,debug=False):
         dsect=Section(dsect_name,dummy=True)
+
         if __debug__:
             if debug:
-                cls_str=eloc(self,"__dsect_new")
-                print("%s Created new: %s" % (cls_str,dsect))
+                print("%s Created new: %s" % (eloc(self,"__dsect_new"),dsect))
 
         self.dsects.append(dsect)
         symbol=SymbolContent(dsect)
@@ -3585,7 +3623,8 @@ class Assembler(object):
 
         if __debug__:
             if debug:
-                print("%s DSECT added to symbol table: '%s'" % (cls_str,dsect_name))
+                print("%s DSECT added to symbol table: '%s'" \
+                    % (eloc(self,"__dsect_new"),dsect_name))
 
         return dsect
 
@@ -3607,15 +3646,28 @@ class Assembler(object):
         symbol.attrSet("I",0)
         self.__symbol_define(symbol,0)
 
-    # Defines a label based upon the supplied statement's location
-    def __label_create(self,stmt):
+    # Defines a label based upon the supplied statement's location.
+    # Label's location is based upon the Stmt.content object's location
+    # Method Arguments:
+    #   stmt    The Stmt object whose label is being defined.  The Stmt.content's
+    #           Binary object defines the label's value.
+    #   length  The length assigned to the label.  If None is specified or ommitted,
+    #           the length of the of the Stmt.content Binary object becomes the
+    #           label's assigned length.  Defaults to None.
+    def __label_create(self,stmt,length=None):
         if stmt.label is None:
             return
+
         bin=stmt.content
-        sym=Symbol(stmt.label,bin.loc,bin._length)
+        if length is None:
+            leng=bin._length
+        else:
+            leng=length
+
+        sym=Symbol(stmt.label,bin.loc,leng)
         self.__symbol_define(sym,line=stmt.lineno)
 
-    # Create the binary content for a new statement.  This method is used in Pass 1
+    # Pass 1 - Create the binary content for a new statement.
     #
     # Method arguments:
     #   stmt       The Stmt instance for which the new content is being created
@@ -3630,6 +3682,8 @@ class Assembler(object):
         self.__check_cur_sec(debug=debug)
         # Assign to it its '*' value
         self.cur_sec.assign(bin)
+        # Current location counter is start of binary with a section relative address
+        self.cur_loc.assign(bin)
         # If a label is present, assign it this value and length
         self.__label_create(stmt)
 
@@ -3639,26 +3693,26 @@ class Assembler(object):
         assert isinstance(region,Region),\
             "%s 'region' argument must be an instance of Region: %s"\
                 % (eloc(self,"__region_activate"),region)
-        #if not isinstance(region,Region):
-        #    raise ValueError("%s 'region' argument must be an instance of Region: %s"\
-        #        % (cls_str,region))
+
         if __debug__:
             if debug:
-                cls_str=eloc(self,"__region_activate")
-                print("%s region activation started" % cls_str)
+                print("%s region activation started" % eloc(self,"__region_activate"))
 
         self.cur_reg=region
         self.cur_sec=region.cur_sec
+        if self.cur_sec:
+            self.cur_loc.establish(self.cur_sec.current())
 
         if __debug__:
             if debug:
                 print("%s current active region is:  '%s'" 
-                    % (cls_str,self.cur_reg.name))
+                    % (eloc(self,"__region_activate"),self.cur_reg.name))
                 if self.cur_sec is None:
-                    print("%s current active section is: None" % cls_str)
+                    print("%s current active section is: None" \
+                        % eloc(self,"__region_activate"))
                 else:
                     print("%s current active section is: '%s'" \
-                        % (cls_str,self.cur_sec.name))
+                        % (eloc(self,"__region_activate"),self.cur_sec.name))
 
     # Creates a new region, adds it to the region list and symbol table.
     # Returns the new Region instance to the caller.
@@ -3668,21 +3722,22 @@ class Assembler(object):
         region=Region(region_name,start)
         if __debug__:
             if debug:
-                cls_str=eloc(self,"__region_new")
-                print("%s Created new: %s" % (cls_str,region))
+                print("%s Created new: %s" % (eloc(self,"__region_new"),region))
 
         symbol=SymbolContent(region)
         self.__symbol_define(symbol,line)
 
         if __debug__:
             if debug:
-                print("%s region added to symbol table: '%s'" % (cls_str,region_name))
+                print("%s region added to symbol table: '%s'" \
+                    % (eloc(self,"__region_new"),region_name))
 
         self.imgwip.append(region)
 
         if __debug__:
             if debug:
-                print("%s regions in Img: %s" % (cls_str,len(self.imgwip.elements)))
+                print("%s regions in Img: %s" \
+                    % (eloc(self,"__region_new"),len(self.imgwip.elements)))
 
         return region
 
@@ -3703,9 +3758,11 @@ class Assembler(object):
         except NotImplementedError:  
             # This means the symbol value is not Content, so not a Region
             region=None
+
         if region is None:
             raise AssemblerError(line=stmt.lineno,\
                 msg="symbol is not a region: '%s'" % reg_name)
+
         # Symbol defines a region so return it without having raised any exceptions
         return region
 
@@ -3727,14 +3784,14 @@ class Assembler(object):
 
         if __debug__:
             if debug:
-                cls_str=eloc(self,"__region_unname")
-                print("%s Created new: %s" % (cls_str,region))
+                print("%s Created new: %s" % (eloc(self,"__region_unname"),region))
 
         self.imgwip.append(region)
 
         if __debug__:
             if debug:
-                print("%s regions in Img: %s" % (cls_str,len(self.imgwip.elements)))
+                print("%s regions in Img: %s" \
+                    % (eloc(self,"__region_unname"),len(self.imgwip.elements)))
 
         return region
 
@@ -3817,10 +3874,11 @@ class Assembler(object):
             raise AssemblerError(line=line,\
                 msg="symbol '%s' does not support attribute: '%s'" \
                     % (name,attr))
-        if value is None:
-            cls_str="assembler.py - %s._getAttr -" % self.__class__.__name__
-            raise ValueError("%s attribute of symbol '%s' not initialized: '%s'" \
-                % (cls_str,name,attr))
+
+        assert value is not None,\
+            "%s attribute of symbol '%s' not initialized: '%s'" \
+                % (eloc(self,"_getAttr"),name,attr)
+
         # Good attribute reference, so update STE with reference
         ste.reference(line)
         return value
@@ -4006,52 +4064,92 @@ class Assembler(object):
         addr2=addr1+max(len(csect)-1,0)
         stmt.laddr=[addr1,addr2]
 
+
     # DC - Define Constant
     # DS - Define Storage
     #
     # [label] DC   desc'values',...
     # [label] DS   desc,...
     def _dcds_pass1(self,stmt,trace=False):
-        cls_str="assembler.py - %s._ds_pass1() -" % self.__class__.__name__
-        otrace=self.__is_otrace("dc")
-        edebug=self.dm.isdebug("exp")
-        operands=stmt.parsed
-        area=Area()
+        edebug=otrace=False
+        if __debug__:
+            cls_str=eloc(self,"_dcds_pass1")
+            otrace=self.__is_otrace("dc")
+            edebug=self.dm.isdebug("exp")
+           
+        # Make sure we have an active current section before doing anything more
         self.__check_cur_sec(debug=otrace)
+
+        gscope=stmt.gscope
+
+        # Unroll operands into a series of objects.
+        gscope=stmt.gscope
+        gscope.Pass1(stmt,self,debug=edebug,trace=trace)
+        values=gscope.values
+
+        # If the statement truly has no operands, that is an error that should
+        # have been detected long before here.  This suggests a problem with
+        # the Pass0 and/or Pass1 processing in asmfsmcs.DCDS_Scope or
+        # asmfsmcs.DCDS_Operand objects.
+        assert len(values)>0,\
+            "%s [%s] DS/DS statement failed to produce values" \
+                % (eloc(self,"_dcds_pass1"),stmt.lineno)
+
+        if __debug__:
+            if otrace:
+                for item in values:
+                    print("%s - %r" % (item,item))
+
+        area=Area()
         cur_sec=self.cur_sec
-        for opr in stmt.parsed:
-            # opr is DCDS instance.  Use the Constant instances in DCDS.unrolled
-            if trace:
-                print("%s operand: %s" % (cls_str,opr))
-            for con in opr.unrolled:
-                bin=Binary(con.align,con.length)
-                cur_sec.assign(bin)
+
+        # Assemble each nominal value or storage allocation.
+        for value in values:
+            # value is either a asmfsmcs.DCDS_Operand or asmdcds.Nominal object.
+            if __debug__:
+                if trace:
+                    print("%s operand: %s" % (cls_str,opr))
+
+            # Note: both asmfsmcs.DCDS_Operand and asmdcds.Nominal support the
+            # align() and length() methods so that they can both be the basis
+            # of binary object.
+            if isinstance(value,asmfsmcs.DCDS_Operand):
+                bin=Binary(value.align(),0)
+            else:
+                bin=Binary(value.align(),value.length())
+            cur_sec.assign(bin)
+
+            if __debug__:
                 if trace:
                     print("%s - cur_sec %s _alloc=%s" \
                         % (cls_str,self.cur_sec,self.cur_sec._alloc))
-                area.append(bin)
-                con.content=bin
-                if trace:
-                    print("%s constant: %s" % (cls_str,con))
+
+            area.append(bin)
+            value.content=bin
+
         area.fini()
         # Note the binary images in the area object are also linked to the Section
         # object via its elements list.
 
         stmt.content=area
 
-        # Define the statement's label if present
-        self.__label_create(stmt)
-        #print("_dcds_pass1: [%s] content.loc=%s" % (stmt.lineno,stmt.content.loc))
+        # Define the statement's label, if present, using the length and location
+        # of the initial nominal value. (In this case the location of the initial
+        # nominal value is the same as the location of the Area object.)
+        self.__label_create(stmt,length=values[0].length())
 
     def _dc_pass2(self,stmt,trace=False):
         edebug=self.dm.isdebug("exp")
         etrace=self.dm.isdebug("tracexp") or trace or stmt.trace
-        parsed=stmt.parsed
-        for ondx in range(len(parsed)):
-            opr=parsed[ondx]
-            for con in opr.unrolled:
-                # Build and store image content in Binary
-                con.build(stmt,ondx,debug=edebug,trace=etrace)
+        
+        for n,value in enumerate(stmt.gscope.values):
+            # Build and store image content in Binary
+            value.build(stmt,self,n,debug=edebug,trace=etrace)
+
+        if __debug__:
+            if trace:
+                print(stmt.content.elements)
+
         self.dcs.append(stmt)  # remember to fill in my binary data for the listing
 
 
@@ -4071,9 +4169,10 @@ class Assembler(object):
         dtrace=trace or stmt.trace
         etrace=self.dm.isdebug("tracexp") or dtrace
         edebug=self.dm.isdebug("exp")
-        if dtrace:
-            cls_str="assembler.py - %s._drop_pass2() -" % self.__class__.__name__
-            print("%s %s operands: %s" % (cls_str,stmt.inst,stmt.operands))
+        if __debug__:
+            if dtrace:
+                print("%s %s operands: %s" \
+                    % (eloc(self,"_drop_pass2"),stmt.inst,stmt.operands))
 
         stmt.evaluate_operands(debug=edebug,trace=etrace)
         regs=[]
@@ -4082,14 +4181,19 @@ class Assembler(object):
                 print("%s register operand number: %s" % (cls_str,x))
             reg=stmt.operands[x].getValue()
             regs.append(reg)
-        if dtrace:
-            print("%s bases being dropped for registers: %s" % (cls_str,regs))
+            
+        if __debug__:
+            if dtrace:
+                print("%s bases being dropped for registers: %s" \
+                    % (eloc(self,"_drop_pass2"),regs))
 
         for r in regs:
             self.bases.drop(r,trace=dtrace)
 
-        if dtrace:
-            print("%s\n%s" % (cls_str,self.bases.print(indent="    ",string=True)))
+        if __debug__:
+            if dtrace:
+                print("%s\n%s" % (eloc(self,"_drop_pass2"),\
+                    self.bases.print(indent="    ",string=True)))
 
 
     # DSECT - start of continue a dummy section
@@ -4516,9 +4620,8 @@ class Assembler(object):
         try:
             pmask=Assembler.biprog[inst]
         except KeyError:
-            cls_str="assembler.py - %s._pswbi_pass2() -" % self.__class__.__name__
             raise ValueError("%s unrecognized instruction for bimodal prog field "
-                "mask: %s" % (cls_str,inst))
+                "mask: %s" % (eloc(self,"_pswbi_pass2"),inst))
 
         prog = prog & pmask        # Make sure any reserved bits are zero
         sys =  sys  & 0b01000111   # Make sure PSW bits 0 and 2-4 are zero
@@ -4596,10 +4699,11 @@ class Assembler(object):
         region_name=stmt.label  # Fetch the region name from the label field
 
         # the REGION must already be defined, we are continueing one already started
-        if rdebug:
-            cls_str="assemble.py - %s._region_pass1() -" % self.__class__.__name__
-            print("%s referencing region in symbol table: '%s'" \
-                % (cls_str,region_name))
+        if __debug__:
+            if rdebug:
+                print("%s referencing region in symbol table: '%s'" \
+                    % (eloc(self,"_region_pass1"),region_name))
+
         region=self.__region_ref(stmt,region_name)
         # If the region is not defined, an AssemblerError will have bailed us out
 
@@ -4661,6 +4765,7 @@ class Assembler(object):
         else:
             csect=self.__csect_unname()
             # The unnamed control section is now part of the current active region.
+
         # If there was no active region, a new unnamed region was automatically
         # created even if no operands defining a region were supplied.
 
@@ -4743,6 +4848,7 @@ class Assembler(object):
         fail=self.fail
 
         for pas in range(1,passes):
+            self.cur_pass=pas
 
         # START PASS PROCESSING
             paso=self.passes[pas]       # Get the Pass instance for this Pass
@@ -4789,6 +4895,8 @@ class Assembler(object):
                         print("%s pass %s:method=%s" % (cls_str,pas,name))
 
                     self.cur_stmt=s   # Make current statement referencable globally
+                    if pas==2:
+                        self.cur_loc.update(s.content)
                     if fail:
                         method(s,trace=pdebug)
                     else:
@@ -4798,8 +4906,8 @@ class Assembler(object):
                             cls_str="assembler.py - %s.%s() -" \
                                 % satkutil.method_name(method)
                             self.__ae_excp(ae,s,string=cls_str,debug=False)
-                    if pas==1:
-                        self.cur_loc.update(s)
+
+                    self.cur_loc.increment(s.content)
                     self.cur_stmt=None   # De-reference the current statement
             else:
                 if pdebug:
@@ -4873,28 +4981,30 @@ class Assembler(object):
         # Whichever the case, I don't need to do this again
         self.timers_started=True
 
-        cls_str="assembler.py - %s.statement() -" % self.__class__.__name__
-
         # Try to avoid recall if a big problem happened.
         if self.aborted:
             raise ValueError("%s ASMA has aborted - statements not accepted" \
-                % cls_str)
+                % eloc(self,"statement"))
         if self.assemble_called:
             self.__abort(msg="%s statement not accepted after assemble called")
+
+        self.cur_pass=0
 
         # Accept input.  With a LIFO stack, a string if submitted with a filename
         # will be seen for processing before the file input.
         if string is not None:
-            if not isinstance(string,str):
-                raise ValueError("%s 'string' argument if provided must be a "
-                    "string: %s" % (cls_str,string))
+            assert isinstance(string,str),\
+                "%s 'string' argument if provided must be a string: %s" \
+                    % (eloc(self,"statement"),string)
+
             self.LB.line(string)
 
         # Accept input...
         if filename is not None:
-            if not isinstance(filename,str):
-                raise ValueError("%s 'filename' argument if provided must be a "
-                    "string: %s" % (cls_str,filename))
+            assert isinstance(filename,str),\
+                "%s 'filename' argument if provided must be a string: %s" \
+                    % (eloc(self,"statement"),filename)
+
             self.LB.newFile(filename)
 
         sdebug=self.dm.isdebug("stmt")
@@ -4905,8 +5015,10 @@ class Assembler(object):
             while True:
                 try:
                     ln=self.LB.getline()
-                    if sdebug:
-                        print("%s: Processing line:\n    %s" % (cls_str,ln))
+                    if __debug__:
+                        if sdebug:
+                            print("%s: Processing line:\n    %s" \
+                                % (eloc(self,"statement"),ln))
                 except asmmacs.MacroError as me:
                     # An error was detected in a macro invocation.
                     # If we are failing immediately upon any detected error, do so now
@@ -5007,7 +5119,6 @@ class AsmPasses(object):
 
     # Returns the language processor global scope object after parsing the statement
     def do_parse(self,stmt,scope):
-        #print("AsmPasses.do_parse(): stmt.rem: %s" % stmt.rem)
         return self.parser.lang.analyze(stmt.rem,scope=scope,\
             recovery=False,lines=False,fail=False)
 
@@ -5023,22 +5134,21 @@ class AsmPasses(object):
     def operands_ok(self,number,debug=False):
         minimum=self.min_operands
         maximum=self.max_operands
-        #if self.name=="SSM":
-        #    print("%s min operands: %s" % (self.name,minimum))
-        #    print("%s max operands: %s" % (self.name,maximum))
-        #    print("%s actual operands: %s" % (self.name,number))
+
         # Case 1 - n or more required
         if maximum is None:
             if number<minimum:
                 return 1
             else:
                 return 0
+
         # Case 2 - n required
         if minimum==maximum:
             if number!=minimum:
                 return 2
             else:
                 return 0
+
         # Case 3 - m-n operands required
         if number<minimum or number>maximum:
             return 3
@@ -5280,39 +5390,32 @@ class Address(object):
 
     # Returns the intgeger value to be used in Base/Displacement calculation.
     def base(self):
-        cls_str=eloc(self,"base")
         raise NotImplementedError("%s subclass must implement base() method" \
-            % cls_str)
+            % eloc(self,"base"))
 
     def clone(self):
-        cls_str="assembler.py - %s.close() -" % self.__class__.__name__
         raise NotImplementedError("%s subclass must implement clone() method" \
-            % cls_str)
+            % eloc(self,"clone"))
 
     def description(self):
-        cls_str="assembler.py - %s.description() -" % self.__class__.__name__
         raise NotImplementedError("%s subclass must implement description() method" \
-            % cls_str)
+            % eloc(self,"description"))
 
     def isAbsolute(self):
-        cls_str="assembler.py - %s.isAbsolute() -" % self.__class__.__name__
         raise NotImplementedError("%s subclass must implement isAbsolute() method" \
-            % cls_str)
+            % eloc(self,"isAbsolute"))
 
     def isDummy(self):
-        cls_str="assembler.py - %s.isDummy() -" % self.__class__.__name__
         raise NotImplementedError("%s subclass must implement isDummy() method" \
-            % cls_str)
+            % eloc(self,"isAbsolute"))
 
     def isRelative(self):
-        cls_str="assembler.py - %s.isRelative() -" % self.__class__.__name__
         raise NotImplementedError("%s subclass must implement isRelative() method" \
-            % cls_str)
+            % eloc(self,"isRelative"))
 
     def lval(self):
-        cls_str="assembler.py - %s.lval() -" % self.__class__.__name__
         raise NotImplementedError("%s subclass must implement lval() method" \
-            % cls_str)
+            % eloc(self,"lval"))
 
 
 class DDisp(Address):
@@ -5321,16 +5424,16 @@ class DDisp(Address):
 
     def __add__(self,other,rsup=False):
         typo=self._type(other)    # The other objects type number
-                        # I'm a Dummy displacement
-        if typo==0:      #    Other is an integer
+                       # I'm a Dummy displacement
+        if typo==0:    #    Other is an integer
             new_rel=self._ck(\
                self.value+other,other,"+",self,rsup=rsup)
             return DDisp(new_rel,self.section,length=self.length)
-        elif typo==2:    #    Other is a relative address (treat me like int)
+        elif typo==2:  #    Other is a relative address (treat me like int)
             new_rel=self._ck(\
                 self.value+other.value,self,"+",other,rsup=rsup)
             return SectAddr(new_rel,other.section,other.length)
-        elif typo==3:    #    Other is an absolute address (treat me like int)
+        elif typo==3:  #    Other is an absolute address (treat me like int)
             new_addr=self._ck(\
                 self.value+other.address,self,"+",other,rsup=rsup)
             return AbsAddr(address=new_addr,length=other.length)
@@ -5340,11 +5443,11 @@ class DDisp(Address):
 
     def __sub__(self,other):
         typo=self._type(other)    # The other objects type number
-                        # I'm a Dummy displacement
-        if typo==0:     #    Other is an integer
+                       # I'm a Dummy displacement
+        if typo==0:    #    Other is an integer
             new_rel=self._ck(self.value-other,self,"-",other)
             return DDisp(new_rel,self.section)
-        elif typo==1: #    Other is a DSECT displacement
+        elif typo==1:  #    Other is a DSECT displacement
             if self.section!=other.section:
                 self._no_sup("-",other)
             return self.value-other.value
@@ -5385,7 +5488,7 @@ class AbsAddr(Address):
             new_addr=self._ck(\
                 self.address+other,self,"+",other,rsup=rsup)
             return AbsAddr(new_addr,length=self.length)
-        elif typo==1: #    other is a DSECT displacement
+        elif typo==1:  #    other is a DSECT displacement
                return AbsAddr(self.address+other.value,length=self.length)
         if rsup:
             self.__no_rsup("+",other)
@@ -5397,10 +5500,10 @@ class AbsAddr(Address):
         if typo==0:    #    Other is an integer
             new_addr=self._ck(self.address-other,self,"-",other)
             return AbsAddr(new_addr)
-        elif typo==1: #    Other is a DSECT displacement
+        elif typo==1:  #    Other is a DSECT displacement
             new_addr=self._ok(self.address-other.value,self,"-",other)
             return AbsAddr(new_addr)
-        elif typo==3: #    Other is an absolute address
+        elif typo==3:  #    Other is an absolute address
             return self.address-other.address
         self.__no_sup("-",other)
 
@@ -5458,9 +5561,6 @@ class SectAddr(AbsAddr):
         if typo==0:    #    Other is integer
             new_rel=self._ck(self.value-other,self,"-",other)
             return SectAddr(new_rel,self.section)
-        #if typo==1:    #    Other is a DSECT displacement
-        #    new_rel=self._ck(self.value-other.value,self,"-",other)
-        #    return SectAddr(new_rel,self.section)
         elif typo==2 or typo==1:   #    Other is a relative address (CSECT or DSECT)
             if self.section!=other.section:
                 self._no_sup("-",other)
@@ -5478,11 +5578,9 @@ class SectAddr(AbsAddr):
         return super().clone()
 
     def makeAbs(self):
-        #cls_str="assembler.py - %s.makeAbse() -" % self.__class__.__name__
         if self.typ!=2:
-            cls_str=eloc(self,"makeAbs")
             raise ValueError("%s relative (%s) already absolute: %s" \
-                % (cls_str,self._rel_str(),self._abs_str()))
+                % (eloc(self,"makeAbs"),self._rel_str(),self._abs_str()))
 
         section=self.section
         if section.isdummy():
@@ -5491,14 +5589,13 @@ class SectAddr(AbsAddr):
         else:
             sec_addr=self.section.value()
             if not sec_addr.isAbsolute():
-                cls_str=eloc(self,"makeAbs")
                 raise ValueError("%s section address is not absolute: %s" \
-                    % (cls_str,repr(sec_addr)))
+                    % (eloc(self,"makeAbs"),repr(sec_addr)))
             self.address=sec_addr.address+self.value
             self.typ=3
 
     def description(self):
-        if self.typ ==2:
+        if self.typ==2:
             return "CSECT-relative address"
         return "absolute address"
 
@@ -5535,23 +5632,14 @@ class Base(object):
         return a.__cmp__(b)
 
     def __init__(self,reg,addr,direct=None):
-        if __debug__:
-            cls_str=eloc(self,"__init__")
-            assert isinstance(reg,int),\
-                "%s 'reg' argument must be an integer: %s" % (cls_str,reg)
-            assert isinstance(addr,Address),\
-                "%s 'addr' argument must be an instance of Address: %s" \
-                    % (cls_str,addr)
-            assert (direct is None) or isinstance(direct,AbsAddr),\
-                "%s 'direct' argument must be None or an instance of AbsAddr: %s" \
-                    % (cls_str,direct)
-        # This test does not appear to be needed.
-        #    assert addr.isRelative() or addr.isDummy(),\
-        #        "%s only relative addresses of DSECT's should occur in: %s" \
-        #            % (cls_str,addr)
-        #if not addr.isAbsolute() and not addr.isDummy():
-        #    raise ValueError("%s only relative addresses of DSECT's should occur in: %s"\
-        #        % (cls_str,addr))
+        assert isinstance(reg,int),\
+            "%s 'reg' argument must be an integer: %s" % (eloc(self,"__init__"),reg)
+        assert isinstance(addr,Address),\
+            "%s 'addr' argument must be an instance of Address: %s" \
+                % (eloc(self,"__init__"),addr)
+        assert (direct is None) or isinstance(direct,AbsAddr),\
+            "%s 'direct' argument must be None or an instance of AbsAddr: %s" \
+                % (eloc(self,"__init__"),direct)
 
         # The absolute address associated with this register when used for
         # direct addressing.  This applies to register 0 only for all but one
@@ -5604,7 +5692,8 @@ class Base(object):
         self.disp=None
         
         if self.address is None:
-            raise ValueError("%s Base address is None: %s" % (cls_str,repr(addr)))
+            raise ValueError("%s Base address is None: %s" \
+                % (eloc(self,"__init__"),repr(addr)))
 
 
     # This method is used to comapre two Base instances for sorting purposes.  The
@@ -5625,10 +5714,10 @@ class Base(object):
     # or displacement is less than or equal to the address for which a base is 
     # sought.)
     def __cmp__(self,other):
-        cls_str="assembler.py - %s.__cmp__() -" % self.__class__.__name__
-        if self.disp is None:
-            raise ValueError("%s displacement not set, can not sort Base "
-                "instance: reg=%s,address=%s" % (cls_str,self.reg,self.loc))
+        assert self.disp is not None,\
+            "%s displacement not set, can not sort Base instance: reg=%s,address=%s"\
+                % (eloc(self,"__cmp__"),self.reg,self.loc)
+
         if self.disp<other.disp:
             return -1 
         if self.disp>other.disp:
@@ -5649,7 +5738,7 @@ class Base(object):
             if self.reg>other.reg:
                 return -1
         raise ValueError("%s two base register candidates with the same register "
-            "and displacement detected: %s:%s" % (cls_str,self,other))
+            "and displacement detected: %s:%s" % (eloc(self,"__cmp__"),self,other))
 
     def __repr__(self):
         return self.__str__()
@@ -5667,10 +5756,10 @@ class Base(object):
 
     # Return the displacement for the supplied address.
     def getDisp(self,addr):
-        if not isinstance(addr,Address):
-            cls_str="assembler.py - %s.__init__() -" % self.__class__.__name__
-            raise ValueError("%s 'addr' argument must be an instance of Address: %s" \
-                % (cls_str,addr))
+        assert isinstance(addr,Address),\
+            "%s 'addr' argument must be an instance of Address: %s" \
+                % (eloc(self,"getDisp"),addr)
+
         return addr.base()-self.address
         # Note: no checks are performed on the actual displacement.  Different
         # values are allowed for different instruction formats.  Whether the
@@ -5739,10 +5828,8 @@ class BaseMgr(object):
     # make a register unavailable for use as a base.  It does not matter whether
     # it wss previously available or not.
     def drop(self,reg,trace=False):
-         cls_str="assembler.py %s.drop() -" % self.__class__.__name__
-         if not isinstance(reg,int):
-            raise ValueError("%s 'reg' argument must be an integer: %s" \
-                % (cls_str,reg))
+         assert isinstance(reg,int),\
+            "%s 'reg' argument must be an integer: %s" % (eloc(self,"drop"),reg)
 
          based=self.bases[reg]
          try:
@@ -5758,13 +5845,18 @@ class BaseMgr(object):
     # If no base is found, a KeyError is raised to alert the caller to the 
     # failure.  It is the responsibility of the caller to provide any user
     # reporting.
+    # Method Arguments:
+    #   addr    The Address object being resolved into a base/displacment pair
+    #   size    Size of the displacement field in bits
+    #   asm     The Assembler object providing assistance
+    #   trace   Enable trace messages if True
     # Note: A KeyError actually originates in the __select() method, but to the
     # caller it appears to be raised here because it is not caught.
     def find(self,addr,size,asm,trace=False):
-        cls_str="assembler.py %s.find() -" % self.__class__.__name__
-        if not isinstance(addr,Address):
-            raise ValueError("%s 'addr' argument must be an instance of Address: %s" \
-                % (cls_str,addr))
+        assert isinstance(addr,Address),\
+            "%s 'addr' argument must be an instance of Address: %s" \
+                % (eloc(self,"find"),addr)
+
         possible=[]
         if addr.isAbsolute():
             for base in self.abases.values():
@@ -5776,16 +5868,17 @@ class BaseMgr(object):
                         # will not fit, not a candidate
                         continue
                     base.disp=disp
-                    possible.append(base)      
+                    possible.append(base)
+            # This can raise and uncaught KeyError when resolution is not possible
             return self.__select(addr,possible,trace=trace)
 
         for base in self.rbases.values():
             #if base.section == addr.section and base.address <= addr.address:
             base_addr=addr.base()
-            if base_addr is None:
-                raise ValueError("%s Base address is None: %s" % (cls_str,repr(addr)))
+            assert base_addr is not None,\
+                "%s Base address is None: %s" % (eloc(self,"find"),repr(addr))
+
             if base.section == addr.section and base.address <= addr.base():
-                #disp=base.getDisp(addr.address)
                 disp=base.getDisp(addr)
                 try:
                     asm.builder.range_check(size,disp)
@@ -5794,6 +5887,7 @@ class BaseMgr(object):
                     continue
                 base.disp=disp
                 possible.append(base)
+        # This can raise an uncaught KeyError when resolution is not possible
         return self.__select(addr,possible,trace=trace)
 
     def print(self,indent="",string=False):
@@ -5824,17 +5918,16 @@ class BaseMgr(object):
         # there is value in quickly finding operands that are incorrect.  This is
         # particularly valuable during initial development and later when changes
         # occur.
-        if trace:
-            print("%s defining base for register %s: %s" % (cls_str,reg,addr))
-        if not isinstance(reg,int):
-            raise ValueError("%s 'reg' argument must be an integer: %s" \
-                % (cls_str,reg))
-        if not isinstance(addr,Address):
-            raise ValueError("%s 'addr' argument must be an instance of Address: %s" \
-                % (cls_str,addr))
-        if not addr.isAbsolute() and not addr.isDummy():
-            raise ValueError("%s only relative addresses of DSECT's should occur: %s"\
-                % (cls_str,addr))
+        if __debug__:
+            cls_str=eloc(self,"using")
+            if trace:
+                print("%s defining base for register %s: %s" % (cls_str,reg,addr))
+        assert isinstance(reg,int),\
+            "%s 'reg' argument must be an integer: %s" % (cls_str,reg)
+        assert isinstance(addr,Address),\
+            "%s 'addr' argument must be an instance of Address: %s" % (cls_str,addr)
+        assert addr.isAbsolute() or addr.isDummy(),\
+            "%s only absolute or DSECT relative should occur: %s" % (cls_str,addr)
 
         # Determine if direct mode addressing applies to the register being assigned
         # a base value.  When a register participates in direct mode addressing
@@ -5883,37 +5976,74 @@ class Location(object):
 
 # The location counter is used during pass 1 to define statement locations.
 # In pass 2 the location of the binary content of the statement defines the location.
+# This object is used to globally track the addresses assigned to Binary objects.
 class LocationCounter(object):
     def __init__(self):
         self.location=None
 
-    # This happens whenever a section changes
-    def establish(self,loc):
+    # Sets the current location counter to the starting address of the supplied
+    # Binary object.  During Pass 1 this is a section relative address (SectAddr
+    # object).  During Pass 2 this is an absolute address (AbsAddr object)
+    def assign(self,bin,debug=False):
+        assert isinstance(bin,Binary),\
+            "%s 'bin' argument must be a Binary object: %s" \
+                % (eloc(self,"assign"),bin)
+                
+        # Binary object's location has not been set, so simply return
+        if bin.loc is None:
+            return
+
+        if __debug__:
+           new_loc=bin.loc
+           assert isinstance(new_loc,Address) and \
+               (new_loc.isRelative() or new_loc.isAbsolute()),\
+               "%s Binary object loc attribute is neither relative nor absolute: %s"\
+                   % (eloc(self,"assign"),bin.loc)
+
+        self.location=bin.loc
+
+        if __debug__:
+            if debug:
+                print("%s location: %s" % (eloc(self,"assign"),self.location))
+
+    # This happens whenever a section changes or the statements ending location
+    # is being set.
+    def establish(self,loc,debug=False):
         # If no location is provided, simply leave the location as is.
         if loc is None:
             return
         assert isinstance(loc,Address),\
             "%s 'loc' argument must be a Address object: %s" \
                 % (eloc(self,"establish"),loc)
-        assert loc.isRelative(),\
-            "%s 'loc' argument must be a relative address object: %s" \
+        assert loc.isRelative() or loc.isAbsolute(),\
+            "%s 'loc' argument must be a relative or absolute address object: %s" \
                 % (eloc(self,"establish"),loc)
 
         self.location=loc.clone()
 
-    def increment(self,length):
-        self.location+=length
+        if __debug__:
+            if debug:
+                print("%s location: %s" % (eloc(self,"establish"),self.location)) 
+
+    def increment(self,bin,debug=False):
+        if __debug__:
+            if debug:
+                print("%s bin: %s" % eloc(self,"increment"),bin)
+        if bin:
+            self.establish(bin.loc+len(bin),debug=debug)
 
     def retrieve(self):
         return self.location.clone()
 
     # Based upon the content of the statement the location counter will be upated
-    # for next statement
-    def update(self,stmt):
-        new_loc=stmt.next()
-        if new_loc is None:
-            return
-        self.establish(new_loc)
+    # for next statement.
+    def update(self,bin,debug=False):
+        if __debug__:
+            if debug:
+                print("%s bin: %s" % (eloc(self,"update"),bin))
+
+        if bin:
+            self.assign(bin,debug=debug)
 
 
 #
@@ -5950,10 +6080,9 @@ class Structure(object):
     #              of the template.
     def build(self,stmt,values=[]):
         num_flds=self.num_flds
-        if len(values)!=num_flds:
-            cls_str="assembler.py - %s.build() -" % self.__class__.__name__
-            raise ValueError("%s number of supplied values does not match the number "
-                "of fields (%s): %s" % (cls_str,num_flds,len(values)))
+        assert len(values)==num_flds,\
+            "%s number of supplied values does not match the number of fields "\
+                "(%s): %s" % (eloc(self,"build"),num_flds,len(values))
 
         fields=self.fields
         builder=self.builder
@@ -6015,6 +6144,8 @@ class Binary(object):
         #
         # Location relative or absolute address, an instance of Address
         self.loc=None
+        # Initial relative location
+        self.rloc=None
         # Set when object is added to a container by the container's append() method
         self.container=None    # Container in which this object resides.
 
@@ -6025,6 +6156,11 @@ class Binary(object):
     def __str__(self):
         return "%s(alignment=%s,length=%s)" \
             % (self.__class__.__name__,self._align,self._length)
+
+    def assigned(self,loc):
+        self.loc=loc
+        if isinstance(loc,SectAddr):
+            self.rloc=loc.clone()
 
     # Returns as a string the hex representation of the barray upto the number
     # of bytes specified.  Default max bytes is 16
@@ -6039,42 +6175,45 @@ class Binary(object):
     def fini(self,trace=False):
         self.barray=bytes(self.barray)
 
-        if trace:
-            cls=self.__class__.__name__
-            cls_str="assembler.py - %s.fini() -" % cls
-            beg_addr=self.loc
-            blen=len(self.barray)
-            end_addr=beg_addr+blen-1
-            hexdata=self.bhex()
-            if blen==1:
-                print("%s %s finalized %s byte: %s: %s" \
-                    % (cls_str,cls,blen,beg_addr,hexdata))
-            else:
-                print("%s %s finalized %s bytes: %s - %s: %s" \
-                    % (cls_str,cls,blen,beg_addr,end_addr,hexdata))
+        if __debug__:
+            if trace:
+                cls=self.__class__.__name__
+                cls_str="assembler.py - %s.fini() -" % cls
+                beg_addr=self.loc
+                blen=len(self.barray)
+                end_addr=beg_addr+blen-1
+                hexdata=self.bhex()
+                if blen==1:
+                    print("%s %s finalized %s byte: %s: %s" \
+                        % (cls_str,cls,blen,beg_addr,hexdata))
+                else:
+                    print("%s %s finalized %s bytes: %s - %s: %s" \
+                        % (cls_str,cls,blen,beg_addr,end_addr,hexdata))
 
     def make_absolute(self,debug=False):
         if debug:
             prev=self.loc.clone()
         self.loc.makeAbs()
-        if debug:
-            cls_str="assembler.py - %s.Binary() -" % self.__class__.__name__
-            print("%s converted %s to absolute %s" \
-                % (cls_str,prev,self.loc))
+
+        if __debug__:
+            if debug:
+                print("%s converted %s to absolute %s" \
+                    % (eloc(self,"make_absolute"),prev,self.loc))
 
     def make_barray(self,trace=False):
         length=len(self)    # Use this or subclasses way to determine its length
         self.barray=bytearray(length)
         # we now have zero filled image content for this Binnary or its subclass
-        if trace:
-            cls=self.__class__.__name__
-            cls_str="assembler.py - %s.make_barrow() -" % cls
-            if isinstance(self,Content):
-                desc="%s '%s'" % (cls,self.name)
-            else:
-                desc="Binary @ %s barray" % (self.loc)
-            print("%s %s barray length: %s" 
-                 % (cls_str,desc,len(self.barray)))
+        if __debug__:
+            if trace:
+                cls=self.__class__.__name__
+                cls_str="assembler.py - %s.make_barrow() -" % cls
+                if isinstance(self,Content):
+                    desc="%s '%s'" % (cls,self.name)
+                else:
+                    desc="Binary @ %s barray" % (self.loc)
+                print("%s %s barray length: %s" 
+                    % (cls_str,desc,len(self.barray)))
 
     def str2bytes(self,string):
         b=bytearray(0)
@@ -6095,31 +6234,32 @@ class Binary(object):
     #            exactly match the length of the image content bytearray in length.
     #            When full=True is used, the at argument must be 0.
     def update(self,data,at=0,full=False,finalize=False,trace=False):
-        cls=self.__class__.__name__
-        cls_str="assambler.py - %s.update() -" % cls
         if isinstance(data,str):
             d=self.str2bytes(data)
         elif isinstance(data,bytes):
             d=data
         else:
             raise ValueError("%s 'data' argument must be an instance of "
-                "bytes or string: %s" % (cls_str,data))
+                "bytes or string: %s" % (eloc(self,"update"),data))
 
         dlen=len(d)
-        if full:
-            blen=len(self.barray)
-            if at!=0:
-                raise ValueError("%s 'at' argument must be 0 when full=True is "
-                    "specified: %s" % (cls_str,at))
-            if dlen!=blen:
-                raise ValueError("%s - 'data' argument length must match bytearray "
-                    "length of %s; %s" % (cls_str,blen,dlen))
+        if __debug__:
+            if full:
+                blen=len(self.barray)
+                assert at==0,\
+                    "%s 'at' argument must be 0 when full=True is specified: %s" \
+                        % (eloc(self,"update"),at)
+                assert dlen==blen,\
+                    "%s - 'data' argument length must match bytearray length of %s: %s"\
+                        % (eloc(self,"update"),blen,dlen)
 
         end=at+dlen
 
-        if trace:
-            print("%s %s %s bytearray[%s:%s] updated with bytes of length %s" \
-                % (cls_str,cls,self.loc,at,end,dlen))
+        if __debug__:
+            if trace:
+                print("%s %s %s bytearray[%s:%s] updated with bytes of length %s" \
+                    % (eloc(self,"update"),self.__class__.__name__,\
+                        self.loc,at,end,dlen))
 
         # Upate the binary image content
         self.barray[at:end]=d
@@ -6138,11 +6278,15 @@ class Binary(object):
 # The Area derives its length of all of the combined Binary objects, similar to 
 # a Section, but embedded within a section.  This is a pseudo-container.  It is
 # only used in a Stmt instance to establish the size of a symbol associated with
-# a DC statement.  Such symbols have the lenght attribute of the operands.
+# a DC statement.  Such symbols have the length attribute of the operands.
+#
+# This class is also the foundation for PRINT DATA to display the entire set of
+# DC/DS constants in the listing.
 class Area(Binary):
     def __init__(self):
         super().__init__(0,0)
         self.elements=[]     # List of accumulated Binary objects in the area
+
     def append(self,bin):
         assert isinstance(bin,Binary),\
             "%s 'bin' argument must be an instance of Binary: %s" \
@@ -6157,9 +6301,9 @@ class Area(Binary):
     # into effect.  This method must only be called after all elements of the area
     # have been appended.
     def fini(self):
-        if len(self.elements)==0:
-            cls_str=eloc(self,"fini")
-            raise ValueError("%s area contains zero Binary elements")
+        assert len(self.elements)>0,\
+            "%s area contains zero Binary elements" % eloc(self,"fini")
+
         bin_1st=self.elements[0]
         self._align=bin_1st._align
         self.loc=bin_1st.loc
@@ -6171,13 +6315,12 @@ class Area(Binary):
         self.make_barray()
 
     def insert(self,trace=False):
-        cls_str="assembler.py - %s.insert() -" % self.__class__.__name__
         my_loc=self.loc
         for bin in self.elements:
             bin_loc=bin.loc
-            if not bin_loc.isAbsolute():
-                raise ValueError("%s enrountered non absolute address: %s" \
-                    % (cls_str,bin))
+            assert bin_loc.isAbsolute(),\
+                "%s enrountered non absolute address: %s" \
+                    % (eloc(self,"insert"),bin)
 
             # Calculate where the data is supposed to go
             barray=bin.barray
@@ -6187,22 +6330,26 @@ class Area(Binary):
             if length==0:
                 # ORG statements create Binary objects which have 0 bytes of data.
                 # Ignore them
-                if trace:
-                    print("%s %s @ %s inserted [0x%X:0x%X] bytes: %s IGNORED" \
-                        % (cls_str,self.name,bin_loc,start,end,length))
+                if __debug__:
+                    if trace:
+                        print("%s @ %s inserted [0x%X:0x%X] bytes: %s IGNORED" \
+                            % (eloc(self,"insert"),bin_loc,start,end,length))
                 continue
 
-            if trace:
-                print("%s %s @ %s inserted [0x%X:0x%X] bytes: %s " \
-                    % (cls_str,self.name,bin_loc,start,end,length))
+            if __debug__:
+                if trace:
+                    print("%s @ %s inserted [0x%X:0x%X] bytes: %s " \
+                        % (eloc(self,"insert"),bin_loc,start,end,length))
+
             self.barray[start:end]=barray
 
         # Make me immutable
         self.barray=bytes(self.barray)
 
-        if trace:
-            dumpdata=hexdump.dump(self.barray,start=my_loc.address,indent="    ")
-            print("\nArea Image Content:\n\n%s\n" % dumpdata)
+        if __debug__:
+            if trace:
+                dumpdata=hexdump.dump(self.barray,start=my_loc.address,indent="    ")
+                print("\nArea Image Content:\n\n%s\n" % dumpdata)
 
 
 # This is the base class for all image container classes, built on Binary.
@@ -6232,10 +6379,9 @@ class Content(Binary):
 
     # Align the current location to the content's requirement
     def align(self,content):
-        if not isinstance(content,Binary):
-            cls_str="assembler.py - %s.align() -" % self.__class__.__name__
-            raise ValueError("%s 'content' argument must be an instance of "
-                "Binary: %s" % (cls_str,content))
+        assert isinstance(content,Binary),\
+            "%s 'content' argument must be an instance of Binary: %s" \
+                % (eloc(self,"align"),content)
 
         align=content._align
         if align<2:
@@ -6258,43 +6404,44 @@ class Content(Binary):
 
     # Add an element to this content container.  Elements are unallocated and unbound
     def append(self,content):
-        if not isinstance(content,self.cls):
-            cls_str="assembler.py - %s.append() -" % self.__class__.__name__
-            raise ValueError("%s 'bin' argument must be an instance of %s: %s" \
-                % (cls_str,self.__name__,content))
+        assert isinstance(content,self.cls),\
+            "%s 'bin' argument must be an instance of %s: %s" \
+                % (eloc(self,"append"),content)
+
         self.elements.append(content)
         content.container=self
 
     # Align the container and assign a location to the supplied content and 
     # allocate space in this container for the added content
     def assign(self,content,append=True):
-        if not isinstance(content,Binary):
-            cls_str="assembler.py - %s.assign() -" % self.__class__.__name__
-            raise ValueError("%s 'content' argument must be an instance of "
-                "Binary: %s" % (cls_str,bin))
+        assert isinstance(content,Binary),\
+            "%s 'content' argument must be an instance of Binary: %s" \
+                % (eloc(self,"assign"),content)
+
         self.align(content)
-        content.loc=self.current()
+        content.assigned(self.current())
         self.alloc(len(content))
         if append:
             self.append(content)
 
     # Assign all elements their locations after aligning them
     def assign_all(self,debug=False):
-        cls_str="assembler.py - %s.assign_all -" % self.__class__.__name__
         for c in self.elements:
             self.assign(c,append=False)
-            if debug:
-                print("%s %s" % (cls_str,c.info()))
+
+            if __debug__:
+                if debug:
+                    print("%s %s" % (eloc(self,"assign_all"),c.info()))
 
     # Bind an address to the start of this content
     def bind(self,bindto):
-        cls_str="assembler.py - %s bind() -" % self.__class__.__name__
-        if not isinstance(address,Address):
-            raise ValueError("%s 'bindto' argument must be an instancce of "
-                "Address: %s" % (cls_str,address))
-        if not address.isAbsolute():
-            raise ValueError("%s can not bind to a relative address: %s" \
-                % (cls_str,address))
+        assert isinstance(bindto,Address),\
+            "%s 'bindto' argument must be an instancce of Address: %s" \
+                % (eloc(self,"bind"),bindto)
+        assert bindto.isAbsolute(),\
+            "%s 'bindto' argument must be an instancce of Address: %s" \
+                % (eloc(self,"bind"),bindto)
+
         loc=self.loc
         if loc.isAbsolute():
             raise ValueError("%s address already bound: %s" % (cls_str,loc))
@@ -6306,17 +6453,15 @@ class Content(Binary):
     # Bind all elements to their address
     def bind_all(self):
         bindto=self.loc
-        if bindto.isRelative():
-            cls_str="assembler.py - %s.bind_all() -" % self.__class__.__name__
-            raise ValueError("%s container %s can not bind using a relative "
-                "address: %s" % (cls_str,self,bindto))
+        assert not bindto.isRelative(),\
+            "%s container %s can not bind using a relative address: %s" \
+                % (eloc(self,"bind_all"),bindto)
         for c in self.elements:
             c.bind(bindto)
 
     def current(self):
-        cls_str="assembler.py - %s.current() -" % self.__class__.__name__
-        raise NotImplementedError("%s subclass must implement current() method" \
-            % self.__class__.__name__)
+        raise NotImplementedError("%s subclass %s must implement current() method" \
+            % (eloc(self,"current"),self.__class__.__name__))
 
     def freeze(self):
         self._length=self._alloc
@@ -6325,23 +6470,20 @@ class Content(Binary):
     # Insert all of my elements' barray lists into mine.  This bubbles up the
     # hierarchy tree
     def insert(self):
-        cls_str="assembler.py - %s.current() -" % self.__class__.__name__
-        raise NotImplementedError("%s subclass must implement insert() method" \
-            % self.__class__.__name__)
+        raise NotImplementedError("%s subclass %s must implement insert() method" \
+            % (eloc(self,"insert"),self.__class__.__name__))
 
     # Return the current length of the allocated content
     def length(self):
         return len(self)
 
     def locate_all(self,base):
-        cls_str="assembler.py - %s.locate_all() -" % self.__class__.__name__
-        raise NotImplementedError("%s subclass must implement locate_all() method" \
-            % self.__class__.__name__)
+        raise NotImplementedError("%s subclass %s must implement locate_all() method" \
+            % (eloc(self,"locate_all"),self.__class__.__name__))
 
     def make_barray_all(self,trace=False):
-        cls_str="assembler.py - %s.make_barray_all() -" % self.__class__.__name__
-        raise NotImplementedError("%s subclass must implement make_barray_all() "
-            "method" % cls_str)
+        raise NotImplementedError("%s subclass %s must implement make_barray_all() "
+            "method" % (eloc(self,"make_barray_all"),self.__class__.__name__))
 
     def updtAttr(self,asm,trace=False):
         if self.name=="":
@@ -6351,9 +6493,8 @@ class Content(Binary):
         try:
             ste=asm._getSTE(self.name)
         except KeyError:
-            cls_str="assembler.py - %s.updtAttr() -" % self.__class__.__name__
             raise ValueError("%s element not in symbol table: %s" \
-                % (cls_str,self))
+                % (eloc(self,"updtAttr"),self))
 
         ste.attrSet("L",len(self))
         ste.attrSet("I",self.img_loc)
@@ -6437,30 +6578,37 @@ class Section(Content):
             if length==0:
                 # ORG statements create Binary objects which have 0 bytes of data.
                 # Ignore them
-                if trace:
-                    print("%s %s @ %s inserted [0x%X:0x%X] bytes: %s IGNORED" \
-                        % (cls_str,self.name,bin_loc,start,end,length))
+                if __debug__:
+                    if trace:
+                        print("%s %s @ %s inserted [0x%X:0x%X] bytes: %s IGNORED" \
+                            % (eloc(self,"insert"),self.name,\
+                                bin_loc,start,end,length))
                 continue
 
-            if trace:
-                print("%s %s @ %s inserted [0x%X:0x%X] bytes: %s " \
-                    % (cls_str,self.name,bin_loc,start,end,length))
+            if __debug__:
+                if trace:
+                    print("%s %s @ %s inserted [0x%X:0x%X] bytes: %s " \
+                        % (eloc(self,"insert"),self.name,bin_loc,start,end,length))
+
             self.barray[start:end]=barray
 
         # Make me immutable
         self.barray=bytes(self.barray)
 
-        if trace:
-            dumpdata=hexdump.dump(self.barray,start=my_loc.address,indent="    ")
-            print("\nCSECT %s Image Content:\n\n%s\n" % (self.name,dumpdata))
+        if __debug__:
+            if trace:
+                dumpdata=hexdump.dump(self.barray,start=my_loc.address,indent="    ")
+                print("\nCSECT %s Image Content:\n\n%s\n" % (self.name,dumpdata))
 
     def isdummy(self):
         return self._dummy
 
     def make_absolute(self,debug=False):
-        if debug:
-            cls_str="assembler.py - %s.make_absolute() -" % self.__class__.__name__
-            print("%s CSECT %s converting Binary to absolute" % (cls_str,self.name))
+        if __debug__:
+            if debug:
+                print("%s CSECT %s converting Binary to absolute" \
+                    % (eloc(self,"make_absolute"),self.name))
+
         for b in self.elements:
             b.make_absolute(debug=debug)
 
@@ -6470,9 +6618,8 @@ class Section(Content):
         self._alloc=max(self._alloc,self._current)
 
     def make_barray_all(self,trace=False):
-        if self.isdummy():
-            cls_str="assembler.py - %s.make_barry_all() -" % self.__class__.__name__
-            raise NotImplementedError("%s method not supported for DSECT")
+        assert not self.isdummy(),\
+            "%s method not supported for DSECT" % eloc(self,"make_barray_all")
         self.make_barray(trace=trace)
         for b in self.elements:
             b.make_barray(trace=trace)
@@ -6484,9 +6631,8 @@ class Section(Content):
         try:
             ste=asm._getSTE(self.name)
         except KeyError:
-            cls_str="assembler.py - %s.updtAttr() -" % self.__class__.__name__
             raise ValueError("%s element not in symbol table: %s" \
-                % (cls_str,self)) from None
+                % (eloc(self,"updtAttr"),self)) from None
 
                                                  # Update for CSECT   DSECT
         ste.attrSet("L",len(self))               #   L         yes     yes
@@ -6518,9 +6664,8 @@ class Region(Content):
     def bind(self,address):
         # As sitting at the top of the hierarchy, a region can not be bound to a
         # higher level container.
-        cls_str="assembler.py - %s.bind() -" % self.__class__.__name__
         raise NotImplementedError("%s region does not support bind operation" \
-            % cls_str)
+            % eloc(self,"bind"))
 
     def current(self):
         return AbsAddr(self._current)
@@ -6554,9 +6699,10 @@ class Region(Content):
         my_loc=self.loc
         for c in self.elements:
             c_loc=c.loc
-            if not c_loc.isAbsolute():
-                raise ValueError("%s enrountered non absolute address: %s" \
-                    % (cls_str,c))
+
+            assert c_loc.isAbsolute(),\
+                "%s enrountered non absolute address: %s" \
+                    % (eloc(self,"insert"),c)
 
             # Calculate where the data is supposed to go
             barray=c.barray
@@ -6565,14 +6711,18 @@ class Region(Content):
             end=start+length
             if length==0:
                 # A CSECT could have no data. Just ignore it
-                if trace:
-                    print("%s %s @ %s inserted CSECT %s [0x%X:0x%X] bytes: %s "
-                        "IGNORED" % (cls_str,self.name,c_loc,c.name,start,end,length))
+                if __debug__:
+                    if trace:
+                        print("%s %s @ %s inserted CSECT %s [0x%X:0x%X] bytes: %s "
+                            "IGNORED" % (cls_str,self.name,c_loc,c.name,start,end,\
+                                length))
                 continue
 
-            if trace:
-                print("%s %s @ %s inserted CSECT %s [0x%X:0x%X] bytes: %s " \
-                    % (cls_str,self.name,c_loc,c.name,start,end,length))
+            if __debug__:
+                if trace:
+                    print("%s %s @ %s inserted CSECT %s [0x%X:0x%X] bytes: %s " \
+                        % (cls_str,self.name,c_loc,c.name,start,end,length))
+
             self.barray[start:end]=barray
 
         # Make me immutable
@@ -6583,9 +6733,11 @@ class Region(Content):
 
     # Make all of by Binary insance's relative location addresses into absolute
     def make_absolute(self,debug=False):
-        if debug:
-            cls_str="assembler.py - %s.make_absolute() -" % self.__class__.__name__
-            print("%s REGION %s making CSECT's absolute" % (cls_str,self.name))
+        if __debug__:
+            if debug:
+                print("%s REGION %s making CSECT's absolute" \
+                    % (eloc(self,"make_absolute"),self.name))
+
         for n in self.elements:
             n.make_absolute(debug=debug)
 
@@ -6608,9 +6760,8 @@ class Img(Content):
     def bind(self,address):
         # As sitting at the top of the hierarchy, an Img can not be bound to a
         # higher level container.
-        cls_str="assembler.py - %s.bind() -" % self.__class__.__name__
         raise NotImplementedError("%s Image does not support bind operation" \
-            % cls_str)
+            % eloc(self,"bind"))
 
     def dump(self,indent="",string=False):
         lcl="%s    " % indent
@@ -6628,7 +6779,6 @@ class Img(Content):
     # Insert all of my Regions into my binary image byte array.  Convert it to a bytes 
     # list when done.
     def insert(self,trace=False):
-        cls_str="assembler.py - %s.insert() -" % self.__class__.__name__
         my_loc=0
         for r in self.elements:
             for c in r.elements:
@@ -6645,17 +6795,22 @@ class Img(Content):
             end=start+length
             self.barray[start:len(barray)]=barray
 
+            # A region could have no data. Just ignore it
             if length==0:
-                # A region could have no data. Just ignore it
-                if trace:
-                    print("%s: %s @ +0x%X inserted region %s [0x%X:0x%X] "
-                        "bytes: %s IGNORED" \
-                        % (cls_str,self.name,r_loc,r.name,start,end,length))
+                if __debug__:
+                    if trace:
+                        print("%s: %s @ +0x%X inserted region %s [0x%X:0x%X] "
+                            "bytes: %s IGNORED" \
+                            % (eloc(self,"insert"),self.name,r_loc,r.name,start,end,\
+                                length))
+
                 continue
 
-            if trace:
-                print("%s %s @ +0x%X inserted region %s [0x%X:0x%X] bytes: %s " \
-                    % (cls_str,self.name,r_loc,r.name,start,end,length))
+            if __debug__:
+                if trace:
+                    print("%s %s @ +0x%X inserted region %s [0x%X:0x%X] bytes: %s " \
+                        % (eloc(self,"insert"),self.name,r_loc,r.name,start,end,\
+                            length))
 
         self.barray=bytes(self.barray)
 
@@ -6679,19 +6834,18 @@ class Img(Content):
         try:
             ste=asm._getSTE(self.name)
         except KeyError:
-            cls_str="assembler.py - %s.updtAttr() -" % self.__class__.__name__
             raise ValueError("%s element not in symbol table: %s" \
-                % (cls_str,self))
+                % (eloc(self,"updtAttr"),self))
 
         ste.attrSet("L",len(self))
         ste.attrSet("I",0)
 
     # The value provided by the first region is the image's value.
     def value(self):
-        if len(self.elements)==0:
-            cls_str="assembler.py - %s.value() -" % self.__class__.__name__
-            raise ValueError("%s image value depends upon its first region, no "
-                "regions present" % cls_str)
+        assert len(self.elements),\
+            "%s image value depends upon its first region, no regions present" \
+                % eloc(self,"value")
+
         region=self.elements[0]
         return region.value()
 
@@ -6730,10 +6884,10 @@ class Symbol(lang.STE):
 
         attr_dict={}
         for attr in attr_list:
-            if not isinstance(attr,str):
-                cls_str="assembler.py - %s._build_attr() -" % self.__class__.__name__
-                raise ValueError("%s attribute list entry not a string: %s" \
-                    % (cls_str,attr))
+            assert isinstance(attr,str),\
+                "%s attribute list entry not a string: %s" \
+                % (eloc(self,"_build_attr"),attr)
+
             attr_dict[attr]=None
 
         return attr_dict
@@ -6761,9 +6915,8 @@ class Symbol(lang.STE):
         try:
             return self._attr[attr]
         except KeyError:
-            cls_str="assembler.py - %s.attrGet() -" % self.__class__.__name__
             raise ValueError("%s 'attr' argument not a valid attribute for symbol "
-                "%s: %s" % (cls_str,self.name,attr)) from None
+                "%s: %s" % (eloc(self,"attrGet"),self.name,attr)) from None
 
     # Attempts to retrieve an attribute.  Will raise a KeyError if not defined
     # for the symbol.  The caller should catch the error and process it appropriately.
@@ -6775,19 +6928,17 @@ class Symbol(lang.STE):
         try:
             self._attr[attr]
         except KeyError:
-            cls_str="assembler.py - %s.attrSet() -" % self.__class__.__name__
             raise ValueError("%s 'attr' argument not a valid attribute for symbol "
-                "%s: %s" % (cls_str,self.name,attr)) from None
+                "%s: %s" % (eloc(self,"attrSet"),self.name,attr)) from None
         self._attr[attr]=value
 
     def attrUpdate(self):
-        cls_str="assembler.py - %s.attrUpdate() -" % self.__class__.__name__
-        raise NotImplementedError("%s subclass must implement attrUpdate() method" \
-            % cls_str)
+        raise NotImplementedError("%s subclass %s must implement attrUpdate() method" \
+            % (eloc(self,"attrUpdate"),self.__class__.__name__))
 
     def content(self):
-        cls_str="assembler.py - %s.current() -" % self.__class__.__name__
-        raise NotImplementedError("%s content not supported by Symbol class")
+        raise NotImplementedError("%s content not supported by Symbol class" \
+            % eloc(self,"content"))
 
     def queryType(self):
         entry=self._entry

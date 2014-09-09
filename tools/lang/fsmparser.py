@@ -46,8 +46,8 @@ class FSMParser(fsm.FSM):
     def __init__(self,lex,scls=None,external=None,init="init",trace=False):
         super().__init__(trace=trace)
         assert isinstance(lex,(lexer.Lexer,lexer.CSLA)),\
-            "%s - %s.__init__() - 'lex' argument must be an instance of lexer.Lexer "\
-            "or lexer.CSLA: %s" % (this_module,self.__class__.__name__,lex)
+            "%s 'lex' argument must be an instance of lexer.Lexer or lexer.CSLA: %s" \
+                % (fsm.eloc(self,"__init__",module=this_module),lex)
 
         self.lex=lex              # Lexical analyzer used for parsing
         self.scopecls=scls        # Class to create for my scope
@@ -57,12 +57,27 @@ class FSMParser(fsm.FSM):
 
         self.init(init)  # Establish FSM start state
 
+    # Returns a global scope object
+    #    1. The scope class object as specified by the scls __init__() argument
+    # or 2. this methods scope argument if no scope class identified on the __init__()
+    #       method.
     def _init_scope(self,scope=None):
+        if __debug__:
+            if self._trace:
+                print("FSM:%s [%s] _init_scope(scope=%s)" \
+                    % (self.name,self.current(),scope))
+
         if self.scopecls is not None:
             scop=self.scopecls()
             scop.init()
         else:
             scop=scope   # If not defined with the parser, use the one supplied here.
+
+        if __debug__:
+            if self._trace:
+                print("FSM:%s [%s] _init_scope returned: %s" \
+                    % (self.name,self.current(),scop))
+
         return scop
 
     # Uses the FSM to recognize a string converting it into lexical tokens.
@@ -100,15 +115,18 @@ class FSMParser(fsm.FSM):
 
     # Queues a token from the pushdown stack for input to the FSM
     def unstack(self,trace=None):
-        if len(self._stack)==0:
-            cls_str="%s - %s.unstack():" % (this_module,self.__class__.__name__)
-            raise ValueError("%s stack is empty" % cls_str)
-        if self._unstacked is not None:
-            cls_str="%s - %s.unstack():" % (this_module,self.__class__.__name__)
-            raise ValueError("%s ustacked token already queued for machine" % cls_str)
+        assert len(self._stack)>0,"%s stack is empty" \
+            % fsm.eloc(self,"unstack",module=this_module)
+        assert self._unstacked is None,"%s ustacked token already queued for machine"\
+            % fsm.eloc(self,"unstack",module=this_module)
+
         self._unstacked=self._stack.pop(-1)
-        if trace is not None:
-            print("FSM:%s token unstacked: %s" % (trace,token))
+        
+        if __debug__:
+            if trace is not None:
+                print("FSM:%s [%s] token unstacked: %s" \
+                    % (self.name,self.current(),token))
+
         return
 
 # Define an individual context for the parser
@@ -129,6 +147,10 @@ class Context(object):
             self.ccls=ccls
         else:
             self.ccls=PScope
+    
+    def __str__(self):
+        return "%s(name=%s,lexctx=%s,ccls=%s" \
+            % (self.__class__.__name__,self.name,self.lexctx,self.ccls)
 
 
 # This FSM provides parsing services based upon the SATK multiple context lexical
@@ -157,12 +179,24 @@ class FSMContext(FSMParser):
         self.init_ctx=context  # The initial context
         super().__init__(lex,scls=scls,external=external,init=init,trace=trace)
 
-    def __init_cscope(self,ctx,scope=None):
+    def _init_cscope(self,ctx,scope=None):
+        if __debug__:
+            if self._trace:
+                print("FSM:%s [%s] _init_cscope(ctx=%s,scope=%s)" \
+                    % (self.name,self.current(),ctx,scope))
+
         if scope:
-            return scope
-        cscope=ctx.ccls()
-        cscope.init()
-        return cscope
+            cs=scope
+        else:
+            cs=ctx.ccls()
+            cs.init()
+
+        if __debug__:
+            if self._trace:
+                print("FSM:%s [%s] _init_cscope() returning %s" \
+                    % (self.name,self.current(),cs))
+
+        return cs
 
     # Define a parser context from a Context object.
     # See the description of the Context objects arguments for details.
@@ -170,9 +204,8 @@ class FSMContext(FSMParser):
         ctxo=Context(name,lexctx=lexctx,ccls=ccls)
         try:
             self.ctxs[ctxo.name]
-            cls_str="%s - %s.ctx() -" % (this_module,self.__class__.__name__)
             raise ValueError("%s Context object already defined: %s" \
-                % (cls_str,ctxo.name))
+                % (fsm.eloc(self,"ctx",module=this_module),ctxo.name))
         except KeyError:
             pass
         self.ctxs[ctxo.name]=ctxo   
@@ -184,17 +217,30 @@ class FSMContext(FSMParser):
     #   scope  The scope object to be used by the context.  If None is supplied
     #          the scope class identified by the scope object will be created
     def context(self,name,gscope=None,scope=None):
+        if __debug__:
+            if self._trace:
+                print("FSM:%s [%s] context(name=%s,gscope=%s,scope=%s)" \
+                    % (self.name,self.current(),name,gscope,scope))
         try:
             ctx=self.ctxs[name]
         except KeyError:
-            cls_str="%s - %s.context() -" % (this_module,self.__class__.__name__)
             raise ValueError("%s can not switch to an undefined parser context: %s" \
-                % (cls_str,name)) from None
+                % (fsm.eloc(self,"context",module=this_module),name)) from None
+
         if gscope:
             gs=gscope
         else:
             gs=self.scope()
-        gs.cscope=self.__init_cscope(ctx,scope)
+        cs=self._init_cscope(ctx,scope)
+        gs.cscope=cs
+
+        if __debug__:
+            if self._trace:
+                print("FSM:%s [%s] global scope=%s" % (self.name,self.current(),gs))
+                print("FSM:%s [%s] context scope=%s" % (self.name,self.current(),cs))
+                print("FSM:%s [%s] new context '%s' using lexical context '%s'" \
+                    % (self.name,self.current(),ctx.name,ctx.lexctx))
+
         self.lex.context(ctx.lexctx)   # Set the lexer context here too
         self.ctx_name=name             # Remember the parser context too
 
@@ -211,6 +257,11 @@ class FSMContext(FSMParser):
     # Exceptions
     #   LexerError if current context does not match any token types
     def parse(self,string,context=None,scope=None,fail=False,lines=False,line=1):
+        if __debug__:
+            if self._trace:
+                print("%s.parse(context=%s,scope=%s)" \
+                    % (self.__class__.__name__,context,scope))
+
         # Note: arguments fail and lines are not used by the FSMContext parser
         gscope=self._init_scope(scope=scope)
         if context:
@@ -218,7 +269,7 @@ class FSMContext(FSMParser):
         else:
             ctx=self.init_ctx
         # Set initial parser context and initial CSLA context
-        self.context(ctx,gscope=gscope,scope=scope)
+        self.context(ctx,gscope=gscope,scope=None)
         # Pass the string to be parsed to the lexical analyzer
         self.lex.start(string)     # Tell the lexer what to recognize
         # Initialize the FSM initial state and the global scope object
@@ -235,13 +286,19 @@ class FSMContext(FSMParser):
         # Return the global scope object when done
         return self.scope()
 
+    # Returns the tuple: (global_scope,context_scope)
+    def scopes(self):
+        gscope=self.scope()
+        return (gscope,gscope.cscope)
+
     def stack(self,token,trace=None):
-        cls_str="%s - %s.stack():" % (this_module,self.__class__.__name__)
-        raise NotImplementedError("%s stack() method not supported" % cls_str)
+        raise NotImplementedError("%s stack() method not supported" \
+            % fsm.eloc(self,"stack",module=this_module))
         
     def unstack(self,trace=None):
         cls_str="%s - %s.unstack():" % (this_module,self.__class__.__name__)
-        raise NotImplementedError("%s unstack() method not supported" % cls_str)
+        raise NotImplementedError("%s unstack() method not supported" \
+            % fsm.eloc(self,"unstack",module=this_module))
 
 
 # This class facilitates the management of scope within the FSM.  It  is recommended
@@ -265,16 +322,17 @@ class PState(fsm.FSMState):
 
     # Must match the method signature of FSMState.ActID() method.
     def ActID(self,value,reg=False):
-        if reg:
-            if not isinstance(value,(lexer.Type,lexer.Unrecognized)):
-                cls_str="%s - %s.ActID() -" % (this_module,self.__class__.__name__)
-                raise ValueError("%s 'value' argument must be an instance of "
-                    "lexer.Type: %s" % (cls_str,value))
-        else:
-            if not isinstance(value,lexer.Token):
-                cls_str="%s - %s.ActID() -" % (this_module,self.__class__.__name__)
-                raise ValueError("%s 'value' argument must be an instance of "
-                    "lexer.Token: %s" % (cls_str,value))
+        if __debug__:
+            if reg:
+                assert isinstance(value,lexer.Type) or \
+                isinstance(value,lexer.Unrecognized), \
+                    "%s 'value' argument must be an instance of lexer.Type: %s" \
+                        % (fsm.eloc(self,"ActID",module=this_module),value)
+            else:
+                assert isinstance(value,lexer.Token),\
+                    "%s 'value' argument must be an instance of lexer.Token: %s" \
+                        % (fsm.eloc(self,"ActID",module=this_module))
+
         return value.tid
 
     # Returns the the current context scope

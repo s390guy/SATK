@@ -60,6 +60,23 @@ import lexer   # Need to access the lexer
 
 this_module="fsm.py"
 
+# This method returns a standard identification of an error's location.
+# It is expected to be used like this:
+#
+#     cls_str=assembler.eloc(self,"method")
+# or
+#     cls_str=assembler.eloc(self,"method",module=this_module)
+#     raise Exception("%s %s" % (cls_str,"error information"))
+#
+# It results in a Exceptin string of:
+#     'module - class_name.method_name() - error information'
+def eloc(clso,method_name,module=None):
+    if module is None:
+        m=this_module
+    else:
+        m=module
+    return "%s - %s.%s() -" % (m,clso.__class__.__name__,method_name)
+
 # Defines a Finite State Machine
 # Instance arguments:
 #   name      Specify a name for the FSM.  By default the name will be the FSM's
@@ -113,37 +130,34 @@ class FSM(object):
     #   False when the machine terminates, True otherwise.  The caller should test
     #   the return to determine if the machine has ended.
     def machine(self,value):
-        if not self._started:
-            cls_str="%s - %s.machine() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s FSM not started" % cls_str)
-        if self._terminated:
-            cls_str="%s - %s.machine() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s FSM terminated" % cls_str)
+        assert self._started,"%s FSM not started" % eloc(self,"machine")
+        assert not self._terminated,"%s FSM terminated" % eloc(self,"machine")
 
-        if self._trace:
-            print("FSM:%s machine input: %s" % (self.__class__.__name__,value))
+        if __debug__:
+            if self._trace:
+                print("FSM:%s machine input: %s" % (self.__class__.__name__,value))
 
         # Fetch the next state and set it as current
         try:
             current=self._states[self._current]
         except KeyError:
-            cls_str="%s - %s.machine() -" % (this_module,self.__class__.__name__)
             raise ValueError("%s current state undefined: '%s'" \
-                % (this_module,self._current))
+                % (eloc(self,"machine"),self._current))
 
         # Run the current state:
         self._current=current.input(value,trace=self._trace)
 
         self._terminated=current.isend()
         if self._terminated:
-            if self._trace is not None:
-                print("FSM:%s terminated" % self.name)
+            if __debug__:
+                if self._trace is not None:
+                    print("FSM:%s terminated" % self.name)
             self._started=False
+            self._current=None
         else:
-            if self._current is None:
-                cls_str="%s - %s.machine() -" % (this_module,self.__class__.__name__)
-                raise ValueError("%s action method for input %s for state '%s'"
-                    "returned None as the next state" % (cls_str,value,current.state))
+            assert self._current is not None,\
+                "%s action method for input %s for state '%s'returned None as the "\
+                    "next state" % (eloc(self,"machine"),value,current.state)
         return self._terminated 
 
     # Method returns the global scope object for processing actions.
@@ -160,33 +174,33 @@ class FSM(object):
         self._started=True
         self._terminated=False
         self._scope=scope
-        if self._trace is not None:
-            print("FSM:%s [%s] initial state set" % (self.name,self._current))
+        if __debug__:
+            if self._trace is not None:
+                print("FSM:%s [%s] initial state set" % (self.name,self._current))
 
     # Define a state (as represented by an FSMState instance) to the FSM
     def state(self,state):
-        if not isinstance(state,FSMState):
-            cls_str="%s - %s.state() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s requires FSMState instance, encountered: %s" \
-                % (cls_str,state))
+        assert isinstance(state,FSMState),\
+            "%s requires FSMState instance, encountered: %s" \
+                % (eloc(self,"state"),state)
 
         s=state.state
         if state.fsm not in [True,False]:
-            cls_str="%s - %s.state() -" % (this_module,self.__class__.__name__)
             if isinstance(state.fsm,FSM):
                 other=state.fsm.name
             else:
                 other="unknown"
             raise ValueError("%s state '%s' already registered with another FSM: %s" \
-                % (cls_str,s,other))
+                % (eloc(self,"state"),s,other))
+
         # If requested, link the FSM (myself) to the state object
         if state.fsm:
             state.fsm=self
 
         try:
             self._states[s]
-            cls_str="%s - %s.state() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s duplicate state encountered: '%s'" % (cls_str,s))
+            raise ValueError("%s duplicate state encountered: '%s'" \
+                % (eloc(self,"state"),s))
         except KeyError:
             self._states[s]=state
 
@@ -274,8 +288,8 @@ class FSMState(object):
             intyp=self.ActID(inid,reg=True)
             try:
                 self._actions[intyp]
-                cls_str="%s - %s.action() -" % (this_module,self.__class__.__name__)
-                raise ValueError("%s duplicate type encountered: %s" % (cls_str,intyp))
+                raise ValueError("%s duplicate type encountered: %s" \
+                    % (eloc(self,"action"),intyp))
             except KeyError:
                 self._actions[intyp]=method
 
@@ -294,22 +308,23 @@ class FSMState(object):
             method=self._actions[tk]
         except KeyError:
             if self._error is None:
-                cls_str="%s - %s.input() -" % (this_module,self.__class__.__name__)
                 raise TypeError("%s: No action method defined by state '%s' for input "
-                    "value: %s" % (cls_str,self.state,tk)) from None
+                    "value: %s" % (eloc(self,"input"),self.state,tk)) from None
             method=self._error
 
-        if trace is not None:
-            print("FSM:%s [%s] action called for input: %s" \
-                % (trace,self.state,tk))
-            print("FSM:%s [%s] calling self.%s(%s,self,trace=%s)" \
-                % (trace,self.state,method.__name__,value,trace))
+        if __debug__:
+            if trace is not None:
+                print("FSM:%s [%s] action called for input: %s" \
+                    % (trace,self.state,tk))
+                print("FSM:%s [%s] calling self.%s(%s,self,trace=%s)" \
+                    % (trace,self.state,method.__name__,value,trace))
 
         next=method(value,self,trace=trace)
 
-        if trace is not None:
-            print("FSM:%s [%s] action for input '%s' returned next "
-                "state: %s" % (trace,self.state,tk,next))
+        if __debug__:
+            if trace is not None:
+                print("FSM:%s [%s] action for input '%s' returned next state: %s" \
+                    % (trace,self.state,tk,next))
 
         return next
 

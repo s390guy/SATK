@@ -119,7 +119,14 @@ class ASMA(object):
             stats.start("assemble_w")
             stats.start("pass0_p")
             stats.start("pass0_w")
-        self.assembler.statement(filename=self.source)
+
+        try:
+            self.assembler.statement(filename=self.source)
+        except Exception:
+            print(self.assembler._error_pass0())
+            # Now print out the exception information
+            raise
+
         if self.clstats:
             stats.stop("pass0_p")
             stats.stop("pass0_w")
@@ -130,6 +137,10 @@ class ASMA(object):
         except assembler.AssemblerAbort as aae:
             print(aae)
             sys.exit(1)
+        except Exception:
+            print(self.assembler._error_passn())
+            # Now output the exception information
+            raise
 
         self.assemble_end_w=time.time()
         self.assemble_end=time.process_time()
