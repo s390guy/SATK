@@ -2011,6 +2011,7 @@ class Assembler(object):
     #   aout        AsmOut object describing output characteristics.
     #   msldft      Default MSL directory if MSLPATH not defined
     #   addr        Size of addresses in this assembly.  Overrides MSL CPU statement
+    #   bltin       Enables built-in macros if True.
     #   case        Enables case sensitivity for lables, symbolic variables and
     #               sequence symbols.  Defaults to case insensitive.
     #   debug       The global Debug Manager to be used by the instance.  In None
@@ -2038,9 +2039,9 @@ class Assembler(object):
     #               be traced in all passs including initial parsing.
     #   stats       Specigy True to enable statistics reporting at end of pass 2.  
     #               Should be False if an external driver is updating statistics.
-    def __init__(self,machine,msl,aout,msldft=None,addr=None,case=False,debug=None,\
-                 dump=False,eprint=False,error=2,nest=20,ccw=None,psw=None,\
-                 ptrace=[],otrace=[],cpfile=None,cptrans="94C",stats=False):
+    def __init__(self,machine,msl,aout,msldft=None,addr=None,bltin=False,case=False,
+                 debug=None,dump=False,eprint=False,error=2,nest=20,ccw=None,\
+                 psw=None,ptrace=[],otrace=[],cpfile=None,cptrans="94C",stats=False):
 
         # Before we do anything else start my timers
         Stats.start("objects_p")
@@ -2065,9 +2066,11 @@ class Assembler(object):
         self.imgdump=dump           # Dumps completed CSECT's, regions and image
         self.ptrace=ptrace          # Passes to be traced
         self.otrace=otrace          # statements to be traced.
+        self.bltin=bltin            # Enables/disables builtin macros
+        self.case=case              # Specifies if case sensitivity is enabled.
         self.cpfile=cpfile          # Code page source file (defaults to built-in)
         self.cptrans=cptrans        # Code page translation definition to use
-        self.case=case              # Specifies if case sensitivity is enabled.
+        
 
         # Error handling flag
         self.error=error

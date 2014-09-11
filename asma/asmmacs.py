@@ -228,7 +228,6 @@ class Macro(object):
         self.name=prototype.macid  # Macro Name
         self.prototype=prototype   # Prototype object
         self.case=case             # Specifies if case sensitivity is enabled
-        #print("macro '%s' case: %s" % (self.name,self.case))
         self.engine=MacroEngine()  # My definition in terms of MacroOp objects
         self._defined=defn         # source statement number where definition occurs
         self._refs=[]              # source statements referencing this macro
@@ -2039,6 +2038,7 @@ class Invoker(object):
 class MacroLanguage(object):
     def __init__(self,asm):
         self.asm=asm           # The assembler
+        self.bltin=asm.bltin   # Enable/disable builtin macros
         self.case=asm.case     # Inherits the case sensitivity option
         #print("MacroLanguage.case=%s" % self.case)
         self.parsers=asm.fsmp  # asmfsmbp.Parsers object
@@ -2050,18 +2050,19 @@ class MacroLanguage(object):
         #  3 ==> macro definition abandoned, flush till mend
         # This state is used to define actions in method defining()
         self.state=0        # Macro processing state.
-        
+
         # This is the Macro object presently being defined.  Macor directives and
         # model directives are added to this object.
         self.indefn=None
         # Switch to debug a macro definition.
         self.ddebug=False   # Set by define() method from MACRO assembler directive.
-        
+
         # Identifies method for processing a directive
         self.directives=self.__init_directives()
 
         self.macros={}      # Defined macros
-        self.__built_ins()  # Set up all built-in macros.
+        if self.bltin:
+            self.__built_ins()  # Set up all built-in macros.
 
         # Managed by getSysNdx() method
         self.sysndx=0       # The global sysndx upon which each local is derived

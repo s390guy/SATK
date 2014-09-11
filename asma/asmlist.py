@@ -64,7 +64,7 @@ class AsmListing(Listing):
         # Title established by create_title() method
         self.dir_title=""       # Title as supplied by TITLE assembler directive
         self.asmtitle=None      # Title object
-        self.headers=7*[None,]  # Static headers for different parts
+        self.headers=8*[None,]  # Static headers for different parts
 
         # Part 1 - Assembly statement listing groups
         self.asmdet=None        # Group object for assembly line detail
@@ -76,6 +76,12 @@ class AsmListing(Listing):
         self.refgrp=None        # Group used to list symbol references
         self.symgrp=None        # Group for fixed columns
         self.rpl=None           # Number of references per line
+        
+        # Part 2_5 - Macro Cross Reference groups
+        self.mrefgrp=None       # Group used to list macro references
+        self.macgrp=None        # Group for fixed columns
+        self.macgrpb=None       # Group for builtin macro fixed columns
+        self.macrpl=None        # Number of reference per line
 
         # Part 3 - Image Map groups
         self.map_desc={}        # Map object type description dictionary
@@ -99,7 +105,6 @@ class AsmListing(Listing):
         self.prtparts=None      # List of actual parts to print (see create() method)
         self.next_part=0        # Next part of the listing to create
         self.next=0             # Next Stmt object index to be processed
-        #self.parts=[self.part1,self.part2,self.part3,self.part4]
         self.part=None          # Current listing part handler (see new_part() method)
         self.cur_part=None      # Current part number (see new_part() method)
         self.done=False         # Signals the listing is done
@@ -111,6 +116,12 @@ class AsmListing(Listing):
 
         # Data built for listing 
         self.stes=[]            # List of symbol table entries
+        
+        # Data built for macro cross-reference
+        self.mtes=[]            # List of macro entries.
+        self.max_mac=None       # Size in characters of maximum macro name
+        self.mac_first=True     # Switch for first-time
+        
         # Image map information
         self.part3_first=False  # Flag to inidicate first detail line
         self.entry=None         # Image entry point, if defined
@@ -175,6 +186,18 @@ class AsmListing(Listing):
                 imginfo[name]=m
         self.max_length=max_length
         self.mac_value=max_value
+        
+        # Build the macro cross-reference list
+        macs=self.asm.MM.macros    # The dictionary of defined macros
+        mtes=[]
+        max_mac=0
+        for macname in sorted(macs.keys()):
+            mac=macs[macname]
+            macent=Mac(mac.name,mac._defined,mac._refs)
+            mtes.append(macent)
+            max_mac=max(max_mac,len(macname))
+        self.mtes=mtes
+        self.max_mac=max_mac
 
         # Build the image map list
         name=self.imgwip.name
@@ -243,40 +266,38 @@ class AsmListing(Listing):
         self.files=file_list
 
         # Build the dump records list
-        if not self.dump:
-            return
+        if self.dump:
+            dlines=[]
+            for rndx in range(len(reg_list)):
+                region=reg_list[rndx]
+                regndx=rndx
+                addr=region.bound
+                pos=region.pos
+                if region.length==0:
+                    dlines.append(Dump(addr,pos,0,supbeg=32,region=regndx,empty=True))
+                    continue
+                # Region has something to actually dump
+                endaddr=region.bnd_end+1
+                while addr<endaddr:
+                    beg_bounds=32*(addr // 32)   # 32 bytes per line
+                    end_bounds=addr+32
+                    supbeg=0
+                    supend=0
+                    if beg_bounds<addr:
+                        supbeg=addr-beg_bounds
+                    bytes_left=max(endaddr-addr,0)
+                    bytes=min(bytes_left,32-supbeg)
+                    filled=supbeg+bytes
+                    if filled<32:
+                        supend=32-filled
 
-        dlines=[]
-        for rndx in range(len(reg_list)):
-            region=reg_list[rndx]
-            regndx=rndx
-            addr=region.bound
-            pos=region.pos
-            if region.length==0:
-                dlines.append(Dump(addr,pos,0,supbeg=32,region=regndx,empty=True))
-                continue
-            # Region has something to actually dump
-            endaddr=region.bnd_end+1
-            while addr<endaddr:
-                beg_bounds=32*(addr // 32)   # 32 bytes per line
-                end_bounds=addr+32
-                supbeg=0
-                supend=0
-                if beg_bounds<addr:
-                    supbeg=addr-beg_bounds
-                bytes_left=max(endaddr-addr,0)
-                bytes=min(bytes_left,32-supbeg)
-                filled=supbeg+bytes
-                if filled<32:
-                    supend=32-filled
+                    d=Dump(addr,pos,bytes,supbeg=supbeg,supend=supend,region=regndx)
+                    regndx=None
+                    dlines.append(d)
+                    addr+=bytes   # Increment next address
+                    pos+=bytes    # Increment the image position
 
-                d=Dump(addr,pos,bytes,supbeg=supbeg,supend=supend,region=regndx)
-                regndx=None
-                dlines.append(d)
-                addr+=bytes   # Increment next address
-                pos+=bytes    # Increment the image position
-
-        self.dumprecs=dlines
+            self.dumprecs=dlines
 
         # Build the assembler error list
         self.sorted_errors=sorted(self.errors,key=assembler.AssemblerError.sort)
@@ -305,11 +326,12 @@ class AsmListing(Listing):
         # Generic listing part management
         self.parts=[Part1(0,self),\
                     Part2(1,self),\
-                    Part3(2,self),\
-                    Part4(3,self),\
-                    Part5(4,self),\
-                    Part6(5,self),\
-                    Part7(6,self)]
+                    Part2_5(2,self),\
+                    Part3(3,self),\
+                    Part4(4,self),\
+                    Part5(5,self),\
+                    Part6(6,self),\
+                    Part7(7,self)]
         self.prtparts=[]
         for p in self.parts:
             if p.include(self):
@@ -730,9 +752,6 @@ class AsmListing(Listing):
         refgrp=Group(columns=refcol)
         self.refgrp=refgrp
 
-        det.append(CharCol(len(refgrp),colnum=5))
-        symgrp=Group(columns=det)
-
     # Format one or more lines for a symbol table entry
     def part2_details(self,ste):
         details=[]      # List of detail lines being returned
@@ -784,6 +803,120 @@ class AsmListing(Listing):
     def part2_init(self):
         self.eject()            # Force a new page starting part 2
         self.part2()            # Prime details
+
+   #
+   #   PART 2_5 - Macro Cross-Reference Listing
+   #
+
+    def part2_5(self):
+        if self.mac_first:
+            if len(self.mtes)==0:
+                self.push("No defined macros")
+                self.mac_first=False
+            return
+        try:
+            m=self.fetch_mac()
+        except IndexError:
+            self.new_part()
+            return
+        line=self.part2_5_details(m)
+        # Note: line may be one detail line or a list of detail lines
+        self.push(line)
+        return
+        
+    def part2_5_create_detail(self):
+        hdr=[]
+        det=[]
+        detb=[]
+        
+        # MACRO Column
+        mac_col=max(5,self.max_mac)
+        maccol=CharCol(mac_col,sep=2,colnum=0)
+        #det.append(CharCol(mac_col,sep=2,colnum=0))
+        det.append(maccol)
+        detb.append(maccol)
+        hdr.append(CharCol(mac_col,just="center",sep=2,colnum=0,default="MACRO"))
+
+        # Defn Column
+        maximum=max(self.max_line,99990)
+        size=Column.dec_size(maximum)
+        det.append(DecCol(maximum=maximum,sep=2,colnum=1))
+        detb.append(CharCol(size=size,just="center",colnum=1,default="BLTIN"))
+        hdr.append(CharCol(size,just="center",sep=2,colnum=1,default="DEFN"))
+
+        #References
+        ref="REFERENCES"
+        hdr.append(CharCol(len(ref),just="left",colnum=2,default=ref))
+        
+        hdrgrp=Group(columns=hdr)
+        hdrstr=hdrgrp.string(values=[None,None,None])
+        self.headers[2]=hdrstr
+        
+        macgrp=Group(columns=det)
+        self.macgrp=macgrp
+        self.macgrpb=Group(columns=detb)
+        used_chars=len(macgrp)
+        available_chars=self.linesize-used_chars
+        colsize=self.max_char
+        ref_size=colsize+2
+        self.macrpl=available_chars // ref_size
+
+        refcol=[]
+        for n in range(self.macrpl):
+            refcol.append(DecCol(maximum=self.max_line,sep=2,colnum=n))
+        mrefgrp=Group(columns=refcol)
+        self.mrefgrp=mrefgrp
+        
+    def part2_5_data(self,refs):
+        rpl=self.macrpl
+
+        rlist=[]            # List of a list of statement references
+        refsize=len(refs)
+        for x in range(0,refsize,rpl):
+            chunk=refs[x:min(x+refsize,refsize)]
+            rlist.append(chunk)
+
+        data_lines=[]
+        for chunk in rlist:
+            vals=rpl * [None,]
+            for ndx in range(min(len(chunk),rpl)):
+                ref=chunk[ndx]
+                vals[ndx]=ref
+            ref_str=self.mrefgrp.string(values=vals)
+            data_lines.append(ref_str)
+
+        return data_lines
+
+    def part2_5_details(self,mte):
+        details=[]      # List of detail lines being returned
+
+        defn=mte.defn
+        if defn:
+            detail=self.macgrp.string(values=[mte.name,defn])
+        else:
+            detail=self.macgrpb.string(values=[mte.name,None])
+
+        ref_info=self.part2_5_data(mte.refs)
+        if len(ref_info)==0:
+            refs=""
+        else:
+            refs=ref_info[0]
+            del ref_info[0]
+
+        det_line="%s%s" % (detail,refs)
+        details.append(det_line)
+
+        vals= 2*[None,]
+        for ref in ref_info:
+            det=self.macgrp.string(values=vals)
+            det_line="%s%s" % (det,ref)
+            details.append(det_line)
+
+        return details
+        
+    def part2_5_init(self):
+        self.eject()            # Force a new page starting part 2
+        self.part2_5()          # Prime details
 
    #
    #   PART 3 - IMAGE Map
@@ -863,7 +996,7 @@ class AsmListing(Listing):
         hdrg=Group(columns=hdr1)
         vals=(h1+1) * [None,]
         hdr_str=hdrg.string(values=vals)
-        self.headers[2]=hdr_str
+        self.headers[3]=hdr_str
 
         self.mapgrp=det1_grp
 
@@ -1003,7 +1136,7 @@ class AsmListing(Listing):
 
         h2g=Group(columns=h2)
         hdr_str=h2g.string(values=4*[None,])
-        self.headers[3]=hdr_str
+        self.headers[4]=hdr_str
 
         self.objgrp=d1g
         self.chrgrp=d3g
@@ -1112,7 +1245,7 @@ class AsmListing(Listing):
         d.append(CharCol(10,sep=1,colnum=8))   # Col 71-80
 
         self.recgrp=Group(columns=d)
-        self.headers[4]="OBJECT DECK"
+        self.headers[5]="OBJECT DECK"
 
         colpos_ho=[self.deckdesc[0],
                    "0000000001",
@@ -1203,7 +1336,7 @@ class AsmListing(Listing):
 
         hgrp=Group(columns=hc)
         hdr=hgrp.string(values=[None,None,None])
-        self.headers[5]=hdr
+        self.headers[6]=hdr
 
         self.filgrp=Group(columns=dc)
 
@@ -1242,7 +1375,7 @@ class AsmListing(Listing):
             hdr="** NO ERRORS FOUND **"
         else:
             hdr="** ERRORS FOUND: %s **" % self.num_errors
-        self.headers[6]=hdr
+        self.headers[7]=hdr
 
     def part7_details(self,ae):
         return "%s" % ae
@@ -1281,6 +1414,12 @@ class AsmListing(Listing):
         source=self.files[self.next]
         self.next+=1
         return source
+
+    # Returns a Mac object.  IndexError indicate the end of the list
+    def fetch_mac(self):
+        m=self.mtes[self.next]
+        self.next+=1
+        return m
 
     # Returns a Map object.  IndexError indicates the end of the list
     def fetch_map(self):
@@ -1365,6 +1504,11 @@ class Part2(Part):
         super().__init__(number,\
             listing.part2,listing.part2_init,listing.part2_create_detail)
 
+class Part2_5(Part):
+    def __init__(self,number,listing):
+        super().__init__(number,\
+            listing.part2_5,listing.part2_5_init,listing.part2_5_create_detail)
+
 class Part3(Part):
     def __init__(self,number,listing):
         super().__init__(number,\
@@ -1425,6 +1569,16 @@ class Dump(object):
                 "index=[0x%X:0x%X],region=%s,empty=%s)" \
                     % (self.addr,self.pos,self.supbeg,self.supend,self.bytes,\
                        self.beg_ndx,self.end_ndx,self.region,self.empty)
+
+
+class Mac(object):
+    def __init__(self,name,defn=None,refs=[]):
+        self.name=name          # Macro name
+        self.defn=defn          # Statement defining the macro
+        self.refs=refs          # List of statement referencing the macro
+    def __str__(self):
+        return "Mac('%s',defn=%s,refs=%s)" % (self.name,self.defn,self.refs)
+
 
 class Map(object):
     def __init__(self,name,typ,image,bound,length):

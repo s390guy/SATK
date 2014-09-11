@@ -35,6 +35,7 @@ fi
 #   Options supported:
 #       addr    16|24|31|64|cpu     Sets the listing address size or uses MSL CPU
 #       arch    string              Sets the assembly target instruction set
+#       bltin   enable|disable      Enables or disables builtin macros
 #       case    enable|disable      Sets the assembly case sensitivity
 #       ccw     0|1|disable|cpu     Sets the XMODE CCW setting or uses MSL CPU
 #       cpfile  file|reset     Sets the code page file
@@ -75,6 +76,13 @@ asma_env()
                 "64")   asma_addr=" -a 64" ;;
                 "cpu") asma_env reset addr ;;
                 *) echo "invalid addr option value: ${2}" ; return 1 ;;
+            esac
+            ;;
+        "builtin")
+            case ${2} in
+                "enable")  asma_bltin=" --bltin" ;;
+                "disable") asma_bltin="" ;;
+                *) echo "invalid builtin option value: ${2}" ; return 1 ;;
             esac
             ;;
         "case")
@@ -228,6 +236,7 @@ asma_env()
                 "all")
                     asma_env reset addr
                     asma_env reset arch
+                    asma_env reset builtin
                     asma_env reset case
                     asma_env reset ccw
                     asma_env reset cpfile
@@ -245,6 +254,7 @@ asma_env()
                     asma_env reset store
                     ;;
                 "arch")   asma_arch=""   ;;
+                "builtin")asma_bltin=""  ;;
                 "case")   asma_case=""   ;;
                 "ccw")    asma_ccw=""    ;;
                 "cpfile") asma_cpfile="" ;;
@@ -312,7 +322,7 @@ asma()
     cdebug="${asma_debug}${asma_oper}"
     clist="${asma_dump}${asma_list}"
     copt="${asma_arch}${asma_msl}${asma_cpu}${asma_addr}${asma_psw}${asma_error}"
-    copt="${copt}${asma_case}${asma_stats}"
+    copt="${copt}${asma_bltin}${asma_case}${asma_stats}"
     cmd="${asma} ${copt}${ccp}${cdebug}${cout}${clist} ${1}"
     if [ "${2}" = "echo" ]
     then
