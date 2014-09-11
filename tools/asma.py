@@ -81,6 +81,7 @@ class ASMA(object):
         self.assembler=assembler.Assembler(cpu,msl,self.aout,\
             msldft=satkutil.satkdir("asma/msl"),\
             addr=args.addr,\
+            case=args.case,\
             debug=dm,\
             dump=args.dump,\
             error=args.error,\
@@ -306,6 +307,11 @@ def parse_args(dm):
     parser.add_argument("-w","--ccw",choices=["0","1","none"],
         help="set the initial XMODE CCW format (none disables the CCW directive).  "
              "Overrides the value supplited by the target CPU definition")
+
+    # Set case sensitivity
+    parser.add_argument("--case",action="store_true",default=False,\
+        help="Enable case sensitivity for labels, symbolic variables, and sequence "
+             "symbols.  Defaults to case insensitive")
 
     # Define the local default specification
     parser.add_argument("--config",default="default",\

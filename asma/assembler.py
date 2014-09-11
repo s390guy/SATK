@@ -1285,7 +1285,7 @@ class StmtFields(object):
         if self.name_ltok is not None:
             self.name_ltok.update(stmt,0,source=stmt.source)
             if self.symbol:
-                self.symid=self.name_ltok.SymID()
+                self.symid=self.name_ltok.SymID(asm.case)
         if self.oper_ltok is not None:
             self.oper_ltok.update(stmt,0,source=stmt.source)
             self.oppos=self.oper_ltok.beg
@@ -1701,18 +1701,21 @@ class AsmConfigs(object):
     def config(self,name=None,addr=None,ccw=None,cpfile=None,cptrans=None,\
             dump=None,error=None,msldb=None,nest=None,psw=None,stats=None,\
             *args,**kwds):
-        if len(args):
-            cls_str="%s %s.config() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s position parameters are not allowed: %s" \
-                % (cls_str,args))
-        if len(kwds):
-            string=""
-            for kwd,val in kwds.items():
-                string="%s,%s=%s" % (string,kwd,val)
-            string=string[1:]
-            cls_str="%s %s.config() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s unrecognized keyword parameter(s): %s" \
-                % (cls_str,string))
+    
+        assert len(args)==0,\
+            "%s position parameters are not allowed: %s" \
+                % (eloc(self,"config"),args)
+
+        if __debug__:
+            if len(kwds):
+                string=""
+                for kwd,val in kwds.items():
+                    string="%s,%s=%s" % (string,kwd,val)
+                string=string[1:]
+                assert False,\
+                    "%s unrecognized keyword parameter(s): %s" \
+                        % (eloc(self,"config"),string)
+
         assert isinstance(name,str),\
             "%s 'name' argument must be a string: %s" % (eloc(self,"config"),name)
 
@@ -1752,14 +1755,15 @@ class AsmConfigs(object):
 
 class AsmConfig(object):
     psw_formats=["S","360","67","BC","EC","380","XA","E370","E390","Z","none"]
-    def __init__(self,name,addr=None,ccw=None,cpfile=None,cptrans=None,dump=None,\
-                 error=None,msldb=None,nest=None,psw=None,stats=None):
+    def __init__(self,name,addr=None,case=None,ccw=None,cpfile=None,cptrans=None,
+                 dump=None,error=None,msldb=None,nest=None,psw=None,stats=None):
         assert isinstance(name,str),\
             "%s 'name' argument must be a string: %s" \
                 % (eloc(self,"__init__"),name)
 
         self._name=name
         self.addr(addr)
+        self.case(case)
         self.ccw(ccw)
         self.cpfile(cpfile)
         self.cptrans(cptrans)
@@ -1776,6 +1780,13 @@ class AsmConfig(object):
                 % (eloc(self,"addr"),addr)
 
         self._addr=addr
+
+    def case(self,case=None):
+        assert case is None or case in [True,False],\
+            "%s 'case' argument must be either True or False: %s" \
+                % (eloc(self,"addr"),addr)
+
+        self._case=case
 
     def ccw(self,ccw=None):
         assert ccw is None or ccw in [0,1,"none"],\
@@ -2000,6 +2011,8 @@ class Assembler(object):
     #   aout        AsmOut object describing output characteristics.
     #   msldft      Default MSL directory if MSLPATH not defined
     #   addr        Size of addresses in this assembly.  Overrides MSL CPU statement
+    #   case        Enables case sensitivity for lables, symbolic variables and
+    #               sequence symbols.  Defaults to case insensitive.
     #   debug       The global Debug Manager to be used by the instance.  In None
     #               is specified, one will be generated.  Defaults to None.
     #   dump        Causes completed CSECT's, region's and image to be printed
@@ -2009,6 +2022,7 @@ class Assembler(object):
     #                 0  - AssemblerErrors not trapped, immediate failure occurs
     #                 1  - prints errors on sysout when encountered
     #                 2  - lists errors at end of listing
+    #               Defaults to 2.
     #   nest        Specify the number of nested include files allowed.  Defaults to
     #               20.
     #   ccw         Specify the initial execution mode for CCW's: 0 or 1 or 'none'.
@@ -2024,9 +2038,9 @@ class Assembler(object):
     #               be traced in all passs including initial parsing.
     #   stats       Specigy True to enable statistics reporting at end of pass 2.  
     #               Should be False if an external driver is updating statistics.
-    def __init__(self,machine,msl,aout,msldft=None,addr=None,debug=None,dump=False,\
-                 eprint=False,error=2,nest=20,ccw=None,psw=None,ptrace=[],otrace=[],\
-                 cpfile=None,cptrans="94C",stats=False):
+    def __init__(self,machine,msl,aout,msldft=None,addr=None,case=False,debug=None,\
+                 dump=False,eprint=False,error=2,nest=20,ccw=None,psw=None,\
+                 ptrace=[],otrace=[],cpfile=None,cptrans="94C",stats=False):
 
         # Before we do anything else start my timers
         Stats.start("objects_p")
@@ -2038,10 +2052,9 @@ class Assembler(object):
         
         self.now=time.localtime()    # now is an instance of struct_time.
 
-        if not isinstance(aout,AsmOut):
-            cls_str="assembler.py - %s.__init__() -" % self.__class__.__name__
-            raise ValueError("%s 'aout' argument must be an aout object: %s" \
-                % (cls_str,aout))
+        assert isinstance(aout,AsmOut),\
+            "%s 'aout' argument must be an aout object: %s" \
+                % (eloc(self,"__init__"),aout)
 
         if debug is None:
             self.dm=Assembler.DM()  # Global debug manager, satkutil.DM instance
@@ -2054,6 +2067,7 @@ class Assembler(object):
         self.otrace=otrace          # statements to be traced.
         self.cpfile=cpfile          # Code page source file (defaults to built-in)
         self.cptrans=cptrans        # Code page translation definition to use
+        self.case=case              # Specifies if case sensitivity is enabled.
 
         # Error handling flag
         self.error=error
@@ -3524,7 +3538,10 @@ class Assembler(object):
     # Creates a new CSECT, adds it to the active region and symbol table.
     # Returns the new Section instance to the caller.    
     def __csect_new(self,line,csect_name,debug=False):
-        csect=Section(csect_name)
+        if not self.case:
+            csect=Section(csect_name.upper())
+        else:
+            csect=Section(csect_name)
 
         if __debug__:
             if debug:
@@ -3611,7 +3628,10 @@ class Assembler(object):
     # Creates a new CSECT, adds it to the active region and symbol table.
     # Returns the new Section instance to the caller.    
     def __dsect_new(self,line,dsect_name,debug=False):
-        dsect=Section(dsect_name,dummy=True)
+        if not self.case:
+            dsect=Section(dsect_name.upper(),dummy=True)
+        else:
+            dsect=Section(dsect_name,dummy=True)
 
         if __debug__:
             if debug:
@@ -3719,7 +3739,11 @@ class Assembler(object):
     def __region_new(self,line,region_name,start,debug=False):
         # Now that we have successfully processed the START statement, the new Region
         # instance can be built.
-        region=Region(region_name,start)
+        if not self.case:
+            region=Region(region_name.upper(),start)
+        else:
+            region=Region(region_name,start)
+
         if __debug__:
             if debug:
                 print("%s Created new: %s" % (eloc(self,"__region_new"),region))
@@ -6992,12 +7016,15 @@ class SymbolContent(Symbol):
         return self._entry
 
 class ST(lang.SymbolTable):
-    def __init__(self):
+    def __init__(self,case=False):
         super().__init__(write_once=True)
+        self.case=case   # Enables or disables case sensitivity
 
     # Add a new lang.STE entry.  The 'line' argument is the defining statement number  
     # AssemblerError is raised if symbol already exists in the table
     def add(self,entry,line):
+        if not self.case:
+            entry.name=entry.name.upper()
         try:
             n=self[entry.name]
             raise AssemblerError(line=line,\
@@ -7011,6 +7038,8 @@ class ST(lang.SymbolTable):
     # Fetch a symbol by name.  Returns an instance of lang.STE.  
     # Raises KeyError if symbol is not defined 
     def get(self,item):
+        if not self.case:
+            return self[item.upper()]
         return self[item]
 
     # Returns a list of all symbol names.  If sort=True is specified the returned
@@ -7024,6 +7053,8 @@ class ST(lang.SymbolTable):
     # Returns True if item is defined, False otherwise
     def isdefined(self,item):
         try:
+            if not self.case:
+                self[item.upper()]
             self[item]
         except KeyError:
             return False

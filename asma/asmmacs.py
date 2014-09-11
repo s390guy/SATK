@@ -81,6 +81,72 @@ import assembler              # Access the assembler for AsmPasses generation
 
 this_module="asmmacs.py"
 
+#
+#  +--------------------------------+
+#  |                                |
+#  |   Macro Implementation Notes   |
+#  |                                | 
+#  +--------------------------------+
+#
+
+#  Case [In]Sensitivity
+#  ---- ---------------
+
+# Assember case sensitivity is globally controlled by the assembler.Assembler object's
+# case attribute provided when the object is instantiated.  It is set to True
+# when the asma.py command-line argument '--case' is present.  It defaults to False
+# othewise.
+#
+# Macro symbol and sequence symbol case sensitivity is controlled by the global
+# case attribute.  Macro symbol access is provided through the SynbolID object.
+# Controlling the case of a macro symbol occurs whenever a SymbolID object is
+# created.  Outside of this module SymbolID objects are created by the objects:
+#
+# asmfsmbp.PLitKAttr   - Pratt expression token accessing a symbol's K' attribute
+# asmfsmbp.PLitNattr   - Pratt expression token accessing a symbol's N' attribute
+# asmfsmbp.PLitSym     - Pratt expression token that accesses a symbol's value
+# asmfsmbp.PrototypeScope - Prototype statement parser for parameters
+# asmfsmbp.SymRefRepMO - Manages the re match object created by SymRefType
+# asmfsmbp.SymRefToken - The lexical token resulting from a match of SymRefType
+# asmfsmbp.SymRefPart  - A searched matched by the SymRefType pattern.
+#
+# SymRefRepMO is a object dedicated to managing the regular expression match
+# object created by the lexical type classe asmfsmbp.SymRefType and made available
+# in the asmfsmbp.SymRefToken object.  Both asmfsmbp.SymRefToken and
+# asmfsmbp.SymRefRepMO classes provide the SymID method for the purpose of creating.
+# A SymbolID object from the recognized string. The state of case sensitivity must
+# be available to the SymID method when called to ensure the correct case sensitive
+# or insensitive symbol name is used internally.  It is a required positional
+# parameter.
+#
+# The Pratt expression tokens use their internally created SymbolID object for
+# access to the macro symbol table when accessing a symbol's value or one of its
+# supported attributes.  In each case, the Pratt token uses the SymRefRepMO.SymID
+# method.  For Pratt expression tokens, the state of case sensitivity is supplied
+# by the external helper object, in these cases the macro Invoker object.
+#
+# When parsing a prototype statement, the PrototypeScope object itself handles
+# case sensitivity for prototype positional and keyword parameters.  It is created
+# externally by the MacroLanguage object setting the current case sensitivity state,
+# rather than having the parser create it automatically.
+#
+# Because case sensitivity state effects macro definition and execution including
+# the creation of statements from model statements, the state of case sensitivity
+# must be known during all of these macro related processes.  It is supplied to
+# each of these objects when instantiated:
+# 
+# MacroLanguage - by directly accessing the Assembler object's case attribute
+# Invoker       - also by directly accessing the Assembler object's case attribute.
+# EngineState   - by directly accessing the macro's Invoker object's case attribute.
+# Macro         - as a required instance argument when created.
+#
+# Sequence symbol case sensitivity is handled completely by the __seq() method
+# of the MacroLanguage object when a sequence symbol appears in a macro directive's
+# name field.  When a sequence symbol is part of the directives operands (AGO and 
+# AIF) the respective MacroLanguage method handles the case sensitivity.
+
+
+
 # This excpetion is used when a user error occurs during the invocation of a
 # macro.  assembler.AssemblerError is raised during user errors during macro
 # definition.
@@ -151,13 +217,18 @@ class Prototype(object):
 class Macro(object):
     Arith=asmfsmbp.ArithEval()   # Arithmetic Evaluator
     Binary=asmfsmbp.BinaryEval() # Binary Evaluator
-    def __init__(self,prototype,defn=None):
+    def __init__(self,prototype,case,defn=None):
         assert isinstance(prototype,Prototype),\
-            "%s 'prototype' argument must be a prototype " \
+            "%s 'prototype' argument must be a prototype :%s" \
                 % (assembler.eloc(self,"__init__",module=this_module),prototype)
+        assert case in [True,False],\
+            "%s 'case' argument must be either True or False: %s" \
+                % (assembler.eloc(self,"__init__",module=this_module),case) 
 
         self.name=prototype.macid  # Macro Name
         self.prototype=prototype   # Prototype object
+        self.case=case             # Specifies if case sensitivity is enabled
+        #print("macro '%s' case: %s" % (self.name,self.case))
         self.engine=MacroEngine()  # My definition in terms of MacroOp objects
         self._defined=defn         # source statement number where definition occurs
         self._refs=[]              # source statements referencing this macro
@@ -170,9 +241,15 @@ class Macro(object):
     # variable may be unsubscripted or subscripted depending upon whether the 
     # parameter defined a single value or multiple in a list.
     def __initparm(self,symbol,value,lcls):
+        # Enforce symbol case sensitivity rule.
+        if not self.case:
+            symname=symbol.upper()
+        else:
+            symname=symbol
+
         if isinstance(value,str):
             # Create an unsubscripted symbolic variable to hold the parameter string
-            symid=SymbolID(symbol)
+            symid=SymbolID(symname)
             symo=lcls.defc(symid,parm=True,unique=True,ro=True)
             # At this point the unsubscripted symbol has been added to the macro
             # dictionary.
@@ -185,15 +262,15 @@ class Macro(object):
                 % (assembler.eloc(self,"__initc",module=this_module),value)
 
         # Create a subscripted symbolic variable to hold the parameter list
-        number=len(value)
-        symid=SymbolID(symbol,number)
+        number=len(value)   
+        symid=SymbolID(symname,number)
         symo=lcls.defc(symid,parm=True,unique=True,ro=True)
         # At this point the symbol has been added to the symbol table with default
         # values assigned to each subscript.
         for n in range(number):
             sub=n+1     # subscripts use 1 as the index origin, not 0 like Python
             val=value[n]
-            symid=SymbolID(symbol,sub)
+            symid=SymbolID(symname,sub)
             symo.setValue(symid,CVal(val),user=False)
 
    #
@@ -355,8 +432,8 @@ class Macro(object):
         return po
 
 class Built_In(Macro):
-    def __init__(self,proto):
-        super().__init__(proto)
+    def __init__(self,proto,case):
+        super().__init__(proto,case)
 
         self.define()
 
@@ -494,6 +571,7 @@ class EngineState(object):
         
         # Global state of the MacroEngine for this invocation.
         self.exp=exp             # This state's Invoker object
+        self.case=exp.case       # Need case to properly locate symbols
         self.lcls=exp.lcls       # The local macro symbol dictionary
         self.idebug=exp.idebug   # Pick up invoke debug switch from Invoker
         self.lineno=exp.lineno   # Assembler statement invoking the macro
@@ -962,6 +1040,9 @@ class MacroSymbol(object):
 # to define a local or global variable.  It is used to access a variable's value,
 # represented by a subclass of SymbolValue.  No subscripting, numeric subscripting
 # and variable subscripting are all supported.
+#
+# Case sensitivity is managed via the 'variable' argument.  Case must be established
+# when the object is created.
 class SymbolID(object):
     def __init__(self,variable,subscript=0):
         assert isinstance(variable,str) and len(variable)>0,\
@@ -989,9 +1070,8 @@ class SymbolID(object):
         elif subscript is None:
             self.sub=0
         else:
-            cls_str=assembler.eloc(self,"__init__",module=this_module)
             raise ValueError("%s 'subscript' argument invalid: '%s'" \
-                % (cls_str,subscript)) 
+                % (assembler.eloc(self,"__init__",module=this_module),subscript)) 
 
     def __str__(self):
         return "%s(variable=%s,subscipt=%s)" \
@@ -1020,22 +1100,22 @@ class SymbolValue(object):
     # This method returns a string used to replace the symbol in a model statement
     # Each subclass must provide this method
     def string(self):
-        cls_str=assembler.eloc(self,"string",module=this_module)
         raise NotImplementedError("%s subclass %s must provide string() method" \
-            % (cls_str,self.__class__.__name__))
+            % (assembler.eloc(self,"string",module=this_module),\
+                self.__class__.__name__))
         
     # Updates this SymbolValue object with a vew value
     def update(self,value):
-        cls_str=assembler.eloc(self,"update",module=this_module)
         raise NotImplementedError("%s subclass %s must provide update() method" \
-            % (cls_str,self.__class__.__name__))
+            % (assembler.eloc(self,"update",module=this_module),\
+                self.__class__.__name__))
         
     # This method returns the symbol's value when encoutered in a macro statement
     # Each subclass must provide this method
     def value(self):
-        cls_str=assembler.eloc(self,"value",module=this_module)
         raise NotImplementedError("%s subclass %s must provide value() method" \
-            % (cls_str,self.__class__.__name__))
+            % (assembler.eloc(self,"value",module=this_module),\
+                self.__class__.__name__))
 
 # GBLA or LCLA Arithmetic Macro Variable Symbol
 class ASym(MacroSymbol):
@@ -1044,10 +1124,10 @@ class ASym(MacroSymbol):
 
 class AVal(SymbolValue):
     def __init__(self,value=0):
-        if not isinstance(value,int):
-            cls_str=assembler.eloc(self,"__init__",module=this_module)
-            raise ValueError("%s 'value' argument must be an integer: '%s'" \
-                % (cls_str,value))
+        assert isinstance(value,int),\
+            "%s 'value' argument must be an integer: '%s'" \
+                % (assembler.eloc(self,"__init__",module=this_module),value)
+
         super().__init__(value)
 
     #
@@ -1347,15 +1427,18 @@ class CVal(SymbolValue):
 #             Note: Global variables are not required to be unique when defined.
 #                   Local variables and macro context variables must be unique
 #                   Unique=True may be forced by the defa(), defb() or defc() methods.
+#   gbl       Specifies a symbol's global attribute of True or False
+#   case      Enables case sensitivity for macro symbols if True.  Defaults to False
 class MacSymbols(object):
-    def __init__(self,unique=False,gbl=False):
+    def __init__(self,case,unique=False,gbl=False):
         self.syms={}        # Dictionary of variable symbols
         self.unique=unique  # Only new unique symbols may be defined
         self.gbl=gbl        # Sets a symbol's gbl attribute
+        self.case=case      # Enables case sensitivity for macro symbols
 
     # Defines a symbol variable
     # Method Arguments:
-    #   symbol    A Symbol ID defining the variable and its subscripts
+    #   symbol    A SymbolID object defining the variable and its subscripts
     #   cls       The class object of the variable type: ASym, BSym or CSym
     #   unique    Specify True if the symbol may not already be defined
     # Returns:
@@ -1363,10 +1446,12 @@ class MacSymbols(object):
     # Exceptions:
     #   MacroError  variable symbol already created if unqiue is being enforced.
     def __define(self,symbol,cls,parm=False,unique=False,ro=False):
-        if not isinstance(symbol,SymbolID):
-            cls_str=assembler.eloc(self,"__define",module=this_module)
-            raise ValueError("%s 'symbol' argument must be a SymbolID object: %s" \
-                % (cls_str,symbol))
+        assert isinstance(symbol,SymbolID),\
+            "%s 'symbol' argument must be a SymbolID object: %s" \
+                % (assembler.eloc(self,"__define",module=this_module),symbol)
+        assert self.case or symbol.var == symbol.var.upper(),\
+             "SymbolID not case insensitive: %s" % symbol
+
         name=symbol.var
         try:
             s=self.syms[name]
@@ -1381,10 +1466,12 @@ class MacSymbols(object):
         return s
 
     def _add(self,sym,n=None,pos=None,unique=False):
-        if not isinstance(sym,MacroSymbol):
-            cls_str=assembler.eloc(self,"_add",module=this_module)
-            raise ValueError("%s 'sym' argument must be a MacroSymbol object: %s" \
-                % (cls_str,sym))
+        assert isinstance(sym,MacroSymbol),\
+            "%s 'sym' argument must be a MacroSymbol object: %s" \
+                % (assembler.eloc(self,"_add",module=this_module),sym)
+        assert self.case or sym.symbol == sym.symbol.upper(),\
+            "SymbolID not case insensitive: %s" % sym
+
         name=sym.symbol
         try:
             self._fetch(name)
@@ -1396,7 +1483,7 @@ class MacSymbols(object):
 
     # This is a low-level function for direct access to the xSym object
     # Method Arguments:
-    #   symname  Symbolic variable name (with '&')
+    #   sym      Symbolic variable name (with '&')
     # Exceptions:
     #   KeyError if symbol variable name not defined
     def _fetch(self,sym):
@@ -1413,17 +1500,26 @@ class MacSymbols(object):
     #   ro       If True, the symbol will be flagged as read-only.  Default is False
     #   unique   If True, forces the symbol to be unique even if the table does not.
     def _inita(self,symbol,value,parm=False,ro=False,unique=False):
-        i=SymbolID(symbol)
+        if not self.case:
+            i=SymbolID(symbol.upper())
+        else:
+            i=SymbolID(symbol)
         s=self.defa(i,parm=parm,unique=unique,ro=ro)
         s.setValue(i,AVal(value),user=False)
 
     def _initb(self,symbol,value,parm=False,ro=False,unique=False):
-        i=SymbolID(symbol)
+        if not self.case:
+            i=SymbolID(symbol.upper())
+        else:
+            i=SymbolID(symbol)
         s=self.defb(i,parm=parm,unique=unique,ro=ro)
         s.setValue(i,BVal(value),user=False)
 
     def _initc(self,symbol,value,parm=False,ro=False,unique=False):
-        i=SymbolID(symbol)
+        if not self.case:
+            i=SymbolID(symbol.upper())
+        else:
+            i=SymbolID(symbol)
         s=self.defc(i,parm=parm,unique=unique,ro=ro)
         s.setValue(i,CVal(value),user=False)
 
@@ -1440,11 +1536,12 @@ class MacSymbols(object):
     #   symbol    the SymbolID object identifying the referenced variable and subscript
     #   updating  If True, the symbol is being referenced for an update (SETx)
     # Returns:
-    #   the referenced SymbolValue object, AVal, BVal or CVal object
+    #   the referenced SymbolValue object: AVal, BVal or CVal object
     # Exceptions:
-    #   MacroError if variable symbol is undefined, if subscript provided for
-    #   unsubscripted symbol, if subscript is out of range or if subscript symbol
-    #   itself is undefined.
+    #   MacroError when variable symbol is undefined, 
+    #              when a subscript is provided for an unsubscripted symbol, 
+    #              when the subscript is out of range, or 
+    #              when the subscript symbol itself is undefined
     def _reference(self,symbol,updating=False):
         # This raises an uncaught MacroError if the symbol is not defined
         sym=self._reference_symbol(symbol)
@@ -1480,7 +1577,6 @@ class MacSymbols(object):
         
         return sym.values[sub]
 
-            
     # References a symbolic variable MacroSymbol whose reference is defined by a 
     # SymbolID object's symbolic variable name.
     # Method Arguments:
@@ -1493,15 +1589,17 @@ class MacSymbols(object):
     #   unsubscripted symbol, if subscript is out of range or if subscript symbol
     #   itself is undefined.
     def _reference_symbol(self,symbol):
-        if not isinstance(symbol,SymbolID):
-            cls_str=assembler.eloc(self,"_reference_symbol",module=this_module)
-            raise ValueError("%s 'symbol' argument must be a SymbolID object: %s" \
-                % (cls_str,symbol))
-        var=symbol.var              # Variable symbol name
+        assert isinstance(symbol,SymbolID),\
+            "%s 'symbol' argument must be a SymbolID object: %s" \
+                % (assembler.eloc(self,"_reference_symbol",module=this_module),\
+                    symbol)
+        assert self.case or symbol.var == symbol.var.upper(),\
+            "symbol not case insensitive: %s" % symbol
+
         try:
-            return self.syms[var]   # Locate its MacroSymbol object
+            return self.syms[symbol.var]   # Locate its MacroSymbol object
         except KeyError:
-            raise MacroError(msg="undefined symbol: '%s'" % var) from None
+            raise MacroError(msg="undefined symbol: '%s'" % symbol.var) from None
 
     # These three methods define a variable symbol from a Symbol ID object
     #   defa   Defines an arithmetic symbol
@@ -1532,6 +1630,8 @@ class MacSymbols(object):
     #   getb   Returns a binary symbol's BVal object
     #   getc   Returns a character symbol's CVal object
     #   getx   Returns the symbol's ASym, BSym or CSym object
+    # Method Argument:
+    #   symbol A SymbolID object identifying the symbol's name and subscripting 
     # Returns:
     #   an AVal, BVal or CVal object
     # Excpetions: the caller needs to catch and handle appropriately
@@ -1563,7 +1663,7 @@ class MacSymbols(object):
     #   setb       Sets a binary symbol's value to a Python integer of value 0 or 1.
     #   setc       Sets a character symbol's value to a Python string.
     # Method Arguments:
-    #   symbol     A Symbol ID to which its value is being set
+    #   symbol     A SymbolID whose value is being set
     #   value      A Python integer, or string
     #   user       If True, recognize read-only status.  Default is True.  Specify
     #              False to set the value regardless of the read-only status.
@@ -1627,6 +1727,8 @@ class Invoker(object):
     def __init__(self,mgr,debug=False):
         self.mgr=mgr            # Manager helps me to expand macro.
         self.asm=mgr.asm        # The assembler
+        self.case=self.asm.case # Specifies case sensitivity is enabled when True
+        #print("Invoker.case=%s" % self.case)
         self.debug=debug        # If True, enables expander debug message.
 
         # Macro expansion state:
@@ -1660,7 +1762,7 @@ class Invoker(object):
 
     # Intialize the macro's local variable symbols
     def __init_lcls(self):
-        l=MacSymbols(unique=True)
+        l=MacSymbols(self.case,unique=True)
         
         # Make system global variables available to local macro.  Each of these are
         # read only.
@@ -1874,51 +1976,71 @@ class Invoker(object):
                 % (assembler.eloc(self,"symbol_replace",module=this_module),line)
 
         # Note: lines not requiring expansion do not reach this method
-        if debug:
-            cls_str=assembler.eloc(self,"symbol_replace",module=this_module)
+        if __debug__:
+            if debug:
+                cls_str=assembler.eloc(self,"symbol_replace",module=this_module)
+
         text=line
         syms=Invoker.searcher.search(text)
         if len(syms)==0:
-            if debug:
-                print("%s no syms found" % cls_str)
+            if __debug__:
+                if debug:
+                    print("%s no syms found" % cls_str)
+
             return line
         # Now need to process each found symbolic variable reference.
-            
+
         # Found symbolic variables, so replace them if found
         pos=0   # position in original text
         new=""
         lcls=self.lcls
+        case=self.case
         for sym in syms:
             # sym is a asmfsmbp.SymRefPart object containing a asmfsmbp.SymRefMO
-            if debug:
-                print("%s: %s" % (cls_str,sym))
+            if __debug__:
+                if debug:
+                    print("%s: %s" % (cls_str,sym))
+
             if sym.beg>pos:
                 new="%s%s" % (new,text[pos:sym.beg])
-                if debug:
-                    print("%s added input to text: '%s'" % (cls_str,new))
+
+                if __debug__:
+                    if debug:
+                        print("%s added input to text: '%s'" % (cls_str,new))
+
             try:
-                value=lcls.getx(sym.SymID())
+                value=lcls.getx(sym.SymID(case))
                 new="%s%s" % (new,value.string())
             except KeyError:
                 # symbolic variable not found add it to the replacement
                 new="%s%s" % (new,sym.string)
             pos=sym.end
-            if debug:
-                print("%s added symbol value to text: '%s'" % (cls_str,new))
+
+            if __debug__:
+                if debug:
+                    print("%s added symbol value to text: '%s'" % (cls_str,new))
+
             pos=sym.end
         # Pick remainder of original statement if any
         if sym.end<len(text):
             new="%s%s" % (new,text[sym.end:])
+
+            if __debug__:
+                if debug:
+                    print("%s added last of input to text: '%s'" % (cls_str,new))
+
+        if __debug__:
             if debug:
-                print("%s added last of input to text: '%s'" % (cls_str,new))
-        if debug:
-            print("%s: original:   '%s'" % text)
-            print("%s: repacement: '%s'" % new)
+                print("%s: original:   '%s'" % (cls_str,text))
+                print("%s: repacement: '%s'" % (cls_str,new))
+
         return new
 
 class MacroLanguage(object):
     def __init__(self,asm):
         self.asm=asm           # The assembler
+        self.case=asm.case     # Inherits the case sensitivity option
+        #print("MacroLanguage.case=%s" % self.case)
         self.parsers=asm.fsmp  # asmfsmbp.Parsers object
 
         # Macro processing state:
@@ -1974,7 +2096,7 @@ class MacroLanguage(object):
     def __built_ins(self):
         macs=[Test,]
         for m in macs:
-            b=m()
+            b=m(self.case)
             self.addMacro(b)
 
     # Initialize dictionary mapping macro directive to processing method
@@ -2002,7 +2124,7 @@ class MacroLanguage(object):
 
     # Returns the GlobalSymbols object with system variables initialized
     def __init_globals(self):
-        g=MacSymbols(unique=False,gbl=True)
+        g=MacSymbols(self.case,unique=False,gbl=True)
         now=self.asm.now         # This is an instance of time.struct_time
 
         g._initc("&SYSASM","A SMALL MAINFRAME ASSEMBLER")
@@ -2085,7 +2207,10 @@ class MacroLanguage(object):
     # Extract the sequence from the name field, if any, from the macro fields
     def __seq(self,fields,debug=False):
         if fields.sequence:
-            return fields.name
+            if not self.case:
+                return fields.name.upper()
+            else:
+                return fields.name
         return None
 
 
@@ -2112,12 +2237,16 @@ class MacroLanguage(object):
             mcls,mname=method_name(method)
             print("%s macro directive processing method: %s()" % (cls_str,mname))
         method(stmt,debug=debug)
-       
+
+
     # Process a model statement in a macro definition
     def _model(self,stmt,debug=False):
         flds=stmt.fields
         if flds.sequence:
-            seq=flds.name
+            if not self.case:
+                seq=flds.name.upper()
+            else:
+                seq=flds.name
             model=" %s" % flds.text[flds.oppos:]
         else:
             seq=None
@@ -2137,8 +2266,9 @@ class MacroLanguage(object):
             raise assembler.AssemblerError(line=stmt.lineno,\
                 msg="invalid prototype name symbol variable: '%s'" % flds.label)
 
-        # This method may raise an assembler.AssemblerError.
-        scope=self.parsers.parse_operands(stmt,"proto",required=False)
+        scp=asmfsmbp.PrototypeScope(self.case)
+        # This method may raise an assembler.AssemblerError
+        scope=self.parsers.parse_operands(stmt,"proto",scope=scp,required=False)
         if scope is None:
             pos=[]
             keys={}
@@ -2148,11 +2278,13 @@ class MacroLanguage(object):
 
         proto=Prototype(flds.opuc,lblsym=flds.name,positionals=pos,keywords=keys)
 
-        if debug:
-            cls_str=assembler.eloc(self,"_prototype",module=this_module)
-            print("%s starting macro:\n%s" % (cls_str,proto))
+        if __debug__:
+            if debug:
+                print("%s starting macro:\n%s" \
+                    % (assembler.eloc(self,"_prototype",module=this_module),proto))
+
         # Prototype statement successfully processed, can proceed with definition
-        self.indefn=Macro(proto,defn=stmt.lineno)
+        self.indefn=Macro(proto,self.case,defn=stmt.lineno)
 
 
    # 
@@ -2173,7 +2305,10 @@ class MacroLanguage(object):
         # Test if this is a simple AGO with a seqence symbol.
         if len(computed)==0:
             # Extract sequence symbol from the lexical token
-            seqsym=sequence[0].string
+            if not self.case:
+                seqsym=sequence[0].string.upper()
+            else:
+                seqsym=sequence[0].string
             self.indefn._ago(lineno,seqsym,seq=self.__seq(flds))
             return
 
@@ -2186,7 +2321,10 @@ class MacroLanguage(object):
         # Convert list of SEQSYM lexical tokens into a list of strings
         dest=[]
         for ltok in sequence:
-            seqsym=ltok.string
+            if not self.case:
+                seqsym=ltok.string.upper()
+            else:
+                seqsym=ltok.string
             dest.append(seqsym)
 
         # Add the operation to the macro definition
@@ -2202,7 +2340,11 @@ class MacroLanguage(object):
         expr=self.parsers.L2ArithExpr("_AGO",stmt,ltoks=scope.lextoks,debug=debug)
 
         # Add the operation to the macro definition
-        self.indefn._aif(lineno,scope.seq.string,expr,seq=self.__seq(flds))
+        if not self.case:
+            seqsym=scope.seq.string.upper()
+        else:
+            seqsym=scope.seq.string
+        self.indefn._aif(lineno,seqsym,expr,seq=self.__seq(flds))
 
     def _ANOP(self,stmt,debug=False):
         self.indefn._anop(stmt.lineno,seq=self.__seq(stmt.fields))
@@ -2259,6 +2401,7 @@ class MacroLanguage(object):
         
         # May raise an AssemblerError if name field is not a symbol reference
         setname=self.__set_name(stmt,"SETA")  # SymbolID object for variable being set
+        #print("_SETA setname: %s" % setname)
 
         # Parse the operands.
         scope=self.parsers.parse_operands(stmt,"seta",required=True)
@@ -2330,10 +2473,12 @@ class MacroLanguage(object):
         #dscope=self.__parse(stmt,MacroLanguage.symd,required=True)
 
         syms=dscope.symdefs
+        case=self.case
         for n in range(len(syms)):
             sym=syms[n]
+            #print(sym)
             sym.update(stmt,operpos,source=stmt.source)
-            symid=sym.SymID()
+            symid=sym.SymID(case)
             sub=symid.sub
             if sub is not None and isinstance(sub,SymbolID):
                 raise assembler.AssemblerError(\
@@ -2349,10 +2494,10 @@ class MacroLanguage(object):
         return
 
     def addMacro(self,mac):
-        if not isinstance(mac,Macro):
-            cls_str=assembler.eloc(self,"addMacro",module=this_module)
-            raise ValueError("%s 'mac' argument must be a Macro object: %s" \
-                % (cls_str,mac))
+        assert isinstance(mac,Macro),\
+            "%s 'mac' argument must be a Macro object: %s" \
+                % (assembler.eloc(self,"addMacro",module=this_module),mac)
+
         self.macros[mac.name]=mac
 
     # Returnt the current expander
@@ -2457,8 +2602,8 @@ class MacroLanguage(object):
             
         # Do not recognize state, so something is messed up, bailing....
         else:
-            cls_str=assembler.eloc(self,"defining",module=this_module)
-            raise ValueError("%s MacroLanguage.state invalid: %s" % (cls_str,state))
+            raise ValueError("%s MacroLanguage.state invalid: %s" \
+                % (assembler.eloc(self,"defining",module=this_module),state))
             
         # Tell caller we processed the statement here.
         return True
@@ -2576,11 +2721,11 @@ class MacroLanguage(object):
 #
 
 class Test(Built_In):
-    def __init__(self):
+    def __init__(self,case):
         pos=["&pparm",]
         keywords={"&kparm":"dflt"}
         proto=Prototype("test",lblsym="&LBL",positionals=pos,keywords=keywords)
-        super().__init__(proto)
+        super().__init__(proto,case)
 
     def define(self):
         eng=self.engine

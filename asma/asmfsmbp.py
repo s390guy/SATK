@@ -205,6 +205,7 @@ class PLitCur(AsmPrattToken):
         super().__init__(token)
 
     def value(self,external=None,debug=False,trace=False):
+        # external is the assembler.Assembler object
         cur_stmt=self.external.cur_stmt
         stmt_bin=cur_stmt.content
         if stmt_bin is None:
@@ -224,13 +225,15 @@ class PLitCur(AsmPrattToken):
         return cur
 
 # This pratt2.PLit object references to a symbolic symbol's values' K' attribute
-#class PLitKAttr(pratt2.PLit):
 class PLitKAttr(AsmPrattToken):
     def __init__(self,token):
         super().__init__(token)
-        self.symid=self.src.SymID()
+        self.symid=None
 
     def value(self,external=None,debug=False,trace=False):
+        # external is an asmmacs.Invoker object
+        if not self.symid:
+            self.symid=self.src.SymID(external.case)
         valo=external.lcls._reference(self.symid)
 
         if __debug__:
@@ -249,13 +252,18 @@ class PLitKAttr(AsmPrattToken):
 
 
 # This pratt2.PLit object references to a symbolic symbol's N' attribute
-#class PLitNAttr(pratt2.PLit):
 class PLitNAttr(AsmPrattToken):
     def __init__(self,token):
         super().__init__(token)
-        self.symid=self.src.symid
+        self.symid=None
 
     def value(self,external=None,debug=False,trace=False):
+        # external is an asmmacs.Invoker object
+        if not self.symid:
+            if not external.case:
+                self.symid=asmmacs.SymbolID(self.src.symid.upper())
+            else:
+                self.symid=asmmacs.SymbolID(self.src.symid)
         return external.lcls._reference_symbol(self.symid).getAttr("N")
 
 
@@ -268,7 +276,7 @@ class PLitNAttr(AsmPrattToken):
 class PLitSym(AsmPrattToken):
     def __init__(self,token):
         super().__init__(token)
-        self.symid=self.src.SymID()   # Create a SymbolID to access the dictionary
+        self.symid=None    # SymbolID to access the dictionary (see value() method)
         
     def __str__(self):
         return "%s(symid=%s)" % (self.__class__.__name__,self.symid)
@@ -283,6 +291,8 @@ class PLitSym(AsmPrattToken):
     #   Various MacroError exceptions may be triggered.  The PParser does not catch
     #   them, but they are caught by the current Invoker object in its run() method.
     def value(self,external=None,debug=False,trace=False):
+        if not self.symid:
+            self.symid=self.src.SymID(case=external.case)
         return external.lcls._reference(self.symid)
 
 class APLitSym(PLitSym):
@@ -530,7 +540,7 @@ class NAttrToken(LexicalToken):
         super().__init__()
     def ptoken(self):
         groups=self.mo.groups()
-        self.symid=asmmacs.SymbolID(groups[2])
+        self.symid=groups[2]
         return PLitNAttr(self)
 
 class NAttrType(lexer.Type):
@@ -664,14 +674,21 @@ class SymRefMO(object):
         return self.mo.start(1)+incr
 
     # Returns the asmmacs.SymbolID object derived from the match object
-    def SymID(self):
+    def SymID(self,case):
+        if not case:
+            symid=self.symid.upper()
+        else:
+            symid=self.symid
         if not self.subscripted:
-            return asmmacs.SymbolID(self.symid)
+            return asmmacs.SymbolID(symid)
         if self.subscript is None:
             # Not an integer subscript, so assume symbolic variable as the subscript
-            return asmmacs.SymbolID(self.symid,subscript=self.subsym)
+            if not case:
+                return asmmacs.SymbolID(symid,subscript=self.subsym.upper())
+            else:
+                return asmmacs.SymbolID(symid,subscript=self.subsym)
         # Use integer subscript
-        return asmmacs.SymbolID(self.symid,subscript=self.subscript)
+        return asmmacs.SymbolID(symid,subscript=self.subscript)
 
 class SymRefToken(LexicalToken):
     atokens={None:APLitSym,"K":PLitKAttr}
@@ -698,8 +715,8 @@ class SymRefToken(LexicalToken):
         return cls(self)
 
     # Returns an asmmacs.SymbolID object used to reference the macro dictionary
-    def SymID(self):
-        return self.srmo.SymID()
+    def SymID(self,case):
+        return self.srmo.SymID(case)
 
     # Update the token with its actual location in the input line
     def update(self,stmt,incr,source=None):
@@ -2390,7 +2407,8 @@ class ParameterScope(asmtokens.AsmFSMScope):
 
 class PrototypeParser(AsmFSMParser):
     def __init__(self,dm):
-        super().__init__(dm,scope=PrototypeScope,trace=False)
+        #super().__init__(dm,scope=PrototypeScope,trace=False)
+        super().__init__(dm,scope=None,trace=False)
 
     def initialize(self):
         # Expecting a prototype parameter or the end of the list
@@ -2471,8 +2489,9 @@ class PrototypeParser(AsmFSMParser):
 
 
 class PrototypeScope(fsmparser.PScope):
-    def __init__(self):
+    def __init__(self,case):
         super().__init__()  # Calls init() method
+        self.case=case
 
     def init(self):
         # When initially recognized, have to wait to figure out if this is a keyword
@@ -2488,12 +2507,26 @@ class PrototypeScope(fsmparser.PScope):
     def keyword(self):
         if self.key_parm is None:
             return
-        self.key_parms[self.key_parm]=""
+        if not self.case:
+            keyp=self.key_parm.upper()
+        else:
+            keyp=self.key_parm
+        self.key_parms[keyp]=""
+
+    def keyword_default(self,key_word,default):
+        if not self.case:
+            kywd=key_word.upper()
+        else:
+            kywd=key_word
+        self.key_parms[kywd]=default
 
     def positional(self):
         if self.pos_parm is None:
             return
-        self.pos_parms.append(self.pos_parm)
+        if not self.case:
+            self.pos_parms.append(self.pos_parm.upper())
+        else:
+            self.pos_parms.append(self.pos_parm)
         self.pos_parm=None
 
 
@@ -2565,17 +2598,14 @@ class SymRefRepMO(object):
         self.subsym=None         # Subscript symbolic variable if not an integer
 
         self.groups=groups=mo.groups()
-        #print("SymRefRepMO groups: %s" % list(groups))
-        if len(groups)!=6:       # This is the result of SymRefType.model pattern
-            cls_str=assembler.eloc(self,"__init__",module=this_module)
-            raise ValueError("%s unexpected match object groups: %s" \
-                % (cls_str,list(self.groups)))
+        assert len(groups)==6,"%s unexpected match object groups: %s" \
+                % (assembler.eloc(self,"__init__",module=this_module),\
+                    list(self.groups))
+                
         self.symid=groups[0]
         subscript=groups[1]
-            
-        if self.symid is None:
-            cls_str=assembler.eloc(self,"__init__",module=this_module)
-            raise ValueError("%s symbolic variable: %s" % (cls_str,self.symid))
+        assert self.symid is not None,"%s symbolic variable: %s" \
+                % (assembler.eloc(self,"__init__",module=this_module),self.symid)
 
         if subscript is not None:
             # Remove the parenthesis from around subscript
@@ -2600,14 +2630,21 @@ class SymRefRepMO(object):
         return string
 
     # Returns the asmmacs.SymbolID object derived from the match object
-    def SymID(self):
+    def SymID(self,case):
+        if not case:
+            symid=self.symid.upper()
+        else:
+            symid=self.symid
         if not self.subscripted:
-            return asmmacs.SymbolID(self.symid)
+            return asmmacs.SymbolID(symid)
         if self.subscript is None:
             # Not an integer subscript, so assume symbolic variable as the subscript
-            return asmmacs.SymbolID(self.symid,subscript=self.subsym)
+            if not case:
+                return asmmacs.SymbolID(symid,subscript=self.subsym.upper())
+            else:
+                return asmmacs.SymbolID(symid,subscript=self.subsym)
         # Use integer subscript
-        return asmmacs.SymbolID(self.symid,subscript=self.subscript)
+        return asmmacs.SymbolID(symid,subscript=self.subscript)
 
 
 class SymRefPart(seqparser.Part):
@@ -2616,13 +2653,14 @@ class SymRefPart(seqparser.Part):
         self.symmo=SymRefRepMO(mo)
         self.beg=mo.start(0)       # Beginning pos matched in string
         self.end=mo.end(0)         # Ending position matched in string
-    
+
     def __str__(self):
         return "%s" % self.symmo
 
     # Returns an asmmacs.SymbolID object for the located symbolic reference
-    def SymID(self):
-        return self.symmo.SymID()
+    def SymID(self,case):
+        return self.symmo.SymID(case)
+
 
 class SymRefSearch(seqparser.SeqSearch):
     def __init__(self):
