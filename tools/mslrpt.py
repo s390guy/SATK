@@ -416,9 +416,10 @@ class MSLRPT(object):
             seps=c.count("=")
             if seps!=1:
                 print("invalid --cpu argument ignored: %s" % c)
+                continue
             file_cpu=c.split("=")
             t=(file_cpu[0],file_cpu[1])
-            self.cpu.append(t)
+            self.cpus.append(t)
 
         # Remeber the --listing argument (may be None)
         self.listing=args.listing
@@ -529,6 +530,7 @@ class MSLRPT(object):
             self.cpus=[]
             self.cpus.append( ("s360-insn.msl","s360") )
             self.cpus.append( ("s370-insn.msl","s370") )
+            self.cpus.append( ("s380-insn.msl","s380") )
             self.cpus.append( ("s370XA-insn.msl","s370XA") )
             self.cpus.append( ("e370-insn.msl","e370") )
             self.cpus.append( ("e390-insn.msl","e390") )

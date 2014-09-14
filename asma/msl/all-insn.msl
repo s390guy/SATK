@@ -470,6 +470,7 @@ inst OR     16   RR             # OR (32)
 inst PACK   F2   SSB            # PACK
 inst PALB   B248 RRE2           # PURGE ALB
 inst PC     B218 S0             # PROGRAM CALL
+inst PCF    B218 S0             # PROGRAM CALL FAST
 inst PGIN   B22E RRE     P      # PAGE IN
 inst PGOUT  B22F RRE     P      # PAGE OUT
 inst PLO    EE   SSE1           # PERFORM LOCKED OPERATION
@@ -924,7 +925,7 @@ iset all-base
     mnemonics MVN MVO MVST MVZ MXBR MXD MXDB MXDBR MXDR MXR
     mnemonics N NC NI NR 
     mnemonics O OC OI OR
-    mnemonics PACK PALB PC PGIN PGOUT PLO PR PT PTLB 
+    mnemonics PACK PALB PC PCF PGIN PGOUT PLO PR PT PTLB 
     mnemonics RP RRBE
     mnemonics S SAC SACF SAR SCK SCKC SCKPF SD SDB SDBR SDR SE SEB SEBR SER SERVC 
     mnemonics SFPC SH SIE SIGP 
@@ -944,7 +945,7 @@ iset all-extended
 
 iset s390-rel-extended
     mnemonics BRE BRH BRL BRM BRNE BRNH BRNL BRNM BRNO BRNP BRNZ BRO BRP BRU BRZ
-    mnemonics J JAS JCT JE JL JM JNE JNH JNL JNM JNOP JNP JNZ JO JP JXH JXLE JZ
+    mnemonics J JAS JCT JE JH JL JM JNE JNH JNL JNM JNOP JNP JNZ JO JP JXH JXLE JZ
     
 #iset all-channel_subsystem_io
 #    mnemonics CHSC CSCH HSCH MSCH RCHP RSCH SAL SCHM SSCH STCPS STCRW STSCH

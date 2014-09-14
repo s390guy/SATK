@@ -338,13 +338,26 @@ class DM(object):
             self.flag("gLL1debug") # Granmar LL(1) analysis debug flag
 
     # Add a debug control argument to an argument parser.
-    def add_argument(self,argparser,help=None):
-        arg="--%s" % self.cmdline
+    # Method arguments:
+    #   argparser   An instance of argparse.ArgumentParser to which debug options
+    #               are being added.
+    #   arg         The command-line argument.
+    def add_argument(self,argparser,arg,help=None):
         choose=[]
         for x in self.flags.keys():
             choose.append(x)
         choose=sorted(choose)
-        argparser.add_argument(arg,action="append",choices=choose,default=[],help=help)
+        # build the help
+        if help:
+            help_str=help
+        else:
+            help_str="enable debugging output. Multiple occurences supported. " \
+                "Available options:"
+            for opt in choose:
+                help_str="%s %s," % (help_str,opt)
+            help_str=help_str[:-1]
+        argparser.add_argument(arg,action="append",metavar="OPTION",choices=choose,\
+            default=[],help=help_str)
 
     # Disable a defined debug flag
     def disable(self,dflag):
