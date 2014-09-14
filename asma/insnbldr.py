@@ -120,11 +120,15 @@ class Builder(object):
 
     # This method returns an generated instruction as a list of bytes.
     def build(self,stmt,trace=False):
-        cls_str="insnbldr.py - %s.build() -" % self.__class__.__name__
-        if Builder.type_check:
-            if not isinstance(stmt,assembler.Stmt):
-                raise ValueError("%s 'stmt' argument requires instance of "
-                    "assembler.Stmt: %s" % (cls_str,stmt))
+        #cls_str="insnbldr.py - %s.build() -" % self.__class__.__name__
+        if __debug__:
+            if Builder.type_check:
+                assert isinstance(stmt,assembler.Stmt),\
+                    "%s 'stmt' argument requires instance of assembler.Stmt: %s" \
+                        % (assembler.eloc(self,"build",module=this_module),stmt)
+            #if not isinstance(stmt,assembler.Stmt):
+            #    raise ValueError("%s 'stmt' argument requires instance of "
+            #        "assembler.Stmt: %s" % (cls_str,stmt))
         fmt=stmt.format       # msldb.Format instance
         insn=stmt.insn        # assembler.MSLentry instance
         line=stmt.lineno      # Source object of statement's input location

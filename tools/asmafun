@@ -243,6 +243,7 @@ asma_env()
                     asma_env reset cptrans
                     asma_env reset cpu
                     asma_env reset deck
+                    asma_env reset def
                     asma_env reset dump
                     asma_env reset error
                     asma_env reset image
@@ -260,6 +261,7 @@ asma_env()
                 "cpfile") asma_cpfile="" ;;
                 "cpu")    asma_cpu=""    ;;
                 "deck")   asma_deck=""   ;;
+                "def")    asma_def=""    ;;
                 "dump")   asma_dump=""   ;;
                 "error")  asma_error=""  ;;
                 "image")  asma_image=""  ;;
@@ -307,6 +309,24 @@ asma_env()
     esac  
 }
 
+# Defines a command-line GBLC definition
+# Usage: asma_def symbol [value]
+asma_def()
+{
+    if [ "${1}" = "" ]
+    then
+        echo "asmafun - asma_def function required symbol name missing"
+        exit 1
+    fi
+    echo "asma_def ${1} ${2}"
+    if [ "${2}" = "" ]
+    then
+        asma_def="${asma_def} -D ${1}"
+    else
+        asma_def="${asma_def} -D ${1}=${2}"
+    fi
+}
+
 # Assembles a source program using ASMA
 # Usage: asma source [echo]
 asma()
@@ -322,7 +342,7 @@ asma()
     cdebug="${asma_debug}${asma_oper}"
     clist="${asma_dump}${asma_list}"
     copt="${asma_arch}${asma_msl}${asma_cpu}${asma_addr}${asma_psw}${asma_error}"
-    copt="${copt}${asma_bltin}${asma_case}${asma_stats}"
+    copt="${copt}${asma_bltin}${asma_case}${asma_stats}${asma_def}"
     cmd="${asma} ${copt}${ccp}${cdebug}${cout}${clist} ${1}"
     if [ "${2}" = "echo" ]
     then

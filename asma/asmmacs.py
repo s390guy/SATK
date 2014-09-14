@@ -2214,6 +2214,41 @@ class MacroLanguage(object):
                 return fields.name
         return None
 
+   #
+   # EXTERNAL GBLC INITIALIZATION
+   #
+
+    # Establish global SETC symbol from the assembler's external drive
+    # Method Arguments:
+    #   symbol   The name of the GBLA symbolic variable being created
+    #   value    The value to which the SETC symbol is to be set or None
+    # Exceptions:
+    #   MacroError if the symbol being defined is already defined as read-only.
+    #            &SYSxxxx symbolic variables can be read-only.
+    def _init_gblc(self,symbol,value):
+        # Establish global SETC symbol from the assembler's external drive
+        assert isinstance(symbol,str),\
+            "%s 'symbol' argument must be a string: %s" \
+                % (assembler.eloc(self,"_init_gblc",module=this_module),symbol)
+        assert len(symbol)>0,\
+            "%s 'symbol' argument must be a non-empty string: '%s'" \
+                % (assembler.eloc(self,"_init_gblc",module=this_module),symbol)
+        assert isinstance(value,str) or value is None,\
+            "%s 'value' argument must be a string: %s" \
+                % (assembler.eloc(self,"_init_gblc",module=this_module),value)
+        
+        if symbol[0]!="&":
+            name="&%s" % symbol
+        else:
+            name=symbol
+        if not self.case:
+            sid=SymbolID(name.upper())
+        else:
+            sid=SymbolID(name)
+        s=self.gbls.defc(sid) 
+        if value is not None:
+            s.setValue(sid,CVal(value),user=True)
+
 
    #
    # MACRO DEFINITION PROCESSING

@@ -32,36 +32,30 @@
 #  +---------------------+
 #
 
-# The following informatin assumes a measure of familiarity with mainframe assemblers.
+# The following information assumes a measure of familiarity with mainframe
+# assemblers.
 
 # ASMA specific behavior
-#  - Symbols are case sensitive and not restricted to any maximum length
 #  - Instuction mnemonics and assembler directives are case insensitive
-#  - DC operand duplication factor ignored if more than one constant is defined.
-#  - the symbol of a DS statement is defined by the summary effects of all of the
-#    statement operands, not just the first operand.
 #  - EQU second optional operand allows explicit specification of equate symbol
 #    length.
 #  - ORG only operates with relative addresses within the active CSECT or DSECT
 #  - REGION statement specific to ASMA.
-#  - Each START statement initiates a new region.  Multiple allowed.
+#  - Multiple START statements allowed supporting multiple region
 #
 # Supported assembler directives: 
-#    CCW, CCW0, CCW1, CSECT, DC, DROP, DS, DSECT, END, EQU, ORG, PRINT, REGION, START, 
-#    TITLE, USING
+#    CCW, CCW0, CCW1, CSECT, DC, DROP, DS, DSECT, END, EQU, ORG, PRINT, REGION, 
+#    START, TITLE, USING, various PSW formats.
 #
 # All machine instruction formats are supported through 2012.  Specific instructions
 # are defined in a separate file that constitutes the Machine Specification Language
 # database.  Only instruction supported in the input MSL file are supported for a
 # given execution of the assembler.
 #
-# Supported storage/constant types: A, AD, B, C, CA, CE, F, FD, H, P, X, Z 
+# Supported storage/constant types: A, AD, B, C, CA, CE, D, F, FD, H, P, S, X, Y, Z 
 # 
 # Limitations from traditional mainframe assembler
-#  - DC bit length modifiers are not supported.
-#  - DS statment does not allow constant values in its operands.  F'1234" is invalid.
-#  - TITLE directive operand can not contain single quotes.  The second single quote
-#    encountered terminates the title data.
+#  - D constant type is a synonym for FD.  Floating point constants are not supported.
 #  - Only the assembler directives identified above are supported
 #  - Only the storage/constant types identified above are supported
 #
@@ -72,9 +66,9 @@
 #
 #  The first pass on a statement occurs when it is submitted to the assembler via the
 #  statement() method.  The statement is separated into fields and the operands are
-#  parsed using the parsers in the asmparsers module.  The output of this pass is
-#  a list of Stmt class instances upon which the other passes incrementally create
-#  the final output.
+#  parsed using the parsers in the asmparsers, asmfsmbp or asmfsmcs modules.  The
+#  output of this pass is a list of Stmt class instances upon which the other passes
+#  incrementally create the final output.
 #
 #  Pass 1 - Relative Addressing - assemble() method
 #  ------
@@ -83,7 +77,7 @@
 #  are acted upon.  Relative addresses are asigned to image content generating 
 #  statements and associated symbols.  CSECT's are bound to physical addresses
 #  with their respective regions and regions are located within the final image.
-#  Note: actual binary image content has yet to built.
+#  Note: actual binary image content has yet to be built.
 #
 #  Pass 2 - Object Generation - assemble() method
 #  ------
@@ -92,7 +86,7 @@
 #  are used to create the object content of constants and machine instructions.  At
 #  the end of the pass, all object content is consolidated into their respective 
 #  regions and CSECTS.  The regions are concatenated together to in the sequence 
-#  of their START statements to form the final output
+#  of their START statements to form the final output.
 
 this_module="assembler.py"
 
@@ -1690,9 +1684,14 @@ class Stmt(object):
 #
 #   statement    Does initial statement parsing and queues statements for assembly
 #   assemble     Assembles queued statements and creates the output Image instance
-#   image
+#   image        Retrieves the output object used to generate output.  Output
+#                generation is the responsibility for the front end process.
 #
 
+# Presently local configurations are not yet supported.  The future of the AsmConfigs
+# and AsmConfig classes are yet to be determined.  When supported they may move
+# to the asma.py module and be transparent to this module.
+#
 # These two classes form the foundation for local configurations
 class AsmConfigs(object):
     def __init__(self):
@@ -1851,19 +1850,19 @@ class AsmConfig(object):
 
         self._stats=stats
 
-local=AsmConfigs()
+#local=AsmConfigs()
 # Establish the documented default command-line options
-local.config(\
-    name="default",
-    addr=None,
-    ccw=None,
-    cptrans="94C",
-    dump=False,
-    error=2,
-    msldb="msl.txt",
-    nest=20,
-    stats=False)
-import asmlocal   # This will add the local configurations.
+#local.config(\
+#    name="default",
+#    addr=None,
+#    ccw=None,
+#    cptrans="94C",
+#    dump=False,
+#    error=2,
+#    msldb="msl.txt",
+#    nest=20,
+#    stats=False)
+#import asmlocal   # This will add the local configurations.
 
 
 # This class manages output options directed to the assembler.  None implies the output
@@ -2016,6 +2015,7 @@ class Assembler(object):
     #               sequence symbols.  Defaults to case insensitive.
     #   debug       The global Debug Manager to be used by the instance.  In None
     #               is specified, one will be generated.  Defaults to None.
+    #   defines     A list of GBLC/SETC symbol,value tuples.
     #   dump        Causes completed CSECT's, region's and image to be printed
     #   eprint      Forces printing of errors when they occur in either error
     #               levels 1 or 2.
@@ -2039,9 +2039,10 @@ class Assembler(object):
     #               be traced in all passs including initial parsing.
     #   stats       Specigy True to enable statistics reporting at end of pass 2.  
     #               Should be False if an external driver is updating statistics.
-    def __init__(self,machine,msl,aout,msldft=None,addr=None,bltin=False,case=False,
-                 debug=None,dump=False,eprint=False,error=2,nest=20,ccw=None,\
-                 psw=None,ptrace=[],otrace=[],cpfile=None,cptrans="94C",stats=False):
+    def __init__(self,machine,msl,aout,msldft=None,addr=None,bltin=False,case=False,\
+                 debug=None,defines=[],dump=False,eprint=False,error=2,nest=20,\
+                 ccw=None,psw=None,ptrace=[],otrace=[],cpfile=None,cptrans="94C",\
+                 stats=False):
 
         # Before we do anything else start my timers
         Stats.start("objects_p")
@@ -2070,6 +2071,7 @@ class Assembler(object):
         self.case=case              # Specifies if case sensitivity is enabled.
         self.cpfile=cpfile          # Code page source file (defaults to built-in)
         self.cptrans=cptrans        # Code page translation definition to use
+        self.gblc=defines           # GBLC/SETC definitions from driver.
         
 
         # Error handling flag
@@ -2128,6 +2130,12 @@ class Assembler(object):
 
         # Macro Language processing manager
         self.MM=asmmacs.MacroLanguage(self)
+        # Define external global SETC symbols
+        for sym,val in self.gblc:
+            try:
+                self.MM._init_gblc(sym,val)
+            except asmmacs.MacroError as me:
+                self.__ae_excp(AssemblerError(msg=me.msg),None)
 
         # Manage output binary data
         self.OM=asmbin.AsmBinary()
@@ -2195,17 +2203,20 @@ class Assembler(object):
 
     # Performs generic AssemblerError exception handling
     def __ae_excp(self,ae,stmt,string="",debug=False):
-        if not ae.info:
+        if (not ae.info) and stmt is not None:
             stmt.ignore=True
             stmt.error=True
             stmt.aes.append(ae)
         self.img._error(ae)
-        if debug:
-            print("%s DEBUG - AE %s" % (string,ae))
-        elif self.eprint:
+
+        if __debug__:
+            if debug:
+                print("%s DEBUG - AE %s" % (string,ae))
+                return
+
+        if self.eprint:
             print(ae)
-        else:
-            pass
+
 
     # Checks to make sure the current active region is assigned
     # If not assigned, if necessary, it creates an unnamed region, and activates the
@@ -7165,8 +7176,6 @@ class Image(object):
         for stmt in self.source:
             stmt.print(locsize=locsize)  
 
-# import local configurations
-import asmlocal
 
 if __name__ == "__main__":
     raise NotImplementedError("assembler.py - intended for import use only")
