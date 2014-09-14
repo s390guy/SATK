@@ -63,8 +63,8 @@ XXX Currently under development - not all useful words are yet defined!
 #      explicitly rather than the eliminated \n word.
 #   3. Forth._include() method usage of the words_in_file function changed to 
 #      include_newline=True.  With include_newline=False (the default) included
-#      files were not compiled.  No attempts were made to determine why this was
-#      the case.
+#      files were not compiled.  The use of line comments requires
+#      include_newline=True, otherwise a line comment will never terminate.
 #   4. Forth.init() method may use either the string from forth_words.py module or
 #      explicitly include the __init__.forth file depending upon the usefile
 #      keyword argument.  A debug argument has been added that causes the namespaces
@@ -1476,7 +1476,9 @@ class Forth(list):
     @word('HERE')
     def word_here(self, stack):
         """Put position [within frame] on stack"""
-        stack.push(Variable(self.frame, len(self.frame)))
+        v=Variable(self.frame, len(self.frame))
+        stack.push(v)
+        print("HERE: %s" % v)
 
     @word("IFTE")
     def word_IFTE(self, stack):

@@ -69,11 +69,11 @@ definitions="""\
 
 ( A few more character constants defined the same way as above. )
 : ';' [ CHAR ; ] LITERAL ;
-: '(' [ CHAR ( ] LITERAL ;
+: '(' [ CHAR 40 ] LITERAL ;
 : ')' [ CHAR ) ] LITERAL ;
-: '"' [ CHAR " ] LITERAL ;  ( " vim syntax hack )
+: '"' [ CHAR 34 ] LITERAL ;  ( " vim syntax hack )
 : 'A' [ CHAR A ] LITERAL ;
-: '0' [ CHAR 0 ] LITERAL ;
+: '0' [ CHAR 48 ] LITERAL ;
 : '-' [ CHAR - ] LITERAL ;
 : '.' [ CHAR . ] LITERAL ;
 
@@ -105,32 +105,32 @@ definitions="""\
 
 : IF IMMEDIATE
         ' $BRANCH0 ,    \ compile 0BRANCH
-        HERE @          \ save location of the offset on the stack
+        HERE            \ save location of the offset on the stack
         0 ,             \ compile a dummy offset
 ;
 
 ( > See IF_. )
 : THEN IMMEDIATE
         DUP
-        HERE @ SWAP -   \ calculate the offset from the address saved on the stack
+        HERE SWAP -     \ calculate the offset from the address saved on the stack
         SWAP !          \ store the offset in the back-filled location
 ;
 
 ( > Alias for THEN_, See IF_. )
 : ENDIF IMMEDIATE
         DUP
-        HERE @ SWAP -   \ calculate the offset from the address saved on the stack
+        HERE SWAP -     \ calculate the offset from the address saved on the stack
         SWAP !          \ store the offset in the back-filled location
 ;
 
 ( > See IF_. )
 : ELSE IMMEDIATE
-        ' $BRANCH ,      \ definite branch to just over the false-part
-        HERE @          \ save location of the offset on the stack
+        ' $BRANCH ,     \ definite branch to just over the false-part
+        HERE            \ save location of the offset on the stack
         0 ,             \ compile a dummy offset
         SWAP            \ now back-fill the original (IF) offset
         DUP             \ same as for THEN word above
-        HERE @ SWAP -
+        HERE  SWAP -
         SWAP !
 ;
 
@@ -140,13 +140,13 @@ definitions="""\
 \      where OFFSET points back to the loop-part
 \ This is like do { loop-part } while (condition) in the C language
 : BEGIN IMMEDIATE
-        HERE @          \ save location on the stack
+         HERE            \ save location on the stack
 ;
 
 ( > See BEGIN_. )
 : UNTIL IMMEDIATE
         ' $BRANCH0 ,    \ compile 0BRANCH
-        HERE @ -        \ calculate the offset from the address saved on the stack
+        HERE  -         \ calculate the offset from the address saved on the stack
         ,               \ compile the offset here
 ;
 
@@ -156,7 +156,7 @@ definitions="""\
 \ In other words, an infinite loop which can only be returned from with EXIT
 : AGAIN IMMEDIATE
         ' $BRANCH ,     \ compile BRANCH
-        HERE @ -        \ calculate the offset back
+        HERE  -         \ calculate the offset back
         ,               \ compile the offset here
 ;
 
@@ -167,7 +167,7 @@ definitions="""\
 \ So this is like a while (condition) { loop-part } loop in the C language
 : WHILE IMMEDIATE
         ' $BRANCH0 ,    \ compile 0BRANCH
-        HERE @          \ save location of the offset2 on the stack
+        HERE            \ save location of the offset2 on the stack
         0 ,             \ compile a dummy offset2
 ;
 
@@ -175,9 +175,9 @@ definitions="""\
 : REPEAT IMMEDIATE
         ' $BRANCH ,     \ compile BRANCH )
         SWAP            \ get the original offset (from BEGIN)
-        HERE @ - ,      \ and compile it after BRANCH
+        HERE  - ,       \ and compile it after BRANCH
         DUP
-        HERE @ SWAP -   \ calculate the offset2
+        HERE SWAP -     \ calculate the offset2
         SWAP !          \ and back-fill it in the original location
 ;
 

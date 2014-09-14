@@ -48,34 +48,47 @@ this_module="msp430.py"
 # functions above.  The BYE word is used to illustrate this below.
 class MSP430(xforth.Forth):
     def __init__(self):
-        super().__init__(threading="direct", use_ram=False)
+        super().__init__( use_ram=False)
         # Include file management
         # Include search path 
         self.include_path = []        # built by function main() from command line
         # Included files (file include recursion not supported)
         self.included_files = []      # Modified by _include() and init() methods
         
+        # These two sets track words that need compiling 
+        self.compiled_words = set()      # Track compiled words
+        self.not_yet_compiled_words=set()# Track words not yet compiled words
+        
         # Inline object usage.  See create_inline() method
         self.inlines={"$LIT":    InlineNumber,
                       '$TEXT':   InlineText,
                       "'":       InlineFrame,
                       '"':       InlineText,
-                      "CREATE":  InlineFrame,
-                      "VALUE":   InlineFrame,
-                      "VARIABLE":InlineFrame,
-                      "TO":      InlineFrame,
+                      "CREATE":  xforth.Variable,
+                      "DEPENDS-ON":InlineText,
+                      "VALUE":   xforth.Variable,
+                      "VARIABLE":xforth.Variable,
+                      "TO":      xforth.Variable,
                       "[CHAR]":  InlineNumber,}
 
-    def create_inline(self, word, value):
+    def colon_begin(self, name):
+        self.compile_mode_begin(self.create_word(name))
+        
+    def colon_end(self):
+        self.compile_mode_end(self.frame, self.namespace)
+
+    def create_inline(self, word, value, info=None):
         try:
-            return self.inlines[word](value)
+            return self.inlines[word](value, info=info)
         except KeyError:
             raise ValueError("inline object not defined for word: %s" % word)
 
     def cross_compiler(self):
         # self.assist_native_words("ASM-NEXT")     # For illustrative purposes.
-        self.doctree.chapter("__init__")
         return MSP430_Compiler(self)
+
+    def document(self):
+        return MSP430_Document()
 
     # Include given filename.  The Forth code is directly executed using the
     # parser from init_parser() method.
@@ -124,11 +137,50 @@ class MSP430(xforth.Forth):
     def init_parser(self):
         pass  # Use default word parser Forth.word_parser() static method
 
-    # Extended builtin word definitions
-    @word("BYE")
-    def word_BYE(self, stack):
-        sys.exit(0)
+    # Perform immeidate cross-compilation
+    def interpret_cross_compile(self,  word):
+        self.instruction_cross_compile(self, word)
 
+    def interrupt_begin(self, name, vector):
+        self.compile_mode_begin(self.create_interrupt(name, vector))
+        
+    def interrupt_end(self):
+        self.compile_mode_end(self.frame, self.target_namespace)
+
+    # Allocate even number of bytes in current frame
+    def memory_allot(self, count):
+        if count > 0:
+            if count & 1: raise ValueError('odd sizes currently not supported')
+            self.frame.extend([0]*(count/2))
+        else:
+            raise ValueError('negative ALLOT not supported')
+
+    def native_begin(self, name):
+        self.compile_mode_begin(self.create_native(name))
+        
+    def native_end(self):
+        self.compile_mode_end(self.frame, self.target_namespace)
+
+    # Recognize an in-line comment
+    def recognize_comment(self):
+        self.default_comment_recognizer()
+
+    # Recognize a line comment
+    def recognize_line_comment(self):
+        self.default_line_comment_recognizer()
+
+    # Recognize a double-quote terminated string.
+    def recognize_string(self):
+        return self.default_string_recognizer()
+
+    # Output cross-compiled application
+    def render(self, out):
+        self.doctree.render(out)
+
+    def track_compiled(self, word):
+        self.compiled_words.add(word)
+        if word in self.not_yet_compiled_words:
+            self.not_yet_compiled_words.remove(word)
 
 class MSP430_Compiler(xforth.Target):
     def __init__(self,forth):
@@ -142,17 +194,20 @@ class MSP430_Compiler(xforth.Target):
                      "$lit": "lit",
                      "$text":"__write_text",}
 
-    def compile_branch(self, forth, target, tag=None):
+    def compile_branch(self, forth, target, ndx=None):
         self.doctree.write('\t.word %s, %s\n' \
                            % (self.create_asm_label('branch'), target*2))
+        self.compile_remember(forth, "$branch")
 
-    def compile_branch_if_false(self, forth, target, tag=None):
+    def compile_branch_if_false(self, forth, target, ndx=None):
         self.doctree.write('\t.word %s, %s\n' \
                             % (self.create_asm_label('branch0'), target*2))
+        self.compiler_remember(forth, "$branch0")
 
-    def compile_builtin(self, forth, builtin, tag=None):
-        self.doctree.write('\t.word %s\n' 
-            % self.create_asm_label(builtin.forth_name.upper()))
+    def compile_builtin(self, forth, builtin, ndx=None):
+        name=built.forth_name.upper()
+        self.doctree.write('\t.word %s\n' % self.create_asm_label(name))
+        self.compile_remember(self, forth, name)
 
     def compile_remember(self, forth, word):
         """\
@@ -164,21 +219,28 @@ class MSP430_Compiler(xforth.Target):
         if word not in self.compiled_words:
             self.not_yet_compiled_words.add(word)
 
-    def compile_value(self, forth, value, tag=None):
+    def compile_value(self, forth, value, ndx=None):
         self.doctree.write('\t.word %r\n' % (value,))
 
     def compile_word(self, forth, frame):
         self.doctree.write('\t.word %s\n' \
                             % self.create_asm_label(frame.name))
+        self.compile_remember(forth, frame.name)
 
     def create_interrupt( self, forth, name, vector):
-        return MSP430_Interrupt(name, vector, ram=False)
+        frame=MSP430_Interrupt(name, vector)
+        frame.chapter=forth.current_chapter()
+        return frame
 
     def create_native(self, forth, name):
-        return MSP430_Native(name, chapter=forth.current_chapter(), ram=False)
+        frame=MSP430_Native(name)
+        frame.chapter=forth.current_chapter()
+        return frame
 
     def create_word(self, forth, name):
-        return MSP430_Word(name, chapter=forth.current_chapter(), ram=False)
+        frame=MSP430_Word(name)
+        frame.chapter=forth.current_chapter()
+        return frame
 
     def cross_compile_missing(self, forth):
         """\
@@ -186,9 +248,9 @@ class MSP430_Compiler(xforth.Target):
         yet translated. While compiling words, new words can be found which are
         then also compiled.
         """
-        while self.not_yet_compiled_words:
+        while forth.not_yet_compiled_words:
             forth.instruction_cross_compile(forth, \
-                word=self.not_yet_compiled_words.pop())
+                word=forth.not_yet_compiled_words.pop())
 
     def cross_compile_variables(self, forth):
         """\
@@ -213,8 +275,8 @@ class MSP430_Compiler(xforth.Target):
     # enables any interpreter assists required to support it.
     # For MSP430, only the direct threading model is supported and no assists are
     # required.
-    def init_model(self, model, forth):
-        return model=="direct"
+    def init_model(self, forth):
+        return True
 
     #
     # Methods used by the MSP430 Cross-compiler
@@ -259,6 +321,17 @@ class MSP430_Compiler(xforth.Target):
         self.label_id += 1
         return '__lbl%s' % (self.label_id,)
 
+class MSP430_Document(xforth.DocumentTree):
+    def __init__(self):
+        super().__init__()
+    def chapter_header(self, chapter):
+        if chapter_name != ' DEFAULT ':
+            separeter='=' * 75
+            header='; %s\n' % separater
+            header=header+'; == %s\n' % chapter_name
+            return header+'; %s\n' % separator
+        return None
+
 #
 #  +----------------------------------+
 #  |                                  |
@@ -298,7 +371,10 @@ class MSP430_Interrupt(xforth.InterruptFrame):
         self.compile_remember('DO-INTERRUPT')
         self.compile_remember('EXIT-INTERRUPT')
 
-        
+    def finalize(self, forth):
+        pass
+
+
 class MSP430_Native(xforth.NativeFrame):
     def __init__(self,name, chapter=None):
         super().__init__(name, chapter=chapter, ram=False, isword=False)
@@ -320,12 +396,15 @@ class MSP430_Native(xforth.NativeFrame):
    
     def exit(self, forth, doctree):
         doctree.write('\n') # get some space between this and next word
-        
+
+    def finalize(self, forth):
+        pass
+
 
 class MSP430_Word(xforth.Frame):
-    def __init__(self, name, chapter=None, ram=False, isword=True):
-        super().__init__(name, chapter=chapter, ram=ram, isword=isword)
-        
+    def __init__(self, name):
+        super().__init__(name)
+
     def cross_compile(self, forth, doctree):
         """\
         Compilation of forth functions. Words referenced by this function are
@@ -335,7 +414,7 @@ class MSP430_Word(xforth.Frame):
         doctree.write('\tbr #%s\n' % self.create_asm_label('DOCOL'))
         # Use the interpreter to drive the actual compilation of the thread
         forth.compile_thread(self)
-        
+
     def enter(self, forth, doctree):
         name=self.name
         doctree.chapter(self.chapter)
@@ -345,10 +424,12 @@ class MSP430_Word(xforth.Frame):
         doctree.write(u'; compilation of word %s\n' % name)
         doctree.write(u';%s\n' % ('-'*76))
         doctree.write(u'%s:\n' % self.create_asm_label(name))
-    
+
     def exit(self, forth, doctree):
         doctree.write('\t.word %s\n\n' % self.create_asm_label('EXIT'))
 
+    def finalize(self, forth):
+        pass
 
 #
 #  +---------------------------------------+
@@ -360,9 +441,9 @@ class MSP430_Word(xforth.Frame):
 
 # Used by builtins: '    CREATE   TO   VALUE   VARIABLE
 class InlineFrame(xforth.Inline):
-    def __init__(self, value):
-        super().__init__(value)
-        
+    def __init__(self, value, info=None):
+        super().__init__(value, info=info)
+
     def cross_compile(self, forth, compiler, doctree):
         doctree.write('\t.word %s\n' % \
             compiler.create_asm_label(self.value.name),)
@@ -371,26 +452,25 @@ class InlineFrame(xforth.Inline):
 
 # Used by builtins: LIT   [CHAR]
 class InlineNumber(xforth.Inline):
-    def __init__(self, value):
-        super().__init__(value)
-        
+    def __init__(self, value, info=None):
+        super().__init__(value, info=info)
+
     def cross_compile(self, forth, compiler, doctree):
         doctree.write('\t.word %-6s ; 0x%04x\n' % (self.value, self.value & 0xffff))
 
 
 # Use by builtsins: "    ."
 class InlineText(xforth.Inline):
-    def __init__(self, value):
-        super().__init__(value)
+    def __init__(self, value, info=None):
+        super().__init__(value, info=info)
 
     def cross_compile(self, forth, compiler, doctree):
         label = self.create_label()
         asmlabel=self.create_asm_label(label)
         self.doctree.write('\t.word %s\n' % self.create_asm_label(label))
-        
+
         # output the text separately
-        frame = MPS430_Native(label, chapter=forth.current_chapter(), ram=False,
-                              isword=False)
+        frame = MPS430_Native(label,)
         # This will not work!
         # The interpreter executes native frames to compile them using ." to
         # output text data.  The simple parser can not handle double quotes around
@@ -480,7 +560,7 @@ If no input files are specified data is read from stdin.""" % this_module)
         # Change this to: forth.init(usefile=True) to use the __init__.forth file
         # By default this method will use forth_words.py to populate the initial
         # Forth word name space.
-        forth.init(debug=options.debug)
+        forth.init(chapter="__init__",debug=options.debug)
         forth.logger.info("compiler: %s" % forth.compiler.__class__.__name__)
         # default to source directory as include path
         forth.include_path = include_paths
@@ -497,7 +577,7 @@ If no input files are specified data is read from stdin.""" % this_module)
 
         #~ forth.doctree.chapter(filename)
         forth.interpret(iter(instructions))
-        forth.doctree.render(out)
+        forth.render(out)
     except xforth.ForthError as e:
         sys.stderr.write(u"%s:%s: %s\n" % (e.filename, e.lineno, e))
         if options.debug and e.text:
@@ -510,7 +590,7 @@ If no input files are specified data is read from stdin.""" % this_module)
 
     # enter interactive loop when desired
     if options.interactive:
-        print("Ctrl-C or BYE to exit...")
+        print("Ctrl-C to exit...")
         xforth.Forth.interpreter_loop(clso=forth, debug = options.debug)
 
 

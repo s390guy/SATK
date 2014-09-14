@@ -7,7 +7,7 @@
 
 # xforth.py provides a generic framework for the creation of Forth-based cross-
 # compilers.  It is based upon the MSP430 package cross-compiler, but only retains
-# core Forth funcionality.
+# core Forth funcionality from that package.
 #
 # It is expected that the classes offered by this module will be subclassed and
 # if needed a command-line interface supplied.
@@ -19,42 +19,30 @@
 # Copyright (c) 2014 Harold Grovesteen
 # All Right Reserved
 # Simplified BSD License (see LICENSE.txt for full text)
-
-# Python imports
-import sys
-import os
-import codecs
-import logging
-import pprint
-import re
-
-# other imports:
-from forth_words import definitions   # common host and target Forth words
-
-this_module="xforth.py"
-
-# The XFORTH cross-compiler consists of three primary components:
+#
+# The XFORTH cross-compiler consists of four primary components:
 # 1. The FORTH text-intepreter, class Forth (or subclass)
 # 2. Intermediate representation of the recognized words using class Frame and its
 #    class FrameCell and their subclasses.
 # 3. The Target class drives the compilation creating the final output file.  
 #    The Target class must be subclassed tailoring its execution to the target
 #    system's processor and forth threading model.
+# 4. A document manager.  The document manager must be a subclass of DocumentTree. 
 #
 # See module msp430.py for an example of how these classes may be subclassed targeting
 # a specific processor.
 #
-# xforth.py supports three process phases:
+# xforth.py supports four phase process:
 #
 #    1. Interpretation Phase
 #       Pre-built Python interpreted word definitions are automatically created in
 #       the "builtin" name space.  text is then interpreted and compiled into
-#       Python objects are placed wothin one of two additional name spaces.  Colon and
+#       Python objects placed within one of two additional name spaces.  Colon and
 #       VARIABLE definitions are placed in the "namespace" name space.  Portions of
 #       target output are compiled into the "target" name space.  Name spaces operate
 #       like vocabularies during the Cross-Compilation Phase.
 #
-#       During the Interpretation Phase the Forth object subclass must drive the
+#       During the Interpretation Phase, the Forth object subclass must drive the
 #       assignment of memory type (RAM vs. ROM) and document tree location.  RAM vs.
 #       ROM can be controlled by the corresponding RAM and ROM builtin words.
 #       Document tree targeting is not presently exposed to the text interpreter.
@@ -73,7 +61,7 @@ this_module="xforth.py"
 #    val+name  variable   Frame             --          --         --
 #    var+name  variable   Frame             --          --         --
 #
-#       The CROSS-COMPILE word when executed from text interpretation or compiled
+#       The CROSS-COMPILE word when executed from the text interpreter or compiled
 #       word determines the sequence in which root words are cross-compiled.  When all
 #       text input is exhausted, the Interpretation Phase ends.  The COMPILE-MISSING
 #       word causes referenced words not explicitly identified by a CROSS-COMPILE word
@@ -96,40 +84,159 @@ this_module="xforth.py"
 #       specific sequencing to satisfy the tool chain the implementation has
 #       complete control over the constructed document tree.
 #
-# Supported Native code coding styles
+#    3. Output Document Creation
+#       The output document content is derived during the cross-compilation Phase.
+#       However the sequence of the content is managed by the document manager, a
+#       subclass of the DocumentTree class.  It constructs and outputs the content
+#       to a file.  Content is assigned a named chapter and a named section within 
+#       the chapter.  Output file content is placed in the output file based upon
+#       the collating sequence of chapter names and within the chapter by the
+#       collating sequence of sections within the chapter.
 #
-# No standards exist for cross-compiler native code generation.  xforth.py supports
-# three styles involving the words ASSEMBLE, CODE and CODE-WORD.  All native code
-# words end with the used of the word END-CODE.  Native assembly code is used to
-# create inline assembly statements and word definitions.  How the two different
-# uses of native code are recognized and coded are defined by the coding style an 
-# implementation will use.
+#    4. Interactive Mode
+#       Following output of the document, the text interpreter can then enter
+#       interactive mode.  This allows the user to enter Forth operations via
+#       the user interface following which the input is interpreted by the text
+#       interpreter.  This allows manual inspection of the results of the
+#       interpretation phase and testing of the host name space content.  Interactive
+#       Mode is enabled via the implementation specific command-line interface.
 #
-#  1.  Word CODE generates all native assembly.  This coding style requires the
-#      manual insertion of the native code word's exit logic.  Some threading models
-#      will require use of Forth.assist_native_words() method for native words to
-#      be used in word definitions.  The example in msp430.py uses this coding style
-#      but the direct threading model does not require assist_native_words().
-#      msp430.py uses the native word ASM-NEXT for manual exit logic insertion.
-#  2.  Word CODE generates inline native assembly.  Word CODE-WORD generates native
-#      assembly words used in word definitions.
-#  3.  Word ASSEMBLE generates inline native assembly.  Word CODE generates native 
-#      assembly words used in word definitions.  This case requires use of the
-#      Forth.assist_code_is_word() by the cross-compiler implementation.
+#  Targeting the Cross-Compiler Framework
+#  --------- --- -------------- ---------
 #
-# The native code coding styile will influence the requirements of the NativeFrame
-# subclass used by the cross-compiler.  In styles 2 and 3, the NativeFrame subclass
-# method exit() must test the isword attribute for being True to determine if the
-# native code word's exit logic must be generated.  In these two coding styles
-# manual insertion of the exit logic is not required.
+#  Each of the primary classes in the framework requires a number of methods to be
+#  supplied by an implementation targeting a specific processor or system.  The
+#  various methods fall into three broad categories corresponding to the primary roles
+#  of the main classes:
 #
-# The threading model can influence the use of assists.  Indirect and token-based
-# threading models must know when a word must be bound to the binding table that
-# links the cross-compiled word to the execution time logic.  In style one inline
-# code vs a word definition are indistinguishable.  The Forth.assist_native_words()
-# method supplied the name of one or more words when present cause the two types
-# of native code to be recognized.  In the case of msp430.py, if it were to need
-# this, the word ASM-NEXT would be supplied to the assist for word identification.
+#     - Input management, interaction with compilation mode, cross-compilation
+#       and the interactive phase;
+#     - Cross-compiler generation supplies methods to class Target and Frame objects;
+#       and
+#     - Output management supplies methods to class DocumentTree.
+#
+#  By design, no default handling of these methods is supplied.  This ensures that
+#  a new target implementer must make conscious decisions about what each method
+#  should do.  The letter 'R' indicates the method is required.  The letter 'O'
+#  indicates the word is optional.
+#
+#  Forth subclass methods initializing the target implementation:
+#
+#    R register_builtin   Allows implementation specific handling of builtins
+#    
+#  Forth subclass methods managing file input:
+#
+#    R include        Called by word INCLUDE to locate and access a file
+#    O include_module Uses the Python module system to locate a file
+#    O include_path   Locates a file by means of a search path.
+#
+#  Forth subclass methods related to Forth interpretion mode:
+#
+#    R init_parser    returns a callable that parses text input into Word objects.
+#                     See the information below on requirements for replacing the
+#                     default parser.
+#    O memory_fetch   Retrieves a value from "memory"
+#    O memory_store   Place a vlue into "memory"
+#    O recognize_comment  Identifies and ignores in-line comments.  Called by word (
+#    O recognize_line_comment  Identifies and ignores line comments.  Called by word \
+#    R recognize_string   Identifies and returns the string following some words like
+#                     " and ."
+#
+#  Forth subclass methods related to Forth compilation mode.  Compilation mode
+#  creates Frame objects or its subclass.
+#
+#    R colon_begin     Starts a colon thread word definition
+#    R colon_end       Ends a colon thread word definition
+#    R create_inline   Returns an Inline object associated with multi element compiled
+#                      words.
+#    R interrupt_begin Starts an interrupt thread word
+#    R interrupt_end   Ends an interrupt thread word
+#    R native_begin    Starts a native word definition
+#    R native_end      Ends a native word definition
+#
+#  Forth subclass methods related to cross-compilation:
+#
+#    R cross_compiler  Returns the implementation specific Target subclass object.
+#    R interpret_cross_compile  Provides the interpretation semantics of the word
+#                      CROSS-COMPILE.
+#    R track_compiled  Remembers that a Frame has been cross-compiled.
+#
+#  Forth subclass methods related to output creation:
+#
+#    R document       returns the implementation specific DocumentTree subclass
+#    R render          Creates the output resulting from cross-compilation using
+#                      the implementation supplied DocumentTree subclass.
+#
+#  In addition to the preceding methods, the Forth subclass may provide additional
+#  builtin words by using the word and immediate decorators to identify additional
+#  methods as builtin words.  The semantics of word supplied by the framework may
+#  also be altered by redefining the builtin word methods or using the same word
+#  name with an other method.
+#
+#  The Target object defines the interface between the Forth text interpreter, the
+#  subclass of the Forth object, and actions required during cross-compilation.
+#  Cross-compilation processes individual Frame objects into output statements.
+#  Output required by a Frame object is created by methods supplied by a subclass
+#  of Frame and Inline.  Detailed compilation of Forth threads are supplied by the
+#  subclass of Target.
+#
+#  Frame object methods required for cross-compilation.  Each subclass of Frame
+#  requires its own method.  If a particulater method is not required by a specific
+#  frame it can be defined used the pass statement.
+#
+#    R enter          Creates preamble output for the frame
+#    R cross-compile  Creates the Frame's body.
+#    R exit           Creates the postamble output for the frame.
+#    R finalize       Performs any book-keeping operations required by the target.
+#
+#  Inline objects require one method from an Inline subclass:
+#
+#    R cross-compile  Creates the ouput associated with a specific Inline object
+#                     used in a Frame during cross-compilation.
+
+#  Cross compilation of a thread occurs through the supplied methods of the Target
+#  subclass.
+#
+#    R compile_branch     Cross-compiles an unconditional branch in the thread.
+#    R compile_branch_if_false  Cross-compiles a conditional branch in the thread.
+#    R compile_builtin    Cross-compiles a builtin into a thread
+#    R compile_remember   Remember that a referenced word needs compilation.
+#    R compile_value      Cross-compiles a value into a thread.
+#    R compile_word       Cross-compiles a referenced word into a thread.
+#    R create_interrupt   Returns an Interrupt Frame object for word INTERRUPT
+#    R create_native      Returns a Native Frame object for word CODE
+#    R create_word        Returns a Frame object for word :
+#    R cross_compile_missing   Called by word CROSS-COMPILE-MISSING to cross-compile
+#                         all referenced frames not yet compiled.
+#    R cross_compile_variables  Called by word CROSS-COMPILE-VARIABLES to 
+#                         cross-compile variables.
+#    R init_model         Validates the threading model used during cross-compilation.
+#                         The threading model will influence what is generated
+#                         during cross-compilation.
+#
+#  The Target subclass may also create Frame subclasses not used by the framework
+#  itself.  The Forth subclass will need to provide builtins associated with these
+#  words.
+# 
+#
+#  Replacing the Default Parser
+#  --------- --- ------- ------
+#
+#  The default parser 
+
+# Python imports
+import sys
+import os
+import codecs
+import logging
+import pprint
+import re
+
+# other imports:
+from forth_words import definitions   # common host and target Forth words
+
+this_module="xforth.py"
+
 
 #
 #  +---------------------------------+
@@ -219,11 +326,14 @@ def immediate(function):
 #          added to the builtin namespace.
 #   co     Specifies if the word is compile only.  Compile only words are not
 #          recognized by the text interpreter but may occur in compiled frames.
-#          Default is False (meaning the word is recognized by the text interpreter
-def word(name,co=False):
+#          Default is False (meaning the word is recognized by the text interpreter)
+#   io     Specifies if the word can not be compiled, meaning only text interpreter
+#          semantics is supported.  Defaults is False.
+def word(name, co=False, io=False):
     def decorate_word(function):
         function.forth_name = name.lower()  # word name in lower case
-        function.forth_co= co               # whether word is compile-only
+        function.forth_co = co              # whether word is compile-only
+        function.forth_io = io              # Whether word can not be compiled
         return function
     return decorate_word
 
@@ -254,9 +364,6 @@ def word(name,co=False):
 # In the context of the document tree, a section has nothing to do with object
 # format sections.  A section is just a named grouping of text strings.
 #
-# This class assumes use of the MSP430 package tool chain assembler when creating
-# chapter separators.
-#
 # Aside from the " DEFAULT " chapter, chapters are created when a file is included.
 # A special chapter "__VARIABLES__" is created when all variable words are compiled.
 # Each Frame object creates a new section within the current chapter.  Chapter and
@@ -275,12 +382,43 @@ class DocumentTree(object):
         self._state = []
         # output is buffered in memory first. this allows to group commands and
         # to output in alphabetical order
-        
+
         self.chapters = {}               # Chapter dictonary
         self.chapter_name = None         # Current chapter name
         self.current_chapter = None      # Current chapter dictionary
         self.current_section = None      # Current section list.
         self.chapter()    # create default chapter
+
+    def _nie(self,method):
+        return "%s - %s.%s - subclass must provide %s method" \
+            % (this_module,self.__class__.__name__,method,method)
+
+  #
+  # Document subclass supplied method
+  #
+ 
+    # Returns a string written out as the chapter header.  Return None if chapter
+    # heading is not created.
+    # Method Argument:
+    #   chapter  The chapter name being rendered.
+    def chapter_header(self, chapter):
+        raise NotImplementedError(self._nie("chapter_header()"))
+
+  #
+  # Document methods that may be overriden
+  #
+
+    # Collate the chapter and section names by the ASCII collating sequence
+    # Method Argument:
+    #   names   A list of (name, value) tuples
+    # Returns a
+    #   The tuples placed in the desired collating sequence order.
+    def collate(self, names=[]):
+        return sorted(names)
+
+  #
+  # Document handler methods
+  #
 
     # Set the current chapter being built.  The current section if always the
     # " TOPLEVEL " section when this method is called.
@@ -311,6 +449,7 @@ class DocumentTree(object):
 
     # Adds text to the current section under construction.
     def write(self, text):
+        #print("doctree.write() - text: %r" % text)
         self.current_section.append(text)
 
     # Push the current state of the document manager to a FIFO stack
@@ -324,23 +463,56 @@ class DocumentTree(object):
             = self._state.pop()
 
     # Output the constructed document.  The sequence is chapters sorted by name
-    # and within each chapter, sections sorted by name.  The output is text typically
+    # and within each chapter, sections sorted by name.  The output text is typically
     # an assembly source file targeted to the cross-compiler's tool chain.
-    # Separator comments are generated between each non " DEFAULT " chapter.
     # Method argument:
-    #   output  An object that supports the write() method.  Typically a file object
-    #           or codec writer generating the output.  Required.
-    def render(self, output):
-        for chapter_name, sections in sorted(self.chapters.items()):
+    #   output   An object that supports the write() method.  Typically a text output
+    #            file object.  Required.
+    #   newline  Specifies how a universal newline, \\n, is to be handled.  Specify
+    #            None to disable universal newline handling.  Defaults to a real 
+    #            universal newline.
+    #   tab      Specifies how a tab, \\t, is to be handled. Specify None to disable
+    #            tab handling.  Defaults to a real tab.
+    #   snewline Specifies how a universal newline in a string, \n, will be handled.
+    #            Specify None to disable real universal newline handling.  Defautls
+    #            to None.
+    #   stab     Specifies how a tab within a string is to be handled.  Specify
+    #            None to disable tab handling within a string.  Defaults to None
+    # A two character universal newline or tab is encountered in file input.  Real
+    # tabs or universal newlines are encountered when the cross-compiler inserts
+    # text output directly to the document.
+    #
+    # There are no real differences in Python 3 between a str object and a unicode
+    # object as in Python 2.  Unicode encoding is automatically handled by the file
+    # input and output processing.
+    #
+    # Due to the manner in which strings are handled by the default parser, it is
+    # impossible to place a space at the beginning of a string.  When using the
+    # default parser, this limitation is addressed by inserting a tab at the beginning
+    # of the string.  The arguments to this method allow the initial tab to be
+    # replaced with one or more spaces which is the norm for assembler output lacking
+    # a statement label.  Other parsers may not have this limitation.
+    def render(self, output, newline="\n", tab="\t", snewline=None, stab=None):
+        for chapter_name, sections in self.collate(self.chapters.items()):
             heder_not_yet_done = True
-            for name, text in sorted(sections.items()):
+            for name, text in self.collate(sections.items()):
                 if text and heder_not_yet_done:
-                    if chapter_name != ' DEFAULT ':
-                        output.write(u'; %s\n' % ('='*75))
-                        output.write(u'; == %s\n' % chapter_name)
-                        output.write(u'; %s\n' % ('='*75))
+                    header=self.chapter_header(chapter_name)
+                    if header is not None:
+                        output.write(header)
                     heder_not_yet_done = False
-                output.write(u''.join(text))
+                otext=''.join(text)
+                # Handle line feeds and tabs in cross-compiled output
+                if newline:
+                    otext=otext.replace("\\n",newline)
+                if tab:
+                    otext=otext.replace("\\t",tab)
+                if snewline:
+                    otext=otext.replace("\n",snewline)
+                if stab:
+                    otext=otext.replace("\t",stab)
+                # Output text to the file
+                output.write(otext)
 
 
 #
@@ -406,6 +578,18 @@ class Forth(list):
             else:
                 yield Word(word, filename, lineno, text)
 
+    # Default parser
+    @staticmethod
+    def default_parser(string, name, include_newline=True):
+        if not isinstance(string, str):
+            raise ValueError("default parser 'string' requires a string: %s" \
+                % string)
+        for n, line in enumerate(string.splitlines()):
+            for word in Forth.word_parser(line):
+                yield Word(word, name, n+1, line)
+            if include_newline:
+                yield Word('\n', name, n+1, line)
+
     # Drives an interactive session with a Forth interpreter
     # Function arguments:
     #   namespace  Pre-established namespace if an interpreter object is not
@@ -433,7 +617,7 @@ class Forth(list):
                 print()
                 print(clso)
                 words = input('> ')
-                clso.interpret_sequence(words.split(), filename='<stdin>')
+                clso.interpret_sequence(words, filename="<stdin>", parser=clso.parser)
             except KeyboardInterrupt:
                 print()
                 break
@@ -463,13 +647,15 @@ class Forth(list):
     # Warning: Exceptions raised within a generator cause it to silently terminate!!
     @staticmethod
     def words_in_file(filename, fileobj=None, include_newline=False, parser=None):
+        prsr = parser or Forth.default_parser
+
         if fileobj is None:
-            fileobj = codecs.open(filename, 'r', 'utf-8')
-        for n, line in enumerate(fileobj):
-            for word in prsr(line):
-                yield Word(word, filename, n+1, line)
-            if include_newline:
-                yield Word('\n', filename, n+1, line)
+            fileobj = open(filename, 'rt')
+        filedata=fileobj.read()
+        fileoobj.close()
+
+        for word in prsr(filedata, filename, include_newline=include_newline):
+            yield word
 
     # Word object generator.  Words are identified from a possible multi-line string.
     # Backslash line comments are removed before words are recognized.
@@ -482,42 +668,38 @@ class Forth(list):
     # Warning: Exceptions raised within a generator cause it to silently terminate!!
     @staticmethod
     def words_in_string(data, name='<string>', include_newline=False, parser=None):
-        prsr = parser or Forth.word_parser
-        for n, line in enumerate(data.splitlines()):
-            for word in prsr(line):
-                yield Word(word, name, n+1, line)
-            if include_newline:
-                yield Word('\n', name, n+1, line)
+        prsr = parser or Forth.default_parser
+        for word in prsr(data, name, include_newline=include_newline):
+            yield word
 
     # Initializes the Forth interpreter
     # Method arguments:
-    #   threading  A string identifying the threading module to be used when
-    #              compiling threaded word definitions.  Defaults to direct
     #   use_ram    Specifies the initial setting for memory type targets.  To 
     #              target ROM, specify False.  To target RAM, specify True.
     #              Defaults to False (or ROM).  The target compiler determines how
     #              the two settings are actually used to target the different memory
     #              types.
-    def __init__(self, threading="direct", use_ram=False):
+    #   logger     Logging ID.  Defaults to "xforth"
+    def __init__(self, use_ram=False, logger="xforth"):
         super().__init__()
         self.clear()       # Initialize the interpreter data stack
-        self.logger = logging.getLogger('xforth')  # Python logger.
-        
-        self.threading=threading     # Remember threading model
+        self.logger = logging.getLogger(logger)  # Python logger.
 
         # Interpreter initialization. See init() method:
         # The parser used to recognize words in a line of text
         self.parser=None             # Returned by init_parser() subclass method
         self.compiler=None           # Returned by cross_compiler() subclass method
+        self.doctree=None            # Returned by document() subclass method
 
-        # Define the builtin host specific name space of decorated Python methods
-        self.builtins = self.init_builtins()
-        
         # Interpreter execution state:
         # current list of input Word objects being interpreted
         self._iterator = None        # Set by interpret() method from its argument
         # Current Frame object being executed or compiled
         self._frame_iterator = None
+
+        # Define the builtin host specific name space of decorated Python methods
+        self.builtins = {}
+        self.init_builtins()
 
         # Define the threaded word name space (used on both host and target)
         # This dictionary maps a words name to its internal representation:
@@ -526,7 +708,7 @@ class Forth(list):
         #   - InterruptFrame objects define INTERRUPT words
         self.namespace = {}
         # the init() method starts word creation by interpreting forth_words.py
-        # definitions
+        # definitions.
 
         # Define the target specific name space
         # This dictionary maps a native word's name to its NativeFrame content.
@@ -542,18 +724,13 @@ class Forth(list):
         self.compiling = False        # Current Forth interpreter mode       
         self.frame = None             # Current Frame being compiled
         self.use_ram = use_ram        # Current target memory type - see RAM and ROM
-        
-        # These two dictionaries track words that need compiling 
-        self.compiled_words = set()      # Track compiled words
-        self.not_yet_compiled_words=set()# Track words not yet compiled words
-        self.references={}            # Track number of times a word is referenced
 
-        # Output document tree shared with the cross-compiler
-        self.doctree = DocumentTree()
-        
-        # Cross-compiler assistance data and settings
-        self.code_is_word=False       # See self.assist_code_is_word() method
-        self.native_words=[]          # See self.assist_native_words() method
+        # Output document tree shared with the cross-compiler. Returned by subclass
+        # supplied method document() when called by the init() method.
+        self.doctree = None
+
+        # Attribute supplied for search-order management if desired.
+        self._active=None
 
     # return a string describing the topmost elements from the stack
     # Used primarily by Forth.interpreter_loop() static method.
@@ -566,14 +743,29 @@ class Forth(list):
             return ' '.join(tops)
         return "stack empty"
 
+    # Returns the NotImplementedError exception message
     def _nie(self,method):
         return "%s - %s.%s - subclass must provide %s method" \
             % (this_module,self.__class__.__name__,method,method)
+            
+    # Returns the ForthError message when interpretation semantics are not defined
+    def _nis(self,word):
+        return "interpretation semantics not defined for word %s" % word
 
     #
     # The following methods must be supplied by a subclass of this class
     # See msp430.py for an example of their usage.
     #
+
+    # Required: Initiates a colon word definition
+    # Method argument:
+    #   name    Name of the word being defined
+    def colon_begin(self, name):
+        raise NotImplementedError(self._nie("colon_begin()"))
+        
+    # Required: Terminates a colon word definition
+    def colon_end(self):
+        raise NotImplementedError(self._nie("colon_end()"))
 
     # Required: Supplies inline data to a standard word Frame or InterruptFrame.
     # The object links the interpreter frame creation with the cross-compiler's
@@ -593,22 +785,30 @@ class Forth(list):
     def cross_compiler(self, *args, **kwds):
         raise NotImplementedError(self._nie("cross_compiler()"))
 
+    # Required: Returns the implementation's DocumentTree subclass
+    def document(self):
+        raise NotImplementedError(self._nie("document()"))
+
+    # Required: Looks-up a word in the interpreter namespace sequence
+    def look_up(self, word):
+        raise NotImplementedError(self._nie("look_up()"))
+
     # Required: This method locates, accesses and interprets the included file.
     def include(self, name):
         raise NotImplementedError(self._nie("include()"))
 
-    # This method locates and reads the named resource from a package.  It returns
-    # a binary string if located.  If the resource is not found it returns None.
-    # A subclass wanting to read forth source files as if they were a module must
-    # provide this method
+    # Optional: This method locates and reads the named resource from a package.  It
+    # returns a binary string if located.  If the resource is not found it returns
+    # None.  A subclass wanting to read forth source files as if they were a Python
+    # module must provide this method
     def include_module(self, name):
         raise NotImplementedError(self._nie("include_module()"))
 
-    # This method locates the file in the include search path by returning the
-    # file's path.  If not found it returns None.  A subclass wishing to support
+    # Optional: This method locates the file in the include search path by returning
+    # the file's path.  If not found it returns None.  A subclass wishing to support
     # included files from a search path must provide this method.  It is the
     # the subclass responsibility to establish the directory search order and use
-    # it to locate included source files
+    # it to locate included source files.
     def include_path(self, name):
         raise NotImplementedError(self._nie("include_path()"))
 
@@ -619,27 +819,200 @@ class Forth(list):
     def init_parser(self, *args, **kwds):
         raise NotImplementedError(self._nie("init_parser()"))
 
+    # Required: Provides interpretation semantics for word CROSS-COMPILE.  Cross-
+    # compilation can be immediate or deferred.  How deferred cross-compiled words
+    # are managed is implementation specific.
+    # Method Argument:
+    #   word   Word name of frame to be cross-compiled
+    def interpret_cross_compile(self, word):
+        raise NotImplementedError(self._nie("interpret_cross_compile()"))
+
+    # Required: Initiates an interupt thread word definition
+    # Method argument:
+    #   name    Name of the word being defined
+    def interrupt_begin(self, name, vector):
+        raise NotImplementedError(self._nie("interrupt_begin()"))
+        
+    # Required: Terminates an interrupt thread definition
+    def interrupt_end(self):
+        raise NotImplementedError(self._nie("interrupt_end()"))
+
+    # Required: Allocate space in memory.  See word ALLOT
+    def memory_allot(self, size):
+        raise NotImplementedError(self._nie("memory_allot()"))
+
+    # Obtional: Retrieve a memory cell's content.
+    # "Memory" as defined by the implementation is implied when word @ encounters
+    # an integer on the stack instead of a Variable object.
+    # Method Argument:
+    #   address   An implementation understood "memory" location 
+    def memory_fetch(self, address):
+        raise NotImplementedError(self._nie("memory_fetch()"))
+
+    # Optional: Set a memory cell's content.
+    # "Memory" as defined by the implementation is implied when word ! encounters
+    # an integer on the stack instead of a Variable object.
+    # Method Argument:
+    #   address   An implementation understood "memory" location
+    #   value     The "value" stored at the location.
+    def memory_store(self, address, value):
+        raise NotImplementedError(self._nie("memory_store()"))
+
+    # Required: Initiates a native word definition
+    # Method argument:
+    #   name    Name of the word being defined
+    def native_begin(self, name):
+        raise NotImplementedError(self._nie("native_begin()"))
+        
+    # Required: Terminates a native word definition
+    def native_end(self):
+        raise NotImplementedError(self._nie("native_end()"))
+
+    # This method is used by the text intepreter to recognize and ignore in-line
+    # comments.  In-line comments begin with the word ( and end with the word ) .
+    # If in-line comments are inherently recognized and ignored by the supplied parser
+    # this method is not required.
+    # Returns: None
+    def recognize_comment(self):
+        raise NotImplementedError(self._nie("recognize_comment()"))
+
+    # This method is used by the text intepreter to recognize and ignore line
+    # comments.  Line comments begin with the word \ and end with the line
+    # termination sequence, a universal newline.  Optional if the parser inherently
+    # recognizes line comments.  Required by the default parser.
+    # Returns: None
+    def recognize_line_comment(self):
+        raise NotImplementedError(self._nie("recognize_line_comment()"))
+
+    # This method used by the text interpreter extracts a string from the input
+    # stream.  This method is influenced by the text parser supplied by the
+    # target implementation.  Used by builtins that are followed by a string,
+    # for example builtin ."
+    # Returns:
+    #   the recognized string from the input text.
+    def recognize_string(self):
+        raise NotImplementedError(self._nie("recognize_string()"))
+
+    # Required: Generate cross-compiled output
+    # Method Argument:
+    #   out   The output file object or codec used to write output file
+    def render(self, out):
+        raise NotImplementedError(self._nie("render()"))
+ 
+    # Required: Track a word that is compiled
+    # Method Argument:
+    #   word   The word that is compiled and being tracked
+    def track_compiled(self, word):
+        raise NotImplementedError(self._nie("track_compiled()"))
+
   #
-  # Interpeter assists for the cross-compiler
+  # The following methods may be overriden by a subclass to alter or enhance these
+  # default behaviors
   #
 
-    # Causes use of the word CODE to create NativeFrame's with NativeFrame.isword
-    # set to True.
-    def assist_code_is_word(self):
-        self.code_is_word=True
+    # Enter text interpreter compile mode
+    # Method Arguments:
+    #   frame    The Frame object whose compilation is starting
+    #   so       New search order list.  Defaults to []
+    def compile_mode_begin(self, frame, so=[]):
+        self._active=so
+        self.frame=frame
+        self.compiling = True
 
-    # This method allows the cross-compiler (usually in the cross_compiler() subclass
-    # method) to specify one or more words that when encountered cause a NativeFrame
-    # to become recognized as word.  This is needed for certain threading models.
-    # If the cross-compiler does not use those threading models or this technique
-    # for native word recognition, it is not required.
-    #
-    # Although not required by msp430.py the word ASM-NEXT would be an example
-    def assist_native_words(self, wordlist):
-        if not isinstance(wordlist, list):
-            self.native_words=[ wordlist, ]
+    # Ends text interpreter compile mode and returns to interpretation mode
+    # Method Arguments:
+    #   frame     The Frame object whose compilation is complete
+    #   namesapce The namespace dictionary to which it is added
+    #   so        Search order following compiled frame.
+    def compile_mode_end(self, frame, namespace, so=[]):
+        frame.finalize(self)                  # Finalize the frame
+        namespace[frame.name.lower()]=frame   # Add it to the its namespace
+        self.frame=None                       # Remove it from its build place
+        self.compiling=False                  # Return to text interpretation
+        self._active=so                       # Set new search order
+
+    # Identifies whether a callable is interpretable by the text interpreter or not.
+    # Returns:
+    #   True   If interpretation semantics are defined for the frame or builtin
+    #   False  If interpretation semantics are not defined for the frame or builtin.
+    # If interpretation semantics are assumed to be defined for all words.
+    # This method recognizes co=True builtins as not interpetable.  All frames are
+    # considered interpretable.
+    def interpretable(self, element):
+        if self.isbuiltin(element) and element.forth_co:
+            return False
+        return True
+
+    # This method looks up host Forth words
+    def look_up(self, word):
+        """Find the word in one of the name spaces for the host and return the value"""
+        # target words are included w/ least priority. they must be available
+        # so that compiling words on the host works
+        try:
+            return self.look_up_word(word, [self.namespace, self.builtins])
+        except KeyError:
+            raise KeyError('%r not in any namespace (host)' % (word,)) from None
+
+    # This method looks up target words
+    def look_up_target(self, word):
+        """Find the word in one of the namespaces for the target and return the value"""
+        # builtin namespace is not searched as it only includes words
+        # implemented in python. target name space has priority over normal
+        # space.
+        try:
+            return self.look_up_word(word, [self.target_namespace, self.namespace])
+        except KeyError:
+            raise KeyError('%r not in any namespace (target)' % (word,)) from None
+
+    # This method registers a builtin word.  If the implementation expects to
+    # use the interpreter builtin dictionary, the override should call this
+    # superclass method.
+    # Method Arguments:
+    #   function   The decorated method implementing the builtin word.
+    def register_builtin(self,function):
+        self.builtins[function.forth_name] = function
+
+    def show(self, word, indent=""):
+        string="%sSHOW %r\n" % (indent, word)
+        local_indent="%s    " % indent
+        try:
+            value = self.look_up(word)
+        except KeyError:
+            return "%s%s" % (string, self.show_undefined(word, indent=local_indent))
         else:
-            self.native_words=wordlist
+            if isinstance(value,int):
+                string="%s%s" \
+                    % (string, self.show_integer(value, indent=local_indent))
+            elif isinstance(value,Frame):
+                string="%s%s" \
+                    % (string, self.show_frame(value, indent=local_indent))
+            elif self.isbuiltin(value):
+                string="%s%s" \
+                    % (string,self.show_builtin(value, indent=local_indent))
+            else:
+                string="%s%s" \
+                    % (string, self.show_unrecognized(value, indent=local_indent))
+        return string
+
+    def show_builtin(self, builtin, indent=""):
+        return "%svalue -> %r\n" % (indent, builtin)
+
+    def show_frame(self, frame, indent=""):
+        string=  "%svalue -> %r\n" % (indent, frame)
+        string="%s%scontents -> \n" % (string, indent)
+        local_indent="%s    " % indent
+        for item in frame:
+            string="%s%s%r\n" % (string,local_indent,item)
+        return string
+
+    def show_integer(self, integer, indent=""):
+        return "%svalue -> %r\n" % (indent, integer)
+
+    def show_undefined(self, undefined, indent=""):
+        return "%svalue -> <undefined>\n" % indent
+
+    def show_unrecognized(self, unrecognized, indent=""):
+        return "%svalue -> %r\n" % (indent, unrecognized)
 
   #
   # Callback methods exposed to subclass or cross-compiler
@@ -653,45 +1026,37 @@ class Forth(list):
     # Called by the cross-compiler when a thread body needs compiling.
     def compile_thread(self, frame):
         next = iter(frame).next 
-        ndx=0   # Next cell being fetched 
-        
+        ndx=0    # cell being compiled 
+
         try:
-            while True:
-                # Determine if the next thread cell needs tagging as branch target
-                if ndx in frame.tags:
-                    tag=ndx
-                else:
-                    tag=None
-                    
+            while True:  
                 # Fetch the thread cell being cross-compiled
                 entry = next()
-                ndx+=1 
 
                 if callable(entry):
                     if self.isbuiltin(entry,name="$BRANCH"):
+                        # branch needs special case as offset needs to be recalculated
                         offset = next()
                         ndx+=1
-                        self.compiler.compile_branch(selt, offset, tag=tag)
-                        self.compiler.compile_remember('$BRANCH')
+                        self.compiler.compile_branch(selt, offset, ndx=ndx)
                     elif self.isbuiltin(entry,name="$BRANCH0"):
                         # branch needs special case as offset needs to be recalculated
                         offset = next()
                         ndx+=1
-                        self.compiler.compile_branch_if_false(self, offset, tag=tag)
-                        self.compiler.compile_remember('$BRANCH0')
+                        self.compiler.compile_branch_if_false(self, offset, ndx=ndx)
                     elif self.isbuiltin(entry):
                         # all other built-ins just take the name of the function
-                        self.compiler.compile_builtin(forth, entry, tag=tag)
-                        self.compiler.compile_remember(entry.forth_name)
+                        self.compiler.compile_builtin(forth, entry, ndx=ndx)
                     elif isinstance(entry, Frame):
-                        self.compiler.compile_word(forth, entry, tag=tag)
-                        self.compiler.compile_remember(entry.name)
-                    elif isinstance(entry, Inline):
-                        self.entry.cross_compile(self, self.compiler, self.doctree)
+                        self.compiler.compile_word(forth, entry, ndx=ndx)
                     else:
                         raise ValueError('Cross compilation undefined for %r' % entry)
                 else:
-                    self.compiler.compile_value( self, entry, tag=tag)
+                    if isinstance(entry, Inline):
+                        self.entry.cross_compile(self, self.compiler, self.doctree)
+                    else:
+                        self.compiler.compile_value( self, entry, ndx=ndx)
+                ndx+=1
         except StopIteration:
             pass
 
@@ -699,60 +1064,117 @@ class Forth(list):
   # Interpreter Methods
   #
 
-    def compiled(self, name):
-        pass
-
     # Create a Forth interrupt handler
+    # Warning: the returned object from the cross-compiler is not validated
     def create_interrupt(self, name, vector):
-        frame=self.compiler.create_interrupt(self, name, vector)
-        if not isinstance(frame, InterruptFrame):
-            cls_str="%s - %s.create_interrupt() -" \
-                % (this_module,self.__class__.__name__)
-            msg="%s - invalid InterruptFrame object returned for interrupt %s:" \
-                 "vector %s: %s"  % (cls_str,name,vector, frame)
-            raise ValueError(msg)
-        return frame
+        return self.compiler.create_interrupt(self, name, vector)
 
     # Create a native code word for the target
+    # Warning: the returned object from the cross-compiler is not validated
     def create_native(self, name, isword=False):
-        frame=self.compiler.create_native(self, name, isword=isword)
-        if not isinstance(frame, NativeFrame):
-            cls_str="%s - %s.create_native() -" \
-                % (this_module,self.__class__.__name__)
-            msg="%s - invalid NativeFrame object returned for name %s:" \
-                % (cls_str,name,frame)
-            raise ValueError(msg)
-        return frame
+        return self.compiler.create_native(self, name, isword=isword)
 
     # Create's a word defintion frame by calling the target compiler
+    # Warning: the returned object from the cross-compiler is not validated
     def create_word(self, name):
-        frame=self.compiler.create_word(self, name)
-        if isinstance(frame, (InterruptFrame, NativeFrame)) or \
-           not isinstance(frame, Frame):
-            cls_str="%s - %s.create_word() -" % (this_module,self.__class__.__name__)
-            msg="%s - invalid Frame object returned for word %s: %s" \
-                % (cls_str,name,frame)
-            raise ValueError(msg)
-        return frame
+        return self.compiler.create_word(self, name)
 
-    def init(self,debug=False):
+    # This method provides default in-line comment recognition.  In-line comments
+    # start with the word ( and end with the word ) .
+    #
+    # The subclass provided recognize_comment() method should call this method
+    # if the default parser is in use.
+    # Returns: None
+    def default_comment_recognizer(self):
+        while True:
+            word = self.next_word()
+            if ')' in word:
+                break
+        if not word.endswith(')'):
+            raise ValueError('limitation, comment end ")" followed by data: %r' \
+                % (word,))
+
+    # This method provides the default line-comment recognizer.  Line comments start
+    # with the back-slash word \ and continue to the end of the line.
+    #
+    # The subclass provided recognize_line_comment() method should call this method
+    # if the default parser is in use.
+    # Returns: None
+    def default_line_comment_recognizer(self):
+        while True:
+            word = self.next_word()
+            if '\n' in word:
+                break
+        if not word.endswith('\n'):
+            raise ValueError(\
+                'limitation, line comment end "\\n" followed by data: %r' % (word,))
+
+    # This is the string recognizer that should be used with the default parser.
+    # The subclass supplied recognize_string() method should call this method
+    # if the default parser is in use and return the results of this method.
+    # 
+    # This method read individual strings until it encounters one that ends with
+    # a double-quote.  It then joins each string with an intervening space.  The
+    # effect of the default parser operation and this method is that spaces following
+    # the word that recognizes strings are removed and and extra spaces between
+    # non-space portions of the string are reduced to a single space.
+    #
+    # For example:
+    #   source    ."    this as   an example"
+    #   returned: 'this is an example'
+    def default_string_recognizer(self):
+        words = []
+        while True:
+            word = self.next_word()
+            if word.endswith('"'):
+                # emulate character wise reading
+                if word != '"':
+                    words.append(word[:-1])
+                break
+            words.append(word)
+        text = ' '.join(words)
+        return text
+
+    # Initialize the interpreter by 
+    #   1. establishing the text parser 
+    #   2. the Target cross-compiler and
+    #   3. compiling core words (from forth_words.py)
+    # Method Arguments
+    #   chapter   Specify the chapter into which core words will be cross-compiled
+    #             Defaults to None (which implies the ' DEFAULT ' chapter is used).
+    #   debug     Causes the core and builtin words to be listed at initialization
+    #             end.
+    def init(self,chapter=None,debug=False):
         # load core language definitions from forth_words.py
         name=self.__class__.__name__
         self.logger.info('%s.init() processing' % name)
         self.parser=self.init_parser()
         
         error=False
+        # Initialize the document handler
+        doc=self.document()
+        if isinstance(doc,DocumentTree):
+            self.doctree=doc
+        else:
+            msg="document handler is not a subclass of DocumentTree: %s" % doc
+            self.logger.error(msg)
+            error=True
+
         # Initialize cross compiler
         compiler=self.cross_compiler()
         if isinstance(compiler,Target):
             self.compiler=compiler
-            # Validate requested threading model and allow compiler to turn on interpreter
-            # assists
-            if not self.compiler.init_model(self.threading, self):
+            # Validate requested threading model and allow compiler to turn on 
+            # interpreter assists
+            if not self.compiler.init_model(self):
                 msg="%s compiler does not support requested threading " \
                     "model: %s" % (self.compiler.__class__.__name__,self.threading)
                 self.logger.error(msg)
                 error=True
+        else:
+            msg="cross-compiler not a subclass of Target: %s" % compiler
+            self.logger.error(msg)
+            error=True
 
         if error:
             self.logger.error("%s.init() failed" % name)
@@ -760,22 +1182,27 @@ class Forth(list):
 
         # Define foundational word definitions shared by the host and target
         # environments.
+        if chapter:
+            self.doctree.chapter(chapter)
         data=definitions
         self.interpret(\
-            Forth.words_in_string(data, name='init()',include_newline=True))
+            Forth.words_in_string(\
+                data, name='init()',include_newline=True,parser=self.parser))
         if debug:
             self.word_LIST(None)
 
         # Interpreter initialization done.
         self.logger.info('%s.init() done' % name)
 
+    # Initialize builtin word from decorated interpreter methods
     def init_builtins(self):
-        builtins={}
         for name in dir(self):
             function = getattr(self, name)
             if self.isbuiltin(function):
-                builtins[function.forth_name] = function
-        return builtins
+                # This method may be overridden to add implementation specific
+                # functionality, and called via the super() class to implement
+                # the registration in the builtins attribute.
+                self.register_builtin(function)
 
     def instruction_cross_compile(self, stack, word=None):
         """\
@@ -785,13 +1212,12 @@ class Forth(list):
         if word is None:
             word = self._frame_iterator.next()
         # when interpreting, execute the actual functionality
-        # track what is done
-        self.compiled_words.add(word)
-        if word in self.not_yet_compiled_words:
-            self.not_yet_compiled_words.remove(word)
+
         # get the frame and compile it - prefer target_namespace
         try:
             item = self.look_up_target(word)
+            self.logger.debug("found target for cross-compiling %s: %s" \
+                % (word,item))
         except KeyError:
             raise ValueError('word %r is not available on the target' % (word,))
         # translate, depending on type
@@ -802,6 +1228,8 @@ class Forth(list):
             item.exit(stack, item)
         else:
             raise ValueError('don\'t know how to compile word %r' % (word,))
+        # track what is done
+        self.track_compiled(word)
 
     # This needs to be replaced with a builtin word that corresponds to the 
     # target implementation.
@@ -821,7 +1249,8 @@ class Forth(list):
         word = None # in case next_word raises an exception
         try:
             while True:
-                word = iterator.__next__()
+                word = self.next_word()
+                self.logger.debug("interpreting: %s" % word)
                 self.interpret_word(word)
         except StopIteration:
             pass
@@ -836,45 +1265,49 @@ class Forth(list):
             self.logger.exception(\
                 '%s:%s: Error in word "%s": %s' % (filename, lineno, word, e))
             raise ForthError('Error in word "%s": %s' % (word, e), \
-                filename, lineno, column, offset, text)
+                filename, lineno, column, offset, text) from None
             # XXX consider showing the full traceback of the original exception
         finally:
             # restore state
             self._iterator = old_iterator
 
-    def interpret_sequence(self, sequence, filename=None):
+    def interpret_sequence(self, sequence, filename=None, parser=None):
         """interpret a sequence of words"""
-        self.interpret(Forth.annotated_words(sequence, filename))
+        if parser:
+            iterable=parser(sequence, filename, include_newline=True)
+        else:
+            iterable=iter(\
+                Forth.default_parser(sequence, filename, include_newline=True))
+        self.interpret(iterable)
 
     # Text interpreter subroutine to compile or execute a word
     def interpret_word(self, word):
         """Depending on mode a word is executed or compiled"""
-        #~ print "XXX", word
         # newlines are in the steam to support \ comments, they are otherwise ignored
         if word == '\n':
             return
         try:
             element = self.look_up(word)
+            self.logger.debug("found word %s: %r" % (word,element))
         except KeyError:
             pass
         else:
-            if self.compiling and not hasattr(element, 'forth_immediate'):
-                if isinstance(self.frame,NativeFrame) and word in self.native_words:
-                    self.frame.isword=True
+            #if self.compiling and not hasattr(element, 'forth_immediate'):
+            if self.compiling and not self.isimmediate(element):
+                self.logger.debug("compiling element: %r" % element)
                 if callable(element):
-                    # Track branches for assembler tagging of target locations
-                    if self.isbranch(element):
-                        self.frame.branches.append(len(self.frame))
-                    self.frame.append(element)
+                    self.frame.cell(element, self)
                 else:
-                    self.frame.append(self.look_up("$LIT"))
-                    self.frame.append(element)
+                    self.frame.cell(self.look_up("$LIT"),self)
+                    self.frame.cell(element, self)
                 return
             else:
                 # interpreting or immediate word while compiling
-                if element.forth_co:
-                    raise ValueError("compile-only word: %s" % word)
+                self.logger.debug("interpreting element: %r" % element)
                 if callable(element):
+                    if not self.interpretable(element):
+                        raise ValueError("intepretation semantics not defined for "
+                            "word: %s" % word)
                     element(self)
                 else:
                     self.push(element)
@@ -896,10 +1329,10 @@ class Forth(list):
                 offset = getattr(word, 'offset', None)
                 text = getattr(word, 'text', None)
                 raise ForthError("neither known symbol nor number: %r" \
-                    % (word,), filename, lineno, column, offset, text)
+                    % (word,), filename, lineno, column, offset, text) from None
         if self.compiling:
-            self.frame.append(self.look_up("$LIT"))
-            self.frame.append(self.create_inline("$LIT",number))
+            self.frame.cell(self.look_up("$LIT"), self)
+            self.frame.cell(self.create_inline("$LIT",number), self)
         else:
             self.push(number)
 
@@ -923,34 +1356,33 @@ class Forth(list):
         else:
             return False
 
-    def look_up(self, word):
-        """Find the word in one of the name spaces for the host and return the value"""
-        # target words are included w/ least priority. they must be available
-        # so that compiling words on the host works
-        lowercased_word = word.lower() # case insensitive
-        for namespace in (self.namespace, self.builtins, self.target_namespace):
-            try:
-                element = namespace[lowercased_word]
-            except KeyError:
-                pass
-            else:
-                return element
-        raise KeyError('%r not in any namespace (host)' % (word,))
+    # Returns whether a method or frame is immediate
+    # Method Argument:
+    #   item   The object that is potentially immediate
+    # Returns:
+    #   True if word is immediate
+    #   False if word is not immediate
+    def isimmediate(self, item):
+        return hasattr(item, "forth_immediate")
 
-    def look_up_target(self, word):
-        """Find the word in one of the namespaces for the target and return the value"""
-        # builtin namespace is not searched as it only includes words
-        # implemented in python. target name space has priority over normal
-        # space.
-        lowercased_word = word.lower() # case insensitive
-        for namespace in (self.target_namespace, self.namespace):
+    # Foundational name space search method.
+    # Method Arguements:
+    #   name        The Word object or name as a string being accessed
+    #   namespaces  A list of name space dictionaries being searched 
+    # Returns:
+    #   The Frame object or subclass associated with the name
+    # Excpetions:
+    #   KeyError if word is not located
+    def look_up_word(self, name, namespaces=None):
+        """Find the word in one of the name spaces for the host and return the value"""
+        lcword = name.lower() # case insensitive
+        so=namespaces or self._active
+        for namespace in so:
             try:
-                element = namespace[lowercased_word]
+                return namespace[lcword]
             except KeyError:
                 pass
-            else:
-                return element
-        raise KeyError('%r not in any namespace (target)' % (word,))
+        raise KeyError()
 
     # Returns the next word being interpreted
     def next_word(self):
@@ -988,16 +1420,6 @@ class Forth(list):
         """Push an element on the stack"""
         self.append(obj)
 
-    # Remember to compile these referenced words
-    def remember(self, name):
-        word=name.lower()
-        try:
-            ref=self.not_yet_compiled_words[word]
-        except KeyError:
-            # first time this is referenced
-            ref=0
-        self.not_yet_compiled_words[word]=ref+1
-
     #
     # Builtin name space word definitions
     #
@@ -1020,17 +1442,27 @@ class Forth(list):
         if not stack.pop():
             stack._frame_iterator.seek(difference - 1)
 
+    @word("$SSTR",co=True)
+    def instruction_counted_string(self, stack):
+        inline=stack._frame_interator.next()
+        stack.push(inline)
+        stack.push(len(inline.value))
+
     @word('$LIT',co=True)
     def instruction_literal(self, stack):
         """Low level instruction to get a literal and push it on the stack."""
         inline=stack._frame_iterator.next()
-        stack.push(inline.value)
+        if isinstance(inline, Variable):
+            stack.push(inline)
+        else:
+            stack.push(inline.value)
 
     @word("$TEXT",co=True)
     def output_text(self, stack):
         text = stack._frame_iterator.next()
         # text is expected to be an instance of Inline
-        self.doctree.write(words.value) 
+        otext=text.value
+        self.doctree.write(otext) 
 
     # Recognized by both text and frame interpreters
 
@@ -1094,11 +1526,14 @@ class Forth(list):
         x, y = stack.pop2()
         stack.push(y - x)
 
+    # ( location -- location's value)
     @word('@')
     def word_at(self, stack):
         reference = stack.pop()
         if isinstance(reference, Variable):
-            stack.push(reference)
+            stack.push(reference.get())
+        elif isinstance(reference, int):
+            stack.push(self.memory_fetch(reference))
         else:
             raise ValueError(\
                 'limited support for @: no compatible object on stack: %r' \
@@ -1109,8 +1544,7 @@ class Forth(list):
     def word_colon(self, stack):
         """Begin defining a function. Example: ``: ADD-ONE 1 + ;``"""
         name = self.next_word()
-        self.frame=self.create_word(name)
-        self.compiling = True
+        self.colon_begin(name)
 
     @word(',')
     def word_comma(self, stack):
@@ -1119,12 +1553,8 @@ class Forth(list):
         value = stack.pop()
         if isinstance(value, Variable):
             # XXX special case for calculations with HERE
-            value = value.offset
-        elif self.isbranch(value):
-            self.frame.branches.append(len(self.frame))
-        else:
-            pass
-        self.frame.append(value)
+            value = value.info
+        self.frame.cell(value, self)
 
     @immediate
     @word('(')
@@ -1133,16 +1563,10 @@ class Forth(list):
         Start a comment and read to its end (``)``).
 
         There is a special comment ``( > text... )`` which is recognized by the
-        documentation tool. All these type of comments are collected and
+        MSP430 documentation tool. All these type of comments are collected and
         assigned to the next declaration.
         """
-        while True:
-            word = self.next_word()
-            if ')' in word:
-                break
-        if not word.endswith(')'):
-            raise ValueError('limitation, comment end ")" followed by data: %r' \
-                % (word,))
+        self.recognize_comment()
 
     @immediate
     @word(']')
@@ -1154,20 +1578,10 @@ class Forth(list):
     @word('."')
     def word_copy_words(self, stack):
         """Output a string."""
-        words = []
-        while True:
-            word = self.next_word()
-            if word.endswith('"'):
-                # emulate character wise reading
-                if word != '"':
-                    words.append(word[:-1])
-                break
-            words.append(word)
-        text = codecs.escape_decode(u' '.join(words))[0]
+        text=self.recognize_string()
         if self.compiling:
-            #self.frame.append(self.instruction_output_text)
-            self.frame.append(self.look_up("$TEXT"))
-            self.frame.append(self.compiler.create_inline("$TEXT",text))
+            self.frame.cell(self.look_up("$TEXT"), self)
+            self.frame.cell(self.create_inline("$TEXT",text), self)
         else:
             self.doctree.write(text)
 
@@ -1212,13 +1626,7 @@ class Forth(list):
     @word('\\')
     def word_line_comment_start(self, stack):
         """Start a line comment and read to its end."""
-        while True:
-            word = self.next_word()
-            if '\n' in word:
-                break
-        if not word.endswith('\n'):
-            raise ValueError(\
-                'limitation, line comment end "\\n" followed by data: %r' % (word,))
+        self.recognize_line_comment()
 
     @word('?DUP')
     def word_Qdup(self, stack):
@@ -1231,46 +1639,34 @@ class Forth(list):
     def word_semicolon(self, stack):
         """End definition of function. See `:`_"""
         if self.frame is None: raise ValueError('not in colon definition')
-        #~ print "defined", self.frame.name, self.frame     # XXX DEBUG
-        self.frame.tag_branches()
-        self.namespace[self.frame.name.lower()] = self.frame
-        self.frame = None
-        self.compiling = False
+        self.colon_end()
 
+    # ( value reference -- )
+    # reference now set to value
     @word('!')
     def word_store(self, stack):
         reference = stack.pop()
         value = stack.pop()
         if isinstance(reference, Variable):
-            if reference.frame != self.frame:
-                raise ValueError('!: Frame mismatch for variable %r != %r' \
-                    % (reference.frame, self.frame))
             if isinstance(value, Variable):
-                reference.set(value.offset)
+                reference.set(value.info)
             else:
                 reference.set(value)
+        elif isinstance(reference, int):
+            self.memory_store(reference, value)
         else:
             raise ValueError(\
                 'limited support for !: no compatible object on stack %r' \
                     % (reference,))
 
     @immediate
-    @word('"')
+    @word('C"',co=True)
     def word_string_literal(self, stack):
         """Put a string on the stack."""
-        words = []
-        while True:
-            word = self.next_word()
-            if word.endswith('"'):
-                # emulate character wise reading
-                if word != '"':
-                    words.append(word[:-1])
-                break
-            words.append(word)
-        text = codecs.escape_decode(u' '.join(words))[0]
+        text=self.recognize_string()
         if self.compiling:
-            self.frame.append(self.look_up("$LIT"))
-            self.frame.append(self.create_inline('"', text))
+            self.frame.cell(self.look_up("$LIT"), self)
+            self.frame.cell(self.create_inline('C"', text), self)
         else:
             self.push(text)
 
@@ -1282,8 +1678,8 @@ class Forth(list):
         if self.frame is None: raise ValueError('not in colon definition')
         name = stack.next_word()
         word_frame=self.look_up(name)  # Frame or InterruptFrame
-        self.frame.append(self.look_up("$LIT"))
-        self.frame.append(self.create_inline("'", word_frame))
+        self.frame.cell(self.look_up("$LIT"), self)
+        self.frame.cell(self.create_inline("'", word_frame), self)
 
     @word('0>')
     def word_is_positive(self, stack):
@@ -1333,11 +1729,7 @@ class Forth(list):
     def word_allot(self, stack):
         """Allocate memory in RAM or ROM."""
         count = stack.pop()
-        if count > 0:
-            if count & 1: raise ValueError('odd sizes currently not supported')
-            self.frame.extend([0]*(count/2))
-        else:
-            raise ValueError('negative ALLOT not supported')
+        self.memory_allot(count)
 
     @word("AND")
     def bitand(self, stack):
@@ -1345,35 +1737,25 @@ class Forth(list):
         stack.push(y & x)
 
     @immediate
-    @word('ASSEMBLE')
-    def word_assemble(self, stack):
-        """\
-        Begin defining a native inline code. CODE words are executed on the
-        host to get cross compiled. Therefore they have to output assembler
-        code for the target. MSP430 Example:
-
-            ( > Increment value on stack by one. )
-            ASSEMBLE 1+ ( n -- n )
-                ." \\t inc 0(SP) \\n "
-            END-CODE
-
-        There is a number of supporting functions for outputting assembler.
-        E.g. `ASM-NEXT`_, `ASM-DROP`_, `ASM-TOS->R15`_, `ASM-R15->TOS`_,
-        `ASM-TOS->W`_, `ASM-W->TOS`_
-
-        This word is equvalent to the word CODE when assist_code_is_word has not
-        been used.
-        """
-        name = self.next_word()
-        self.frame=self.create_native(name, isword=False)
-        self.compiling = True
+    @word('C"',co=True)
+    def word_string_literal(self, stack):
+        """Put a string on the stack."""
+        text=self.recognize_string()
+        if self.compiling:
+            self.frame.cell(self.look_up("$LIT"), self)
+            self.frame.cell(self.create_inline('"', text), self)
+        else:
+            raise ValueError(self._nis('C"'))
 
     @immediate
     @word('CHAR')
     def word_char(self, stack):
         """Push ASCII code of next character."""
         name = stack.next_word()
-        value = ord(name[0])
+        try:
+            value=int(name,0)
+        except ValueError:
+            value = ord(name[0])
         stack.push(value)
 
     @immediate
@@ -1385,8 +1767,8 @@ class Forth(list):
         value = ord(name[0])
         if self.compiling:
             if self.frame is None: raise ValueError('not in colon definition')
-            self.frame.append(self.look_up("$LIT"))
-            self.frame.append(self.create_inline("[CHAR]", value))
+            self.frame.cell(self.look_up("$LIT"), self)
+            self.frame.cell(self.create_inline("[CHAR]", value), self)
         else:
             raise ValueError('interpretation semantics undefined')
 
@@ -1421,30 +1803,7 @@ class Forth(list):
         word CODE-WORD
         """
         name = self.next_word()
-        self.frame=self.create_native(name, isword=self.native_code_is_word)
-        self.compiling = True
-
-    @immediate
-    @word('CODE-WORD')
-    def word_code_word(self, stack):
-        """\
-        Begin defining a native code function. CODE words are executed on the
-        host to get cross compiled. Therefore they have to output assembler
-        code for the target. MSP430 Example:
-
-            ( > Increment value on stack by one. )
-            CODE 1+ ( n -- n )
-                ." \\t inc 0(SP) \\n "
-            END-CODE
-
-        This is essentially identical to the word CODE, but does not require
-        the explicit use of ASM-NEXT.  If this word is used, the cross-compiler's
-        subclass of NativeFrame will need to append the equvalent of ASM-NEXT during
-        cross-compilation in the subcalss exit() method.
-        """
-        name = self.next_word()
-        self.frame=self.create_native(name, isword=True)
-        self.compiling = True
+        self.native_begin(name)
 
     @immediate
     @word('[COMPILE]')
@@ -1455,7 +1814,7 @@ class Forth(list):
         """
         if self.frame is None: raise ValueError('not in colon definition')
         item = self.look_up(stack.next_word())
-        self.frame.append(item)
+        self.frame.cell(item, self)
 
     @word('CONSTANT')
     def word_constant(self, stack):
@@ -1473,15 +1832,17 @@ class Forth(list):
         name = stack.next_word()
         # allocate separate memory
         # (cross compiled to RAM)
-        self.variables[name] = Frame('cre'+name,isword=False)
-        self.variables[name].use_ram = self.use_ram
-        self.frame = self.variables[name]
+        vframe=self.compiler.create_word( self, 'cre'+name)
+        vframe.use_ram = self.use_ram
+        self.variables[name] = vframe
+        self.frame = vframe
 
         # create a function that pushes the variables address
-        frame = Frame(name)
+        frame = self.compiler.create_word( self, name)
         frame.chapter = self.doctree.chapter_name
-        frame.append(self.look_up("$LIT"))
-        frame.append(self.create_inline("CREATE", self.variables[name])) 
+        frame.cell(self.look_up("$LIT"), self)
+        frame.cell(self.create_inline("CREATE", vframe, info=0), self)
+        frame.finalize(self)
         self.namespace[name.lower()] = frame
         # XXX could also do a native impl with "push #adr;NEXT"
 
@@ -1492,11 +1853,11 @@ class Forth(list):
         word = stack.next_word()
         if self.compiling:
             # when compiling add call to self and the word to the Frame
-            self.frame.append(self.look_up("CROSS-COMPILE"))
-            self.frame.append(word)
+            self.frame.cell(self.look_up("CROSS-COMPILE"), self)
+            self.frame.cell(word, self)
         else:
-            # in interpretation mode, compile it now
-            self.instruction_cross_compile(stack, word)
+            # in interpretation mode, cross-compile it now
+            self.interpret_cross_compile(word)
 
     @word('CROSS-COMPILE-MISSING')
     def word_cross_compile_missing(self, stack):
@@ -1523,11 +1884,11 @@ class Forth(list):
         """
         if self.compiling:
             word = stack.next_word()
-            self.frame.append(self.word_depends_on)
-            self.frame.append(word)
+            self.frame.cell(self.look_up("DEPENDS-ON"), self)
+            self.frame.cell(self.create_inline("DEPENDS-ON", word), self)
         else:
             word = stack._frame_iterator.next()
-            self.compiler.compile_remember(word)
+            self.compiler.compile_remember(word.value)
 
     @word("DROP")
     def drop(self, stack):
@@ -1549,19 +1910,14 @@ class Forth(list):
     def word_end_code(self, stack):
         """End definition of a native code function. See CODE_."""
         if self.frame is None: raise ValueError('not in colon definition')
-        self.target_namespace[self.frame.name.lower()] = self.frame
-        self.frame = None
-        self.compiling = False
+        self.native_end()
 
     @immediate
     @word('END-INTERRUPT')
     def word_end_interrupt(self, stack):
         """End definition of a native code function. See INTERRUPT_ for example."""
         if self.frame is None: raise ValueError('not in colon definition')
-        self.frame.tag_branches()
-        self.target_namespace[self.frame.name.lower()] = self.frame
-        self.frame = None
-        self.compiling = False
+        self.interrupt_end()
 
     @word("FLOAT")
     def word_FLOAT(self, stack):
@@ -1571,7 +1927,7 @@ class Forth(list):
     @word('HERE')
     def word_here(self, stack):
         """Put position [within frame] on stack"""
-        stack.push(Variable(self.frame, len(self.frame)))
+        stack.push(Variable(self.frame, info=len(self.frame)))
 
     @word("IFTE")
     def word_IFTE(self, stack):
@@ -1625,8 +1981,7 @@ class Forth(list):
         """
         name = stack.next_word()
         vector = stack.pop()
-        self.frame=self.create_interrupt(name, vector)
-        self.compiling = True
+        self.interrupt_begin(name, vector)
 
     @word("INVERT")
     def bitnot(self, stack):
@@ -1694,10 +2049,10 @@ class Forth(list):
         if self.frame is None: raise ValueError('not in colon definition')
         # put conditional branch operation in sequence, remember position of 
         # offset on stack
-        self.frame.branches.append(len(self.frame))
-        self.frame.append(self.instruction_branch_if_false)
+        self.frame.cell(self.look_up("$BRANCH0"), self)
         stack.push(len(self.frame))
-        self.frame.append(0)
+        # This needs fixing!!!
+        self.frame.cell(self.create_inline("$BRANCH0", 0), self)
 
     @word('ROM')
     def word_rom(self, stack):
@@ -1719,58 +2074,25 @@ class Forth(list):
         x, y = stack.pop2()
         stack.push(y >> x)
 
+    @word('S"',co=True)
+    def word_SSTRING(self, stack):
+        text=self.recognize_string()
+        if self.compiling:
+            self.frame.cell(self.look_up("$SSTR"), self)
+            self.frame.cell(self.create_inline('S"', text), self)
+        else:
+            raise ValueError(self._nis('S"'))
+
     @word('SHOW')
     def word_SHOW(self, stack):
         """Show internals of given word. Used to debug."""
         name = stack.next_word()
-        sys.stderr.write('SHOW %r\n' % name)
-        try:
-            value = self.look_up(name)
-        except KeyError:
-            sys.stderr.write('     value -> <undefined>\n')
-        else:
-            if isinstance(value,int):
-                sys.stderr.write("    word   -> True\n")
-                sys.stderr.write("    co     -> False\n")
-                sys.stderr.write('    value  -> %r\n' % value)
-            elif isinstance(value,Frame):
-                # Assume Frame object
-                sys.stderr.write("    word   -> %s\n" % (value.isword))
-                sys.stderr.write("    co     -> %s\n" % (value.forth_co))
-                if value.use_ram:
-                    sys.stderr.write("    memory -> RAM\n")
-                else:
-                    sys.stderr.write("    memory -> ROM\n")
-                sys.stderr.write('    value  -> %r\n' % (value,))
-                sys.stderr.write('    contents ->\n')
-                for ndx, item in enumerate(value):
-                    if self.isbuiltin(item):
-                        sys.stderr.write('        [%s] %s   %r\n' \
-                            % (ndx,item.forth_name,item))
-                    else:
-                        sys.stderr.write('        [%s] %r\n' % (ndx,item))
-                sys.stderr.write('    branches -> %r\n' % value.branches)
-                sys.stderr.write('    tag ndxs -> %r\n' % value.tags)
-                sys.stderr.write('    chapter  -> %s\n' % value.chapter)
-                sys.stderr.write('    section  -> %s\n' % value.section)
-            elif self.isbuiltin(value):
-                sys.stderr.write("    word   -> %s\n" % value.forth_name)
-                sys.stderr.write("    co     -> %s\n" % value.forth_co)
-                sys.stderr.write('    value  -> %r\n' % value)
-            else:
-                sys.stderr.write("    word   -> %s\n" % name)
-                sys.stderr.write('    value -> <unrecognized> %r\n' % value)
+        sys.stderr.write(self.show(name))
 
     @word("SWAP")
     def swap(self, stack):
         """Exchange the two topmost elements on the stack."""
         stack[-1], stack[-2] = stack[-2], stack[-1]
-
-    @word("TARGET")
-    def word_TARGET(self, stack):
-        """testing only: print all knwon words to stdout"""
-        for namespace in (self.target_namespace, self.namespace):
-            pprint.pprint(namespace)
 
     @immediate
     @word('TO')
@@ -1778,9 +2100,9 @@ class Forth(list):
         """Write to a VALUE_. Example: ``123 SOMEVALUE TO``"""
         name = "val" + stack.next_word()
         if self.compiling:
-            self.frame.append(self.look_up("$LIT"))
-            self.frame.append(self.create_inline("TO",self.variables[name]))
-            self.frame.append(self.look_up('!'))
+            self.frame.cell(self.look_up("$LIT"), self)
+            self.frame.cell(self.create_inline("TO",self.variables[name],info=0), self)
+            self.frame.cell(self.look_up('!'), self)
         else:
             value = stack.pop()
             self.variables[name][0] = value # XXX
@@ -1802,15 +2124,18 @@ class Forth(list):
         name = stack.next_word()
         # allocate separate memory for the variable
         # (cross compiled to RAM)
-        self.variables[name] = Frame('val'+name,isword=False)
-        self.variables[name].append(value)
+        vframe=self.compiler.create_word(self, 'val'+name)
+        vframe.cell(value, self)
+        vframe.finalize(self)
+        self.variables[name] = vframe
 
         # create a function that pushes the variable's address
-        frame = Frame(name)
+        frame = self.compiler.create_word( self, name)
         frame.chapter = self.doctree.chapter_name
-        frame.append(self.look_up("$LIT"))
-        frame.append(self.create_inline("VALUE", self.variables[name]))
-        frame.append(self.look_up('@'))
+        frame.cell(self.look_up("$LIT"), self)
+        frame.cell(self.create_inline("VALUE", vframe, info=0), self)
+        frame.cell(self.look_up('@'), self)
+        frame.finalize(self)
         self.namespace[name.lower()] = frame
 
     @word('VARIABLE')
@@ -1822,16 +2147,18 @@ class Forth(list):
         name = stack.next_word()
         # allocate separate memory for the variable
         # (cross compiled to RAM)
-        self.variables[name] = Frame('var'+name,isword=False)
-        self.variables[name].append(0)
+        vframe=self.compiler.create_word( self,'var'+name)
+        vframe.cell(0, self)
+        vframe.finalize(self)
+        self.variables[name] = vframe
 
         # create a function that pushes the variables address
-        frame = Frame(name)
+        frame = self.compiler.create_word( self, name)
         # Add subclass interface
         frame.chapter = self.doctree.chapter_name
-        frame.append(self.look_up("$LIT"))
-        #frame.append(self.variables[name])
-        frame.append(self.create_inline("VARIABLE", self.variables[name]))
+        frame.cell(self.look_up("$LIT"), self)
+        frame.cell(self.create_inline("VARIABLE", vframe, info=0), self)
+        frame.finalize(self)
         self.namespace[name.lower()] = frame
         # XXX could also do a native impl with "push #adr;NEXT"
 
@@ -1881,20 +2208,38 @@ class SeekableIterator(object):
 #  +---------------------------------------------+
 #
 
+# Decorated method wrapper.  To the interpreter, it looks and acts just like a
+# decorated method, but is writable allowing additional attributes to be added or
+# updated.  
+#
+# If an implementation requires this object, it is recommended it be subclassed for
+# the implementation specific functionality.  The subclass can be instantiated in the
+# implementation's override of xforth.register_builtin() method.
+class BUILTIN(object):
+    def __init__(self, function):
+        # Replicate the decorated method's information here
+        self.forth_name=self.name=function.forth_name
+        self.forth_io=function.forth_io
+        self.forth_co=function.forth_co
+        self.function=function
+        if hasattr(function, "forth_immediate"):
+            self.forth_immediate=function.forth_immediate
+
+    # Call the builtin method indirectly through this method
+    def __call__(self, stack):
+        # Execute the decorated method here
+        self.function(stack)
+
+    def __repr__(self):
+        return "%s[%s]" % (self.__class__.__name__,self.forth_name)
+
 
 # Base class for Shared Host and Target word definitions and other definitions
 class Frame(list):
-    def __init__(self, name, chapter=None, section=None, ram=False, \
-                 isword=True, co=False):
+    def __init__(self, name):
         super().__init__()
         self.name = name         # Forth word name
-        self.forth_co = co       # Compile-only status
-        self.chapter = chapter   # Doctree chapter to which Frame is assigned
-        self.section = section
-        self.use_ram = ram
-        self.isword=isword
-        self.branches=[]
-        self.tags=[]
+        self.use_ram = False
 
     def __call__(self, stack):
         """Execute code in frame"""
@@ -1916,18 +2261,8 @@ class Frame(list):
     def _nie(self,method):
         return "%s - %s.%s - subclass must provide %s method" \
             % (this_module,self.__class__.__name__,method,method)
-  
-  #
-  # Methods used by the forth interpreter during compilation
-  #
 
-    def tag_branches(self):
-        for n in self.branches:
-            offset=self[n+1]
-            tag=n+offset+1
-            if not tag in self.tags: 
-                self.tags.append(tag)
-  
+
   #
   # These methods must be supplied by the cross-compiler using a subclass
   #
@@ -1944,6 +2279,18 @@ class Frame(list):
     def exit(self, forth, doctree):
         raise NotImplementedError(self._nie("exit()"))
 
+    # Finalize this Frame
+    def finalize(self, forth):
+        raise NotImplementedError(self._nie("finalize()"))
+
+  #
+  # This method may be overriden to provide additional functionality
+  #
+  
+    def cell(self, element, forth):
+        self.append(element)
+
+
 # Base class for inline data.  Inline data occupies an element in a Frame but
 # are not directly executable.  They must be consumed by the previous Frame element
 # when interpreted.  The purpose of the Inline object is to allow the cross-compiler
@@ -1951,16 +2298,19 @@ class Frame(list):
 # Inline object.  The Inline object (a subclass usually) is supplied by the Forth
 # subclass method create_inline() method.  The 
 class Inline(object):
-    def __init__(self, value):
+    def __init__(self, value, info=None):
         self.value=value
+        self.info=info
 
     def __repr__(self):
         if hasattr(self.value, "forth_name"):
             v="%s   %s" % (self.value.forth_name, self.value)
         else:
             v=self.value
+        if self.info is not None:
+            return '%s[%s][%s]' % (self.__class__.__name__, v, self.info)
         return '%s[%s]' % (self.__class__.__name__, v)
-        
+
   #
   # This method is required to create the cross-compiler output for the inline data
   #
@@ -1979,8 +2329,7 @@ class Inline(object):
 class InterruptFrame(Frame):
     def __init__(self, name, vector, \
                  chapter=None, section=None, ram=False, isword=True):
-        super().__init__(name, \
-            chapter=chapter, section=section, ram=ram, isword=isword)
+        super().__init__(name)
         self.vector = vector
 
 
@@ -1992,39 +2341,49 @@ class NativeFrame(Frame):
 
 
 # Variable definition used by interpreter.  Not interpreted but may appear in 
-# a frame as inline data.
-class Variable(object):
+# a frame as inline data.  The Variable object is the Python analogue to an
+# address, but only within a frame.
+class Variable(Inline):
     # typical variable usage: "HERE @". so the variable name would put the
     # address of the variable on the stack. The value of HERE is then also used
     # to write to (e.g. in the implementation of IF/ENDIF. As we do not have
     # linear address space but frames for each dictionary entry that start
     # counting at zero, the value needs to remember the frame it belongs to.
 
-    def __init__(self, frame, offset):
-        self.frame = frame
-        self.offset = offset
+    def __init__(self, frame, info=None):
+        super().__init__(frame, info=info)
 
     def __add__(self, other):
         if isinstance(other, Variable):
-            if self.frame is not other.frame: 
+            if self.value is not other.value: 
                 raise ValueError('Variables point to different frames')
-            return Variable(self.frame, self.offset + other.offset)
+            return self.__class__(self.value, info=(self.info + other.info))
         else:
-            return Variable(self.frame, self.offset + other)
+            return self.__class__(self.value, info=(self.info + other))
 
     def __sub__(self, other):
         if isinstance(other, Variable):
-            if self.frame is not other.frame:
+            if self.value is not other.value:
                 raise ValueError('Variables point to different frames')
-            return Variable(self.frame, self.offset - other.offset)
+            return self.__class__(self.value, info=(self.info - other.info))
         else:
-            return Variable(self.frame, self.offset - other)
+            return self.__class__(self.value, info=(self.info - other))
 
+    # Return the value at the frame cell's index
+    def get(self):
+        try:
+            return self.value[self.info]
+        except IndexError:
+            raise ForthError("index exceeds word %s frame's allocated size (%s): %s" \
+                % (self.value.name, len(self.value), self.info)) from None
+
+    # Set a valua at the frame cell's index
     def set(self, value):
-        self.frame[self.offset] = value
-
-    def __repr__(self):
-        return '%s(%r, %r)' % (self.__class__.__name__, self.frame, self.offset)
+        try:
+            self.value[self.info] = value
+        except IndexError:
+            raise ForthError("index exceeds word %s frame's allocated size (%s): %s" \
+                % (self.value.name, len(self.value), self.info)) from None
 
 # A string object annotated with the position in the source file from which it was
 # read.
@@ -2064,24 +2423,24 @@ class Target(object):
     # Method Arguments:
     #   forth    the interpreter object
     #   target   the thread cell index being targeted by this branch
-    #   tag      Tag of this branch if it is also a target of a branch
-    def compile_branch(self, forth, target, tag=None):
+    #   ndx      Index of the cell being compiled
+    def compile_branch(self, forth, target, ndx=None):
         raise NotImplementedError(self._nie("compile_branch()"))
 
     # Required: Compile an unconditional branch when False in a thread
     # Method Arguments:
     #   forth    the interpreter object
     #   target   the thread cell index being targeted by this conditional branch
-    #   tag      Tag of this conditional branch if it is also a target of a branch
-    def compile_branch_if_false(self, forth, target, tag=None):
+    #   ndx      Index of the cell being compiled
+    def compile_branch_if_false(self, forth, target, ndx=None):
         raise NotImplementedError(self._nie("compile_branch_if_false()"))
 
     # Required: Compile a builtin word referenced in a thread
     # Method Arguments:
     #   forth    the interpreter object
     #   builtin  the interpreter method tagged as a word by the @word decorator
-    #   tag      Tag of this builtin thread reference when a target of a branch.
-    def compile_builtin(self, forth, builtin, tag=None):
+    #   ndx      Index of the cell being compiled
+    def compile_builtin(self, forth, builtin, ndx=None):
         raise NotImplementedError(self._nie("compile_builtin()"))
 
     # Required: This remembers that a word is used and must be compiled
@@ -2096,16 +2455,16 @@ class Target(object):
     # Method Arguments:
     #   forth  the interpreter object
     #   value  Non-callable element in frame, treat it as an explicit value
-    #   tag    The thread index of this thread element when a branch target.
-    def compile_value(self, forth, value, tag=None):
+    #   ndx      Index of the cell being compiled
+    def compile_value(self, forth, value, ndx=None):
         raise NotImplementedError(self._nie("compile_unrecognized()"))
 
     # Required: Compile a word into a thread
     # Method Arguments:
     #   forth  the interpreter object
     #   frame  The Frame object of the word being referenced in a thread
-    #   tag    Cell index of this word when tagging required for branch targets.
-    def compile_word(self, forth, frame, tag=None):
+    #   ndx      Index of the cell being compiled
+    def compile_word(self, forth, frame, ndx=None):
         raise NotImplementedError(self._nie("compile_word()"))
 
     # Required: Returns an instance of InterruptFrame (or a subclass)
@@ -2141,11 +2500,14 @@ class Target(object):
     # Required: Validate requested threading model and set interpreter assists for
     # the target compiler.  Utilize forth object assist_XXXX methods to enable
     # desired assistance functionality.  See the Forth class for supported assist
-    # methods.
+    # methods.  It is the responsiblity of the subclass of Forth to provide a
+    # threading module to the compiler.
+    # 
     # Returns:
-    #   True if model supported by the target compiler
+    #   True  if model supported by the target compiler or thread model variations
+    #         are not supported.
     #   False or None if model not supported.
-    def init_model(self, model, forth):
+    def init_model(self, forth):
         raise NotImplementedError(self._nie("init_model()"))
 
 
