@@ -204,7 +204,7 @@ class FileSource(InputSource):
             raise ValueError("%s file object already exists for file: %s" \
                 % (cls_str,self.fname))
         try:
-            self.fname,self.fo=pathmgr.ropen(self.rname)
+            self.fname,self.fo=pathmgr.ropen(self.rname,variable="ASMPATH")
         except ValueError as ve:
             raise SourceError("%s" % ve) from None
 
@@ -420,7 +420,7 @@ class LineBuffer(object):
     source_type={"F":FileSource,"M":MacroSource}
     def __init__(self,depth=20):
         # ASMPATH search path manager
-        self._opath=satkutil.PathMgr("ASMPATH",debug=False)
+        self._opath=satkutil.PathMgr(variable="ASMPATH",debug=False)
         self._depth=depth          # Supported depth of input sources.
         self._sources=[]           # List of input sources
         self._files=[]             # List of input files
@@ -516,9 +516,11 @@ class LineBuffer(object):
 
     # Initiate a new file input source
     def newFile(self,filename,stmtno=None):
-        fname=os.path.abspath(filename)
+        #fname=os.path.abspath(filename)
+        fname=filename
+        # Detection of recursion requires work
         for src in self._sources:
-            if src.typ!="F":
+            if src._typ!="F":
                 continue
             if src.fname==fname:
                 raise assembler.AssemblerError(line=stmtno,\
@@ -526,7 +528,7 @@ class LineBuffer(object):
                         % (fname))
         # No recursion, safe to add as source
         self._fileno+=1
-        self.__source("F",fname,stmtno=stmtno,srcno=self._fileno)
+        self.__source("F",filename,stmtno=stmtno,srcno=self._fileno)
 
     # Initiate a new source of injected input statements
     def newInject(self,typ,sid,stmtno=None):

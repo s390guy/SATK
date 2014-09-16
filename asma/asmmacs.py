@@ -2630,12 +2630,12 @@ class MacroLanguage(object):
                     if self.indefn is not None:
                         ae_msg="%s macro definition failed" % self.indefn.name
                     else:
-                        ae_mag="macro definition failed"
+                        ae_msg="macro definition failed"
                     self.indefn=None  # Obliterate failed macro
                     self.ddebug=False # Turn off definition debug switch
                     raise assembler.AssemblerError(line=stmt.lineno,\
                         linepos=flds.oppos,msg=ae_msg)
-            
+
         # Do not recognize state, so something is messed up, bailing....
         else:
             raise ValueError("%s MacroLanguage.state invalid: %s" \

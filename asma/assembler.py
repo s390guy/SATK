@@ -3259,11 +3259,11 @@ class Assembler(object):
     # Special pre-processing for COPY directive
     def _spp_copy(self,stmt,debug=False):
         operfld=stmt.rem
-        mo=self.sqttre.match(operfld)
+        mo=self.sqtre.match(operfld)
         if mo is None:
             return
         filename=operfld[mo.pos:mo.endpos]     # "'include file name'"
-        fname=data[1:-1]   # remove single quotes "include file name"
+        fname=filename[1:-1]   # remove single quotes "include file name"
         self.LB.newFile(fname,stmtno=stmt.lineno)
         stmt.ignore=True        
 

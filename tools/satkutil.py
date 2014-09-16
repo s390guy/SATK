@@ -556,6 +556,9 @@ class PathMgr(object):
 
         # Register the recognized path
         self.paths[variable]=pathlist
+        if ldebug:
+            print("satkutil.py - %s.path() - register path '%s'=%s" \
+                % (self.__class__.__name__,variable,pathlist))
 
     # Opens the file in the specified mode and returns the file object.  If supplied,
     # the predefined path variable is used to find the supplied relative path.
@@ -605,6 +608,10 @@ class PathMgr(object):
                     % (mode,filename)) from None
 
         # Try using search path to open the relative path
+        if ldebug:
+            clsstr="satkutil.py - %s.ropen() -" % (self.__class__.__name__)
+            print("%s using path %s with directories: %s" \
+                % (self.__class__.__name__,variable,pathlist))
         for p in pathlist:
             filepath=os.path.join(p,filename)
             try:

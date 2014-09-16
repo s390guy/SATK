@@ -2455,13 +2455,13 @@ class PrototypeParser(AsmFSMParser):
         state.atend()
 
     def ACT_ExpectedDefault(self,value,state,trace=False):
-        self.__ACT_Expected("keyword parameter default value",value)
+        self.ACT_Expected("keyword parameter default value",value)
 
     def ACT_ExpectedKeyword(self,value,state,trace=False):
-        self.__ACT_Expected("keyword parameter default or comma",value)
+        self.ACT_Expected("keyword parameter default or comma",value)
 
     def ACT_ExpectedParm(self,value,state,trace=False):
-        self.__ACT_Expected("prototype parameter",value)
+        self.ACT_Expected("prototype parameter",value)
 
     def ACT_Keyword_Started(self,value,state,trace=False):
         gs=self.scope()
@@ -2485,7 +2485,7 @@ class PrototypeParser(AsmFSMParser):
         return "kywd"
 
     def ACT_ExpectedParm(self,value,state,trace=False):
-        self.__ACT_Expected("prototype parameter",value)
+        self.ACT_Expected("prototype parameter",value)
 
 
 class PrototypeScope(fsmparser.PScope):
