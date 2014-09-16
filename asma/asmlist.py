@@ -810,10 +810,10 @@ class AsmListing(Listing):
 
     def part2_5(self):
         if self.mac_first:
+            self.mac_first=False
             if len(self.mtes)==0:
                 self.push("No defined macros")
-                self.mac_first=False
-            return
+                return
         try:
             m=self.fetch_mac()
         except IndexError:
