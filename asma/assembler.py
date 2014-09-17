@@ -2456,9 +2456,9 @@ class Assembler(object):
 
         # CSECT - start or continue a control section
         # 
-        # label CSECT   # no operands
+        # [label] CSECT   # no operands
         self.__define_dir(dset,"CSECT",parser="common",\
-            pass1=self._csect_pass1,pass2=self._csect_pass2,optional=False,\
+            pass1=self._csect_pass1,pass2=self._csect_pass2,optional=True,\
             min=0,max=0)
 
 

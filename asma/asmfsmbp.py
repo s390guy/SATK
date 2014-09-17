@@ -2407,7 +2407,6 @@ class ParameterScope(asmtokens.AsmFSMScope):
 
 class PrototypeParser(AsmFSMParser):
     def __init__(self,dm):
-        #super().__init__(dm,scope=PrototypeScope,trace=False)
         super().__init__(dm,scope=None,trace=False)
 
     def initialize(self):
@@ -2431,22 +2430,38 @@ class PrototypeParser(AsmFSMParser):
         # Found the keyword's equal sign, looking for the string, a comma for the
         # next parameter or the end of the prototype parameters.
         dflt=fsmparser.PState("dflt")
-        dflt.action([STRING,],self.ACT_Default_Found)
+        dflt.action([STRING,],self.ACT_Default_String_Found)
         dflt.action([COMMA,],self.ACT_Default_Empty)
         dflt.action([EOO,EOS],self.ACT_Done)
         dflt.error(self.ACT_ExpectedDefault)
         self.state(dflt)
+
+        isnext=fsmparser.PState("isnext")
+        isnext.action([COMMA,],self.ACT_Default_Done)
+        isnext.action([STRING,],self.ACT_Default_String_More_Found)
+        isnext.action([EOO,EOS],self.ACT_Done)
+        isnext.error(self.ACT_ExpectedNext)
+        self.state(isnext)
+
+    def ACT_Default_Done(self,value,state,trace=False):
+        gs=self.scope()
+        gs.keyword()
+        return "init"
 
     def ACT_Default_Empty(self,value,state,trace=False):
         gs=self.scope()
         gs.keyword()
         return "init"
 
-    def ACT_Default_Found(self,value,state,trace=False):
+    def ACT_Default_String_Found(self,value,state,trace=False):
         gs=self.scope()
-        gs.key_parms[gs.key_parm]=value.string
-        gs.key_parm=None
-        return "init"
+        gs.str_begin(value)
+        return "isnext"
+
+    def ACT_Default_String_More_Found(self,value,state,trace=False):
+        gs=self.scope()
+        gs.str_cont(value)
+        return "isnext"
 
     def ACT_Done(self,value,state,trace=False):
         gs=self.scope()
@@ -2459,6 +2474,9 @@ class PrototypeParser(AsmFSMParser):
 
     def ACT_ExpectedKeyword(self,value,state,trace=False):
         self.ACT_Expected("keyword parameter default or comma",value)
+
+    def ACT_ExpectedNext(self,value,state,trace=False):
+        self.ACT_Expected("a comma signaling next parameter",value)
 
     def ACT_ExpectedParm(self,value,state,trace=False):
         self.ACT_Expected("prototype parameter",value)
@@ -2488,12 +2506,13 @@ class PrototypeParser(AsmFSMParser):
         self.ACT_Expected("prototype parameter",value)
 
 
-class PrototypeScope(fsmparser.PScope):
+class PrototypeScope(asmtokens.AsmFSMScope):
     def __init__(self,case):
         super().__init__()  # Calls init() method
         self.case=case
 
     def init(self):
+        super().init()   # Init AsmFSMScope attributes
         # When initially recognized, have to wait to figure out if this is a keyword
         # or positional parameter.  This attribute holds the parameter
         self.pos_parm=None
@@ -2511,14 +2530,12 @@ class PrototypeScope(fsmparser.PScope):
             keyp=self.key_parm.upper()
         else:
             keyp=self.key_parm
-        self.key_parms[keyp]=""
-
-    def keyword_default(self,key_word,default):
-        if not self.case:
-            kywd=key_word.upper()
+        if self.str_pending():
+            val=self.str_end().convert()
         else:
-            kywd=key_word
-        self.key_parms[kywd]=default
+            val=""
+        self.key_parms[keyp]=val
+        self.key_parm=None
 
     def positional(self):
         if self.pos_parm is None:

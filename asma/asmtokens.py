@@ -62,9 +62,18 @@ spaces="[ ]+"                       # One or more spaces
 class BPLitStr(pratt2.PLit):
     def __init__(self,token):
         super().__init__(token)
-        self._ebcdic=assembler.CPTRANS.a2e(self.src.string)
+        #self._ebcdic=assembler.CPTRANS.a2e(self.src.string)
     def value(self,external=None,debug=False,trace=False):
-        return self._ebcdic
+        # Need to do symbolic replacement with new searcher
+        string=external.exp.symbol_replace(self.src.string,debug=debug)
+        
+        if __debug__:
+            if trace:
+                print('%s string: "%s"' \
+                    % (assembler.eloc(self,"value",module=this_module)))
+
+        return assembler.CPTRANS.a2e(string)
+        #return self._ebcdic
 
 # This division operator implements the assembler specific behavior of returning
 # a value of zero when division by zero occurs.  Otherwise the pratt2.PFloorDiv
@@ -635,6 +644,10 @@ class AsmFSMScope(fsmparser.PScope):
         self._string=None
         return accum
 
+    # Returns whether a string is pending (True) or not (False)
+    def str_pending(self):
+        return self._string is not None
+
     # Adds lexical tokens to the expression token list
     def token(self,tok):
         self._lextoks.append(tok)
@@ -648,22 +661,5 @@ class AsmFSMScope(fsmparser.PScope):
         token.update(lineno,operpos,source)
 
 
-# Shared Scope for address expressions
-#class AddrScope_old(AsmFSMScope):
-#    def __init__(self):
-#        super().__init__()
-#    def __str__(self):
-#        string="%s():" % self.__class__.__name__
-#        for tok in self.lextoks:
-#            string="%s\n    %s" % (string,tok)
-#        return string
-#    def init(self):
-#        super().init()
-#        self.parens=0          # Used to check for balanced parenthesis
-
-        # These two attributes are relavant for a potential Location object
-        # Note: ultimately only Location objects might result from address arithmetic
-#        self.anchor=None
-#        self.adjust=[]
-        # This attribute is relavant for an address calculation.
-#        self.lextoks=[]
+if __name__ == "__main__":
+    raise NotImplementedError("%s - intended for import use only" % this_module)

@@ -203,10 +203,11 @@ class Prototype(object):
         self.pos=positionals       # List of position parameters
         self.keywords=keywords     # Dictionary of keyword parameters with defaults
         
-        self.noparms = len(self.pos)==0 and len(self.keywords)==0
+        self.noparms = (len(self.pos)==0) and (len(self.keywords)==0)
 
     def __str__(self):
         string="Prototype(macid='%s')" % self.macid
+        string="%s\n    label: %s" % (string,self.lblsym)
         if not self.noparms:
             string="%s\n    pos: %s" % (string,self.pos)
             string="%s\n    keywords: %s" % (string,self.keywords)
@@ -373,14 +374,18 @@ class Macro(object):
         pdebug=debug
         proto=self.prototype
 
+        if __debug__:
+            if debug:
+                print("%s proto: %s" \
+                    % (assembler.eloc(self,"parms",module=this_module),proto))
+
         # Define the prototype name field parameter if defined and specified
         lblsym=proto.lblsym
         if lblsym is not None:
-            slabel=stmt.label
-            if slabel is None:
-                lcls._initc(lblsym,"",parm=True,ro=True)
+            if stmt.label:
+                lcls._initc(lblsym,stmt.name,parm=True,ro=True)
             else:
-                lcls._initc(lblsym,slabel,parm=True,ro=True)
+                lcls._initc(lblsym,"",parm=True,ro=True)
 
         # Treat anything in the macro statement after operation field as comments
         # because the prototype does not define any parameters
@@ -625,17 +630,17 @@ class MacroOp(object):
         self.next=None    # Next sequential operation index to execute
         # This list is created from self.dest_seq by MacroEngine.__resolve() method
         self.dest=[]      # List of operation indices to which this op may branch
-        
+
   #
   # Macro Operation Definition Helper Methods
   #
-    
+
     # Defines my location and the default next operation.
     # Unless overridden, the next operation index is this op's index plus one.
     def location(self,loc):
         self.loc=loc
         self.next=loc+1
-    
+
     # Post-processes sequence symbol resolution, if needed
     # For most operations, this method does nothing.
     def post_resolve(self):
@@ -681,19 +686,20 @@ class MacroOp(object):
         cls_str=assembler.eloc(self,"operation",module=this_module)
         raise NotImplementedError("%s subclass %s must provide operation() method" \
             % (cls_str,self.__class__.__name__))
-        
+
     # Used to convert result of arithmetic expressions into Python integers.
     def to_integer(self,value):
         if isinstance(value,AVal):
             return value.value()
         return value
-        
+
     # Used to convert the result of a logical expression into a Python True or False
     def to_logical(self,value):
         if isinstance(value,int):
             return value!=0
         return value.value()!=0
-        
+
+
 class AGO(MacroOp):
     def __init__(self,lineno,dest):
         super().__init__(lineno,dest=dest)
@@ -702,7 +708,8 @@ class AGO(MacroOp):
         return (self.next,None)
     def post_resolve(self):
         self.next=self.dest[0]
-        
+
+
 class AGOC(MacroOp):
     def __init__(self,lineno,dest,expr):
         super().__init__(lineno,dest=dest)
@@ -734,13 +741,15 @@ class AGOC(MacroOp):
         state.exp.mhelp_02(self.lineno,next)
         return (next,None)
 
+
 class AIF(MacroOp):
     def __init__(self,lineno,dest,expr):
         super().__init__(lineno,dest=dest)
         self.expr=expr        # AIF logical expression
+
     def operation(self,state,debug=False):
         value=self.evaluate(state,self.expr,Macro.Binary,debug=debug,trace=False)
-            
+
         if isinstance(value,(AVal,BVal,int)):
             logical=self.to_logical(value)
         else:
@@ -751,7 +760,7 @@ class AIF(MacroOp):
                     % (lineno,value))
             raise MacroError(msg="AIF computation requires logical result: %s" \
                 % found)
-    
+
         if logical:
             next=self.dest[0]
         else:
@@ -761,11 +770,13 @@ class AIF(MacroOp):
         state.exp.mhelp_02(self.lineno,next)
         return (next,None)
 
+
 class ANOP(MacroOp):
     def __init__(self,lineno):
         super().__init__(lineno)
     def operation(self,state,debug=False):
         return (self.next,None)
+
 
 class GBLA(MacroOp):
     def __init__(self,lineno,symid):
@@ -777,6 +788,7 @@ class GBLA(MacroOp):
         state.exp.lcls._add(sym)
         return (self.next,None)
 
+
 class GBLB(MacroOp):
     def __init__(self,lineno,symid):
         super().__init__(lineno)
@@ -786,6 +798,7 @@ class GBLB(MacroOp):
         sym=gbls.defb(self.symid)
         state.exp.lcls._add(sym)
         return (self.next,None)
+
 
 class GBLC(MacroOp):
     def __init__(self,lineno,symid):
@@ -797,6 +810,7 @@ class GBLC(MacroOp):
         state.exp.lcls._add(sym)
         return (self.next,None)
 
+
 class LCLA(MacroOp):
     def __init__(self,lineno,symid):
         super().__init__(lineno)
@@ -804,6 +818,7 @@ class LCLA(MacroOp):
     def operation(self,state,debug=False):
         state.exp.lcls.defa(self.symid)
         return (self.next,None)
+
 
 class LCLB(MacroOp):
     def __init__(self,lineno,symid):
@@ -813,6 +828,7 @@ class LCLB(MacroOp):
         state.exp.lcls.defb(self.symid)
         return (self.next,None)
 
+
 class LCLC(MacroOp):
     def __init__(self,lineno,symid):
         super().__init__(lineno)
@@ -820,6 +836,7 @@ class LCLC(MacroOp):
     def operation(self,state,debug=False):
         state.exp.lcls.defc(self.symid)
         return (self.next,None)
+
 
 class MEND(MacroOp):
     def __init__(self,lineno):
@@ -831,6 +848,7 @@ class MEND(MacroOp):
         state.exp.mhelp_08()
         return (None,None)
 
+
 class MEXIT(MacroOp):
     def __init__(self,lineno):
         super().__init__(lineno)
@@ -841,6 +859,7 @@ class MEXIT(MacroOp):
         state.exp.mhelp_08()
         return (None,None)
 
+
 class Model(MacroOp):
     def __init__(self,lineno,model,debug=False):
         self.model=model
@@ -849,13 +868,13 @@ class Model(MacroOp):
         line=state.exp.symbol_replace(self.model,debug=debug)
         return (self.next,line)
 
+
 class SETA(MacroOp):
     def __init__(self,lineno,setsym,expr,debug=False):
         self.setsym=setsym
         self.expr=expr
         super().__init__(lineno)
     def operation(self,state,debug=False):
-        #def evaluate_expr(self,state,expr,debug=False,trace=False):
         new_value=self.evaluate_expr(state,self.expr,debug=debug,trace=False)
 
         if isinstance(new_value,int):
@@ -878,6 +897,7 @@ class SETA(MacroOp):
 
         return (self.next,None)
 
+
 class SETB(MacroOp):
     def __init__(self,lineno,setsym,expr,debug=False):
         self.setsym=setsym
@@ -896,6 +916,7 @@ class SETB(MacroOp):
 
         state.setb(self.setsym,new_value)
         return (self.next,None)
+
 
 class SETC(MacroOp):
     def __init__(self,lineno,setsym,chars,start_expr=None,len_expr=None,debug=False):
@@ -1053,7 +1074,7 @@ class SymbolID(object):
 
         self.var=variable        # The symbolic symbols's name (with '&')
         self.sub=None            # Integer or SymbolID of subscript
-        
+
         # The referenced subscript
         #    &var     references "subscript" 0
         #    &var(n)  references subscript 1 to n
@@ -1904,7 +1925,7 @@ class Invoker(object):
         
         # This method may raise assembler.AssemblerError exceptions.  They will
         # be handled by the assembler during pre-processing.
-        macro.parms(stmt,self.lcls,self.asm.fsmp)
+        macro.parms(stmt,self.lcls,self.asm.fsmp,debug=stmt.trace)
 
         # Ready to do macro expansion now with the MacroEngine with my state
         self.lineno=stmt.lineno        # Statement number of invoking statement
@@ -2298,9 +2319,14 @@ class MacroLanguage(object):
     # Process a prototype statement in a macro definition
     def _prototype(self,stmt,debug=False):
         flds=stmt.fields
-        if (flds.name is not None) and (not flds.symbol):
+
+        if flds.name is not None:
             raise assembler.AssemblerError(line=stmt.lineno,\
-                msg="invalid prototype name symbol variable: '%s'" % flds.label)
+                msg="invalid prototype name symbol variable: '%s'" % flds.name)
+
+        assert not flds.symbol or isinstance(flds.symid,SymbolID),\
+             "%s StmtFields.symid must be a SymbolID: %s" \
+                % (assembler.eloc(self,"_prototype",module=this_module),flds.symid)
 
         scp=asmfsmbp.PrototypeScope(self.case)
         # This method may raise an assembler.AssemblerError
@@ -2312,7 +2338,13 @@ class MacroLanguage(object):
             pos=scope.pos_parms
             keys=scope.key_parms
 
-        proto=Prototype(flds.opuc,lblsym=flds.name,positionals=pos,keywords=keys)
+        lblsym=flds.symid
+        if lblsym.sub is not None and lblsym.sub!=0:
+            raise assembler.AssemblerError(line=stmt.lineno,\
+                msg="prototype name symbol variable %s may not be subscripted" \
+                     % lblsym.var)
+
+        proto=Prototype(flds.opuc,lblsym=lblsym.var,positionals=pos,keywords=keys)
 
         if __debug__:
             if debug:
@@ -2373,7 +2405,7 @@ class MacroLanguage(object):
         scope=self.parsers.parse_operands(stmt,"aif",required=True)
 
         # Convert arithmetic expression lexical tokens into pratt2.PExpr object
-        expr=self.parsers.L2ArithExpr("_AGO",stmt,ltoks=scope.lextoks,debug=debug)
+        expr=self.parsers.L2BinaryExpr("_AIF",stmt,ltoks=scope.lextoks,debug=debug)
 
         # Add the operation to the macro definition
         if not self.case:
