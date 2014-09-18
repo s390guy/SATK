@@ -1813,6 +1813,21 @@ class Invoker(object):
         self.sysndx=self.mgr.getSysNdx()
         l._initc("&SYSNDX",self.sysndx,ro=True)
         l._inita("&SYSNEST",self.mgr.nesting()+1,ro=True)
+        
+        # Establish ASMA specific system variable symbols
+        # These allow a macro to interrogate the current XMODE settings for
+        # code generation.
+        try:
+            ccw=self.asm._xmode_fetch("CCW")
+        except KeyError:
+            ccw=""
+        l._initc("&SYSCCW",ccw,ro=True)
+        
+        try:
+            psw=self.asm._xmode_fetch("PSW")
+        except KeyError:
+            psw=""
+        l._initc("&SYSPSW",psw,ro=True)
 
         return l
 

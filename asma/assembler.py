@@ -3241,6 +3241,12 @@ class Assembler(object):
         return "Pass %s INTERNAL ERROR LIKELY DURING PRE- OR POST-PASS PROCESSING" \
             % self.cur_pass
 
+    # Returns the current XMODE setting for a supported mode (currently CCW or PSW)
+    # Exception:
+    #   KeyError if the mode has not been set.
+    def _xmode_fetch(self,mode):
+        return self.xmode[mode]
+
     # Generic routine for handling comma separate operands in pre-processed statements
     def __spp_operands(self,stmt,debug=False):
         # Extract the operand field from the statement
