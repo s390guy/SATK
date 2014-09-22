@@ -609,20 +609,17 @@ class AsmListing(Listing):
 
         details=[]
         details.append(detail)
-        if not stmt.pdata:
-            if trace:
-                print("%s details: %s" % (cls_str,details))
-            return details
-
+        
         # PRINT DATA in effect, need to create extra lines of OBJECT CODE
-        for n in data_lines:
-            loc+=8
-            vals=[loc,n,None,None,None]
-            detail=self.asmdet.string(values=vals)
-            details.append(detail)
+        if stmt.pdata:
+            for n in data_lines:
+                loc+=8
+                vals=[loc,n,None,None,None]
+                detail=self.asmdet.string(values=vals)
+                details.append(detail)
 
+        # Add error(s) following the line in error
         if stmt.error:
-            #print("source: [%s] '%s'" % (stmt.lineno,source))
             for ae in stmt.aes:
                 spaces=" " * self.addrlen
                 error_line="%s  ** %s" % (spaces,ae)
