@@ -481,7 +481,8 @@ class MacroEngine(object):
                     ndx=self.seq[seq]
                 except KeyError:
                     raise assembler.AssemblerError(line=op.lineno,\
-                        msg="sequence symbol undefined: %s" % seq) from None
+                        msg="macro definition failed, sequence symbol undefined: %s" \
+                            % seq) from None
                 dest.append(ndx)
             op.dest=dest
             op.post_resolve()
@@ -2459,7 +2460,7 @@ class MacroLanguage(object):
 
     # MACRO assembler directive found in macro definition
     def _MACRO(self,stmt,debug=False):
-        raise AssemblerError(line=stmt.lineno,\
+        raise assembler.AssemblerError(line=stmt.lineno,\
             msg="MACRO directive not allowed within a macro definition")
 
     # MEND macro directive - normal macro definition end
@@ -2468,6 +2469,7 @@ class MacroLanguage(object):
         self.indefn._mend(stmt.lineno,seq=self.__seq(stmt.fields))
         # Add the new macro to the definitions
         self.addMacro(self.indefn)
+
         self.indefn=None             # Leaving macro definition mode
         self.ddebug=False            # Turn off definition debug switch
         self.state=0                 # Change state to relfect this
@@ -2553,7 +2555,6 @@ class MacroLanguage(object):
         operpos=flds.operpos
 
         dscope=self.parsers.parse_operands(stmt,"symd",required=True)
-        #dscope=self.__parse(stmt,MacroLanguage.symd,required=True)
 
         syms=dscope.symdefs
         case=self.case
@@ -2596,18 +2597,21 @@ class MacroLanguage(object):
     def defining(self,stmt,debug=False):
         ddebug=self.ddebug or debug
         # If not defining a macro, simply return with a value of False.
-        if ddebug:
-            cls_str=assembler.eloc(self,"defining",module=this_module)
-            print("%s macro state: %s" % (cls_str,self.state))
+        if __debug__:
+            if ddebug:
+                cls_str=assembler.eloc(self,"defining",module=this_module)
+                print("%s macro state: %s" \
+                    % (cls_str,self.state))
         state=self.state
         if state==0:
             return False
 
         # Within a macro definition so we now process statement fields for a macro
         # This is essentially the same as assembler.__classifier()
-        flds=assembler.StmtFields()
-        flds.parse(self.asm,stmt,debug=debug)
-        stmt.classified()
+        #flds=assembler.StmtFields()
+        #flds.parse(self.asm,stmt,debug=ddebug)
+        #stmt.classified()
+        flds=stmt.fields
 
         # This is the same as assembler.__continuation()
         # Needs to be updated for alternate continuation conventions.
@@ -2618,8 +2622,10 @@ class MacroLanguage(object):
                 from None
         stmt.continuation()
 
-        if ddebug:
-            print("%s %s" % (cls_str,flds))
+        if __debug__:
+            if ddebug:
+                print("%s %s" % (cls_str,flds))
+
         stmt.fields=flds
         
         # Looking for prototype statmenet
@@ -2629,8 +2635,11 @@ class MacroLanguage(object):
                 raise assembler.AssemblerError(line=stmt.lineno,\
                     msg="comment not allowed for prototype statement")
             op=flds.opuc
-            if ddebug:
-                print("%s state -> %s operation: '%s'" % (cls_str,state,op))
+
+            if __debug__:
+                if ddebug:
+                    print("%s state -> %s operation: '%s'" % (cls_str,state,op))
+
             # prototype statement may not contain a macro directive
             if op=="MEND":
                 self.state=0         # Leave macro definition mode
@@ -2644,7 +2653,7 @@ class MacroLanguage(object):
                         "statement but found: %s" % flds.operation)
             except KeyError:
                 pass
-            
+
             # Prototype statement found
             try:
                 self._prototype(stmt,debug=debug)
@@ -2655,22 +2664,30 @@ class MacroLanguage(object):
             
         # Processing body statements (macro diretives and model statements)
         elif state==2:
+            op=flds.opuc
             try:
-                self._body(stmt,debug=debug)
+                self._body(stmt,debug=ddebug)
             except assembler.AssemblerError as ae:
-                self.state=3
+                if op=="MEND":
+                    self.state=0  # Macro definition ended due to error
+                else:
+                    self.state=3  # Flush until we find the MEND
                 raise ae from None
             # Remain in state 2 as long as no errors found in body
-            
+
         # Bad macro is being suppressed
         elif state==3:
             if flds.comment:
-                if ddebug:
-                    print("%s state -> %s comment" % (cls_str,state))
+                if __debug__:
+                    if ddebug:
+                        print("%s state -> %s comment" % (cls_str,state))
+
             else:
                 op=flds.opuc
-                if ddebug:
-                    print("%s state -> %s operation: '%s'" % (cls_str,state,op))
+                if __debug__:
+                    if ddebug:
+                        print("%s state -> %s operation: '%s'" % (cls_str,state,op))
+
                 if op=="MEND":
                     # Got to the end of bad macro, leaving macro definition mode
                     self.state=0
@@ -2696,6 +2713,11 @@ class MacroLanguage(object):
     #    KeyError if macro name not registered
     def find(self,macname):
         return self.macros[macname]
+
+    # Causes the remaining statements of a macro to be ignored through the
+    # next MEND statement.
+    def flush(self):
+        self.state=3
 
     # Return a list of the built-in macro names
     def getBuiltIns(self):

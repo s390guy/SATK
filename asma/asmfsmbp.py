@@ -535,6 +535,22 @@ class LogNotType(LogGenNotType):
 LOGNOT=LogNotType()
 
 
+# LABEL&SYM  - Recgonizes an assembler label with a final symbollic variable.
+# This is used exclusively by the Fields Parser to allow this construct to be
+# recognized in macro body statements.
+class MacLabelToken(LexicalToken):
+    def __init__(self):
+        super().__init__()
+    #def ptoken(self):
+    #    return PLitLabel(self)
+
+class MacLabelType(lexer.Type):
+    def __init__(self,debug=False):
+        pattern="(%s)(%s)" % (label,symvar)
+        super().__init__("MACLABEL",pattern,tcls=MacLabelToken,mo=True,debug=debug)
+
+MACLABEL=MacLabelType()
+
 class NAttrToken(LexicalToken):
     def __init__(self):
         super().__init__()
@@ -858,7 +874,7 @@ class FieldLexer(lexer.Lexer):
     def __init__(self,dm):
         super().__init__()
         self.dm=dm
-        
+
     def init(self):
         tdebug=self.dm.isdebug("tdebug")
     
@@ -880,6 +896,7 @@ class FieldLexer(lexer.Lexer):
         lst.append(SYMREF)      #*   "&label",   "&label(0..9..)",    "&label(&sub)"
                                 # "K'&label", "K'&label(0..9..)",  "K'&label(&sub)"
         lst.append(SEQSYM)      #* ".label"
+        lst.append(MACLABEL)     # label&symbolic
         lst.append(LABEL)       #* "label"
         #lst.append(STRING)      # "'x..'"  Includes the empty string
         lst.append(EOO)         #* " "      One or more spaces
@@ -1024,7 +1041,8 @@ class FieldParser(AsmFSMParser):
         init=fsmparser.PState("init")
         init.action([SEQSYM,],self.ACT_NameSeq)
         init.action([SYMREF,],self.ACT_NameSym)
-        init.action([LABEL,],self.ACT_NameLabel)
+        init.action([MACLABEL,],self.ACT_MacNameLabel)
+        init.action([LABEL],self.ACT_NameLabel)
         init.action([EOO,],self.ACT_NameNone)
         init.error(self.ACT_ExpectedName)
         self.state(init)
@@ -1037,6 +1055,7 @@ class FieldParser(AsmFSMParser):
 
         # Found the operation field
         optn=fsmparser.PState("optn")
+        optn.action([SYMREF,MACLABEL],self.ACT_OperationSymbol)
         optn.action([LABEL,],self.ACT_Operation)
         optn.error(self.ACT_ExpectedOper)
         self.state(optn)
@@ -1070,6 +1089,11 @@ class FieldParser(AsmFSMParser):
     def ACT_ExpectedSpaces2(self,value,state,trace=False):
         self.ACT_Expected("one or more spaces following operation field",value)
 
+    def ACT_MacNameLabel(self,value,state,trace=False):
+        gs=self.scope()
+        gs.NameLabelSym(value)
+        return "op_spaces"
+
     def ACT_NameLabel(self,value,state,trace=False):
         gs=self.scope()
         gs.NameLabel(value)
@@ -1096,13 +1120,22 @@ class FieldParser(AsmFSMParser):
 
     def ACT_Operands(self,value,state,trace=False):
         gs=self.scope()
-        #print("ACT_Operands value: %s" % value)
         gs.Operands(value)
         state.atend()
 
     def ACT_Operation(self,value,state,trace=False):
         gs=self.scope()
         gs.Operation(value)
+        return "opnd_spaces"
+
+    #def ACT_OperationMacLabel(self,value,state,trace=False):
+    #    gs=self.scope()
+    #    gs.OperSym(value)
+    #    return "opnd_spaces"
+
+    def ACT_OperationSymbol(self,value,state,trace=False):
+        gs=self.scope()
+        gs.OperSym(value)
         return "opnd_spaces"
 
     def Lexer(self):
@@ -1738,7 +1771,7 @@ class AIFParser(AsmFSMParser):
         oper=fsmparser.PState("oper")
         oper.action([LPAREN,],self.ACT_LPAREN_Other)
         oper.action([RPAREN,],self.ACT_RPAREN)
-        oper.action([SDBIN,SDHEX,SDCHR,SDDEC,SYMREF,STRING,LOGNOT,COMPARE,NOT],
+        oper.action([SDBIN,SDHEX,SDCHR,SDDEC,SYMREF,STRING,LOGNOT,LOGICAL,COMPARE,NOT],
             method=self.ACT_Add_Token)
         oper.error(self.ACT_ExpectedExpr)
         self.state(oper)

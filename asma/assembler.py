@@ -1190,7 +1190,14 @@ class StorageExt(Storage):
 # spaces.  Depending upon the context (assembler vs. macro language) and the operation
 # certain fields may be required or restricted to specific forms.  This class forms
 # the basis for managing and enforcing the the operation specific options.
-# It is the base class for determining a statement's field propersions
+# It is the base class for determining a statement's field properties.
+#
+# This class also operates a global scope for the asmfsmbp.FieldParser object.
+# This parser is used by the assembler to recognize statement fields and the 
+# macro language for the same purpose.  The single instance object informs the
+# global scope object as to the context of the parse.  Additional token types are
+# allowed in the macro language as opposed to the assembly language.  At the point
+# Pass 0 and Pass 1 are merged these differences may go away.
 class StmtFields(object):
     def __init__(self):
         # Text from which fields were identified
@@ -1204,6 +1211,7 @@ class StmtFields(object):
         # Name field type information.  All values will be False if omitted
         self.name_ltok=None # The lexical token associated with the name
         self.label=False    # True if the present name is a location label
+        self.labelsym=False # True if the location label contains a symbolic variable
         self.sequence=False # True if the present name is a sequence symbol
         self.symbol=False   # True if the present name is a variable symbol
         # Set based upon the type of name field
@@ -1213,6 +1221,7 @@ class StmtFields(object):
         # Operation Field
         self.oper_ltok=None # Operation field lexical token
         self.operation=None # Operation field from statement
+        self.opersym=False  # True is the operation field contains a symbolic variable
         self.opuc=None      # Operation in upper case
         self.oppos=None     # Position in line of operation
         
@@ -1235,6 +1244,23 @@ class StmtFields(object):
         return "%s: name=%s, operation='%s' operands='%s'" \
             % (self.__class__.__name__,name,self.opuc,self.operands)
 
+    # This method checks for presence of conditional assembly elements in
+    # assembler language statements.  It raises an AssemblerError if present.
+    # This method is only used by assembly language processing
+    def cond_asm_ck(self,stmt):
+        if self.sequence:
+            raise AssemblerError(lineno=stmt.lineno,\
+                msg="assembly language name field may not contain a sequence "
+                "symbol: %s" % self.name)
+        if self.labelsym:
+            raise AssemblerError(lineno=stmt.lineno,\
+                msg="assembly language name field may not contain a symbolic "
+                    "variable: %s" % self.name)
+        if self.opersym:
+            raise AssemblerError(lineno=stmt.lineno,\
+                msg="assembly language operation field may not contain a symbolic "
+                "variagble: %s" % self.operation)
+
     # Handle normal line continuation conventions.
     # May raise asmcards.LineError exception
     def normal(self,lineo):
@@ -1255,8 +1281,9 @@ class StmtFields(object):
 
     # Recognize individual statement fields
     def parse(self,asm,stmt,debug=False):
-        if debug:
-            cls_str=assembler.eloc(self,"parse",module=this_module)
+        if __debug__:
+            if debug:
+                cls_str=assembler.eloc(self,"parse",module=this_module)
         line=stmt.line
         self.comment=line.comment
         self.silent=line.silent
@@ -1273,6 +1300,7 @@ class StmtFields(object):
 
         # May raise AssemblerError 
         # Note: This object is its own FSM parser scope object.
+        #print("StmtFields.macdefn: %s" % self.macdefn)
         asm.fsmp.parse_statement(stmt,"fields",scope=self)
 
         # Update various attributes after successful recognition.
@@ -1290,6 +1318,12 @@ class StmtFields(object):
         self.name=ltoken.string
         self.label=True
 
+    # Set the name field information from a lexer.Token object for a label containing
+    # a symbolic variable
+    def NameLabelSym(self,ltoken):
+        self.NameLabel(ltoken)
+        self.labelsym=True
+
     # Set the name field information for a sequence symbol from a lexer.Token object
     def NameSeq(self,ltoken):
         self.name_ltok=ltoken
@@ -1304,8 +1338,6 @@ class StmtFields(object):
     # Extract the operand and commment fields from the input text
     def Operands(self,ltoken):
         self.operpos=ltoken.beg
-        #print("StmtFields.Operands(): operpos: %s" % self.operpos)
-        #self.operands=self.text[self.operpos:]
 
     # Set the operation field information from a lexical token
     def Operation(self,ltoken):
@@ -1313,6 +1345,12 @@ class StmtFields(object):
         string=ltoken.string
         self.operation=string
         self.opuc=string.upper()
+        
+    # Seth the operation field information from a lexical token that contains a
+    # symbolic variable.
+    def OperSym(self,ltoken):
+        self.Operation(ltoken)
+        self.opersym=True
 
 class StmtOperands(object):
     def __init__(self,logline,pos):
@@ -2263,7 +2301,6 @@ class Assembler(object):
         
         # This uses the StmtFields object to parse the statement fields
         s.fields=fields=StmtFields()
-
         fields.parse(self,s,debug=debug)
         s.classified()
 
@@ -3096,10 +3133,9 @@ class Assembler(object):
         return stmt
 
     def __pre_process(self,s,debug=False):
-        cls_str=eloc(self,"__pre_process")
         assert isinstance(s,Stmt),\
             "%s 's' argument must be an instance of Stmt: %s" \
-                % (cls_str,s)
+                % (eloc(self,"__pre_process"),s)
 
         sdebug=debug
         fail=self.fail
@@ -3113,7 +3149,7 @@ class Assembler(object):
             try:
                 self.__classifier(s,debug=self.dm.isdebug("classify"))
             except AssemblerError as ae:
-                self.__ae_excp(ae,s,string=cls_str,debug=sdebug)
+                self.__ae_excp(ae,s,string=eloc(self,"__pre_process"),debug=sdebug)
                 return
 
         # Access the Macro Language when defining macros
@@ -3125,10 +3161,10 @@ class Assembler(object):
                 macdefn=self.MM.defining(s)
             except asmmacs.MacroError as me:
                 ae=AssemblerError(source=s.source,line=s.lineno,msg=me.msg)
-                self.__ae_excp(ae,s,string=cls_str,debug=sdebug)
+                self.__ae_excp(ae,s,string=eloc(self,"__pre_process"),debug=sdebug)
                 return
             except AssemblerError as ae:
-                self.__ae_excp(ae,s,string=cls_str,debug=sdebug)
+                self.__ae_excp(ae,s,string=eloc(self,"__pre_process"),debug=sdebug)
                 return
 
         # Did the Macro Language intercept the statement as part of a definition?
@@ -3140,12 +3176,27 @@ class Assembler(object):
             if __debug__:
                 if sdebug:
                     print("%s DEBUG: empty line: %s\n    %s" \
-                        % (cls_str,s.lineno,s.stmt))
+                        % (eloc(self,"__pre_process"),s.lineno,s.stmt))
             return
 
         if __debug__:
             if sdebug:
-                print("%s DEBUG: classified statement\n    %s" % (cls_str,s))
+                print("%s DEBUG: classified statement\n    %s" \
+                    % (eloc(self,"__pre_process"),s))
+                
+        # Make sure seq symbols or symbolic variables are not present in assembly
+        # language name or operation statements.  These will detected in the
+        # operands during operand parsing.
+        # Note: macro model statements should have all references to symbolic
+        # variables removed during replacement processing before being submitted
+        # to the input stream.
+        if fail:
+            s.fields.cond_asm_ck(s)
+        else:
+            try:
+                s.fields.cond_asm_ck(s)
+            except AssemblerError as ae:
+                self.__ae_excp(ae,s,string=eloc(self,"__pre_process"),debug=sdebug)
 
         # Identifies the operation in the operation field and updatas Stmt attributes
         # for further processing of the statement
@@ -3157,7 +3208,7 @@ class Assembler(object):
             try:
                 self.__oper_id(s,debug=self.dm.isdebug("classify"))
             except AssemblerError as ae:
-                self.__ae_excp(ae,s,string=cls_str,debug=sdebug)
+                self.__ae_excp(ae,s,string=eloc(self,"__pre_process"),debug=sdebug)
                 return
 
         if fail:
@@ -3166,7 +3217,7 @@ class Assembler(object):
             try:
                 self.__continuation(s,debug=self.dm.isdebug("continuation"))
             except AssemblerError as ae:
-                self.__ae_excp(ae,s,string=cls_str,debug=sdebug)
+                self.__ae_excp(ae,s,string=eloc(self,"__pre_process"),debug=sdebug)
                 return
 
         # Test of a special pre-processor in lieu of the parser
@@ -3178,7 +3229,7 @@ class Assembler(object):
                 try:
                     spp(s,debug=sdebug)
                 except AssemblerError as ae:
-                    self.__ae_excp(ae,s,string=cls_str,debug=sdebug)
+                    self.__ae_excp(ae,s,string=eloc(self,"__pre_process"),debug=sdebug)
             return
             # We exit here because this statement does not use a formal parser
 
@@ -3189,7 +3240,7 @@ class Assembler(object):
             try:
                 self.__parse(s)
             except AssemblerError as ae:
-                self.__ae_excp(ae,s,string=cls_str,debug=sdebug)
+                self.__ae_excp(ae,s,string=eloc(self,"__pre_process"),debug=sdebug)
                 return
         if sdebug:
             print(s)
@@ -3203,7 +3254,7 @@ class Assembler(object):
             try:
                 s.validate()
             except AssemblerError as ae:
-                self.__ae_excp(ae,s,string=cls_str,debug=sdebug)
+                self.__ae_excp(ae,s,string=eloc(self,"__pre_process"),debug=sdebug)
 
     # Set XMODE.  An invalid setting will raise a KeyError
     def __xmode_setting(self,mode,setting,sdict):
@@ -3483,6 +3534,11 @@ class Assembler(object):
         ctrace=trace or self.__is_otrace("csect")
         rtrace=trace or self.__is_otrace("region")
         dtrace=trace or self.__is_otrace("dsect")
+        
+        # For an assembly that has created no sections or regions
+        # This ensures the remainder of Pass 1 post processing succeeds.
+        self.__check_cur_sec(debug=ctrace)
+        
         # Place all of the CSECTS into their respective Regions, assigning
         # them an absolute starting address
         for r in self.imgwip.elements:
@@ -5068,8 +5124,8 @@ class Assembler(object):
                     # If we are failing immediately upon any detected error, do so now
                     if self.fail:
                         raise me from None
-                    # Not failing immediately, so we need to convert the macro
-                    # error to an assembler error for reporting purposes.
+                    # Not failing immediately, so we need to terminate the remainder
+                    # of the macro.
                     ae=AssemblerError(line=me.line,linepos=me.linepos,msg=me.msg)
                     # Queue it for ultimate output
                     self.img._error(ae)
