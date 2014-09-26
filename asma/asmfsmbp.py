@@ -2464,10 +2464,18 @@ class PrototypeParser(AsmFSMParser):
         # next parameter or the end of the prototype parameters.
         dflt=fsmparser.PState("dflt")
         dflt.action([STRING,],self.ACT_Default_String_Found)
+        dflt.action([SDDEC,SDHEX,SDBIN,SDCHR],self.ACT_Default_SD_Found)
         dflt.action([COMMA,],self.ACT_Default_Empty)
         dflt.action([EOO,EOS],self.ACT_Done)
         dflt.error(self.ACT_ExpectedDefault)
         self.state(dflt)
+
+        # Look for continuation of prototype parms after a SD term is default
+        dflt_done=fsmparser.PState("dflt_done")
+        dflt_done.action([COMMA,],self.ACT_Default_Done)
+        dflt_done.action([EOO,EOS],self.ACT_Done)
+        dflt_done.error(self.ACT_ExpectedNext)
+        self.state(dflt_done)
 
         isnext=fsmparser.PState("isnext")
         isnext.action([COMMA,],self.ACT_Default_Done)
@@ -2485,6 +2493,11 @@ class PrototypeParser(AsmFSMParser):
         gs=self.scope()
         gs.keyword()
         return "init"
+
+    def ACT_Default_SD_Found(self,value,state,trace=False):
+        gs=self.scope()
+        gs.key_sd=value.string
+        return "dflt_done"
 
     def ACT_Default_String_Found(self,value,state,trace=False):
         gs=self.scope()
@@ -2553,20 +2566,28 @@ class PrototypeScope(asmtokens.AsmFSMScope):
         self.pos_parms=[]
         # Pending keyword parameter
         self.key_parm=None
+        # Set for a parameter with a self-defining term as default
+        self.key_sd=None
         # Dictionary of keyword parameters (with initial ampersand) and defaults
         self.key_parms={}
 
     def keyword(self):
         if self.key_parm is None:
             return
+        # Process the keyword parameter itself
         if not self.case:
             keyp=self.key_parm.upper()
         else:
             keyp=self.key_parm
-        if self.str_pending():
+        # Process the default value
+        if isinstance(self.key_sd,str):
+            val=self.key_sd
+            self.key_sd=None
+        elif self.str_pending():
             val=self.str_end().convert()
         else:
             val=""
+        # Remember for macro processing
         self.key_parms[keyp]=val
         self.key_parm=None
 

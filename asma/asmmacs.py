@@ -383,7 +383,7 @@ class Macro(object):
         lblsym=proto.lblsym
         if lblsym is not None:
             if stmt.label:
-                lcls._initc(lblsym,stmt.name,parm=True,ro=True)
+                lcls._initc(lblsym,stmt.label,parm=True,ro=True)
             else:
                 lcls._initc(lblsym,"",parm=True,ro=True)
 

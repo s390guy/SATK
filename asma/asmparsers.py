@@ -249,13 +249,13 @@ class CharLitToken(lexer.Token):
     def __init__(self):
         super().__init__()
     def convert(self):#        string=self.string
-        # groups[1] -> descriptor
-        # groups[2] -> first single quote
-        # groups[3] -> the character
-        # groups[4] -> second single quote
+        # groups[0] -> descriptor
+        # groups[1] -> first single quote
+        # groups[2] -> the character
+        # groups[3] -> second single quote
         groups=self.groups()
-        char=groups[3]
-        desc=groups[1]
+        char=groups[2]
+        desc=groups[0]
         if desc.upper() in CharLitToken.ebcdic:
             char=assembler.CPTRANS.a2e(char)
         return ord(char)
