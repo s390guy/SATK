@@ -3560,6 +3560,7 @@ class Assembler(object):
         self.imgwip.updtAttr_all(self,trace=rtrace)
         self.__image_new(self.imgwip)   # Add the IMAGE to the symbol table
         for dsect in self.dsects:
+            dsect.make_barray_all(trace=rtrace)
             dsect.updtAttr(self,trace=dtrace)
 
     # PASS 2 - POST PROCESS IMAGE CREATION
@@ -3583,14 +3584,14 @@ class Assembler(object):
     #   name       Template name for the structure
     #   stmt       Stmt object of the statemet for which the structure is being built
     #   values     A list of of values to be placed in the template.
-    def __build_structure(self,name,stmt,values=[]):
+    def __build_structure(self,name,stmt,values=[],trace=False):
         try:
             template=self.templates[name]
         except KeyError:
             raise ValueError("%s [%s] undefined structure template: %s" \
                 % (eloc(self,"__build_structure"),stmt.lineno,name))
             
-        return template.build(stmt,values)
+        return template.build(stmt,values,trace=trace)
 
     def __csect_activate(self,section,debug=False):
         assert isinstance(section,Section),\
@@ -3908,8 +3909,11 @@ class Assembler(object):
     def __struct_address(self,stmt,opn,addr):
         if isinstance(addr,int):
             return addr
-        if isinstance(addr,Address) and (addr.isAbsolute() or addr.isDummy()):
-            return addr.address
+        if isinstance(addr,Address): 
+            if addr.isAbsolute():
+                return addr.address
+            if addr.isDummy():
+                return addr.value
         raise MSLError(line=stmt.lineno,\
             msg="%s operand %s may not be CSECT relative: %s" \
                 % (stmt.instu,opn,addr))
@@ -4207,8 +4211,8 @@ class Assembler(object):
         for value in values:
             # value is either a asmfsmcs.DCDS_Operand or asmdcds.Nominal object.
             if __debug__:
-                if trace:
-                    print("%s operand: %s" % (cls_str,opr))
+                if otrace:
+                    print("%s operand: %s" % (cls_str,value))
 
             # Note: both asmfsmcs.DCDS_Operand and asmdcds.Nominal support the
             # align() and length() methods so that they can both be the basis
@@ -4220,14 +4224,18 @@ class Assembler(object):
             cur_sec.assign(bin)
 
             if __debug__:
-                if trace:
-                    print("%s - cur_sec %s _alloc=%s" \
+                if otrace:
+                    print("%s cur_sec %s _alloc=%s" \
                         % (cls_str,self.cur_sec,self.cur_sec._alloc))
 
             area.append(bin)
             value.content=bin
+            
+            if __debug__:
+                if otrace:
+                    print("%s value.content: %s" % (cls_str,value.content))
 
-        area.fini()
+        area.fini(trace=otrace)
         # Note the binary images in the area object are also linked to the Section
         # object via its elements list.
 
@@ -4239,10 +4247,20 @@ class Assembler(object):
         self.__label_create(stmt,length=values[0].length())
 
     def _dc_pass2(self,stmt,trace=False):
-        edebug=self.dm.isdebug("exp")
-        etrace=self.dm.isdebug("tracexp") or trace or stmt.trace
-        
+        edebug=etrace=False
+        if __debug__:
+            edebug=self.dm.isdebug("exp")
+            etrace=self.dm.isdebug("tracexp") or trace or stmt.trace \
+                or self.__is_otrace("dc")
+            cls_str=eloc(self,"_dc_pass2")
+
         for n,value in enumerate(stmt.gscope.values):
+            if __debug__:
+                if etrace:
+                    print("%s %s" % (cls_str,value))
+                    
+            
+
             # Build and store image content in Binary
             value.build(stmt,self,n,debug=edebug,trace=etrace)
 
@@ -4561,7 +4579,7 @@ class Assembler(object):
 
         # Build the PSW360 content
         values=[sys,key,amwp,prog,pswaddr]
-        bytes=self.__build_structure("PSW360",stmt,values=values)
+        bytes=self.__build_structure("PSW360",stmt,values=values,trace=ptrace)
         # Update the statements binary content with the PSW360
         stmt.content.update(bytes,at=0,full=True,finalize=True,trace=ptrace)
 
@@ -6178,7 +6196,7 @@ class Structure(object):
     #    stmt      The Stmt object of the statement associated with the directive
     #    values    A list of integers (may include None) to be placed in each field
     #              of the template.
-    def build(self,stmt,values=[]):
+    def build(self,stmt,values=[],trace=False):
         num_flds=self.num_flds
         assert len(values)==num_flds,\
             "%s number of supplied values does not match the number of fields "\
@@ -6201,6 +6219,11 @@ class Structure(object):
             if fld.value is None:
                 was_none=True         # This ensures values don't get reused 
                 fld.value=values[ndx]
+
+            if __debug__:
+                if trace:
+                    print("%s field %s: %s" % (eloc(self,"build"),ndx,fld))
+
             # Insert each field individually into the structure
             bin=fld.insert(binlen,bin,builder,lineno,signed=fld.signed)
             # This ensures values don't get reused on the next use of the template
@@ -6254,8 +6277,12 @@ class Binary(object):
         return self._length
 
     def __str__(self):
-        return "%s(alignment=%s,length=%s)" \
-            % (self.__class__.__name__,self._align,self._length)
+        if self.barray is None:
+            barray="None"
+        else:
+            barray=len(self.barray)
+        return "%s(alignment=%s,length=%s,barray=%s)" \
+            % (self.__class__.__name__,self._align,self._length,barray)
 
     def assigned(self,loc):
         self.loc=loc
@@ -6277,8 +6304,8 @@ class Binary(object):
 
         if __debug__:
             if trace:
+                cls_str=eloc(self,"fini")
                 cls=self.__class__.__name__
-                cls_str="assembler.py - %s.fini() -" % cls
                 beg_addr=self.loc
                 blen=len(self.barray)
                 end_addr=beg_addr+blen-1
@@ -6306,8 +6333,7 @@ class Binary(object):
         # we now have zero filled image content for this Binnary or its subclass
         if __debug__:
             if trace:
-                cls=self.__class__.__name__
-                cls_str="assembler.py - %s.make_barrow() -" % cls
+                cls_str=eloc(self,"make_barray")
                 if isinstance(self,Content):
                     desc="%s '%s'" % (cls,self.name)
                 else:
@@ -6400,7 +6426,7 @@ class Area(Binary):
     # of the sum of all of the arguments taking duplication, alignment and length
     # into effect.  This method must only be called after all elements of the area
     # have been appended.
-    def fini(self):
+    def fini(self,trace=False):
         assert len(self.elements)>0,\
             "%s area contains zero Binary elements" % eloc(self,"fini")
 
@@ -6412,19 +6438,20 @@ class Area(Binary):
             self._length=(bin_last.loc - bin_1st.loc) + bin_last._length
         else:
             self._length=bin_1st._length
-        self.make_barray()
+        self.make_barray(trace=trace)
 
     def insert(self,trace=False):
         my_loc=self.loc
         for bin in self.elements:
             bin_loc=bin.loc
-            assert bin_loc.isAbsolute(),\
-                "%s enrountered non absolute address: %s" \
-                    % (eloc(self,"insert"),bin)
+            #assert bin_loc.isAbsolute(),\
+            #    "%s enrountered non absolute address: %s" \
+            #        % (eloc(self,"insert"),bin)
 
             # Calculate where the data is supposed to go
             barray=bin.barray
             length=len(barray)
+            # Note this may result in an AddrArithError, if so, it is a bug
             start=bin_loc-my_loc
             end=start+length
             if length==0:
@@ -6662,13 +6689,13 @@ class Section(Content):
     # Insert all of my Binary instance's bytes list into my bytearray.  Convert
     # it to a bytes when done.
     def insert(self,trace=False):
-        cls_str="assembler.py - %s.insert() -" % self.__class__.__name__
+        #cls_str="assembler.py - %s.insert() -" % self.__class__.__name__
         my_loc=self.loc
         for bin in self.elements:
             bin_loc=bin.loc
             if not bin_loc.isAbsolute():
                 raise ValueError("%s enrountered non absolute address: %s" \
-                    % (cls_str,bin))
+                    % (eloc(self,"insert"),bin))
 
             # Calculate where the data is supposed to go
             barray=bin.barray
@@ -6676,13 +6703,14 @@ class Section(Content):
             start=bin_loc-my_loc
             end=start+length
             if length==0:
-                # ORG statements create Binary objects which have 0 bytes of data.
-                # Ignore them
                 if __debug__:
                     if trace:
                         print("%s %s @ %s inserted [0x%X:0x%X] bytes: %s IGNORED" \
                             % (eloc(self,"insert"),self.name,\
                                 bin_loc,start,end,length))
+
+                # ORG statements create Binary objects which have 0 bytes of data.
+                # Ignore them
                 continue
 
             if __debug__:
@@ -6718,8 +6746,8 @@ class Section(Content):
         self._alloc=max(self._alloc,self._current)
 
     def make_barray_all(self,trace=False):
-        assert not self.isdummy(),\
-            "%s method not supported for DSECT" % eloc(self,"make_barray_all")
+        #assert not self.isdummy(),\
+        #    "%s method not supported for DSECT" % eloc(self,"make_barray_all")
         self.make_barray(trace=trace)
         for b in self.elements:
             b.make_barray(trace=trace)

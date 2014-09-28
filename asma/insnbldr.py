@@ -126,9 +126,7 @@ class Builder(object):
                 assert isinstance(stmt,assembler.Stmt),\
                     "%s 'stmt' argument requires instance of assembler.Stmt: %s" \
                         % (assembler.eloc(self,"build",module=this_module),stmt)
-            #if not isinstance(stmt,assembler.Stmt):
-            #    raise ValueError("%s 'stmt' argument requires instance of "
-            #        "assembler.Stmt: %s" % (cls_str,stmt))
+
         fmt=stmt.format       # msldb.Format instance
         insn=stmt.insn        # assembler.MSLentry instance
         line=stmt.lineno      # Source object of statement's input location
@@ -284,8 +282,12 @@ class Field(object):
         self.value=value
 
     def __str__(self):
+        if self.value is None:
+            v="None"
+        else:
+            v=hex(self.value)
         s="%s %s size: %s value: %s (%s)" \
-           % (self.__class__.__name__,self.name,self.size,self.value,hex(self.value))
+           % (self.__class__.__name__,self.name,self.size,self.value,v)
         return s
 
     # This presents the contents of the 

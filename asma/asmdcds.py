@@ -245,6 +245,7 @@ class SConstant(Nominal):
         self.content.update(data,full=True,finalize=True,trace=trace)
         self.cur_loc(asm)
 
+
 # This object stands in for DS "nominal" values, generating 0x00 for each byte.
 # This class allows DS processing to parallel DC.  In the case of DS, one of these
 # objects if used when no nominal values are supplied for the operand.  Regular
