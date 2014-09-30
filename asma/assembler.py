@@ -4504,6 +4504,7 @@ class Assembler(object):
                     % (cur_sec.name,new_loc))
 
         cur_sec.org(new_loc)
+        self.cur_loc.establish(new_loc)
         stmt.laddr=[addr1,new_loc]
 
 

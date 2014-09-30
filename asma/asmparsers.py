@@ -339,10 +339,11 @@ class PLitCur(expression.PLitSmart):
     def convert(self,debug=False,trace=False):
         cur_stmt=self.external.cur_stmt
         stmt_bin=cur_stmt.content
-        if stmt_bin is None:
-            cur=self.external.cur_loc.retrieve()
-        else:
-            cur=cur_stmt.current()
+        #if stmt_bin is None:
+        #    cur=self.external.cur_loc.retrieve()
+        #else:
+        #    cur=cur_stmt.current()
+        cur=self.external.cur_loc.retrieve()
         if not isinstance(cur,assembler.Address):
             cls_str="asmparsers.py - %s.convert() -" % self.__class__.__name__
             raise ValueError("%s current location of statement %s not an address: %s" \
