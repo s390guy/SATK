@@ -2355,12 +2355,16 @@ class MacroLanguage(object):
             keys=scope.key_parms
 
         lblsym=flds.symid
-        if lblsym.sub is not None and lblsym.sub!=0:
-            raise assembler.AssemblerError(line=stmt.lineno,\
-                msg="prototype name symbol variable %s may not be subscripted" \
-                     % lblsym.var)
+        if lblsym is not None:
+            if lblsym.sub is not None and lblsym.sub!=0:
+                raise assembler.AssemblerError(line=stmt.lineno,\
+                    msg="prototype name symbol variable %s may not be subscripted" \
+                         % lblsym.var)
+            var=lblsym.var
+        else:
+            var=None
 
-        proto=Prototype(flds.opuc,lblsym=lblsym.var,positionals=pos,keywords=keys)
+        proto=Prototype(flds.opuc,lblsym=var,positionals=pos,keywords=keys)
 
         if __debug__:
             if debug:
