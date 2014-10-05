@@ -1580,7 +1580,7 @@ class MacSymbols(object):
             if isinstance(sub,int) and sub==0:
                 return sym.values[0]
             else:
-                raise MacroError("symbol '%s' not subscripted")
+                raise MacroError(msg="symbol '%s' not subscripted" % var)
         
         # Symbol is subscripted, determine the subscript value
         if isinstance(symbol.sub,SymbolID):

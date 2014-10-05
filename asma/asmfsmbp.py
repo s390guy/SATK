@@ -995,9 +995,9 @@ class ParameterLexer(lexer.Lexer):
         #lst.append(COMPARE)     # " EQ ", " NE ", " LT ", " LE ", " GT ", " GE "
         #lst.append(AOPER)       # "+", "-", "*", "/"
         #lst.append(NOT)         # "NOT ", " NOT "
-        #lst.append(SDBIN)       # "B'01.."
-        #lst.append(SDCHR)       # "C'x'", "CE'x'", "CA'x'"
-        #lst.append(SDHEX)       # "H'0..F..'"
+        lst.append(SDBIN)       # "B'01.."
+        lst.append(SDCHR)       # "C'x'", "CE'x'", "CA'x'"
+        lst.append(SDHEX)       # "X'0..F..'"
         #lst.append(SDDEC)       # "0..9.."
         #lst.append(NATTR)       # N'&label   # Number attribute reference
         #lst.append(SYMREF)      #   "&label",   "&label(0..9..)",    "&label(&sub)"
@@ -2137,7 +2137,7 @@ class ParameterParser(AsmFSMParser):
         first=AsmFSMState("slst_first",pfx=pfx,exit=exit)
         first.action([COMMA,],self._ACT_Sublist_EmptyParm)
         first.action([STRING,],self._ACT_Sublist_Begin_String)
-        first.action([PARM,],self._ACT_Sublist_FoundParm)
+        first.action([PARM,SDBIN,SDCHR,SDHEX],self._ACT_Sublist_FoundParm)
         first.action([RPAREN,],self._ACT_Sublist_Term)
         first.error(self._ACT_Sublist_ExpectedParm)
         self.state(first)
@@ -2153,7 +2153,7 @@ class ParameterParser(AsmFSMParser):
         more=AsmFSMState("slst_more",pfx=pfx,exit=exit)
         more.action([COMMA,],self._ACT_Sublist_EmptyParm)
         more.action([STRING,],self._ACT_Sublist_Begin_String)
-        more.action([PARM,],self._ACT_Sublist_FoundParm)
+        more.action([PARM,SDBIN,SDCHR,SDHEX],self._ACT_Sublist_FoundParm)
         more.action([RPAREN,],self._ACT_Sublist_EmptyParm_Term)
         more.error(self._ACT_Sublist_ExpectedParm)
         self.state(more)
@@ -2226,7 +2226,7 @@ class ParameterParser(AsmFSMParser):
         init=fsmparser.PState("init")
         init.action([KEYWORD,],self.ACT_Found_Keyword)       # keyword=
         init.action([STRING,],self.ACT_String_Begin_Pos)     # 'string'
-        init.action([PARM],self.ACT_Found_Positional)        # parm
+        init.action([PARM,SDBIN,SDCHR,SDHEX],self.ACT_Found_Positional)  # parm or sdterm
         init.action([COMMA,],self.ACT_Found_Empty_Pos)       # first parm is empty
         init.action([LPAREN,],self.ACT_Pos_List_Begin)       # (  --> a sub-list
         init.error(self.ACT_ExpectedParm)
@@ -2237,7 +2237,7 @@ class ParameterParser(AsmFSMParser):
         new_parm=fsmparser.PState("new_parm")
         new_parm.action([KEYWORD,],self.ACT_Found_Keyword)   # keyword=
         new_parm.action([STRING,],self.ACT_String_Begin_Pos) # 'string'
-        new_parm.action([PARM],self.ACT_Found_Positional)    # parm
+        new_parm.action([PARM,SDBIN,SDCHR,SDHEX],self.ACT_Found_Positional)    # parm
         new_parm.action([COMMA],self.ACT_Found_Empty_Pos)    #
         new_parm.action([LPAREN,],self.ACT_Pos_List_Begin)   # (  --> a sub-list
         new_parm.action([EOO,EOS],self.ACT_Done)             # end of parms, done
@@ -2254,7 +2254,7 @@ class ParameterParser(AsmFSMParser):
         # Process keyword value like a positional from here on
         key_parm=fsmparser.PState("key_parm")
         key_parm.action([STRING,],self.ACT_String_Keyword_Begin)  # keyword='string'
-        key_parm.action([PARM],self.ACT_Found_KeyParm)      # keyword=parm
+        key_parm.action([PARM,SDBIN,SDCHR,SDHEX],self.ACT_Found_KeyParm)  # keyword=parm|sd
         key_parm.action([LPAREN,],self.ACT_Key_List_Begin)  # keyword=(  --> a sub-list
         key_parm.action([COMMA,],self.ACT_FoundEmptyKey)    # keyword=,
         key_parm.action([EOO,EOS],self.ACT_FoundEmptyKey_Done)  # keyword= end of ops.
