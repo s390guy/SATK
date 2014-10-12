@@ -522,8 +522,8 @@ LOGICAL=LogicalType()
 
 class LogNotToken(LogGenNotToken):
     def __init__(self):
-        super().__init__(self)
-    def ptokens():
+        super().__init__()
+    def ptokens(self):
         return LogGenToken.logical_ops
     def ptoken_not(self):
         return pratt2.PNot(src=self)

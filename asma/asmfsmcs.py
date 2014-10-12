@@ -1365,7 +1365,7 @@ class DCDS_Operand(asmtokens.AsmFSMScope):
                 raise assembler.AssemblerError(line=stmt.lineno,\
                     msg="operand %s length modifier exceeds allowed maximum of "
                     "%s: %s" % (self.opnum,max_len,self.act_len))
-            self.act_algn=None
+            self.act_algn=0
         else:
             self.act_len=self.imp_len 
             self.act_algn=self.imp_algn
