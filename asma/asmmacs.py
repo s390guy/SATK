@@ -229,7 +229,7 @@ class Macro(object):
         self.name=prototype.macid  # Macro Name
         self.prototype=prototype   # Prototype object
         self.case=case             # Specifies if case sensitivity is enabled
-        self.engine=MacroEngine()  # My definition in terms of MacroOp objects
+        self.engine=MacroEngine(self.name) # My definition in terms of MacroOp objects
         self._defined=defn         # source statement number where definition occurs
         self._refs=[]              # source statements referencing this macro
         
@@ -457,16 +457,16 @@ class Built_In(Macro):
 #  +----------------------+
 #
 
-# This set of classes define the internal representation of a macro operations.
+# This set of classes define the internal representation of macro operations.
 # These objects define the underlying interpretation engine of a macro definition.
 # The MacroEngine object encapsulates these internal functions and exposes an
 # interface used by both user defined macros and built-in macros for defining
 # the engines functionality.
-
 class MacroEngine(object):
-    def __init__(self):
+    def __init__(self,name):
         # These attributes are built during macro definition by calls to the 
         # define() method.
+        self.name=name   # Name of the macro using this engine
         self.ops=[]      # List of macro operations defining the macro's functions
         self.seq={}      # Dictionary of sequence symbols used to control flow
         self.done=False  # Set to True when Mend object added
@@ -481,8 +481,8 @@ class MacroEngine(object):
                     ndx=self.seq[seq]
                 except KeyError:
                     raise assembler.AssemblerError(line=op.lineno,\
-                        msg="macro definition failed, sequence symbol undefined: %s" \
-                            % seq) from None
+                        msg="%s macro definition failed, sequence symbol "
+                            "undefined: %s" % (self.name,seq)) from None
                 dest.append(ndx)
             op.dest=dest
             op.post_resolve()
