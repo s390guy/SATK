@@ -4342,7 +4342,7 @@ class Assembler(object):
         dsect_name=stmt.label   # Fetch the DSECT name from the label field
 
         try:
-            sect=self.__dsect_ref(stmt,dsect_name)
+            dsect=self.__dsect_ref(stmt,dsect_name)
             # Continuing an existing DSECT
         except KeyError:
             dsect=self.__dsect_new(stmt.lineno,dsect_name,debug=ddebug)
