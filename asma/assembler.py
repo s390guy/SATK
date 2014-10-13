@@ -3647,7 +3647,14 @@ class Assembler(object):
     # Raises an AssemblerError if symbol defined but isn't a CSECT
     def __csect_ref(self,stmt,sect_name):
         ste=self.__symbol_ref(sect_name)
-        sect=ste.content()
+
+        try:
+            sect=ste.content()
+        except NotImplementedError:  
+            # This means the symbol value is not Content, so not a CSECT
+            raise AssemblerError(line=stmt.lineno,\
+                msg="symbol already defined: '%s'" % sect_name)
+
         if not isinstance(sect,Section) or sect.isdummy():
             raise AsseblerError(line=stmt.lineno,\
                 msg="symbol is not a CSECT: '%s'" % sect_name)
@@ -3730,7 +3737,14 @@ class Assembler(object):
     # Raises an AssemblerError if symbol defined but isn't a CSECT
     def __dsect_ref(self,stmt,sect_name):
         ste=self.__symbol_ref(sect_name)
-        sect=ste.content()
+
+        try:
+            sect=ste.content()
+        except NotImplementedError:  
+            # This means the symbol value is not Content, so not a DSECT
+            raise AssemblerError(line=stmt.lineno,\
+                msg="symbol already defined: '%s'" % sect_name)
+
         if not isinstance(sect,Section) or not sect.isdummy():
             raise AsseblerError(line=stmt.lineno,\
                 msg="symbol is not a DSECT: '%s'" % sect_name)
@@ -3851,6 +3865,9 @@ class Assembler(object):
                 msg="region symbol is undefined: '%s'" % reg_name)
 
         # symbol is defined, but determine if it is a Region or not
+        if not isinstance(ste,SymbolContent):
+            raise AssemblerError(line=stmt.lineno,\
+                msg="region symbol already defined: '%s'" & reg_name)
         try:
             region=ste.content()
             if not isinstance(content,Region):
