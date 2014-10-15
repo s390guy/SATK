@@ -987,7 +987,7 @@ class Storage(Operand):
             self.laddr=dest.lval()
             self.base,self.disp=asm._resolve(dest,stmt.lineno,opn,self.size,\
                 trace=trace)
-            self.laddr=dest.address
+            #self.laddr=dest.address
         elif self.fields==0x210:
             disp=self.values[0]
             if disp.isDummy():
@@ -1111,7 +1111,7 @@ class StorageExt(Storage):
             self.__setNdxLen(self.values[1])
         elif self.fields==0x111:
             self.base=self.values[2]
-            self.disp=self.values[0]
+            self.laddr=self.disp=self.values[0]
             self.__setNdxLen(self.values[1])
         elif self.fields==0x200:
             # Note, if this fails, an AssemblerError exception is raised.
