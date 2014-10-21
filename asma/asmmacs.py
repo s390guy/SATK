@@ -1800,13 +1800,14 @@ class Invoker(object):
 
         # NOTE: The active CSECT name is not defined until Pass 1.  All macro 
         # processing occurs during the pre-process Pass 0.  Until Pass 0 and Pass 1
-        # are merged, these symbols have no use.
-        #cursect=self.mgr.asm.cur_sec
-        #if cursect is None:
-        #    cursect=""
-        #else:
-        #    cursect=cursect.name
-        #l._initc("&SYSECT",cursect,ro=True)
+        # are merged, these symbols must be handled with special logic in Pass 0.
+        # See Assembler.__oper_id() method
+        #
+        # Tracking sections in Pass 0 assumes that the Pass 1 processing will be
+        # successful.  It is possible to incorrectly report the section name in
+        # the SYSCECT symbolic variable if the statement that would set the name
+        # fails in Pass 1.
+        l._initc("&SYSECT",self.asm.sysect,ro=True)
         #l._initc("&SYSLOC",cursect,ro=True)
 
         l._initc("&SYSMAC",self.macro.name,ro=True)

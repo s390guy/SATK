@@ -1351,6 +1351,22 @@ class StmtFields(object):
     def OperSym(self,ltoken):
         self.Operation(ltoken)
         self.opersym=True
+        
+    # This method provides special support for tracking CSECT/DSECT activity
+    # during Pass 0.  The method provides support for &SYSCECT symbolic varialbe
+    # prior to merging of Pass 0 and Pass 1.
+    # Returns:
+    #   The CSECT name as a string, or
+    #   None the statement does not start or continue a section or label is missing.
+    # The caller must check for None before using the returned value.
+    def SYSECT(self):
+        if self.comment or self.empty:
+            return None
+        if self.opuc not in ["CSECT","START"]:
+            return None
+        if self.label:
+            return self.name   
+        return ""   # No label so must be emtpy CSECT
 
 class StmtOperands(object):
     def __init__(self,logline,pos):
@@ -2205,6 +2221,7 @@ class Assembler(object):
 
         self.cur_reg=None     # Current active Region into which Sections are added
         self.cur_sec=None     # Current active Section into which Content is added
+        self.sysect=""        # Tracks sections during Pass 0
         
         # Unnamed REGION and CSECT if created.  
         # These objects are maintained here not via the symbol table.
@@ -3038,11 +3055,19 @@ class Assembler(object):
         stmt.macro=macro           # asmmacs.Macro object
         stmt.asmpasses=asmpasses   # Set the pass dispatch table for this statement
         stmt.asmdir=asmpasses.directive  # Set the assembler directive flag
-        if stmt.asmdir:
-            stmt.laddr=[None,None] # Initialize laddr for assembler directives
         # Set trace flag if we are tracing this
         stmt.trace=asmpasses.name in self.otrace
-
+        # Assembler directive specific actions
+        if stmt.asmdir:
+            stmt.laddr=[None,None] # Initialize laddr for assembler directives
+            # This logic should move to Pass 1 processing when Pass 0 and Pass 1
+            # are merged.
+            sysect=stmt.fields.SYSECT()
+            if sysect is not None:
+                self.sysect=sysect
+                if idebug:
+                    print("%s DEBUG [%s] self.sysect: %s" \
+                        % (cls_str,stmt.lineno,sysect))
 
     # This method excepts as input a Stmt instance returned by __classifier.
     # to have determined the instruction or directive. This method uses the syntactical
@@ -3198,7 +3223,7 @@ class Assembler(object):
             except AssemblerError as ae:
                 self.__ae_excp(ae,s,string=eloc(self,"__pre_process"),debug=sdebug)
 
-        # Identifies the operation in the operation field and updatas Stmt attributes
+        # Identifies the operation in the operation field and updates Stmt attributes
         # for further processing of the statement
         #
         # Raises an AssemblerError if the operation is not identified
