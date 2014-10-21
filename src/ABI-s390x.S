@@ -323,7 +323,7 @@
  #
  # Register on Entry:
  #   R0      = unpredictable
- #   R1      = Function entry addres, otherwise unpredictable (used by callrx macro)
+ #   R1      = Function entry address, otherwise unpredictable (used by callrx macro)
  #   R2-R6   = non-floating point function parameters
  #   R7-R11  = Unpredictable
  #   R12     = Global Offset Table address if present
