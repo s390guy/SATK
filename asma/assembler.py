@@ -1249,15 +1249,15 @@ class StmtFields(object):
     # This method is only used by assembly language processing
     def cond_asm_ck(self,stmt):
         if self.sequence:
-            raise AssemblerError(lineno=stmt.lineno,\
+            raise AssemblerError(line=stmt.lineno,\
                 msg="assembly language name field may not contain a sequence "
                 "symbol: %s" % self.name)
         if self.labelsym:
-            raise AssemblerError(lineno=stmt.lineno,\
+            raise AssemblerError(line=stmt.lineno,\
                 msg="assembly language name field may not contain a symbolic "
                     "variable: %s" % self.name)
         if self.opersym:
-            raise AssemblerError(lineno=stmt.lineno,\
+            raise AssemblerError(line=stmt.lineno,\
                 msg="assembly language operation field may not contain a symbolic "
                 "variagble: %s" % self.operation)
 
