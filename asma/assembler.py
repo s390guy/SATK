@@ -2286,7 +2286,7 @@ class Assembler(object):
     def __check_cur_reg(self,start=0,debug=False):
         if self.cur_reg is not None:
             return
-        # No current region.  This occurs only is an assembly lacks a START directive.
+        # No current region.  This occurs only in an assembly lacks a START directive.
         # The START directive will always create either a named or unnamed region
         # and activate it.
         if self.unname_reg is None:
@@ -4183,11 +4183,22 @@ class Assembler(object):
         cdebug=trace or stmt.trace
 
         csect_name=stmt.label   # Fetch the CSECT name from the label field
+        if __debug__:
+            if cdebug:
+                print("%s [%s] CSECT statement name: %s" \
+                    % (eloc(self,"_csect_pass1"),stmt.lineno,stmt.label))
+
         if csect_name is None:
             # No label, so the unnamed CSECT is being targeted
-            if self.unname_sec is None:
+            if __debug__:
+                if cdebug:
+                    print("%s self.unname_sec: %s" \
+                        % (eloc(self,"_csect_pass1"),self.unname_sec))
+
+            if self.unname_sec is None: 
                 # Create the unnamed CSECT if it does not exist
                 csect=self.__csect_unname(debug=cdebug)
+                self.unname_sec=csect
             else:
                 # Continue the existing unnamed CSECT
                 csect=self.unname_sec
