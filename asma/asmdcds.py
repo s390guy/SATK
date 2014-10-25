@@ -420,7 +420,12 @@ class ADCON(object):
         return "%s(expr=%s)" % (self.__class__.__name__,self.expr)
         
     def build(self,asm,parsers,stmt,n,length,trace=False):
-        value=parsers.evaluate_expr(asm,stmt,self.expr,debug=False,trace=trace)
+        try:
+            value=parsers.evaluate_expr(asm,stmt,self.expr,debug=False,trace=trace)
+        except assembler.AddrArithError as ae:
+            raise assembler.AssemblerError(line=stmt.lineno,\
+                msg="operand %s address arithmetic error, %s" \
+                    % (n+1,ae))
 
         assert isinstance(value,(int,assembler.Address)),\
             "%s internal calculation of operand %s address expression resulted in an"\

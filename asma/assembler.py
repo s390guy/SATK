@@ -5507,6 +5507,9 @@ class Address(object):
     def _no_rsup(self,op,b):
         raise AddrArithError(msg="can't perform: %s %s %s" % (b,op,self)) 
 
+    def _no_usup(self,op):
+        raise AddrArithError(msg="can't perform: %s %s" % (op,self))
+
     def _rel_str(self):
         return "%s+0x%X" % (self.section.name,self.value)
 
@@ -5523,6 +5526,7 @@ class Address(object):
             return other.typ
         return 4
 
+    # Unsupported infix operations
     def __div__(self,other):
         self._no_sup("/",other)
     def __floordiv__(self,other):
@@ -5539,6 +5543,10 @@ class Address(object):
         self._no_rsup("*",other)
     def __rsub__(self,other):
         self._no_rsup("-",other)
+        
+    # Unsupported unary operations
+    def __neg__(self):
+        self._no_usup("-")
 
     # Comparison overloads for addresses
     def __lt__(self,other): 
@@ -5559,6 +5567,10 @@ class Address(object):
     def __ge__(self,other):
         me,other=self._cmp(other,">=")
         return me>=other
+        
+    # Unary + overload for addresses
+    def __pos__(self):
+        return self
 
     # Returns the intgeger value to be used in Base/Displacement calculation.
     def base(self):
