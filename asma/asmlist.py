@@ -250,7 +250,8 @@ class AsmListing(Listing):
             fileno=s.fileno
             self.name_len=max(self.name_len,len(s.fname))
             self.max_fileno=max(self.max_fileno,fileno)
-            self.max_copy_stmt=max(self.max_copy_stmt,s._stmtno)
+            if isinstance(s._stmtno,int):
+                self.max_copy_stmt=max(self.max_copy_stmt,s._stmtno)
             try:
                 fs=files[fileno]
                 cls_str=assembler.eloc(self,"_build")

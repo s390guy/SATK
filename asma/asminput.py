@@ -259,7 +259,7 @@ class InjectableSource(InputSource):
         self.lines.extend(ln)
 
 class MacroSource(InputSource):
-    def __init__(self,typ,exp,stmtno=None):
+    def __init__(self,typ,exp,stmtno=None,srcno=None):
         if not isinstance(exp,asmmacs.Invoker):
             cls_str=assembler.eloc(self,"__init__",module=this_module)
             raise ValueError("%s 'exp' argument must be an asmmacs.Expander object: "
@@ -466,7 +466,7 @@ class LineBuffer(object):
             raise assembler.AssemblerError(line=stmtno,\
                 msg="nested input source depth reached: %s" % self.depth)
         src_cls=LineBuffer.source_type[typ]
-        srco=src_cls(typ,sid,srcno)
+        srco=src_cls(typ,sid,stmtno=stmtno,srcno=srcno)
         try:
             srco.init(pathmgr=self._opath)
         except SourceError as se:
