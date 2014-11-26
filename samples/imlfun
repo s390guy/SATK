@@ -97,8 +97,7 @@ herc_env()
 {    # Update paths for your environment
      case $1 in
         rel) herc_path="${HOME}/Herc/hercules-3.07/bin" ;;
-        gold) herc_path="${HOME}/hercgoldi/bin"         ;;
-        sand) herc_path="${HOME}/hercsandi/bin"         ;;
+        hyp) herc_path="${HOME}/herchypi/bin"         ;;
         *)  echo "invalid hercules environment: $1" ; exit 1 ;;
      esac
      hercules=${herc_path}/hercules
