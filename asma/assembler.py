@@ -2144,6 +2144,7 @@ class Assembler(object):
         # Statement classifier regular expressions and other RE users. 
         # See __init_res() and related _spp methods
         self.sqtre=None       # Recognizes a single quoted string (COPY)
+        self.symre=None       # Recognizes a symbol (OPSYN)
         self.__init_res()     # Create regular expressions for __classifier() method
 
         # Statement operand parsers. See __init_parsers() method
@@ -2161,6 +2162,9 @@ class Assembler(object):
         self.builder=insnbldr.Builder(machine,msl,msldft=msldft,\
             trace=self.dm.isdebug("insns"))
         self.addrsize=self.builder.addrsize   # Maximum address size in bits
+        # OPSYN conversion table
+        self.opsyn={}    # Only uppercase entries exist in the table
+        # XMODE conversion table
         self.xmode={}
         self.__init_xmode(ccw,psw) # Initialize XMODE settings
         # Modes and settings used by XMODE directive.
@@ -2218,6 +2222,7 @@ class Assembler(object):
         self.dcs=[]           # List of DC Stmt objects that must fill in barray
         self.dsects=[]        # DSECT list to allow finalization
         self.equates=[]       # These must be bound to an absolute address
+        self.usings=[]        # These too must be bound to an absolute address
 
         self.cur_reg=None     # Current active Region into which Sections are added
         self.cur_sec=None     # Current active Section into which Content is added
@@ -2411,7 +2416,8 @@ class Assembler(object):
 
     def __init_passes(self):
         pass_list=[Pass(1,proc="pass1_p",wall="pass1_w",post=self.__Pass1_Post),\
-                   Pass(2,proc="pass2_p",wall="pass2_w",post=self.__Pass2_Post)]
+                   Pass(2,proc="pass2_p",wall="pass2_w",\
+                       pre=self.__Pass2_Pre,post=self.__Pass2_Post)]
 
         # Create list of Pass instances
         num_pass=len(pass_list)
@@ -2437,6 +2443,12 @@ class Assembler(object):
         if __debug__:
             if debug:
                 print("sqtre pattern: '%s'" % self.titre.pattern)
+                
+        # Recognizes a symbol as an operand (OPSYN only)
+        self.symre=re.compile(label)
+        if __debug__:
+            if debug:
+                print("symre pattern: '%s'" % self.symre.pattern)
 
     # This method initializes among other things, the methods used in each pass
     # for each directive or machine instruction.  The following table summarizes
@@ -2456,6 +2468,7 @@ class Assembler(object):
     #    EQU       "common"     _equ_pass1         --
     #    <macro>   _spp_invoke      --             --
     #    MNOTE     _spp_mnote       --             --
+    #    OPSYN     _spp_opsyn
     #    ORG       "common"     _org_pass1         --
     #    PRINT     _spp_print       --             --
     #    PSWS      "common"     _psw20_pass1   _psw20_pass2
@@ -2589,7 +2602,13 @@ class Assembler(object):
         # 
         # [label] MNOTE sev,'message'
         self.__define_dir(dset,"MNOTE",spp=self._spp_mnote,optional=True)
-        
+
+
+        # OPSYN - Define/Delete operation code
+        #
+        # newop  OPSYN [oldop]
+        self.__define_dir(dset,"OPSYN",spp=self._spp_opsyn)
+
 
         # ORG - adjust current location
         #
@@ -2730,7 +2749,7 @@ class Assembler(object):
         #
         # label START address
         self.__define_dir(dset,"START",spp=self._spp_start,\
-            pass1=self._start_pass1,pass2=self._start_pass2,optional=True,)
+            pass1=self._start_pass1,pass2=self._start_pass2,optional=True)
 
 
         # TITLE - set listing title
@@ -2975,6 +2994,14 @@ class Assembler(object):
     def __is_defined(self,symbol):
         return self.ST.isdefined(symbol)
 
+    # Returns True if given label matchs the label regular expression,
+    # False otherwise.
+    def __is_label(self,lbl):
+        mo=self.symre.match(lbl)
+        if mo is None:
+            return False
+        return mo.group()==lbl
+
     # Returns whether a specific operation is being traced:
     def __is_otrace(self,oper):
         return oper.upper() in self.otrace
@@ -2985,10 +3012,11 @@ class Assembler(object):
     #
     # Identification of the statement operation is performed in the following
     # sequence:
-    #  1. Macro name
-    #  2. Machine instruction operation mnemonic
-    #  3. XMODE directive setting
-    #  4. Assembler directive
+    #  1. OPSYN conversion
+    #  2. Macro name
+    #  3. Machine instruction operation mnemonic
+    #  4. XMODE directive setting
+    #  5. Assembler directive
     def __oper_id(self,stmt,debug=False):
         assert isinstance(stmt,Stmt),\
             "%s 'stmt' argument must be an instance of Stmt: %s" \
@@ -3000,19 +3028,43 @@ class Assembler(object):
         lineno=stmt.lineno
 
         # Locate the instruction or statement data
-        insn=None
-        insn_fmt=None
-        macro=None
-        asmpasses=None
+        opcode=None     # The effective opcode after OPSYN translation
+        insn=None       # insbldr.MSLentry object of the machine instruction
+        insn_fmt=None   # msldb.Format object of machine instruction
+        macro=None      # asmmacs.Macro object of defined macro
+        asmpasses=None  # AsmPasses object for assembler directive or instruction
+        
+        # Perform OPSYN replacement.  If None is returned, the operation has been
+        # deleted and an AssemblerError is raised.  A deleted operation may be
+        # restored by another OPSYN directive that defines the operation to its
+        # original value.
+        if idebug:
+            print("%s DEBUG OPSYN Table:\n%s" % (cls_str,self.opsyn))
         try:
-            macro=self.MM.find(stmt.instu)
+            opcode=self.opsyn[stmt.instu]
+            if idebug:
+                print("%s DEBUG OPSYN redefined operation %s: %s" \
+                    % (cls_str,stmt.instu,opcode))
+        except KeyError:
+            opcode=stmt.instu
+            if idebug:
+                print("%s DEBUG OPSYN using original operation: %s" \
+                    % (cls_str,opcode))
+        if opcode is None:
+            raise AssemblerError(line=lineno,\
+                msg="deleted macro, assembler directive or machine instruction: "
+                    "'%s'" % stmt.inst)
+        
+        # Locate the definition of the opcode (original or as redefined by OPSYN)
+        try:
+            macro=self.MM.find(opcode)
             asmpasses=macro.passes(self)    # Pass myself, so my methods can be found
             if idebug:
                 print("%s DEBUB found macro: %s" % (cls_str,stmt.inst))
         except KeyError:
             # Macro not found, try to identify the instruction mnemonic
             try:
-                insn=self.builder.getInst(stmt.inst)
+                insn=self.builder.getInst(opcode)
                 # insn is an instance of MSLentry
                 # Note, this needs to stay here as it controls Insn selection from the
                 # machine definition or the assembler pseudo instruction definition.
@@ -3028,9 +3080,9 @@ class Assembler(object):
                 # Note: XMODE settings translate a generic directive into a specific
                 # machine sensitive one.
                 try:
-                    operation=self.xmode[stmt.instu]   # Find XMODE instruction
+                    operation=self.xmode[opcode]        # Find XMODE instruction
                 except KeyError:
-                    operation=stmt.instu               # If none use statement directly
+                    operation=opcode    # If none use redefined or original operation 
                 try:
                     asmpasses=self.asmpasses[operation]
                     if idebug:
@@ -3281,6 +3333,23 @@ class Assembler(object):
             except AssemblerError as ae:
                 self.__ae_excp(ae,s,string=eloc(self,"__pre_process"),debug=sdebug)
 
+    def __track_loc(self,stmt):
+        new_con=stmt.content
+        if new_con:
+            new_loc=new_con.loc
+            if __debug__:
+                if stmt.trace:
+                    print("%s [%s] statements binary location: %s" 
+                        % (eloc(self,"__track_loc"),stmt.lineno,new_loc))
+            if new_loc:
+                self.cur_loc.establish(new_loc,debug=stmt.trace)
+                if __debug__:
+                    if stmt.trace:
+                        print("%s [%s] Updated location counter: %s" \
+                            % (eloc(self,"assemble"),stmt.lineno,\
+                                self.cur_loc.location))
+
+
     # Set XMODE.  An invalid setting will raise a KeyError
     def __xmode_setting(self,mode,setting,sdict):
         v=sdict[setting]    # This may raise a KeyError
@@ -3337,6 +3406,7 @@ class Assembler(object):
         if not isinstance(operands,list):
             operands=[operands,]
         return operands
+
 
     # Special pre-processing for COPY directive
     def _spp_copy(self,stmt,debug=False):
@@ -3446,6 +3516,37 @@ class Assembler(object):
 
         raise AssemblerError(line=stmt.lineno,\
             msg="MNOTE %s,%s" % (sev,note),info=info)
+
+
+    # Special pre-processing for OPSYN directive
+    def _spp_opsyn(self,stmt,debug=False):
+        trace=stmt.trace or debug
+        new_op=stmt.label.upper()
+        old_op=stmt.rem
+
+        if old_op is None or len(old_op)==0:
+            # This is a deletion - set the operation code value to None
+            if trace:
+                print("%s [%s] OPSYN deleted operation: %s" \
+                    % (eloc(self,"_spp_opsyn"),stmt.lineno,new_op))
+            self.opsyn[new_op]=None
+            return
+
+        # Define or redefine an operation
+        operands=self.__spp_operands(stmt,debug=debug)
+        if len(operands)!=1:
+            raise AssemblerError(line=stmt.lineno,\
+                msg="OPSYN definition requires one operand, found %s" \
+                    % len(operands))
+        old_op=operands[0]
+        if not self.__is_label(old_op):
+            raise AssemblerError(line=stmt.lineno,\
+                msg="OPSYN operand not a valid operation: %s" % old_op)
+        old_op=old_op.upper()
+        if trace:
+            print("%s [%s] OPSYN defining operation %s -> %s" \
+                % (eloc(self,"_spp_opsyn"),stmt.lineno,new_op,old_op))
+        self.opsyn[new_op]=old_op
 
 
     # Special pre-processing for PRINT directive
@@ -3587,6 +3688,12 @@ class Assembler(object):
         for dsect in self.dsects:
             dsect.make_barray_all(trace=rtrace)
             dsect.updtAttr(self,trace=dtrace)
+
+    # Pass 2 - PRE PROCESS IMAGE CREATION
+    def __Pass2_Pre(self,trace=False):
+        # Reset the Location Counter
+        self.cur_loc=LocationCounter()
+        self.cur_loc.establish(AbsAddr(0))
 
     # PASS 2 - POST PROCESS IMAGE CREATION
 
@@ -4947,7 +5054,7 @@ class Assembler(object):
         # If this is the first START directive
         if self.load is None:
             self.load=start
-            self.entry=start  # An END directive can supply a different entyr point
+            self.entry=start  # An END directive can supply a different entry point
 
         stmt.laddr=csect
 
@@ -4956,12 +5063,17 @@ class Assembler(object):
         addr1=csect.loc
         addr2=addr1+max(len(csect)-1,0)
         stmt.laddr=[addr1,addr2]
+        # Reset the location counter
+        self.cur_loc.establish(csect.loc)
 
 
     # USING - define base register(s)
     #
     # [label] USING address,reg   (1 to 16 registers allowed)
     def _using_pass1(self,stmt,trace=False):
+        # This is required in the case a USING occurs without a preceding CSECT or
+        # START directive.
+        self.__check_cur_sec(debug=trace)
         bin=Binary(0,0)    # Create a dummy Binary instance for the statement
         stmt.content=bin   # Establish the USING statement's "binary" content
         self.cur_sec.assign(bin)   # Assign to it its '*' value
@@ -4972,27 +5084,53 @@ class Assembler(object):
         utrace=trace or stmt.trace
         etrace=self.dm.isdebug("tracexp") or utrace
         edebug=self.dm.isdebug("exp")
-        if utrace:
-            cls_str="assembler.py - %s._using_pass2() -" % self.__class__.__name__
-            print("%s %s operands: %s" % (cls_str,stmt.inst,stmt.operands))
+        
+        if __debug__:
+            if utrace:
+                cls_str="assembler.py - %s._using_pass2() -" % self.__class__.__name__
+                lineno=stmt.lineno
+                print("%s [%s] content location: %s" \
+                    % (cls_str,lineno,stmt.content.loc))
+                print("%s [%s] %s operands: %s"\
+                    % (cls_str,lineno,stmt.inst,stmt.operands))
+                print("%s [%s] Location Counter: %s" \
+                    % (cls_str,lineno,self.cur_loc.retrieve()))
 
         stmt.evaluate_operands(debug=edebug,trace=etrace)
         addr=stmt.operands[0].getValue()
+        
+        if __debug__:
+            if utrace:
+                print("%s [%s] using base address %s" % (cls_str,lineno,addr))
+        if addr.isRelative() and not addr.isDummy():
+            addr.makeAbs()  # Added
+            if __debug__:
+                if utrace:
+                    print("%s [%s] made base address absolute: %s" \
+                        % (cls_str,lineno,addr)) 
+ 
+        stmt.laddr=[addr,None]
         regs=[]
         for x in range(1,len(stmt.operands)):
-            if utrace:
-                print("%s register operand number: %s" % (cls_str,x))
+            if __debug__:
+                if utrace:
+                    print("%s [%s] register operand number: %s" % (cls_str,lineno,x))
             reg=stmt.operands[x].getValue()
             regs.append(reg)
-        if utrace:
-            print("%s bases being assigned to registers: %s" % (cls_str,regs))
+        if __debug__:
+            if utrace:
+                print("%s [%s] bases being assigned to registers: %s" \
+                    % (cls_str,lineno,regs))
 
         for r in regs:
             self.bases.using(r,addr,trace=utrace)
             addr=addr+4096
 
-        if utrace:
-            print("%s\n%s" % (cls_str,self.bases.print(indent="    ",string=True)))
+        if __debug__:
+            if utrace:
+                print("%s [%s]\n%s" \
+                    % (cls_str,stmt.lineno,\
+                        self.bases.print(indent="    ",string=True)))
 
     #
     # PUBLIC METHODS
@@ -5067,8 +5205,11 @@ class Assembler(object):
                         print("%s pass %s:method=%s" % (cls_str,pas,name))
 
                     self.cur_stmt=s   # Make current statement referencable globally
+                    
+                    # Track location counter with addresses from Pass 1
                     if pas==2:
-                        self.cur_loc.update(s.content)
+                        self.__track_loc(s)
+
                     if fail:
                         method(s,trace=pdebug)
                     else:
@@ -6217,6 +6358,8 @@ class LocationCounter(object):
             self.establish(bin.loc+len(bin),debug=debug)
 
     def retrieve(self):
+        if self.location is None:
+            return None
         return self.location.clone()
 
     # Based upon the content of the statement the location counter will be upated
@@ -6347,8 +6490,8 @@ class Binary(object):
             barray="None"
         else:
             barray=len(self.barray)
-        return "%s(alignment=%s,length=%s,barray=%s)" \
-            % (self.__class__.__name__,self._align,self._length,barray)
+        return "%s(alignment=%s,length=%s,barray=%s,loc=%s)" \
+            % (self.__class__.__name__,self._align,self._length,barray,self.loc)
 
     def assigned(self,loc):
         self.loc=loc
