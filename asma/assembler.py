@@ -2461,7 +2461,7 @@ class Assembler(object):
     #    COPY      _spp_copy        --             --
     #    CSECT     "common"     _csect_pass1       --
     #    DC        _spp_dcds    _dcds_pass1    _dc_pass2
-    #    DS        _spp_dcds    _dcds_pass1        --
+    #    DS        _spp_dcds    _dcds_pass1    _ds_pass2
     #    DSECT     "common"     _dsect_pass1       --
     #    END       _spp_end     _end_pass1     _end_pass2
     #    ENTRY     "common"     _entry_pass1   _entry_pass2
@@ -2549,7 +2549,7 @@ class Assembler(object):
         #
         # [label] DS   desc'values',...
         self.__define_dir(dset,"DS",spp=self._spp_dcds,\
-            pass1=self._dcds_pass1,optional=False)
+            pass1=self._dcds_pass1,pass2=self._ds_pass2,optional=False)
 
 
         # DSECT - start of continue a dummy section
@@ -4338,7 +4338,8 @@ class Assembler(object):
         edebug=otrace=False
         if __debug__:
             cls_str=eloc(self,"_dcds_pass1")
-            otrace=self.__is_otrace("dc")
+            otrace=trace or stmt.trace or \
+                self.__is_otrace("dc") or self.__is_otrace("ds")
             edebug=self.dm.isdebug("exp")
            
         # Make sure we have an active current section before doing anything more
@@ -4348,7 +4349,7 @@ class Assembler(object):
 
         # Unroll operands into a series of objects.
         gscope=stmt.gscope
-        gscope.Pass1(stmt,self,debug=edebug,trace=trace)
+        gscope.Pass1(stmt,self,debug=edebug,trace=otrace)
         values=gscope.values
 
         # If the statement truly has no operands, that is an error that should
@@ -4399,6 +4400,16 @@ class Assembler(object):
         # Note the binary images in the area object are also linked to the Section
         # object via its elements list.
 
+        # Update location counter alignment (Note pass processing updates for the
+        # length
+        self.cur_loc.establish(area.loc)
+
+        if __debug__:
+            if otrace:
+                print("%s [%s] area: %s" % (cls_str,stmt.lineno,area))
+                print("%s [%s] current location counter: %s" % \
+                    (cls_str,stmt.lineno,self.cur_loc.location))
+
         stmt.content=area
 
         # Define the statement's label, if present, using the length and location
@@ -4418,8 +4429,6 @@ class Assembler(object):
             if __debug__:
                 if etrace:
                     print("%s %s" % (cls_str,value))
-                    
-            
 
             # Build and store image content in Binary
             value.build(stmt,self,n,debug=edebug,trace=etrace)
@@ -4430,6 +4439,15 @@ class Assembler(object):
 
         self.dcs.append(stmt)  # remember to fill in my binary data for the listing
 
+    def _ds_pass2(self,stmt,trace=False):
+        dtrace=False
+        if __debug__:
+            dtrace=trace or stmt.trace or self.__is_otrace("ds")
+            if dtrace:
+                print("%s [%s] area: %s" % (eloc(self,"_ds_pass2"),\
+                    stmt.lineno,stmt.content))
+        self.cur_loc.establish(stmt.content.loc,debug=dtrace)
+    
 
     # DROP - Remove a previous base register assignment
     #
@@ -4543,6 +4561,11 @@ class Assembler(object):
         etrace=trace or stmt.trace
         edebug=self.dm.isdebug("exp")
         etrace=self.dm.isdebug("tracexp") or etrace
+        
+        if __debug__:
+            if etrace:
+                print("%s [%s] EQU current location counter: %s" % \
+                    (eloc(self,"_equ_pass1"),stmt.lineno,self.cur_loc.location))
 
         stmt.evaluate_operands(debug=edebug,trace=etrace)
         new_symbol=stmt.label
@@ -4573,7 +4596,7 @@ class Assembler(object):
             # Must be an integer
             if new_length is None:
                 new_length=1
- 
+
         new_ste=Symbol(new_symbol,new_value,new_length)
         self.__symbol_define(new_ste,stmt.lineno)
         stmt.laddr=[new_value,new_length]
