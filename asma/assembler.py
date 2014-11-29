@@ -2455,22 +2455,24 @@ class Assembler(object):
     # the method usage.
     #
     #   Directive  Pre-Proc        Pass 1         Pass 2
+    #    ATRACEOFF _soo_atraceoff    --             --
+    #    ATRACEON  _spp_atraceon     --             --
     #    CCW       "common"     _ccw0_pass1    _ccw0_pass2
     #    CCW0      "common"     _ccw0_pass1    _ccw0_pass2
     #    CCW1      "common"     _ccw1_pass1    _ccw1_pass2
-    #    COPY      _spp_copy        --             --
-    #    CSECT     "common"     _csect_pass1       --
+    #    COPY      _spp_copy         --             --
+    #    CSECT     "common"     _csect_pass1        --
     #    DC        _spp_dcds    _dcds_pass1    _dc_pass2
     #    DS        _spp_dcds    _dcds_pass1    _ds_pass2
     #    DSECT     "common"     _dsect_pass1       --
     #    END       _spp_end     _end_pass1     _end_pass2
     #    ENTRY     "common"     _entry_pass1   _entry_pass2
-    #    EQU       "common"     _equ_pass1         --
-    #    <macro>   _spp_invoke      --             --
-    #    MNOTE     _spp_mnote       --             --
-    #    OPSYN     _spp_opsyn
-    #    ORG       "common"     _org_pass1         --
-    #    PRINT     _spp_print       --             --
+    #    EQU       "common"     _equ_pass1          --
+    #    <macro>   _spp_invoke       --             --
+    #    MNOTE     _spp_mnote        --             --
+    #    OPSYN     _spp_opsyn        --             --
+    #    ORG       "common"     _org_pass1          --
+    #    PRINT     _spp_print        --             --
     #    PSWS      "common"     _psw20_pass1   _psw20_pass2
     #    PSW360    "common"     _psw360_pass1  _psw360_pass2
     #    PSW67     "common"     _psw67_pass1   _psw67_pass2
@@ -2483,13 +2485,26 @@ class Assembler(object):
     #    PSWZ      "common"     _pswz_pass1    _pswz_pass2
     #    REGION    "common"     _region_pass1  _region_pass2
     #    START     _spp_start   _start_pass1   _start_pass2
-    #    TITLE     _spp_title       --             --
+    #    TITLE     _spp_title        --             --
     #    USING     "common"     _using_pass1   _using_pass2
-    #    XMODE     _spp_xmode       --             --
+    #    XMODE     _spp_xmode        --             --
     #  instruction "common"     _insn_pass1    _insn_pass2
     def __init_statements(self):
         idebug=self.dm.isdebug("insns")
         dset={}
+
+
+        # ATRACEOFF - Disable tracing of an operation
+        #
+        # [label] ATRACEOFF oper[,oper]...
+        self.__define_dir(dset,"ATRACEOFF",spp=self._spp_atraceoff,optional=True)
+        
+        
+        # ATRACEON - Enable tracing of an operation or display current trace settings
+        #
+        # [label] ATRACEON oper[,oper]
+        # [label] ATRACEON   (displays the current tracing table)
+        self.__define_dir(dset,"ATRACEON",spp=self._spp_atraceon,optional=True)
 
 
         # CCW - Build a Channel Command Word based upon XMODE CCW setting
@@ -2607,7 +2622,7 @@ class Assembler(object):
         # OPSYN - Define/Delete operation code
         #
         # newop  OPSYN [oldop]
-        self.__define_dir(dset,"OPSYN",spp=self._spp_opsyn)
+        self.__define_dir(dset,"OPSYN",spp=self._spp_opsyn,optional=True)
 
 
         # ORG - adjust current location
@@ -3407,6 +3422,72 @@ class Assembler(object):
             operands=[operands,]
         return operands
 
+    # Special pre-processing for ATRACEOFF directive
+    def _spp_atraceoff(self,stmt,debug=False):
+        operfld=stmt.rem
+        if __debug__:
+            mytrace=stmt.trace
+
+        # If no operands, dump the current oper trace table to sysout
+        if not operfld:
+            if __debug__:
+                if mytrace:
+                    print("%s [%s] no operands, statement ignored" \
+                        % (eloc(self,"_spp_atraceoff"),stmt.lineno))
+            stmt.ignore=True
+            return
+        
+        # Disable operation tracing
+        # Operations not already enabled for tracing are silently ignored.
+        operands=self.__spp_operands(stmt)
+        for op in operands:
+            opuc=op.upper()
+            try:
+                self.otrace.remove(opuc)
+                if __debug__:
+                    if mytrace:
+                        print("%s [%s] tracing disabled for operation: %s" \
+                            % (eloc(self,"_spp_atraceoff"),stmt.lineno,op))
+            except ValueError:
+                if __debug__:
+                    if mytrace:
+                        print("%s [%s] ignoring operation not enabled for "
+                            "tracing: %s" % (eloc(self,"_spp_atraceoff"),\
+                            stmt.lineno,op))
+                pass
+
+
+    # Special pre-processing for ATRACEON directive
+    def _spp_atraceon(self,stmt,debug=False):
+        operfld=stmt.rem
+        # If no operands, dump the current oper trace table to sysout
+        if not operfld:
+            # a string of length zero or None both are treated as False
+            print("[%s] Operation trace table:" % stmt.lineno)
+            for x in self.otrace:
+                print("     %s" % x)
+            return
+
+        if __debug__:
+            mytrace=stmt.trace
+
+        # Operands present so set them
+        operands=self.__spp_operands(stmt)
+        otrace=self.otrace
+        for op in operands:
+            opuc=op.upper()
+            if opuc in otrace:
+                if __debug__:
+                    if mytrace:
+                        print("%s [%s] tracing already enabled for operation: %s" \
+                            % (eloc(self,"_spp_atraceon"),stmt.lineno,op))
+                continue
+            otrace.append(opuc)
+            if __debug__:
+                if mytrace:
+                    print("%s [%s] enabled tracing of operation: %s" \
+                        % (eloc(self,"_spp_atraceon"),stmt.lineno,op))
+
 
     # Special pre-processing for COPY directive
     def _spp_copy(self,stmt,debug=False):
@@ -3521,18 +3602,32 @@ class Assembler(object):
     # Special pre-processing for OPSYN directive
     def _spp_opsyn(self,stmt,debug=False):
         trace=stmt.trace or debug
-        new_op=stmt.label.upper()
         old_op=stmt.rem
 
-        if old_op is None or len(old_op)==0:
-            # This is a deletion - set the operation code value to None
-            if trace:
-                print("%s [%s] OPSYN deleted operation: %s" \
-                    % (eloc(self,"_spp_opsyn"),stmt.lineno,new_op))
-            self.opsyn[new_op]=None
+        if not old_op:
+            # This is a deletion or OPSYN table dump
+            if stmt.label is None:
+                # Do the OPSYN table dump to sysout because no label was supplied
+                print("[%s] OPSYN Table:" % stmt.lineno)
+                for op in sorted(self.opsyn.keys()):
+                    val=self.opsyn[op]
+                    if val is None:
+                        val="deleted"
+                    print("    %s: %s" % (op,val))
+            else:
+                # Delete the operation synonym
+                new_op=stmt.label.upper()
+                if trace:
+                    print("%s [%s] OPSYN deleted operation: %s" \
+                        % (eloc(self,"_spp_opsyn"),stmt.lineno,new_op))
+                self.opsyn[new_op]=None
             return
 
         # Define or redefine an operation
+        if stmt.label is None:
+            raise AssemblerError(line=stmt.lineno,\
+                msg="OPSYN definition requires label field")
+        new_op=stmt.label.upper()
         operands=self.__spp_operands(stmt,debug=debug)
         if len(operands)!=1:
             raise AssemblerError(line=stmt.lineno,\
