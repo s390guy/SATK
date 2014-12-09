@@ -230,8 +230,13 @@ class LegacyRaw(Raw):
     # * line termination characters, sequence columns or anything beyond sequence
     #   columns is ignored in content.
     # ** active content does not include the comment character if present.
+    # Method Arguments:
+    #   card     A single line from a source including Python line termination
+    #   stream   The stream line continuation character.  Supplied for compatibility
+    #            with StreamRaw object but not used by this method.
+    #   maxsize  The maximum length of the legacy input line.  Defaults to 80.
     def Content(self,card,stream=None,maxsize=80):
-        self.oversize=len(card)>maxsize
+        self.oversize=len(card)>(maxsize+1)
         if len(card)>=72:
             self.content=content=card[:71]       # content is columns 1-71
             self.continued=card[71]!=" "
@@ -276,6 +281,11 @@ class StreamRaw(Raw):
     #       |<---------------card-------------->|  self.card
     #
     # * line termination characters and continuation character are ignored in content.
+    # Method Arguments:
+    #   card     A single line from a source including Python line termination
+    #   stream   The stream active continuation character(s).
+    #   maxsize  Provided for compatibility with LegacyRaw object.  Not used by this
+    #            method.
     def Content(self,card,source=None,stream=None,maxsize=80):
         if len(card)>0 and card[-1] in stream:
             self.continued=True
@@ -644,7 +654,7 @@ class InputHandler(object):
         self.lineno=0                # Reset the line no to zero.
 
     # This method clears the object for reuse with another source.  It will return 
-    # the incomplete logical line as a Line object if any conitnued logical line is
+    # the incomplete logical line as a Line object if any continued logical line is
     # not complete.  The Line object handles this condition.  If no pending raw
     # lines exist, it returns None
     def end(self):

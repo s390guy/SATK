@@ -2252,6 +2252,8 @@ class Assembler(object):
         self.pon=True         # Assume "PRINT ON" directive
         self.pgen=True        # Assume "PRINT GEN" directive
         self.pdata=False      # Assume "PRINT NODATA" directive
+        # Listing stack controlled by the PUSH and POP directives
+        self.pstack=[]        # Stack of tuples: (pon,pgen,pdata)
         
         # Stop object timers
         Stats.stop("objects_w")
@@ -2472,6 +2474,7 @@ class Assembler(object):
     #    MNOTE     _spp_mnote        --             --
     #    OPSYN     _spp_opsyn        --             --
     #    ORG       "common"     _org_pass1          --
+    #    POP       _spp_pop          --             --
     #    PRINT     _spp_print        --             --
     #    PSWS      "common"     _psw20_pass1   _psw20_pass2
     #    PSW360    "common"     _psw360_pass1  _psw360_pass2
@@ -2483,6 +2486,7 @@ class Assembler(object):
     #    PSWE370   "common"     _pswbi_pass1   _pswbi_pass2
     #    PSWE390   "common"     _pswbi_pass1   _pswbi_pass2
     #    PSWZ      "common"     _pswz_pass1    _pswz_pass2
+    #    PUSH      _spp_push         --             --
     #    REGION    "common"     _region_pass1  _region_pass2
     #    START     _spp_start   _start_pass1   _start_pass2
     #    TITLE     _spp_title        --             --
@@ -2632,6 +2636,12 @@ class Assembler(object):
             pass1=self._org_pass1,optional=True,min=1,max=1,cls=[SingleAny,])
 
 
+        # POP - restore saved settings
+        #
+        #         POP    PRINT[,NOPRINT]
+        self.__define_dir(dset,"POP",spp=self._spp_pop,optional=True)
+        
+
         # PRINT - set listing option(s)
         #
         #         PRINT  option[,option]...
@@ -2744,6 +2754,12 @@ class Assembler(object):
         self.__define_dir(dset,"PSWZ",parser="common",\
             pass1=self._pswz_pass1,pass2=self._pswz_pass2,optional=True,\
             min=5,max=6,cls=[Single,Single,Single,Single,SingleAny,Single])
+
+
+        # PUSH - restore saved settings
+        #
+        #         PUSH   PRINT[,NOPRINT]
+        self.__define_dir(dset,"PUSH",spp=self._spp_push,optional=True)
 
 
         # REGION - continue an existing region
@@ -3408,6 +3424,7 @@ class Assembler(object):
         return self.xmode[mode]
 
     # Generic routine for handling comma separate operands in pre-processed statements
+    # Returns a list of operands as strings upto the first non-blank character.
     def __spp_operands(self,stmt,debug=False):
         # Extract the operand field from the statement
         operfld=stmt.rem
@@ -3421,6 +3438,29 @@ class Assembler(object):
         if not isinstance(operands,list):
             operands=[operands,]
         return operands
+        
+    # Pre-processor shared by both PUSH and POP directives
+    def __spp_push_pop(self,stmt,debug=False):
+        operands=stmt.rem
+        no_ops=not operands
+        if not operands:
+            raise AssemblerError(lineno=stmt.lineno,\
+                msg="%s directive requires at least one operand" % stmt.instu)
+        no_print=False
+        stack_print=False
+        operands=self.__spp_operands(stmt,debug=debug)
+        if len(operands)>1 and operands[-1].upper() == 'NOPRINT':
+            no_print=True
+            operands=operands[:-1]
+        for x in operands:
+            y=x.upper()
+            if y=="PRINT":
+                stack_print=True
+            # Add cases here for additional future operands
+            else:
+                raise AssemblerError(lineno=stmt.lineno,\
+                    msg="%s operand invalid: %s" % (stmt.instu,x))
+        return (stack_print,no_print)
 
     # Special pre-processing for ATRACEOFF directive
     def _spp_atraceoff(self,stmt,debug=False):
@@ -3644,21 +3684,41 @@ class Assembler(object):
         self.opsyn[new_op]=old_op
 
 
+    # Special pre-processing for POP directive
+    def _spp_pop(self,stmt,debug=False):
+        trace=stmt.trace or debug
+        stack_print,no_print=self.__spp_push_pop(stmt,debug=trace)
+        if stack_print and len(self.pstack)!=0:
+            self.pon,self.pdata,self.pgen=self.pstack.pop()
+        if no_print:
+            stmt.pon=False
+
+
     # Special pre-processing for PRINT directive
     def _spp_print(self,stmt,debug=False):
+        trace=stmt.trace or debug
         # Extract the operand field from the statement
-        operfld=stmt.rem
+        operands=stmt.rem
         # Look for first space (terminating the operands)
-        try:
-            ndx=operfld.index(" ")
-            opers=operfld[:ndx]
-        except ValueError:
-            opers=operfld
-        operands=opers.split(",")   # separate operands
-        if not isinstance(operands,list):
-            operands=[operands,]
-        for ndx in range(len(operands)):
-            original=operands[ndx]
+        #try:
+        #    ndx=operfld.index(" ")
+        #    opers=operfld[:ndx]
+        #except ValueError:
+        #    opers=operfld
+        #operands=opers.split(",")   # separate operands
+        if not operands:
+            raise AssemblerError(lineno=stmt.lineno,\
+                msg="%s directive requires at least one operand" % stmt.instu)
+        no_print=False
+        operands=self.__spp_operands(stmt,debug=debug)
+        if len(operands)>1 and operands[-1].upper() == 'NOPRINT':
+            no_print=True
+            operands=operands[:-1]
+        #if not isinstance(operands,list):
+        #    operands=[operands,]
+        for ndx,operand in enumerate(operands):
+            #original=operands[ndx]
+            original=operand
             operand=original.upper()
             if operand == "ON":
                 self.pon=True
@@ -3676,7 +3736,24 @@ class Assembler(object):
                 raise AssemblerError(line=stmt.lineno,
                     msg="PRINT directive operand %s unrecognized: %s" \
                         % (ndx+1,original))
+        # NOPRINT controls whether the PRINT directive is printed or not.
+        # The current setting of PRINT ON or OFF does not.
+        if no_print:
+            stmt.pon=False
+        else:
+            stmt.pon=True
         stmt.ignore=True          # No more processing for a PRINT directive
+
+
+    # Specifal pre-processor for PUSH directive
+    def _spp_push(self,stmt,debug=False):
+        trace=stmt.trace or debug
+        stack_print,no_print=self.__spp_push_pop(stmt,debug=trace)
+        if stack_print:
+            options=(self.pon,self.pdata,self.pgen)
+            self.pstack.append(options)
+        if no_print:
+            stmt.pon=False
 
 
     # Special pre-processsor for SPACE directive
