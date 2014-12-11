@@ -957,6 +957,26 @@ class Storage(Operand):
         self.base=None       # This is the base register that resolves for address
         self.disp=None       # This is the displacement that resolves for address
 
+    def ck_base_disp(self,base,disp,stmt,opn):
+        if not isinstance(base,int):
+            if isinstance(base,Address): 
+                raise AssemblerError(line=stmt.lineno,\
+                   msg="operand %s base register must not be an address: %s" \
+                    % (opn+1,base))
+            else:
+                raise ValueError("%s [%s] operand %s base register did not resolve"
+                    "to an integer: %s" % (eloc(self,"ck_base_disp"),\
+                        stmt.lineno,opn+1,base))
+        if not isinstance(disp,int):
+            if isinstance(disp,Address):
+                raise AssemblerError(line=stmt.lineno,\
+                    msg="operand %s displacement must not be an address: %s" \
+                        % (opn+1,disp))
+            else:
+                raise ValueError("%s [%s] operand %s displacement did not resolve "
+                    "to an integer: %s" % (eloc(self,"resolve"),\
+                        stmt.lineno,opn+1,disp))
+
     # Return operand values for 'B' or 'D' type machine fields
     # Results depend upon the resolve() having completed its work.
     def field(self,typ):
@@ -987,7 +1007,6 @@ class Storage(Operand):
             self.laddr=dest.lval()
             self.base,self.disp=asm._resolve(dest,stmt.lineno,opn,self.size,\
                 trace=trace)
-            #self.laddr=dest.address
         elif self.fields==0x210:
             disp=self.values[0]
             if disp.isDummy():
@@ -1004,14 +1023,11 @@ class Storage(Operand):
             self.base=self.values[1]
             self.laddr=self.disp=disp
         else:
-            cls_str="assembler.py - %s.resolve() -" % self.__class__.__name__
             raise ValueError("%s unexpected self.fields: 0x%03X" \
-                % (cls_str,self.fields))
+                % (eloc(self,"resolve"),self.fields))
+
         # Make sure we are good to go before leaving
-        if not isinstance(self.base,int) or not isinstance(self.disp,int):
-            cls_str=eloc(self,"resolve")
-            raise ValueError("%s [%s] could not set base/displacement: %s/%s" \
-                % (cls_str,stmt.lineno,self.base,self.disp))
+        self.ck_base_disp(self.base,self.disp,stmt,opn)
 
     def source_error(self):
         return "unexpected index register (error=%s)" % self.source
@@ -1091,6 +1107,10 @@ class StorageExt(Storage):
             % (eloc(self,"field"),typ,self.isIndex))
 
     def resolve(self,asm,stmt,opn,trace=False):
+        if __debug__:
+            if trace:
+                print(eloc(self,"resolve"),"[%s] operand %s self.fields: %3X" \
+                     % (stmt.lineno,opn,self.fields))
         if self.fields==0x100:
             self.base=0
             self.laddr=self.disp=self.values[0]
@@ -1131,36 +1151,45 @@ class StorageExt(Storage):
         elif self.fields==0x211:
             self.base=self.values[2]
             disp=self.values[0]
+            if isinstance(disp,Address) and not disp.isDummy():
+                raise AssemblerError(line=stmt.lineno,\
+                    msg="operand %s displacement must not be an address: %s" \
+                        % (opn+1,disp))
             if disp.isDummy():
                 # Use the DSECT relative address as displcement
                 self.disp=disp.lval()
-            elif disp.isAbsolute():
-                # Use absolute address as displacement
-                self.disp=disp.address
+            elif isinstance(disp,int):
+                self.disp=disp
+                self.laddr=disp
             else:
                 raise AssemblerError(line=stmt.lineno,\
                     msg="operand %s (%s) encountered unexpected %s as "
                         "displacement: %s" % (opn,self.name,disp.description()))
-            self.laddr=disp
+            self.laddr=self.disp
             self.__setNdxLen(self.values[1])
         else:
             raise ValueError("%s unexpected self.fields: 0x%03X" \
                 % (eloc(self,"resolve"),self.fields))
 
         # Make sure we are good to go before leaving
-        if not isinstance(self.base,int) or not isinstance(self.disp,int):
-            raise ValueError("%s could not set base/displacement: %s/%s" \
-                % (cls_str,self.base,self.disp))
+        self.ck_base_disp(self.base,self.disp,stmt,opn)
+
         if self.isIndex:
             if not isinstance(self.index,int):
-                raise ValueError("%s cound not set index register: %s" \
-                    % (cls_str,sle.index))
-            else:
-                pass
+                if isinstance(self.index,Address):
+                    raise AssemblerError(line=stmt.lineno,\
+                        msg="operand %s index must not be an address: %s" \
+                            % (opn+1,self.index))
+                raise ValueError("%s [%s] operand %s index register not an integer: "
+                    "%s" % (cls_str,stmt.lineno,opn,self.index))
         else:
             if not isinstance(self.length,int):
-                raise ValueError("%s cound not set length: %s" \
-                    % (cls_str,self.length))
+                if isinstance(self.length,Address):
+                    raise AssemblerError(line=stmt.lineno,\
+                        msg="operand %s length must not be an address: %s" \
+                            % (opn+1,self.length))
+                raise ValueError("%s [%s] operand %s length length not an integer: "
+                    "%s" % (cls_str,stmt.lineno,opn,self.length))
 
     def source_error(self):
         if self.fields & 0x0F0 == 0x020:
@@ -3444,7 +3473,7 @@ class Assembler(object):
         operands=stmt.rem
         no_ops=not operands
         if not operands:
-            raise AssemblerError(lineno=stmt.lineno,\
+            raise AssemblerError(line=stmt.lineno,\
                 msg="%s directive requires at least one operand" % stmt.instu)
         no_print=False
         stack_print=False
@@ -3458,7 +3487,7 @@ class Assembler(object):
                 stack_print=True
             # Add cases here for additional future operands
             else:
-                raise AssemblerError(lineno=stmt.lineno,\
+                raise AssemblerError(line=stmt.lineno,\
                     msg="%s operand invalid: %s" % (stmt.instu,x))
         return (stack_print,no_print)
 
@@ -3707,7 +3736,7 @@ class Assembler(object):
         #    opers=operfld
         #operands=opers.split(",")   # separate operands
         if not operands:
-            raise AssemblerError(lineno=stmt.lineno,\
+            raise AssemblerError(line=stmt.lineno,\
                 msg="%s directive requires at least one operand" % stmt.instu)
         no_print=False
         operands=self.__spp_operands(stmt,debug=debug)
