@@ -7,8 +7,9 @@ on mainframe compatible systems.  While targeting the Hercules emulator, nothing
 precludes its use with "big-iron" real or virtual environments.
 
 The following directories are provided:
-    asma            - A Small Mainframe Assembler for stand-alone programs.
+    asma            - A Small Mainframe Assembler (ASMA) for stand-alone programs.
     doc             - Various related documentation including other 'README' files.
+    doc/asma        - ASMA related documentation
     doc/iplelf      - Documentation related to the IPL ELF Supplement and SATK 
                       support.
     lib             - GNU ld linker scripts
@@ -21,6 +22,11 @@ The following directories are provided:
     src/storage     - Storage management functions.  Only static assignment 
                       supported.
     tools           - Python and bash tools for use with SATK.
+                         asma.py - command-line interface to ASMA
+                         codepage.py - ASMA code page customization
+                         msl.py - Machine Specification Language (MSL) processor
+                         mslrpt.py - MSL architecture comparison report
+                         xmi.py - XMI file format PDS and member utility
     tools/ipl       - IPL ELF Media Preparation Processor, iplmed.py, and related 
                       tools: ipldpp.py, media.py
     xforth          - Forth language cross-compiler framework
