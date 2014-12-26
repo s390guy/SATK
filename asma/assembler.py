@@ -1641,9 +1641,12 @@ class Stmt(object):
 
             try:
                 opr.evaluate(debug=debug,trace=trace)
+            except AddrArithError as ae:
+                raise AssemblerError(line=self.lineno,source=self.source,\
+                    msg="operand %s %s" % (n+1,ae.msg)) from None
             except LabelError as le:
                 raise AssemblerError(line=self.lineno,source=self.source,\
-                    msg="undefined label: %s" % le.label) from None
+                    msg="operand %s undefined label: %s" % (n+1,le.label)) from None
 
             if not opr.validate_expr(trace=trace):
                 raise AssemblerError(line=self.lineno,\
