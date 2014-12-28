@@ -213,10 +213,13 @@ class PLitCur(AsmPrattToken):
         else:
             cur=cur_stmt.current()
 
-        assert isinstance(cur,assembler.Address),\
-            "%s current location of statement %s not an address: %s" \
-                % (assembler.eloc(self,"value",module=this_module),\
-                    cur_stmt.lineno,cur)
+        if cur is None:
+            raise AddrArithError(msg="current location counter no established")
+        else:
+            assert isinstance(cur,assembler.Address),\
+                "%s current location of statement %s not an address: %s" \
+                    % (assembler.eloc(self,"value",module=this_module),\
+                        cur_stmt.lineno,cur)
 
         if __debug__:
             if trace:
