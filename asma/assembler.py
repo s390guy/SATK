@@ -5982,6 +5982,10 @@ class DDisp(Address):
             new_rel=self._ck(\
                self.value+other,other,"+",self,rsup=rsup)
             return DDisp(new_rel,self.section,length=self.length)
+        elif typo==1:  #    Other is a dummy displacement
+            new_rel=self._ck(\
+                self.value+other.value,self,"+",other,rsup=rsup)
+            return DDisp(new_rel,self.section,length=self.length)
         elif typo==2:  #    Other is a relative address (treat me like int)
             new_rel=self._ck(\
                 self.value+other.value,self,"+",other,rsup=rsup)
