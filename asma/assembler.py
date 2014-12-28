@@ -4037,6 +4037,7 @@ class Assembler(object):
                 % (eloc(self,"__dsect_activate"),section)
 
         self.cur_sec=section
+        self.cur_loc.establish(section.current())
 
         if __debug__:
             if debug:
