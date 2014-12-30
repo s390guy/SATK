@@ -7411,9 +7411,11 @@ class Img(Content):
 
     # The value provided by the first region is the image's value.
     def value(self):
-        assert len(self.elements),\
-            "%s image value depends upon its first region, no regions present" \
-                % eloc(self,"value")
+        # If there are no regions, then assume this object starts at absolute zero.
+        # No regions exist for an assembly that does not create them, for example
+        # when there are only DSECT's being assembled.
+        if len(self.elements) == 0:
+            return AbsAddr(0)
 
         region=self.elements[0]
         return region.value()
