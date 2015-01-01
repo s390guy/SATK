@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014 Harold Grovesteen
+# Copyright (C) 2014,2015 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -945,10 +945,15 @@ class SETC(MacroOp):
         # Evaluate the starting sub-string position
         start_value=self.evaluate(state,self.start,Macro.Arith,\
             debug=debug,trace=False)
+        if debug:
+            print("SETC.sub_string: start_value: %s" % start_value)
 
         # Evalueate the length of the sub-string
         length_value=self.evaluate(state,self.length,Macro.Arith,\
             debug=debug,trace=False)
+        if debug:
+            print("SETC.sub_string: length_value: %s" % length_value)
+        
 
         start=self.to_integer(start_value)  # Make sure its an integer
         length=self.to_integer(length_value) # Make sure its an integer
@@ -956,19 +961,19 @@ class SETC(MacroOp):
         # Validate the starting sub-string position 
         strlen=len(string)
         if start<1 or start>strlen:
-            raise MacroError("substring starting position out of range (1-%s): %s" \
-                % (strlen,start))
+            raise MacroError(msg="substring starting position out of range "
+                "(1-%s): %s" % (strlen,start))
 
         # Validate the sub-string position length
         if length>0:
             end=start+length-1
             if end<1 or end>strlen:
-                raise MacroError("substring ending position out of range (1-%s): %s" \
-                    % (strlen,end))
+                raise MacroError(msgG="substring ending position out of range "
+                    "(1-%s): %s" % (strlen,end))
         elif length==0:
             return ""
         else:
-            raise MacroError("substring length may not be negative: %s" % length)
+            raise MacroError(msg="substring length may not be negative: %s" % length)
 
         # Extract the substring from the Python string
         start-=1     # Convert starting position to Python string index relative to 0     
@@ -2491,7 +2496,6 @@ class MacroLanguage(object):
         
         # May raise an AssemblerError if name field is not a symbol reference
         setname=self.__set_name(stmt,"SETA")  # SymbolID object for variable being set
-        #print("_SETA setname: %s" % setname)
 
         # Parse the operands.
         scope=self.parsers.parse_operands(stmt,"seta",required=True)
@@ -2504,6 +2508,7 @@ class MacroLanguage(object):
 
         self.indefn._seta(lineno,setname,expr)
 
+    # SETA macro directive
     def _SETB(self,stmt,debug=False):
         flds=stmt.fields
         lineno=stmt.lineno
@@ -2522,6 +2527,7 @@ class MacroLanguage(object):
 
         self.indefn._setb(lineno,setname,expr)
 
+    # SETC macro directive
     def _SETC(self,stmt,debug=False):
         lineno=stmt.lineno
         
@@ -2530,7 +2536,7 @@ class MacroLanguage(object):
 
         # Parse the operands.
         scope=self.parsers.parse_operands(stmt,"setc",required=True)
-        
+
         if debug:
             print("_SETC: %s scope: %s" % (lineno,scope))
 

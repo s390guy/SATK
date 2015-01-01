@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014 Harold Grovesteen
+# Copyright (C) 2014,2015 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -1934,7 +1934,7 @@ class CharParser(AsmFSMParser):
     def ACT_RParen2(self,value,state,trace=False):
         gs=self.scope()
         if gs._parens==0:
-            self.st_len=gs.expr_end()
+            gs.st_len=gs.expr_end()
             return "done"
         gs.rparen()
         return "strlen"
@@ -1943,7 +1943,7 @@ class CharParser(AsmFSMParser):
     def ACT_Start_Done(self,value,state,trace=False):
         gs=self.scope()
         gs.ck_parens(value)
-        self.st_start=gs.expr_end()
+        gs.st_start=gs.expr_end()
         return "strlen"
 
     # Extend the initial string token with additional content
