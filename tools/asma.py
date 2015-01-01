@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014 Harold Grovesteen
+# Copyright (C) 2014,2015 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -19,7 +19,7 @@
 # This module provides a command line interface to the ASMA assembler.py module.
 
 this_module="asma.py"
-copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014")
+copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014, 2015")
 
 # Python imports
 import sys
