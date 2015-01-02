@@ -1,4 +1,4 @@
-# Copyright (C) 2014 Harold Grovesteen
+# Copyright (C) 2014,2015 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -856,6 +856,7 @@ inst JNE    A774 ERIC    E      # "JUMP" RELATIVE ON NOT EQUAL         (BRC 7,IM
 inst JNH    A7D4 ERIC    E      # "JUMP" RELATIVE ON NOT HIGH          (BRC 13,IMMED)
 inst JNL    A7B4 ERIC    E      # "JUMP" RELATIVE ON NOT HIGH          (BRC 11,IMMED)
 inst JNM    A7B4 ERIC    E      # "JUMP" RELATIVE ON NOT MINUS         (BRC 11,IMMED)
+inst JNO    A7E4 ERIC    E      # "JUMP" RELATIVE ON NOT ONES/OVERFLOW (BRC 14,IMMED)
 inst JNOP   A704 ERIC    E      # NO OPERATION                         (BRC 0,IMMED)
 inst JNP    A7D4 ERIC    E      # "JUMP" RELATIVE ON NOT PLUS          (BRC 13,IMMED)
 inst JNZ    A774 ERIC    E      # "JUMP" RELATIVE ON NOT ZERO(S)       (BRC 7,IMMED)
@@ -890,6 +891,7 @@ inst JLNE   C074 ERILC   E      # "JUMP" RELATIVE ON NOT EQUAL         (BRCL 7,I
 inst JLNH   C0D4 ERILC   E      # "JUMP" RELATIVE ON NOT HIGH          (BRCL 13,IMMED)
 inst JLNL   C084 ERILC   E      # "JUMP" RELATIVE ON NOT HIGH          (BRCL 11,IMMED)
 inst JLNM   C084 ERILC   E      # "JUMP" RELATIVE ON NOT MINUS         (BRCL 11,IMMED)
+inst JLNO   C0E4 ERILC   E      # "JUMP" RELATIVE ON NOT ONES/OVERFLOW (BRCL 14,IMMED)
 inst JLNOP  C004 ERILC   E      # NO OPERATION                         (BRCL 0,IMMED)
 inst JLNP   C0D4 ERILC   E      # "JUMP" RELATIVE ON NOT PLUS          (BRCL 13,IMMED)
 inst JLNZ   C074 ERILC   E      # "JUMP" RELATIVE ON NOT ZERO(S)       (BRCL 7,IMMED)
@@ -945,7 +947,7 @@ iset all-extended
 
 iset s390-rel-extended
     mnemonics BRE BRH BRL BRM BRNE BRNH BRNL BRNM BRNO BRNP BRNZ BRO BRP BRU BRZ
-    mnemonics J JAS JCT JE JH JL JM JNE JNH JNL JNM JNOP JNP JNZ JO JP JXH JXLE JZ
+    mnemonics J JAS JCT JE JH JL JM JNE JNH JNL JNM JNO JNOP JNP JNZ JO JP JXH JXLE JZ
     
 #iset all-channel_subsystem_io
 #    mnemonics CHSC CSCH HSCH MSCH RCHP RSCH SAL SCHM SSCH STCPS STCRW STSCH
@@ -967,7 +969,7 @@ iset s390-new
 
 iset s390-new-extended
     mnemonics BREL BRHL BRLL BRML BRNEL BRNHL BRNLL BRNML BRNOL BRNPL BRNZL BROL
-    mnemonics BRPL BRUL BRZL JASL JLE JLH JLL JLM JLNE JLNH JLNL JLNM JLNOP
+    mnemonics BRPL BRUL BRZL JASL JLE JLH JLL JLM JLNE JLNH JLNL JLNM JLNO JLNOP
     mnemonics JLNP JLNZ JLO JLP JLU JLZ
 
 # See IBM z/Architecture Principles of Operation, SA22-7832-00, December, 2000
