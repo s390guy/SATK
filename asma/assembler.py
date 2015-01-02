@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014 Harold Grovesteen
+# Copyright (C) 2014,2015 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -5108,7 +5108,9 @@ class Assembler(object):
         edebug=self.dm.isdebug("exp")
         etrace=self.dm.isdebug("tracexp") or ptrace
 
-        inst=stmt.instu
+        # Instruction name is the actual instruction, for example, PSWE390,
+        # not the coded instruction, for example, PSW.
+        inst=stmt.asmpasses.name
 
         stmt.evaluate_operands(debug=edebug,trace=etrace)
 
@@ -5162,8 +5164,6 @@ class Assembler(object):
         ptrace=trace or stmt.trace
         edebug=self.dm.isdebug("exp")
         etrace=self.dm.isdebug("tracexp") or ptrace
-
-        inst=stmt.instu
 
         stmt.evaluate_operands(debug=edebug,trace=etrace)
 
