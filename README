@@ -1,19 +1,21 @@
                            SATK - Stand-alone Tool Kit
 
-Copyright (C) 2012-2014 Harold Grovesteen                     
+Copyright (C) 2012-2015 Harold Grovesteen                     
 
-SATK is intended to assist in the development of stand-alone, or baremetal, programs 
-on mainframe compatible systems.  While targeting the Hercules emulator, nothing
-precludes its use with "big-iron" real or virtual environments.
+SATK is intended to assist in the development of stand-alone, or baremetal,
+programs on mainframe compatible systems.  While targeting the Hercules emulator,
+nothing precludes its use with "big-iron" real or virtual environments.
 
 The following directories are provided:
     asma            - A Small Mainframe Assembler (ASMA) for stand-alone programs.
+                      ASMA runs wherever Python 3.3 runs!
     doc             - Various related documentation including other 'README' files.
     doc/asma        - ASMA related documentation
     doc/iplelf      - Documentation related to the IPL ELF Supplement and SATK 
                       support.
     lib             - GNU ld linker scripts
     samples         - Various IPL related samples
+    samples/asma    - Sample programs using ASMA
     src             - source code for use in stand-alone programs.
     src/drivers     - Device drivers - very experimental, do not recommend use
     src/hal         - Hardware Abstraction Layer
@@ -21,14 +23,15 @@ The following directories are provided:
     src/ipl/include - Routines useful for IPL ELF stage0 loaders.
     src/storage     - Storage management functions.  Only static assignment 
                       supported.
+    srcasm          - Bare-metal facilities using ASMA.
     tools           - Python and bash tools for use with SATK.
                          asma.py - command-line interface to ASMA
                          codepage.py - ASMA code page customization
                          msl.py - Machine Specification Language (MSL) processor
                          mslrpt.py - MSL architecture comparison report
                          xmi.py - XMI file format PDS and member utility
-    tools/ipl       - IPL ELF Media Preparation Processor, iplmed.py, and related 
-                      tools: ipldpp.py, media.py
+    tools/ipl       - IPL ELF Media Preparation Processor, iplmed.py, and 
+                      related tools: ipldpp.py, media.py
     xforth          - Forth language cross-compiler framework
 
 This file is part of SATK.
@@ -51,15 +54,17 @@ LICENSING
 ---------
 
 Unless otherwise indicated SATK is licensed under the GNU General Public License
-version 3 or later.  The license can be found in the file COPYING in the project root
-directory.  Documentation is licensed under the GNU Free Documentation License
-version 1.3 and can be found in the file fdl-1.3.txt in the doc directory.
+version 3 or later.  The license can be found in the file COPYING in the
+project root directory.  Documentation is licensed under the GNU Free 
+Documentation License version 1.3 and can be found in the file fdl-1.3.txt 
+in the doc directory.
 
 The directory xforth is licensed under the Simplified BSD License containing
-modifications to a package using this licensing.  The Simplified BSD License can be
-found in the file LICENSE.txt in the xforth directory.  The file forth_words.py in
-the xforth directory contains public domain software.  See the xforth file forth.py
-for details of the original package on which this directory is based.
+modifications to a package using this licensing.  The Simplified BSD License
+can be found in the file LICENSE.txt in the xforth directory.  The file 
+forth_words.py in the xforth directory contains public domain software.  See
+the xforth file forth.py for details of the original package on which this
+directory is based.
 
 
 REQUIREMENTS
