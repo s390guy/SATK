@@ -7,9 +7,9 @@ programs on mainframe compatible systems.  While targeting the Hercules emulator
 nothing precludes its use with "big-iron" real or virtual environments.
 
 The following directories are provided:
-    asma            - A Small Mainframe Assembler (ASMA) for stand-alone programs.
-                      ASMA runs wherever Python 3.3 runs!
-    doc             - Various related documentation including other 'README' files.
+    asma            - A Small Mainframe Assembler (ASMA) for stand-alone
+                      programs.  ASMA runs wherever Python 3.3 runs!
+    doc             - Various related documentation.
     doc/asma        - ASMA related documentation
     doc/iplelf      - Documentation related to the IPL ELF Supplement and SATK 
                       support.
