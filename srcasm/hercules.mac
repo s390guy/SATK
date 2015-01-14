@@ -1,0 +1,123 @@
+* Copyright (C) 2015 Harold Grovesteen
+*
+* This file is part of SATK.
+*
+*     SATK is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, either version 3 of the License, or
+*     (at your option) any later version.
+*
+*     SATK is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+* This module provides the macros tailored specifically to the Hercules emulator.
+
+* Macros Supplied:
+*    HRCCMD    Issue a Hercules command from the program
+*    HRCIPLP   Stores Hercules IPL parameters provided in IPL 32-bit registers
+
+         MACRO
+&LABEL   HRCCMD &CMD,&CMDL=,&FAIL=,&PSW=
+.* Issue a Hercules command usind DIAGNOSE X'8' without a response buffer.
+.* Required Parameter Usage:
+.*  &CMD    The register pointing to command to be issued
+.* Optional Parameter Usage:
+.*  &LABEL  Symbols associated with the macro's generated statements.
+.*  &CMDL   The register containing the length of the command.  If omitted, the length
+.*          is assumed to be the halfword pointed to by the &CMD register followed
+.*          by the actual command as EBCDIC characters.
+.*  &FAIL   Control is passed to this location if the command fails.  If omitted,
+.*          a disabled wait state with code X'400' is entered.
+.*  &PSW    If a disabled wait state is entered, the PSW format specified is used.
+.*          Otherwise, the current XMODE PSW setting is used.  See DWAIT macro
+.*          description for the usage of this parameter.
+.* Dependency:
+.*  Entering a disabled wait state has a dependency on the DWAIT macro in satk.mac
+.* WARNING: A command length of zero will cause the Hercules CPU to enter the stopped
+.* state!
+         LCLA  &ARCHLVL Current architecture level
+         LCLB  &CLIMP   Switch indicating the length is implied.
+         LCLC  &CLREG   Command length register
+         LCLC  &BNZ,&BZ,&LH,&SLR
+         AIF   ('&CMD' NE '').CMDOK
+         MNOTE 1,'HRCCMD - INITIAL COMMAND LENGTH REGISTER PARAMETER MISSING'
+         MEXIT
+.CMDOK   ANOP
+&BNZ     SETC  'BNZ '
+&BZ      SETC  'BZ '
+&LH      SETC  'LH '
+&SLR     SETC  'SLR '
+         AIF   (&ARCHLVL LT 7).CKLREG
+&BZ      SETC  'JZ '
+&BNZ     SETC  'JNZ '
+         AIF   (&ARCHLVL NE 9).CKLREG
+&LH      SETC  'LGH'
+&SLR     SETC  'SLGR'
+.CKLREG  ANOP
+&CLIMP   SETB  '&CMDL' EQ ''
+         AIF   (&CLIMP).IMPCL
+&CLREG   SETC  '&CMDL'
+.IMPCL   ANOP
+&CLREG   SETC  '2+(&CMD)'
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H
+.NOLBL   ANOP
+         AIF   (NOT &CLIMP).DODIAG
+         &SLR  &CLREG,&CLREG             Make sure flags are all zeros
+         ICM   &CLREG,B'0011',0(&CMD)    Fetch the command length
+         LA    &CMD,2(0,&CMD)            Point to the actual command     
+.DODIAG  ANOP
+.* A Specification exception results if the registers are bad or flags are invalid
+.* A command length of zero results in a stopped CPU on Hercules.  This macro
+.* does not check for a zero length command.
+         DIAG  &CMD,&CLREG,X'008'        Issue the Hercules command
+         AIF   ('&FAIL' EQ '').DWAIT
+         &BNZ  &FAIL
+         MEXIT
+.DWAIT   ANOP
+         BZ    HRCC&SYSDNX
+         DWAIT PGM=0,CODE=400,PSW=&PSW,LOAD=YES
+HRCC&SYSDX DS 0H
+         MEND
+
+         MACRO
+&LABEL   HRCIPLP &ADDR=X'200',&CLEAR='NO'
+.* Saves Hercules IPL parameters supplied in 32-bit R0-R15 at a directly addressable
+.* location.  Instructions are inline.  Because the IPL parameters are placed in the
+.* registers and the parameters are used, this macro will likely be the first statement
+.* of machine instructions thereby freeing the registers for their normal functions.
+.*   &ADDR    Starting address of 64-byte into which the Hercules IPL parameters are
+.*            saved.  Hercule IPL parameters are supplied with the use of the Hercules
+.*            IPL or IPLC command's PARM parameter.  Defaults to 
+.*   &CLEAR   Specify 'YES' to cause the clearing of the registers as if a CPU reset
+.*            had been performed.  Default is 'NO'
+.* A directly addressable location is required because the registers are not available
+.* for use until their contents have been saved.  Obviously, the directly addressable
+.* location can be temporary by moving the 64-bytes of data elsewhere.
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H
+.NOLBL   ANOP
+         STM   0,15,&ADDR.(0)   Save IPL parms
+         AIF   ('&CLEAR' NE 'YES').DONE
+         SLR   0,0
+         LR    1,0
+         LR    2,0
+         LR    3,0
+         LR    4,0
+         LR    5,0
+         LR    6,0
+         LR    7,0
+         LR    8,0
+         LR    9,0
+         LR    10,0
+         LR    11,0
+         LR    12,0
+         LR    13,0
+         LR    14,0
+         LR    15,0
+.DONE    MEND

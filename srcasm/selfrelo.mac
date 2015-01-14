@@ -1,0 +1,659 @@
+* Copyright (C) 2015 Harold Grovesteen
+*
+* This file is part of SATK.
+*
+*     SATK is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, either version 3 of the License, or
+*     (at your option) any later version.
+*
+*     SATK is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+* This module supports address constant self relocation by a bare-metal program within
+* the region in which the RELOREGN
+* Macros:
+*    RELO       Establishes the assembly time self-relocation environment.
+*    RELOA      Create a self-relocatable address constant
+*    RELOBASE   Assembles a relocation base definition
+*    RELODS     Definition of structures used for self-relocation
+*    RELOCATE   Updates assembled address constants with run-time relocated values
+*    RELOINIT   Initialize for relocation by the RELOCATE macro.
+*    RELOITEM   Individual relocation item specification
+*
+* Relocation requires a list of assembled addresses that require run-time relocation.
+* Relocation adjusts the assembled address to its true run-time value.  Run-time
+* addressability is required but establishing the addressability can not be dependent
+* upon unrelocated address constants.  The RELOCATE macro performs the run-time
+* relocation.  It operates on values supplied in registers at run-time.  It is not
+* dependent upon how those values are established.  The RELOINIT macro uses the
+* assembled values to establish the values used by the RELOCATE macro assuming the
+* address constants being relocated and the RELOINIT are associated with the same
+* relocation base.
+
+         MACRO
+         RELO  &NAME,&BASE,&INDEX=2,&CONT='NO'
+.* Initiates a self-relocation list
+.* Parameter Usage:
+.*   &NAME   The control section used to collect addresses requiring relocation
+.*           If omitted, an 'R' is appended to the current control section
+.*   &BASE   The relocation base of the relocation list.  If omitted it defaults
+.*           to the current control section.
+.*   &INDEX  The size of an index entry in bytes.  It defaults to 2.
+.*   &CONT   Indicates whether a previously initiated relocation environment is being
+.*           continued.  Specify 'YES' to continue with the identified relocation
+.*           environment.  Defaults to 'NO'.
+.* Symbolic variables supplied by ARCHLVL
+         GBLA  &ARCHLVL   Current architecture level
+         GBLA  &SATKRLA   Address constant length from &ARCHLVL
+.* Symbolic variables supplied by this macro RELO
+         GBLA  &SATKRLD   Length of an index entry in bytes
+         GBLC  &SATKRLB   Current relocation base
+         GBLC  &SATKRLN   Current relocation name
+         GBLC  &SATKRLT   Address constant type
+.*         GBLC  &SATKRLI   Index type
+         LCLA  &NDXL      Length of an index entry in bytes
+.*         LCLA  &BRA       Address size branch table index
+.*         LCLA  &BRD       Displacement size branch table index
+         LCLC  &NAM       Relocation table name
+         LCLC  &BAS       Base name
+         LCLC  &NDX       Index type
+         AIF   ('&NAME' NE '').GOODNAM
+&NAM     SETC  '&SYSECT.R'
+         AGO   .CKBASE
+.GOODNAM ANOP
+&NAM     SETC  '&NAME'
+.CKBASE  ANOP
+         AIF   ('&BASE' NE '').GOODBAS
+&BAS     SETC  '&SYSECT'
+         AGO   .CKNDX
+.GOODBAS ANOP
+&BAS     SETC  '&BASE'
+.CKNDX   ANOP
+         AIF   ('&INDEX' EQ '2').NDXY
+         AIF   ('&INDEX' EQ '4').NDXA
+         MNOTE 1,'RELO - INDEX KEYWORD PARAMETER UNRECOGNIZED - &INDEX'
+         MEXIT
+.NDXY    ANOP
+&NDX     SETC  'Y'
+&NDXL    SETA  2
+         AGO   .CKARCH
+.NDXA    ANOP
+&NDX     SETC  'A'
+&NDXL    SETA  2
+&BRD     SETA  4
+.CKARCH  ANOP
+         AIF   (&ARCHLVL EQ 9).USEAD
+&SATKRLA SETA  4
+&SATKRLT SETC  'A'
+         AGO   .SETUP
+.USEAD   ANOP
+&BRA     SETA  4
+&SATKRLA SETA  8
+&SATKRLT SETC  'AD'
+.SETUP   ANOP
+&SATKRLB SETC  '&BAS'
+&SATKRLN SETC  '&NAM'
+.* &SATKRLI SETC  '&NDX'
+&SATKRLD SETA  &NDXL
+         AIF   ('&CONT' EQ 'YES').DONE
+.* Initialize the relocation item list of this base:
+&NAM     CSECT
+         DC    AL1(0)
+         ORG   *-1
+&SYSECT  CSECT
+.DONE    MEND
+
+         MACRO
+&LABEL   RELOA &ADDR,&TYP='A',&NTYP='Y'
+.* Makes an address self relocatable.  In most contexts this macro operates like a
+.* DC A or AD-type statement while adding the needed relocation information to the 
+.* relocation list.  The macro may also be used to simply add an existing address
+.* contstant to the relocation list without creating the address constant itself.
+.* Required Parameter Usage:
+.*   &ADDR    The address parameter identifies the address being being relocate
+.*            or the address constant being added to the relocation list whose
+.*            address will be relocated.  Which case depends upon the &CREATE
+.*            parameter.
+.* Optional Parameter Usage:
+.*   &CREATE  Controls whether an adcon is generated for the address or some other
+.*            address constant is being added to the relocation list.
+.*               'YES' causes an address constant for the &ADDR parameter to be created
+.*                     and added to the relocation list.
+.*               'NO'  causes the address constant identified by the &ADDR parameter
+.*                     to be added the list, depending upon the address constant
+.*                     having been created elsewhere.
+.* If any of the existing parameters are specified, the relocation environment
+.* defined by this macro is used for this address constant rather than the default
+.* environment established previously by the most recent RELO macro.  They have the
+.* same meaning as used in the RELO macro but apply only to this use of the RELOA
+.* macro.
+.*   &NAME    This relocation entry's list name
+.*   &BASE    This relocatable address' relocation base
+.*   &INDEX   The size of this relocation list's entry size in bytes.
+.* If these parameters are used the current ARCHLVL will determine the size of a
+.* generated address constant, not the level of the default environment.  The use
+.* of this values are intended for "one off" addresses that might require a different
+.* relocation environment from that existing.  The relocation environment referenced
+.* by these parameters must have been previously created by a RELO macro, but is not
+.* currently the default environment.
+         GBLA  &ARCHLVL   Current architecture level
+.* Symbols supplied by RELO
+.*         GBLA  &SATKRLD   Length of an index entry in bytes
+         GBLC  &SATKRLB   Current relocation base
+         GBLC  &SATKRLT   Address constant type
+.*         GBLC  &SATKRLI   Index type
+         GBLC  &SATKRLN   Current relocation name
+.*         LCLA  &NDXL      This index entry length
+         LCLA  &SIZE      Size of the address constant in bytes
+.*         LCLC  &TYP       This address type
+.*         LCLC  &BAS       This RELO base
+.*        LCLC  &NAM       This RELO name
+         LCLC  &LBL       Label used for relocation item
+.*         LCLC  &NDX       This index entry type
+         AIF   ('&ADDR' NE '').GOODAD
+         MNOTE 1,'RELOA - REQUIRED FIRST POSITIONAL PARAMETER MISSING - ADDR'
+         MEXIT
+.GOODAD  ANOP
+         AIF   ('&TYP' NE '').GOODAT
+         MNOTE 1,'RELOA - REQUIRED ADDRESS TYP PARAMETER MISSING'
+         MEXIT
+.GOODAT  ANOP
+         AIF   ('&TYP' EQ 'A').SIZE4
+         AIF   ('&TYP' EQ 'AD').SIZE8
+         AIF   ('&TYP' EQ 'Y').SIZE2
+         MNOTE 1,'RELOA - ADDRESS TYPE INVALID - &TYP'
+         MEXIT
+.SIZE2   ANOP
+&SIZE    SETA  2
+         AGO   .CKNTYP
+.SIZE4   ANOP
+&SIZE    SETA  4
+         AGO   .CKNTYP
+.SIZE8   ANOP
+&SIZE    SETA  8
+.CKNTYP  ANOP
+         AIF   ('&NTYP' NE '').GEN
+         MNOTE 1,'RELOA - REQUIRED RELOCATION NTYP PARAMETER MISSING'
+.GEN     ANOP
+         AIF   ('&LABEL' EQ '').NOLBL
+&LBL     SETC  '&LABEL'
+         AGO   .GENCON
+.NOLBL   ANOP
+&LBL     SETC  'RELA&SYSNDX'
+.GENCON  ANOP
+&LBL     DC    &TYP.(&ADDR)
+         RELOITEM &LBL,&SIZE,TYP=&NTYP
+         MEND
+
+         MACRO
+&LABEL   RELOBASE &NAME=,&BASE=,&MASK=
+.* This is an internal macro used by the RELO macro to config
+.* Defines the values upon which self relocation depend.  Self relocation depends
+.* upon the ability at run-time to know the run-time address of this base.
+.*
+.* Determining the run-time relocation factor:
+.*    The first value is used at run-time to determine the relocation factor if not
+.*    otherwise established.  The relocation factor in this case is the delta between
+.*    the assembled value of this structure and its run-time address.
+.* Locating the run-time location of the relocation item list:
+.*    The second value is the delta from the structure to the relocation item list.
+.*    By adding to the run-time address of this structure this delta, the run-time
+.*    address of the relocation item list is established
+.* Locating the run-time base used by the relocation item list:
+.*    The relocation base is the anchor for locating at run-time the location of an
+.*    address item in the relocation item list.  At assembly time the delta between
+.*    the base and item's location is estblished as an index value in the item.  By
+.*    subtracting the third value in this structure from run-time address of this
+.*    structure, the run-time location of the base can be established.
+.*
+.* These run-time addresses are calculated by the RELOINIT macro.
+.* Symbolic variables supplied by ARCHLVL
+         GBLA  &ARCHLVL   Current architecture level
+.* Symbols provided by the ARCHIND macro
+         GBLA  &ARCHASZ   Size of an address constant in bytes
+.*         GBLA  &ARCHIRB   Size of an IRB in full words
+.*         GBLA  &ARCHORB   Size of an ORB in full words
+.*         GBLA  &ARCHORX   Size of an extended ORB in full words
+.*         GBLA  &ARCHSCB   Size of a SCHIB in full words
+.*         GBLB  &ARCHIND   Whether operator synonyms defined
+         GBLC  &ARCHAMK   Address constant mask
+         GBLC  &ARCHATP   Address constant type
+         GBLC  &ARCHITP   Integer constant type
+         AIF   ('&LABEL' NE '').LBLGOOD
+         MNOTE 1,'RELOBASE - REQUIRED LABEL MISSING'
+         MEXIT
+.LBLGOOD ANOP
+&LABEL   DC    &ARCHATP.(&LABEL)        Assembled location of this base defn
+         DC    &ARCHATP.(&NAME-&LABEL)  Displacement from base defn to relocation list
+         DC    &ARCHATP.(&BASE-&LABEL)  Displacement from base defi to relocation base
+         AIF   (&ARCHLVL EQ 9).DONE
+         DC    &ARCHATP.(X'&ARCHAMK')   Address isolation mask
+.DONE    MEND
+
+         MACRO
+         RELODS
+.* Defines structures used for self relocation
+         GBLB   &SATKREL
+         AIF    (&SATKREL).DONE
+* Relocation base definition.  The run-time location of the relocation base definition
+* be established without resorting to address constants that have not been relocated
+* or determined through run-time use of relative or base/displacement addressing.
+RELODFN  DSECT
+RELOADR  DS     A     Assembled address of this relocation base definition
+RELOLST  DS     A     Displacement from this base definition to its relocation list
+RELOBAS  DS     A     Displacement from this base definition to the relocation base
+RELOAMK  DS     A     Mask for isolation of address within the address constant
+         SPACE  1
+RELODFNG DSECT
+RELOADRG DSECT  AD    Assembled address of this relocation base definition
+RELOLSTG DSECT  AD    Displacement from this base definition to the relocation list
+RELOBASG DSECT  AD    Displacement from this base definition to the relocation base
+         SPACE  1
+* Relocation list item definition
+RELOITEM DSECT
+RELOLEN  DS     AL1   Relocation item length in bytes (zero implies end of list)
+RELOSIZE DS     AL1   Relocation address length in bytes
+* If RELOLEN == 4, RELONDXH is used.  If RELOLEN == 8, RELONDXF is used
+RELONDXH DS     H     Displacement of relocation address from base in bytes
+RELONDXF DS     F     Displacement of relocation address from base in bytes
+&SATKREL SETB   1
+.DONE    MEND
+
+         MACRO
+&LABEL   RELOINIT &NAME,&BASE,&RET=,&BR=13
+.* Establish the current assembled and run-time addresses for a list of addresses,
+.* identified by the &NAME parameter, existing under the same relocation base as
+.* the RELOINIT macro itself.  The relocation base includes all address constants
+.* for which the same relocation factor apply.  The relocation base defaults to the
+.* current control section.  Typically contiguous areas of storage will utilize the
+.* same relocation base.
+.*
+.* The routine depends upon base/disp or relative addressing
+.* Required parameter usage:
+.*    &NAME    Label associated with relocation list.  Same value as used with the
+.*             RELO macro's &NAME parameter.
+.*    &BASE    Label associated with the base from which the addresses in the list
+.*             will be relocated
+.*    &RET     Return register if used as a subroutine
+.*    &BR      Base register used by the routine.  Defaults to 13.  Must not conflict
+.*             with any of the registers used by RELOCATE macro.
+.* Register Usage:
+.*   Local base register already established.  Must not conflict with RELOINIT
+.*   register usage.  (RELOCATE may utilize only registers 13 or 15 for base register.
+.*  RELOINIT input values
+.*   2   Points to RELOBASE being relocated
+.*  RELOCATE input values
+.*   2   Relocation list pointer (based upon RELO &NAME)
+.*   3   Relocation displacement base (based upon &BASE)
+.*   4   Relocation factor
+.*   5   Address mask
+.*  RELOCATE work registers
+.*   6   Assembled address being relocated
+.*   7   Address of assembled address being relocated
+.*   8   Length of each displacement index in bytes
+         GBLA  &ARCHLVL   Current architecture level
+         GBLC  &SATKRLB   Current relocation base
+         GBLC  &SATKRLN   Current relocation name
+.* Symbolic variables supplied by ARCHIND
+         GBLA  &ARCHASZ   Size of an address constant in bytes
+         GBLC  &ARCHATP   Address constant type
+         GBLB  &ARCHIND   Whether operator synonyms defined
+         LCLB  &MASK31
+         LCLC  &BA        Current relocations base
+         LCLC  &BAS       Relocation base CSECT
+         LCLC  &MASK      High-order bit clearing mask in hex
+         LCLC  &NAM       Current relocation name
+         LCLC  &TYP
+&BA      SETC  '&SATKRLB'
+&NAM     SETC  '&SATKRLN'
+.* Establish architecture sensitive instruction use, defaults are these...
+.INST    ANOP
+&TYP     SETC  '&ARCHATP'
+&MASK31  SETB  &ARCHLVL GE 4 OR &ARCHLVL LE 8
+         AIF   (&ARCHLVL LE 3).BITS24
+         AIF   (&MASK31).BITS31
+         AGO   .GEN
+.BITS24  ANOP
+&MASK    SETC  '00FFFFFF'
+         AGO   .GEN
+.BITS31  ANOP
+&MASK    SETC  '7FFFFFFF'
+.* Generate the register contents for the RELOCATE macro
+.GEN     ANOP
+         AIF   (&ARCHIND).DOGEN
+         MNOTE 1,'RELOINIT - REQUIRED ARCHIND MACRO OPERATOR SYNONYMS UNDEFINED'
+         MEXIT
+.DOGEN   ANOP
+&LABEL   $BASR  &BR,0
+         USING *,&BR              Let the assembler know
+.* Setup for relocation
+RELB&SYSNDX EQU *
+         
+         $LR   3,&BR              Local run-time base
+         $SL   3,RELO&SYSNDX      Calculated run-time relocation base
+         AIF   ('&RET' EQ '').FALL
+         BCR   B'0010',&RET        .. Factor is zero, no relocation needed
+         AGO  .FINDBAS
+.FALL    ANOP
+         $BC    B'0010',RELI&SYSNDX ..Factor is zero, no relocation needed
+.FINDBAS ANOP
+         $LR   4,&BR
+         $SL   4,RELR&SYSNDX      R4 -> Run-time relocation factor
+         $LR   2,3
+         $AL   2,RELL&SYSNDX      R2 -> Run-time start of relocation list
+         AIF   ('&RET' EQ '').FALL2
+         BR    &RET               Setup for RELOCATE macro complete
+.FALL2   ANOP
+         $B    RELI&SYSNDX        Setup for RELOCATE macro complete
+         AIF   ('&BASE' EQ '').USESECT
+&BAS     SETC  '&BASE'
+         AGO   .DISPS
+.USESECT ANOP
+&BAS     SETC  '&SYSECT'
+.DISPS   ANOP
+RELO&SYSNDX DC &TYP(RELB&SYSNDX-&BAS)     Displacement to relocation base
+RELR&SYSNDX DC &TYP(RELB&SYSNDX)          Assembled local base address
+RELL&SYSNDX DC &TYP(&NAM-&BAS)            Displacement from base to relo list
+         AIF  (&ARCHLVL EQ 9).NOAMSK
+RELM&SYSNDX DC &TYP.(X'&MASK')            High-order bit clearing mask
+.NOAMSK  ANOP
+         AIF  ('&RET' NE '').DONE
+RELI&SYSNDX EQU *
+.DONE    MEND
+
+         MACRO
+         RELOITEM &LOC,&SIZE,&TYP='Y'
+.* Generates a relocation item in the current relocation CSECT established by 
+.* Symbolic parameter supplied by RELO macro
+         GBLC  &SATKRLB   Current relocation base
+         GBLC  &SATKRLN   Current relocation name
+         LCLA  &ITEMSIZ   Size of the item being created
+         LCLC  &CURSECT   Active CSECT
+         AIF   ('&SATKRLN' NE '').NAMGOOD
+         MNOTE 1,'RELOITEM - SECTION NAME FOR RELOCATION ITEMS NOT DEFINED'
+         MEXIT
+.NAMGOOD ANOP
+         AIF   ('&SATKRLB' NE '').BASGOOD
+         MNOTE 1,'RELOITEM - RELOCATION BASE FOR ITEM SECTION &SATKRLN NOT DEFINED'
+.BASGOOD ANOP
+         AIF   ('&LOC' NE '').LOCGOOD
+         MNOTE 1,'RELOITEM - RELOCATION ITEM REQUIRED LOC PARAMTER MISSING'
+         MEXIT
+.LOCGOOD ANOP
+         AIF   ('&SIZE' NE '').SIZGOOD
+         MNOTE 1,'RELOITEM - RELOCATION ITEM REQUIRED SIZE PARAMETER MISSING'
+.SIZGOOD ANOP
+         AIF   ('&TYP' EQ 'Y').NDX2
+         AIF   ('&TYP' EQ 'A').NDX4
+         MNOTE 1,'RELOITEM - ITEM INDEX TYP PARAMETER INVALID - &TYP'
+         MEXIT
+.NDX2    ANOP
+&ITEMSIZ SETA  4
+         AGO   .GEN
+.NDX4    ANOP
+&ITEMSIZ SETA  8
+.GEN     ANOP
+&CURSECT SETC  '&SYSECT'
+&SATKRLN CSECT
+         DS    0F
+         DC    AL1(&ITEMSIZ),AL1(&SIZE),&TYP.(&LOC-&SATKRLB),AL1(0)
+         ORG   *-1
+&CURSECT CSECT
+         MEND
+
+         MACRO 
+&LABEL   RELOCATE &RET='NO',&FAIL=
+.* Perform address list relocation.  The generated instructions may be inline or
+.* part of a subroutine call.
+.* Parameter Usage:
+.*   &RET   Specify 'YES' if register 14 is to be used as a return pointer, otherwise
+.*          fall through to the instruction following the RELOCATE macro.
+.*   &FAIL  Specify the label to which control is passed if relocation experiences
+.*          a problem.  If omitted, a program interruption is generated with R0
+.*          pointing to location the error was detected.  Debugging techniques
+.*          required to establish the cause.
+.* Local base register and addressability assumed if required.  Based upon register
+.* usage the base can only be R13 or R15.  RELOINIT macro uses R15 expecting to 
+.* be immiediately followed in many cases by the RELOCATE macro.
+.* Register usage conforms to function standards, the expectation being that in
+.* many cases the RELOCATE macro will be embedded in a function callable without
+.* relocation.  No 'result' is returned by the RELOCATE macro, although a function
+.* using it might return a result.
+.*
+.*  Relocation input values
+.*   2   Relocation list pointer (based upon &NAME)
+.*   3   Relocation displacement base (based upon &BASE)
+.*   4   Relocation factor
+.*   5   Address mask for 24-/31-bit addresses
+.*  14   If RET=YES, return address
+.*  Relocation work registers
+.*   0   Location of a failure if relocation encounters a problem.
+.*   1   Address size branch table index (0->four-byte,4->eight-byte)
+.*   5   Assembled address high-order 32 bits
+.*   6   Assembled address being relocated (or low-order 32 bits)
+.*   7   Address of assembled address being relocated
+.*   8   Displacement size branch table index (0->two-byte,4->four-byte)
+.*   9   Address work register
+.*  13   Assumed R13 is the base register supplied by RELOINIT.
+.*  Constants used during 24- and/or 31-bit relocation
+.*  10   Address high-order bit clearing mask
+.*  11   24- or 31-bit address high-order isolation bit mask
+.*  12   Two-byte displacement high order clearing register (S/360 only)
+.*  Work registers used by 64-bit relocation on a 32-bit register system
+.*  10,11  Relocation factor derived from input register 4
+.*  12   available
+.* The relocation list is assumed to have been created by the RELO macro.
+.*
+         GBLA  &ARCHLVL   Current architecture level
+.* Symbols provided by the ARCHIND macro
+         GBLA  &ARCHASZ   Size of an address constant in bytes
+         GBLB  &ARCHIND   Whether operator synonyms defined
+         GBLC  &ARCHATP   Address constant type
+         GBLC  &ARCHITP   Integer constant type
+.* Miscelaneous local variables
+         LCLA  &WK1     First work register initialized
+         LCLA  &WK2     Last work register initialized
+         LCLB  &IMMED   Immediate instructions available.
+         LCLC  &ERROR   Location of error handling
+         LCLC  &MASK    Address isolation mask
+         LCLC  &HMASK   High-order isolation bit mask
+.* Establish architecture sensitive values
+&IMMED   SETB  &ARCHLVL GE 7
+         AIF   (&ARCHLVL LE 3).BITS24
+.* BITS31
+&WK1     SETA  10
+&WK2     SETA  11
+&MASK    SETC  '7FFFFFFF'
+&HMASK   SETC  '80000000'
+         AGO   .GEN
+.BITS24  ANOP
+&WK1     SETA  10
+&WK2     SETA  11
+&MASK    SETC  '00FFFFFF'
+&HMASK   SETC  'FF000000'
+.GEN     ANOP
+         AIF   (&ARCHIND).DOGEN
+         MNOTE 1,'RELOCATE - REQUIRED ARCHIND MACRO OPERATOR SYNONYMS UNDEFINED'
+         MEXIT
+.DOGEN   ANOP
+&LABEL   $LTR  4,4                Is relocation factor zero?
+         AIF   ('&RET' NE 'YES').FALL
+         BZR   14                 Relocation factor zero, so no relocation needed
+         AGO   .INITLST
+.FALL    ANOP
+         $BZ   RELE&SYSNDX           Relocation factor zero, so no relocation needed
+.INITLST ANOP
+.* Setup registers from relocation list header
+         $LH   8,0(0,2)           Fetch the displacement size branch table index
+         AIF   (NOT &IMMED).CH8
+         $CHI   8,4                Is branch table index in range?
+         AGO   .CH8BAD
+.CH8     ANOP
+         $CH   8,RELX&SYSNDX         Is branch table index in range?
+.CH8BAD  ANOP
+         $BNH  RELD&SYSNDX           ..Yes, fetch addres size index
+         AIF   ('&FAIL' NE '').FAIL8
+         $BAS  0,*+4              Remember the error occurred here
+         DC    H'0'               Generate program interruption
+         AGO   .FETCH1
+.FAIL8   ANOP
+         $BAS  0,&FAIL            Handle the error
+.FETCH1  ANOP
+RELD&SYSNDX DS    0H
+         $LH   1,2(0,2)           Fetch the address size branch table index
+         AIF   (NOT &IMMED).CH1
+         $CHI   1,4               Is branch table index in range?
+         AGO   .CH1BAD
+.CH1     ANOP
+         $CH   1,RELX&SYSNDX         Is branch table index in range?
+.CH1BAD  ANOP
+         $BNH  RELJ&SYSNDX           ..Yes, point to first displacement entry
+         AIF   ('&FAIL' NE '').FAIL1
+         $BAS  0,*+4              Remember the error occurred here
+         DC    H'0'               Generate program interruption
+         AGO   .INITPTR
+.FAIL1   ANOP
+         $BAS  0,&FAIL            Handle the error
+.INITPTR ANOP
+RELJ&SYSNDX DS    0H    Initialze the relocation table displacement pointer
+         LA    2,4(0,2)           Point to first displacement entry
+         SPACE 1
+         B     *+4(1)             Initialize work registers
+         $B    RELI&SYSNDX           R1==0 Initialize for four-byte addresses
+         AIF   (&ARCHLVL NE 8).NOINI64
+         $B    RELG&SYSNDX           R1==4 Initialize for eight-byte addresses
+         AGO   .REGINIT
+.NOINI64 ANOP
+         $B    REL1&SYSNDX           R1==4  Fetch first address displacement
+.REGINIT ANOP
+RELI&SYSNDX DS    0H   Initialize work registers for four-byte address relocation
+         LM    &WK1,&WK2,RELC&SYSNDX     Load constant work registers
+         AIF   (&ARCHLVL NE 8).LOOP
+         $B    REL1&SYSNDX          Fetch the first address displacement
+RELG&SYSNDX DS    0H   Initialize work registers for eight-byte address relocation
+         LR    11,4               Move input relocation factor to 11 (low-order bits)
+         SLR   10,10              Clear high-order relocation factor
+         LTR   11,11              Is factor negative?
+         BNM   *+6                ..No, leave high-order bits zero
+         BCTR  10,0               ..Yes, decrement make-all high-order bits ones
+.LOOP    ANOP
+REL1&SYSNDX DS   0H   Fetch first displacement
+         B     RELL&SYSNDX.(8)       Branch to the fetch first displacement
+         SPACE 1
+RELL&SYSNDX DS 0H   Fetch the address displacement from the relocation table
+         $B    RELH&SYSNDX           R8==0 Fetch two-byte displacement
+         $B    RELF&SYSNDX           R8==4 Fetch four-byte displacement
+.* Fetch two-byte displacement
+RELH&SYSNDX DS    0H    Fetch two-byte displacement
+         AIF   (&ARCHLVL EQ 1).S360H2
+         ICM   7,B'0011',0(2)     Fetch the index
+         AGO   .INCRH
+.S360H2  ANOP
+         LH    7,0(0,2)           Fetch the index
+         NR    7,11               Make sure high-order bits are zero
+.INCRH   ANOP
+         LA    2,2(0,2)           Point to next displacement table entry
+         $BNZ  RELO&SYSNDX           Relocate the assembled address
+         AIF   ('&RET' NE 'YES').FALLH
+         BR    14                 Index is zero, at end of list
+         AGO   .FETCHF
+.FALLH   ANOP
+         $B    RELE&SYSNDX           Index is zero, at end of list
+.* Fetch four-byte displacement
+.FETCHF  ANOP
+RELF&SYSNDX DS    0H   Fetch four-byte displacement
+         AIF   (&ARCHLVL EQ 1).S360F4
+         ICM   7,B'1111',0(2)     Fetch the index
+         AGO   .INCRF
+.S360F4  ANOP
+         L     7,0(0,2)             
+         LTR   7,7                Is index zero?
+.INCRF   ANOP
+         LA    2,4(0,2)           Point to next displacement table entry
+         $BNZ  RELO&SYSNDX           Not zero, relocate the address
+         AIF   ('&RET' NE 'YES').FALLF
+         BR    14                 Index is zero, at end of list
+         AGO   .RELO
+.FALLF   ANOP
+         $B    RELE&SYSNDX           Index is zero, at end of list
+.* Relocate the address constant
+.RELO    ANOP
+         SPACE 1
+RELO&SYSNDX DS    0H    Relocate the address
+         B     *+4(1)     
+         $B    REL4&SYSNDX           R1==0 Relocate four-byte address
+         $B    REL8&SYSNDX           R1==4 Relocate eight-byte address
+         SPACE 1
+.* Relocate the four byte address constant
+REL4&SYSNDX DS    0H   Relocate four-byte assembled address
+         L     6,0(3,7)           R6 -- Assembled adcon being relocated
+         AIF    ('&MASK' EQ '').NWK1
+         LR    9,6                R9 -- Copy of address constant
+.NWK1    ANOP
+         ALR   6,4                R6 -> Relocated address
+         AIF   ('&MASK' EQ '').NOAND
+         NR    6,10               Clear high-order bits
+         NR    9,11               Isolate high-order bits in address copy
+         OR    6,9                Transfer them to the relocated address
+.NOAND   ANOP
+         ST    6,0(3,7)           Update the address constant in storage
+         B     RELL&SYSNDX.(8)        Fetch the next ADCON
+         SPACE 1
+.* Relocate the eight byte address constant
+REL8&SYSNDX DS    0H   Relocate eight-byte assembled addresses
+         AIF   (&ARCHLVL EQ 9).ON64
+         AIF   (&ARCHLVL EQ 8).ON64W32
+         AIF   ('&FAIL' NE '').BAD8
+* Can not relocate with RELOCATE macro 8-byte addresses on pre-64-bit register system.
+         $BAS  0,*+4
+         DC    H'0'
+         AGO   .DOCON
+.BAD8    ANOP
+         $BAS  0,&FAIL
+         AGO   .DOCON
+         SPACE 1
+.ON64W32 ANOP
+* Relocate 8-byte address on 32-bit register system
+*   Assembled address in R5 (high-order 32 bits) and R6 (low-order 32 bits)
+*   Relocation factor in R10 (high-order 32 bits) and R11 (low-order 32 bits)
+         LA    12,0(3,7)          Locate the address in storage
+         LM    5,6,0(12)          Fetch the eight-byte address
+         ALR   6,11               Add the low-order relocation factor
+         $BC   B'0011',REL0&SYSNDX
+         ALCR  5,10               Add the high-order relocation factor with carry
+         $B    RELS&SYSNDX           ..and update in storage    
+REL0&SYSNDX ALC  5,10                Add the high-order relocation factor with no carry
+RELS&SYSNDX STM   5,6,0(12)          Update the relocated address in storage.
+         B     RELL&SYSNDX.(8)        Fetch the next ADCON
+         AGO   .DOCON
+.ON64    ANOP
+* Relocate 8-byte addresses on 64-bit register system
+         LG    6,0(3,7)           R6 -- Assembled adcon being relocated
+         ALGR  6,4                R6 -> Relocated address
+         STG   6,0(3,7)           Update the address constant in storage
+         B     RELL&SYSNDX.(8)        Fetch the next ADCON
+         SPACE 1
+.* 4-byte address constants
+.DOCON   ANOP
+         AIF   ('&MASK' EQ '').NOM
+RELC&SYSNDX DS    0A
+         DC    A(X'&MASK')     R10 address mask
+         DC    A(X'&HMASK')     R11 Isolates high-order bit address mode in address
+.NOM     ANOP
+         AIF   (&ARCHLVL NE 1).NOS360F
+         DC    A(X'00FF')         R12 High-order displacement clearing mask (S/360)
+.NOS360F ANOP
+         AIF   (&IMMED).NOCHVAL
+RELX&SYSNDX DC    H'4'               Maximum supported branch index value
+.NOCHVAL ANOP
+.* Create fall-through label if return register is not in use.
+.RETL    ANOP
+         AIF   ('&RET' EQ 'YES').DONE
+RELE&SYSNDX EQU  *
+.DONE    MEND

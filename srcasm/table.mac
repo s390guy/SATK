@@ -1,0 +1,330 @@
+* Copyright (C) 2015 Harold Grovesteen
+*
+* This file is part of SATK.
+*
+*     SATK is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, either version 3 of the License, or
+*     (at your option) any later version.
+*
+*     SATK is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+* This module provides macros for assembling, creating and managing sequential tables.
+* Tables may be created in-line or allocated dynamically at run time.  Run-time
+* creation is not yet available.
+* Macros:
+*    TABLE    Initiates the in-line table definitio followed by entries.
+*    TABLEND  Terminates the in-line table definition following the last entry.
+*    TABLDDEF Define the attributes of a run-time generated table.
+*    TBLDEF   Define a statically defined table's attributes
+*    TBLDS    Provides the structure of the control block created by the TBLDEF and
+*             TBLDDEF macros.
+*    TBLSCAN  Generates in-line processing of a table defined via a TBLDEF macro or 
+*             TBLDDEF macro after run-time creation.
+
+* These macros are used together to define a table and its processing.
+* First the table is defined using TBLDEF, TABLE and TABLEND:
+*
+*  TBLCTL   TBLDEF MYTBL
+*  * TBLDEF uses symbols created by the TABLE and TABLEND macros to provide the
+*  * table attributes to the TBLSCAN macro at run-time.
+*
+*           TABLE MYTBL,12              MYTBL has 12-byte entries
+*         [ Define entry 0 contents ]
+*         [ Define entry 1 contents ]
+*               etc.
+*         [ Define entry n contents ]
+*           TABLEND MYTBL,RSRV=3        MYTBL is done, reserving space for 3 entries
+*
+* Now the TBLSCAN macro can be used to process the entries.
+*           TBLDS                   TBLSCAN needs these DSECTs for processing
+*  MYCSECT  CSECT                   Get back into the program CSECT
+*  SCAN     TBLSCAN 3,4,TBLLOOP,TBLDONE,EMPTY=EMPTY,TABLE=TBLCTL,DSECT=ATBL
+*  *   Register 3 points to the table entry being processed.  The macro sets up
+*  *   the USING with the ATBL DSECT.
+*  *   Registers 4 and 5 are used to scan the table.  Do not alter them during
+*  *   entry processing or restore them before returning to TBLSCAN for the next
+*  *   entry.
+*    [ Process a table entry using labels from the DSECT ATBL ]
+*           B     TBLLOOP    Process the next entry
+*  * TBLLOOP is used in TBLSCAN, giving the program a path back to the in-line
+*  * statements that advances to the next entry.
+*
+*           DROP  3          Don't need R3 any longer for accessing entries.
+*  EMPTY    DS    0F       
+*    [ The table is empty, do what should be done in that case ]
+*  * If the EMPTY parameter is not supplied TBLSCAN treats an empty table as
+*  * completed without detecting the empty condition.
+*  TBLDONE  DS    0F
+*    [ All of the table entries processed, continue with whatever comes next]
+*
+
+         MACRO
+&LABEL   TBLDDEF &LENGTH=0,&MAX=0
+.* Defines a table control block for a dynamically created table
+.* Parameter Usage:
+.*   &LENGTH   Defines the length of each table entry.  Defaults to 0
+.*   &MAX      Defines the maximum number of entries in the table.  Defaults to 0
+.* If either parameter is zero, it must be updated at run-time via the appropriate
+.* DSECT field before allocation can occur.  The values are required at run time
+.* but not at assembly time.
+         GBLA  &ARCHLVL  Current architecture level
+         LCLC  &A        Type of address constant generated
+.* Determine which type of address constant to use
+         AIF   (&ARCHLVL EQ 9).USEAD
+&A       SETC  'A'
+         AGO   .BEGIN
+.USEAD   ANOP
+&A       SETC  'AD'
+.BEGIN   ANOP
+&LABEL   DC    &A(0)         Start of the table - supplied when allocated
+         DC    &A(&LENGTH)   Table entry length in bytes
+         DC    &A(0)         Last byte of the last table entry - supplied when built
+         DC    &A(0)         Last byte of the table - supplied when allocated
+         DC    A(0)          Number of entries in the table - adjusted with new entry
+         DC    A(&MAX)       Maximum number of entries in the table
+         MEND
+
+         MACRO
+&LABEL   TBLDEF &NAME
+.* Defines the execution-time attributes of a table.  Required by the TBLSCAN macro. 
+.* Required Parameter Usage:
+.*    &NAME    The name of the table whose attributes are being defined.  This must
+.*             match the &NAME value supplied to the &TABLE macro initiating the
+.*             in-line definition.
+.*
+         GBLA  &ARCHLVL  Current architecture level
+         LCLC  &AD       Type of address constant generated
+.* Determine the table name to use for generated labels
+         AIF   ('&NAME' NE '').GOODNAM
+         MNOTE 1,'TBLDEF - REQUIRED TABLE NAME MISSING'
+         MEXIT
+.GOODNAM ANOP
+.* Determine which type of address constant to use
+.SETAD   ANOP
+         AIF   (&ARCHLVL EQ 9).USEAD
+&AD      SETC  'A'
+         AGO   .BEGIN
+.USEAD   ANOP
+&AD      SETC  'AD'
+.* Define the starting address of the table
+.BEGIN   ANOP
+&LABLE   DC    &AD(&NAME.B)    Start of the table
+         DC    &AD(&NAME.L)    Table entry length in bytes
+         DC    &AD(&NAME.E)    Byte of last table entry
+         DC    &AD(&NAME.P)    Last byte of the table
+         DC    A(&NAME.N)      Number of entries actually in the table
+         DC    A(&NAME.M)      Maximum number of entries in the table
+.DONE    MEND
+
+         MACRO
+         TBLDS
+         GBLB   &SATKTBL
+         AIF    (&SATKTBL).DONE
+TBL      DSECT
+TBLFRST  DS     A   Beginning address of the table         BXLE R1
+TBLSIZE  DS     F   Size of each entry in bytes            BXLE R3
+TBLLAST  DS     A   Address of the last entry's last byte  BXLE R3+1
+TBLEND   DS     A   Address of the last byte of the table
+TBLNUM   DS     F   Number of entries in the table
+TBLMAX   DS     F   Maximum number of entries in the table
+TBLL     EQU    *-TBL  Length of the TBL DSECT
+         SPACE 1
+TBLG     DSECT
+TBLGFRST DS     AD  Beginning address of the table         BXLE R1
+TBLGSIZE DS     FD  Size of each entry in bytes            BXLE R3
+TBLGLAST DS     AD  Address of the last entry's last byte  BXLE R3+1
+TBLGEND  DS     AD  Address of the last byte of the table
+TBLGNUM  DS     F   Actual number of entries in the table
+TBLGMAX  DS     F   Maximum number of entries in the table
+TBLGL    EQU    *-TBLG  Lenth of the TBLG DSECT
+         SPACE 1
+&SATKTBL SETB  1
+.DONE    MEND
+
+         MACRO
+&LABEL   TABLE &NAME,&LENGTH
+.* Initiate an in-line created table.
+.* Required Parameter Usage:
+.*    &NAME   The table being created.  The value supplied for this argument is
+.*            required as the &NAME parameter of the corresponding TABLEND macro and
+.*            a TBLDEF macro associated with the table.
+.*    &LENGTH The length of each table entry in bytes.
+.*
+         LCLC  &LBL   Generated label
+.* Note: the use of the &LBL symbolic variable is due to a parsing limitation of
+.* statement fields.  Parsing allows a symbolc variable in the name field  but it
+.* does not allow a symbolic variable followed by a dot.
+         AIF   ('&NAME' NE '').GOODNAM
+         MNOTE 1,'TABLE - REQUIRED TABLE NAME MISSING'
+         MEXIT
+.GOODNAM ANOP
+         AIF   ('&LENGTH' NE '').GOODLEN
+         MNOTE 1,'TABLE - REQUIRED ENTRY LENGTH PARAMETER MISSING'
+         MEXIT
+.GOODLEN ANOP
+&LBL     SETC  '&NAME.L'
+&LBL     EQU   &LENGTH
+&LBL     SETC  '&NAME.B'
+&LBL     EQU   *
+         AIF   ('&LABEL' EQ '').DONE
+&LABEL   EQU   *
+.DONE    MEND
+
+         MACRO
+&LABEL   TABLEND &NAME,&RSRV=
+.* Terminates a previously initiated table definition
+.* Required Parameter Usage:
+.*   &NAME   The table being terminated.  It is the same parameter as supplied to
+.*           the initiating TABLE macro.
+.* Optional Parameter Usage:
+.*   &RSRV   The number of table entries to reserve before terminating the table.
+.*           If omitted, the table is imediately terminated.
+.*
+         LCLC  &LBL    Generated label
+.* Note: the use of the &LBL symbolic variable is due to a parsing limitation of
+.* statement fields.  Parsing allows a symbolc variable in the name field  but it
+.* does not allow a symbolic variable followed by a dot.
+         AIF   ('&NAME' NE '').GOODNAM
+         MNOTE 1,'TABLE - REQUIRED TABLE NAME MISSING'
+         MEXIT
+.GOODNAM ANOP
+.* End the table
+&LBL     SETC  '&NAME.E'
+&LBL     EQU   *-1                    Locate the end of the last table entry
+&LBL     SETC  '&NAME.N'
+&LBL     EQU   (*-&NAME.B)/&NAME.L    Calculate the number of actual table entries
+         AIF   ('&RSRV' EQ '').NORSRV
+         DS    (&RSRV)XL(&NAME.L)     Reserve space for additional entries
+.NORSRV  ANOP
+&LBL     SETC  '&NAME.P'
+&LBL     EQU   *-1                    Locate the physical end of the table
+&LBL     SETC  '&NAME.M'
+&LBL     EQU   (*-&NAME.B)/&NAME.L    Calculate the maximum number of table entries.
+         AIF   ('&LABEL' EQ '').DONE
+&LABEL   EQU   *
+.DONE    MEND
+
+         MACRO
+&LABEL   TBLSCAN &ENTRY,&PAIR,&LOOP,&EOT,&EMPTY=,&TABLE=,&DSECT=
+.* Performs a run-time scan of a sequential table controlled by the table control
+.* block.  Instructions generated are sensitive to the currend architecture level.
+.* Required Parameter Usage in this order:
+.*   &LABEL   Label associated with the table scan in-line code
+.*   &ENTRY   A register other that the pair defined by the &PAIR parameter used to
+.*            address each successive table entry during the table scan
+.*   &PAIR    An even/odd register pair used for managing the table scan pointers
+.*            The pair must not include the register identified by the &ENTRY 
+.*            parameter
+.*   &LOOP    Label used by the in-line code to which control is passed when the
+.*            program is ready to examine the next table entry
+.*   &EOT     Label to which control is passed when the end-of-table condition is
+.*            detected.
+.* Optional Parameter Usage:
+.*   &EMPTY   Label to which control is passed if the table is empty.  Otherwise the
+.*            empty-table condition is treated as an end-of-table condition.
+.*   &TABLE   The label associated with the TBLDEF macro of the table being scanned.
+.*            If omitted the in-line logic requires addressability has been
+.*            established preceding the use of the macro by loading a register with
+.*            the address of the TBLDEF macro and establishing a USING for either
+.*            the TBL or TBLG DSECT.
+.*  &DSECT    If provided the in-line logic establishes assembler addressability to
+.*            the identified DSECT mapping the structure of the table being scanned.
+.*            The &ENTRY register is used for the addressability.
+.*
+         GBLA   &ARCHLVL
+.* Symbolic variables supplied by ARCHIND macro
+.*         GBLA  &ARCHASZ   Size of an address constant in bytes
+         GBLB  &ARCHIND   Whether operator synonyms defined
+.*         GBLC  &ARCHATP   Address constant type
+.*         GBLC  &ARCHITP   Integer constant type
+         AIF    ('&ENTRY' NE '').GOODNRY
+         MNOTE  1,'TBLSCAN - REQUIRED ENTRY REGISTER PARAMETER MISSING'
+         MEXIT
+.GOODNRY AIF    ('&PAIR' NE '').GOODPAR
+         MNOTE  1,'TBLSCAN - REQUIRED REGISTER PAIR PARAMETER MISSING'
+         MEXIT
+.GOODPAR ANOP
+         AIF    ('&LOOP' NE '').GOODLUP
+         MNOTE  1,'TBLSCAN - REQUIRED LOOP PARAMETER MISSING'
+         MEXIT
+.GOODLUP ANOP
+         AIF    ('&EOT' NE '').GOODEOT
+         MNOTE  1,'TBLSCAN - REQUIRED EOT PARAMETER MISSING'
+         MEXIT
+.GOODEOT ANOP
+         AIF    (&ARCHLVL EQ 9).USE64
+.* Only 32-bit register code uses ARCHIND operator synonyms
+         AIF    (&ARCHIND).GEN
+         MNOTE 1,'TBLSCAN - REQUIRED ARCHIND MACRO OPERATOR SYNONYMS UNDEFINED'
+         MEXIT
+.GEN     ANOP
+         AIF    ('&LABEL' EQ '').NOLBL
+&LABEL   DS     0H
+.NOLBL   ANOP
+         AIF    (&ARCHLVL EQ 9).USE64
+.* Generate for 32-bit CPU
+         AIF    ('&TABLE' EQ '').NOTBL
+         LA     &PAIR,&TABLE            Point to the..
+         USING  TBL,&PAIR               ..table control block
+.NOTBL   ANOP
+         ICM    &ENTRY,B'1111',TBLNUM   If no entries,
+         AIF    ('&EMPTY' EQ '').USEEOT
+         &BZ    &EMPTY                  ..handle the empty condition
+         AGO    .INIT
+.USEEOT  ANOP
+         &BZ    &EOT                    ..handle empty condition as the end-of-table
+.INIT    ANOP
+         L      &ENTRY,TBLBEG           Locate the first entry of the table
+         LM     &PAIR,TBLSIZE           Prepare for TBLNEXT macro
+         AIF    ('&TABLE' EQ '').NODROP
+         DROP   &PAIR                   Forget the table control block address
+.NODROP  ANOP
+         $B     TBLS&SYSNDX             Examine first entry
+.* Generate the table entry increment logic
+&LOOP    EQU    *   Examine the next table entry
+         $BXLE  &ENTRY,&PAIR,TBLS&SYSNDX
+         $B     &EOT
+         AIF    ('&DSECT' EQ '').NODS
+         USING  &DSECT,&ENTRY           Make the table entry addressable
+.NODS    ANOP
+TBLS&SYSNDX DS  0H
+         MEXIT
+.* Generate for 64-bit CPU
+.USE64   ANOP
+         AIF    ('&LABEL' EQ '').NOLBL64
+&LABEL   DS     0H
+.NOLBL64 ANOP
+         AIF    ('&TABLE' EQ '').NOTBLG
+         LARL   &PAIR,&TABLE            Point to the..
+         USING  TBLG,&PAIR              ..table control block
+.NOTBLG  ANOP
+         OC     TBLGNUM,TBLGNUM         If no entries,
+         AIF    ('&EMPTY' EQ '').USEEOTG
+         JZ     &EMPTY                  ..handle the empty condition
+         AGO    .INITG
+.USEEOTG ANOP
+         JZ     &EOT                    ..handle empty condition as the end-of-table
+.INITG   ANOP
+         LG     &ENTRY,TBLGBEG          Locate the first table entry
+         LMG    &PAIR,TBLGSIZE          Prepare for TBLNEXT macro
+         AIF    ('&TABLE' EQ '').NODROPG
+         DROP   &PAIR                   Forget the table control block address
+.NODROPG ANOP
+         J      &TBLS&SYSNDX            Examine first entry
+.* Generate the table entry increment logic
+&LOOP    EQU    *   Examine the table entry
+         JXLEG  &ENTRY,&PAIR,TBLS&SYSNDX
+         J      &EOT
+.* Examine the current table entry (with the code that follows the macro)
+TBLS&SYSNDX DS  0H
+         AIF    ('&DSECT' EQ '').NODSG
+         USING  &DSECT,&ENTRY           Make the table entry addressable
+.NODSG   ANOP
+         MEND
