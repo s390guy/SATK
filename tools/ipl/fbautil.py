@@ -208,12 +208,12 @@ class fba_info(object):
     #G=1024*1024*1024
     units=[1024*1024*1024,1024*1024,1024]
     def KMG(value):
-        for x in range(len(fba_info.units)):
+        for n,x in enumerate(fba_info.units):
             if value>=x:
-                unit="GMK"[x]
-                unit_metric=fba_info.units[x]
+                unit="GMK"[n]
+                unit_metric=fba_info.units[n]
                 units,excess=divmod(value,unit_metric)
-                tenths=excess*10 / unit_metric
+                tenths=excess*10 // unit_metric
                 return "%s.%s%sB" % (units,tenths,unit)
         return "%sB" % (value)
     KMG=staticmethod(KMG)
@@ -228,10 +228,10 @@ class fba_info(object):
     def __str__(self):
         string="Volume:  TYPE=%s SECTORS=%s LFS=%s" \
             % (self.device,self.sectors,self.lfs)
-        string="\nHost:    FILE=%s (%s)" \
-            % (self.host,fba_info.KMG(self.host))
-        string="\nBlock:   LENGTH=%s SECTORS=%s BLOCKS=%s" \
-            % (self.block,self.required,self.capacity)
+        string="%s\nHost:    FILE=%s (%s)" \
+            % (string,self.host,fba_info.KMG(self.host))
+        string="%s\nBlock:   LENGTH=%s SECTORS=%s BLOCKS=%s" \
+            % (string,self.block,self.required,self.capacity)
         return string
     @property
     def block(self):
@@ -360,4 +360,4 @@ def register_devices(dtypes):
         dtypes.dndex(dtypes.number(x.devtyp,x.model),x.dtype)
 
 if __name__=="__main__":
-    raise NotImplementedError("awsutil.py - only intended for import")
+    raise NotImplementedError("fbautil.py - only intended for import")
