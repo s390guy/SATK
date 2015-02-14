@@ -6,6 +6,16 @@ SATK is intended to assist in the development of stand-alone, or baremetal,
 programs on mainframe compatible systems.  While targeting the Hercules emulator,
 nothing precludes its use with "big-iron" real or virtual environments.
 
+Getting Started:
+    Use the "Download ZIP" button on this page to download the current repository
+    contents.  By "unzipping" the downloaded file into your file system, the package
+    is installed on your system.  (By deleting the SATK directory and its contents
+    the package is uninstalled.)
+
+    Then follow the directions in the file SATK/doc/asma/ASMA.pdf, "Getting Started"
+    section for additional steps required to prepare your system for use of
+    A Small Mainframe Assembler and other SATK tools.
+
 The following directories are provided:
     asma            - A Small Mainframe Assembler (ASMA) for stand-alone
                       programs.  ASMA runs wherever Python 3.3 runs!
