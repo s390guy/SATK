@@ -5249,7 +5249,7 @@ class Assembler(object):
                 self.__region_unname_safe(stmt)
 
             # Calculate the region's starting address if provided, use 0 otherwise
-           
+
             if scope.expr:
                 start=self.fsmp.evaluate_expr(self,stmt,scope.expr,\
                     debug=False,trace=False)

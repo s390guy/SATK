@@ -81,7 +81,7 @@ iml()
           echo "herclog=${herclog}"
           echo "HERCULES_RC=${HERCULES_RC}"
           echo "hercconf=${hercconf}"
-          cmd="${hercbin} ${hercconf}"
+          cmd="${hercbin} -v ${hercconf}"
           echo "cmd=${cmd}"
           if [ -n "${herclog}" ]
              then echo "${cmd}" >${herclog}
