@@ -92,13 +92,11 @@
 .*              location.
 .*                 'A'   Forces use of an aligned address constant based upon the 
 .*                       current architecture level.
-.*                 'J'   Forces use of a position relative address
-.*                 'JL'  Forces use of a position relative long address
+.*                 'J'   Forces use of a position relative long address
 .*              If ommitted, the current architecture level will dictate the selection.
 .*                 Level   In-line mechanism implied
-.*                  0-4       'A'
-.*                  7-8       'J'
-.*                   9        'JL'
+.*                  0-7       'A'
+.*                  8,9       'J'
 .*              When a forced option is used, the generated instructions must be
 .*              consistent with the run-time architecture in use.
 .*    &RELO     When an address constant is used to locate the called function, 
@@ -114,7 +112,7 @@
          GBLA  &ARCHASZ   Size of an address constant in bytes
          GBLC  &ARCHATP   Address constant type
          GBLC  &ARCHITP   Integer constant type
-         LCLC  &LAR   LOAD ADDRESS RELATIVE type instruction
+.*         LCLC  &LAR   LOAD ADDRESS RELATIVE type instruction
          LCLC  &LBL   Generated label
          LCLC  &NLINE In-line option in use
          AIF   ('&FUNC' NE '').GOODFUN
@@ -124,13 +122,11 @@
          AIF   ('&INLINE' EQ '').DEFNLIN
          AIF   ('&INLINE' EQ 'A').FRCA
          AIF   ('&INLINE' EQ 'J').FRCJ
-         AIF   ('&INLINE' EQ 'JL').FRCJL
          MNOTE 1,'CALL - UNRECOGNIZED KEYWORD INLINE PARAMETER - &INLINE'
          MEXIT
 .DEFNLIN ANOP
 &NLINE   SETC  '&ARCHATP'
-         AIF   (&ARCHLVL EQ 9).FRCJL
-         AIF   (&ARCHLVL GE 7).FRCJ
+         AIF   (&ARCHLVL GE 8).FRCJ
 .* Inline address constant is the default
 .FRCA    ANOP
 &NLINE   SETC  'A'
@@ -138,13 +134,6 @@
 .* Inline LOAD ADDRESS RELATIVE
 .FRCJ    ANOP
 &NLINE   SETC  'J'
-&LAR     SETC  'LAR'
-         AGO   .GENCALL
-.* Inline LOAD ADDRESS RELATIVE LONG
-.FRCJL   ANOP
-&NLINE   SETC  'JL'
-&LAR     SETC  'LARL'
-         AGO   .GENCALL
 .* Generate the function call
 .GENCALL ANOP
          AIF   ('&LABEL' EQ '').NOLBL
@@ -152,19 +141,19 @@
 .NOLBL   ANOP
          AIF   ('&NLINE' NE 'A').JADD
 .USECON  ANOP
-         $L    13,CALL.&SYSNDX
-         $B    CALL.&SYSNDX+&ARCHASZ
-&LBL     SETC  'CALL.&SYSNDX'
+         $L    1,CALL&SYSNDX
+         $B    CALL&SYSNDX+&ARCHASZ
+&LBL     SETC  'CALL&SYSNDX'
          AIF   ('&RELO' EQ 'YES').DORELO
-&LBL     DC    &ARCHATYP.(&FUNC)
+&LBL     DC    &ARCHATP.(&FUNC)
          AGO   .CALLIT
 .DORELO  ANOP
 &LBL     RELOA &FUNC
          AGO   .CALLIT
 .JADD    ANOP
-         &LAR  13,&FUNC
+         LARL  13,&FUNC
 .CALLIT  ANOP
-         $BASR 14,13
+         $BASR 14,1
 .DONE    MEND
 
          MACRO
@@ -205,9 +194,9 @@
          AGO   .CALLIT
 .NOFETCH ANOP
          AIF   (NOT &LOADR).CALLIT
-         $LR   13,&R        Locate the function
+         $LR   1,&R         Locate the function
 .CALLIT  ANOP
-         $BASR 14,13        Call the function
+         $BASR 14,1         Call the function
          MEND
 
          MACRO
@@ -587,6 +576,7 @@
 &PACK    SETB  &SATKFRN NE 14
 &FPSA    SETA  &SATKFFN
 &BACK    SETB  &SATKFBK
+         AGO   .FINLCL
 .CKSTKG  ANOP
          AIF   (&SATKD64).GGOOD
          MNOTE 1,'FUNCTION - NEED FRAME MACRO IN ARCHLVL 9'
@@ -597,6 +587,7 @@
 &FPSA    SETA  &SATKGFN
 &BACK    SETB  &SATKGBK
 .* Finalize a previously started local stack definition
+.FINLCL  ANOP
          AIF   (NOT &SATKFLY).NOLCLS
 .* Local stack usage in effect, terminate the local definition
 &PFX     DSECT
@@ -673,6 +664,8 @@ FUNL&SYSNDX DC A(&STKEND-&PFX)
          AGO   .RESET
 .USEIMED ANOP
          AHI   15,-(&STKEND-&PFX)
+         $BASR 13,0
+         USING *,13
 .* Reset local information
 .RESET   ANOP
 &SATKFLY SETB  0
@@ -739,7 +732,7 @@ FUNL&SYSNDX DC A(&STKEND-&PFX)
          GBLC  &SATKFLL  Local stack frame ending symbol
 .* Make sure we are in a function
          AIF   (&SATKFIF).INFUN
-         MNOTE 1'RETURN - RETURN MACRO MAY ONLY BE USED WITHIN A FUNCTION DEFINITION'
+         MNOTE 1,'RETURN - RETURN MACRO MAY ONLY BE USED WITHIN A FUNCTION DEFINITION'
          MEXIT
 .INFUN   ANOP
 .* Instruction used by the macro
@@ -749,10 +742,10 @@ FUNL&SYSNDX DC A(&STKEND-&PFX)
          MNOTE 1,'RETURN - NEED FRAME MACRO IN ARCHLVL LESS THAN OR EQUAL TO 8'
 .FDEFN   ANOP
 &PFX     SETC  'STKF'
-         ANOP  .CKIND
+         AGO  .CKIND
 .USEG    ANOP
          AIF   (&SATKD64).GDEFN
-         NNOTE 1,'RETURN - NEED FRAME MACRO IN ARCHLVL 9'
+         MNOTE 1,'RETURN - NEED FRAME MACRO IN ARCHLVL 9'
          MEXIT
 .GDEFN   ANOP
 &PFX     SETC  'STKG'
@@ -783,7 +776,7 @@ FUNL&SYSNDX DC A(&STKEND-&PFX)
          AIF   ('&RET' EQ '').NORET
          $LR   2,&RET
 .NORET   ANOP
-         $LM   6,15,&PFX.RG+(&SATKFLL-&PFX)
+         $LM   6,15,&PFX.R6+(&SATKFLL-&PFX)
          DROP  13,15
          BR    14
 .* Reset function definition state and floating point save area usage.
@@ -818,15 +811,15 @@ FUNL&SYSNDX DC A(&STKEND-&PFX)
          MNOTE 1,'STACK - NEED FRAME MACRO IN ARCHLVL LESS THAN OR EQUAL TO 8'
 .FDEFN   ANOP
 &PFX     SETC  'STKF'
-         ANOP  .GEN
+         AGO   .GEN
 .USEG    ANOP
          AIF   (&SATKD64).GDEFN
-         NNOTE 1,'STACK - NEED FRAME MACRO IN ARCHLVL 9'
+         MNOTE 1,'STACK - NEED FRAME MACRO IN ARCHLVL 9'
          MEXIT
 .GDEFN   ANOP
 &PFX     SETC  'STKG'
 .GEN     ANOP
-&BASE    SETC  '&TOP'
+.* &BASE    SETC  '&TOP'
 &SZ      SETA  &SIZE
 &SZ      SETA  (&SZ/8)*8
 .* The stack is allocated from high to low addresses.  
