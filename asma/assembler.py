@@ -3657,6 +3657,9 @@ class Assembler(object):
             sev="*"
         else:
             if scope.severity is None:
+                if len(scope.lextoks) == 0:
+                    raise AssemblerError(line=stmt.lineno,\
+                        msg="MNOTE operands unrecognized")
                 desc="MNOTE %s" % stmt.lineno
                 expr=fsmp.L2ArithExpr(desc,stmt,ltoks=scope.lextoks,debug=debug)
                 operand=expr.evaluate(None,debug=debug,trace=False)
