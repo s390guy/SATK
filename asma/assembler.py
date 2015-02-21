@@ -6392,12 +6392,17 @@ class BaseMgr(object):
             "%s 'reg' argument must be an integer: %s" % (eloc(self,"drop"),reg)
 
          based=self.bases[reg]
+         # Check to see if the base has already been dropped
+         if based is None:
+             return
+             # Nothing more to do for an already dropped base
+
          try:
-             del based[reg]
+             del based[reg]        # Remove the base assigned to the register
          except KeyError:
              pass
          try:
-             self.bases[reg]=None
+             self.bases[reg]=None  # This means the base is now dropped
          except KeyError:
              pass
 
