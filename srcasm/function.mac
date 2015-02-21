@@ -151,7 +151,7 @@
 &LBL     RELOA &FUNC
          AGO   .CALLIT
 .JADD    ANOP
-         LARL  13,&FUNC
+         LARL  1,&FUNC
 .CALLIT  ANOP
          $BASR 14,1
 .DONE    MEND
@@ -163,7 +163,7 @@
 .*    &LABEL The label associated with this CALLR macro.
 .*    &REG   The register containing the function address enclosed in parenthesis or
 .*           the address constant identifying the function being called.  If ommitted
-.*           R13 is assumed to already contain the address of the function being
+.*           R1 is assumed to already contain the address of the function being
 .*           called.
          GBLA  &ARCHLVL
          LCLA  &REGSUB  Number of register sub-parameters
@@ -180,7 +180,7 @@
          MNOTE 1,'CALLR - TOO MANY FIRST POSITIONAL SUBPARAMETERS - &REGSUB'
          MEXIT
 .NEEDFCH ANOP
-&R       SETC  '13'
+&R       SETC  '1'
 &FETCH   SETB  1
          AGO   .GEN
 .USEREG  ANOP
@@ -190,7 +190,7 @@
 .GEN     ANOP
 .NOREG   ANOP
          AIF   (NOT &FETCH).NOFETCH
-         $L    13,&REG      Locate the function
+         $L    1,&REG       Locate the function
          AGO   .CALLIT
 .NOFETCH ANOP
          AIF   (NOT &LOADR).CALLIT
@@ -606,15 +606,19 @@ FUNS&SYSNDX  DS    0D      Make sure stack frame ends on double word
 &SATKFIF SETB  1      Function definition initiated (reset by RETURN macro)
 &SATKFLL SETC  '&STKEND'
 &LABEL   DS    0H     Define function entry point
+         AIF   (&ARCHLVL GE 7).NOUSE1
+         USING *,1       Temporarily use R1 to address pre-amble constants
+.NOUSE1  ANOP
          USING &PFX,15   Address the stack frame
-         AIF   (&PACK).SAVEALL
+         AIF   (NOT &PACK).SAVEALL
 .* Save only preserved registers on the stack
          $STM  6,15,&PFX.R6      Save restored registers on the stack
          AIF   ('&FP' NE 'YES').PUSH
          AGO   .FPSAVE
 .* Save most registers on the stack
 .SAVEALL ANOP
-         $STM  2,15,&PFX.R2      Save most registers on the stack   
+         $STM  2,15,&PFX.R2      Save most registers on the stack
+         AIF   ('&FP' NE 'YES').PUSH
 .* Save floating point
 .FPSAVE  ANOP
          AIF   (&DOAFP AND &FPSA GE 10).SAVEAFP
@@ -659,13 +663,19 @@ FUNS&SYSNDX  DS    0D      Make sure stack frame ends on double word
          AIF   (NOT &BACK).NOBACK
          AIF   (&ARCHLVL GE 7).USEIMED
          SL    15,FUNL&SYSNDX
-         B     FUNL&SYSNDX+4
+         $BAS  13,FUNL&SYSNDX+4
+         DROP  1                 Forget use of R1
+         USING *,13              Establish function base register
 FUNL&SYSNDX DC A(&STKEND-&PFX)
          AGO   .RESET
 .USEIMED ANOP
          AHI   15,-(&STKEND-&PFX)
-         $BASR 13,0
-         USING *,13
+         AIF   (&ARCHLVL GE 7).NODROP1
+.NODROP1 ANOP
+.*         $BASR 13,0
+.*         USING *,13
+         $LR   13,1
+         USING &LABEL,13
 .* Reset local information
 .RESET   ANOP
 &SATKFLY SETB  0
