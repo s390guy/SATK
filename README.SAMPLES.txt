@@ -46,6 +46,14 @@ hello.asm      yes    Simple Hello World program
                            e390  - tested
                            s390x - tested
 
+hellof.asm     yes    Hello World program extended to use functions
+                      Architecture:
+                           s360  - tested under s370-BC mode
+                           s370  - tested
+                           s380  - not tested
+                           e390  - tested
+                           s390x - tested
+
 sos.asm        no     Sample Operating System described in Madnick/Donovan book
                       "Operating Systems".
                       Architecture: 
