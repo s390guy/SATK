@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014 Harold Grovesteen
+# Copyright (C) 2014, 2015 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -22,7 +22,7 @@
 #
 
 this_module="codepage.py"
-copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014")
+copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014, 2015")
 
 # Python imports:
 import sys        # Access the Python system interface for exits and version checking
@@ -1138,7 +1138,7 @@ def parse_args():
         help="perform a simple sanity test with supplied string")
 
     # Write the default code page definition to a file
-    parser.add_argument("--write",\
+    parser.add_argument("--write",metavar="FILEPATH",\
         help="output as a text file the supplied translation definitions")
 
     return parser.parse_args()
