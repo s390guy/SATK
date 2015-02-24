@@ -351,6 +351,7 @@ class AsmListing(Listing):
         self.image.listing=listing
 
     def create_title(self):
+        #print("asmlist.py - create_title()")
         asmtitle=Title(self.linesize,pages=99999)
         version="ASMA Ver. 0.1"
         asmtitle.setLeft([CharCol(size=len(version),default="ASMA Ver. 0.1"),])
@@ -389,6 +390,7 @@ class AsmListing(Listing):
 
     def title(self):
         if self.asmtitle is None:
+            #print("asmlist.py - title()")
             self.create_title()
         s=self.asmtitle.string(left=[None,],right=[None,])
         return s
@@ -454,7 +456,8 @@ class AsmListing(Listing):
                 continue
             if directive=="TITLE":
                 self.dir_title=stmt.plist
-                self.create_title()
+                if self.asmtitle is None:
+                    self.create_title()
                 self.eject()
                 continue
             elif directive=="EJECT":
