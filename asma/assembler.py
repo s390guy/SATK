@@ -3995,7 +3995,7 @@ class Assembler(object):
                 msg="symbol already defined: '%s'" % sect_name)
 
         if not isinstance(sect,Section) or sect.isdummy():
-            raise AsseblerError(line=stmt.lineno,\
+            raise AssemblerError(line=stmt.lineno,\
                 msg="symbol is not a CSECT: '%s'" % sect_name)
         return sect
 
