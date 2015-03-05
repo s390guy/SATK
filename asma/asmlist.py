@@ -435,8 +435,10 @@ class AsmListing(Listing):
             except IndexError:
                 self.new_part()
                 return
-            if not stmt.prdir:
+            if not stmt.prdir or stmt.error:
                 # This processes assembler directives and machine instructions
+                # Print directives in error are treated as normal statements for
+                # the purpose of the listing
                 if not stmt.pon:
                     # If PRINT OFF, ignore statement for listing
                     continue
@@ -452,9 +454,13 @@ class AsmListing(Listing):
             # Processing for listing directives occurs here.
             directive=stmt.instu
             if directive=="SPACE":
+                assert stmt.plist is not None,\
+                    "[%s] SPACE statement missing plist" % stmt.lineno
                 self.space(n=stmt.plist,eject=True)
                 continue
             if directive=="TITLE":
+                assert stmt.plist is not None,\
+                    "[%s] TITLE statement missing plist" % stmt.lineno
                 self.dir_title=stmt.plist
                 if self.asmtitle is None:
                     self.create_title()
