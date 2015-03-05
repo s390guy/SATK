@@ -458,6 +458,8 @@ class AsmListing(Listing):
                 self.dir_title=stmt.plist
                 if self.asmtitle is None:
                     self.create_title()
+                else:
+                    self.asmtitle.setTitle(self.dir_title)
                 self.eject()
                 continue
             elif directive=="EJECT":
