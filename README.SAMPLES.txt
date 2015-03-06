@@ -54,6 +54,14 @@ hellof.asm     yes    Hello World program extended to use functions
                            e390  - tested
                            s390x - tested
 
+hellofm.asm    yes    Hello World program supporting multiple architectures in a
+                      single build of the program.  The run-time architecture is
+                      detected and the appropriate portion of the program is used.
+                      Only these supported architectures are supported.
+                           s370  - tested
+                           e390  - tested
+                           s390x - tested
+                           
 sos.asm        no     Sample Operating System described in Madnick/Donovan book
                       "Operating Systems".
                       Architecture: 
