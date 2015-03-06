@@ -22,6 +22,7 @@
 * Corporation.
 
 * Macros Supplied:
+*    ANTR      Passes control to a supported architecture when detected
 *    APROB     Performs a run-time probe to determine the running architecture
 *    ARCHIND   Define architecture independent instruction synonyms
 *    ARCHLVL   Interogates the XMODE PSW to determine the target architecture level
@@ -61,12 +62,145 @@
 *    ZEROLL    Set to 0 low-order bits ending at bit 32 of a 64-bit register
 
          MACRO
-&LABEL   APROB &HERC='NO',&S360='NO',&S380='NO'
-.* The APROB macro generates in-line code detecting the running-architecture.
-.* Register 0 is set to the detected architecture level.  PGM and SVC new PSWs
-.* are restored to their states before the probe occurred.
+&LABEL   ANTR &REG=1,&S360=,&S370BC=,&S370=,&S380=,&XA=,&E370=,&E390=,&S390=,&S390X=
+.* ANTR is used in conjunction with the APROB macro to enter architecture specific
+.* portion of a program for the run-time detected architecture.  Run-time detection
+.* of an unsupported architecture resutlts in a disabled wait condition with address
+.* 00020x, where 'x' is the detected unsupported architecture level.  'x' being
+.* zero indicates an invalid level.
 .*
 .* Optional Parameter Usage:
+.*   LABEL     Symbol assigned to the architecture selecting code
+.*   REG       Register expected to be contain the detected architecture level from
+.*             the APROB macro.  Defaults to 1.  Coordination with the register
+.*             specified for the APROB macro required.
+.*           ARCHLVL  Description
+.*   S360       1     Symbol to which control is passed if S/360 is supported.
+.*                    APROB must have been coded with S3660=YES for detection of this
+.*                    level.
+.*   S370BC     2     Symbol to which control is passed if S/370 BC-mode is supported
+.*   S370       3     Symbol to which control is passed if S/370 EC-mode is supported
+.*   S380       4     Symbol to which control is passed if Hercules S/380 mode is
+.*                    supported.  APROB must have been coded with S380=YES for
+.*                    detection of this level.
+.*   XA         5     Symbol to which control is passed if 370-XA is supported.
+.*                    APROB must be coded with HERC=NO for detection of this level
+.*   E370       6     Symbol to which control is passed if ESA/370 is supported.
+.*                    APROB must have been coded with HERC=NO for detection of this
+.*                    level.
+.*   E390       7     Symbol to which control is passed if native ESA/390 is supported.
+.*   S390       8     Symbol to which control is passed if ESA/390 on a 64-bit system
+.*                    is supported.
+.*   S390X      9     Symbol to which control is passed if a 64-bit system is
+.*                    supported.  This can only occur if a 64-bit mode system
+.*                    uses a Restart interruption to enter it or the program has
+.*                    already entered 64-bit operation before APROB was used.
+.*
+.* Register Usage:
+.*   Register as specified by the REG parameter
+.*   Base register established prior to entry to the macro
+         LCLB  &NEEDBC    Whether a basic-control mode error PSW needed
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H
+.NOLBL   ANOP
+         AR    &REG,&REG                Turn the architecture level into a disp.
+         AR    &REG,&REG                full-word displaceent
+         CL    &REG,ANTM&SYSNDX         Value exceeds table length?
+         BH    ANTE&SYSNDX              ..Yes, architecture not recognized
+         L     &REG,ANTT&SYSNDX.(&REG)  Locate where to go
+         BR    &REG                     Enter the architecture logic
+ANTM&SYSNDX DC F'36'                    Maximum valid table index
+ANTT&SYSNDX DS  0F
+         DC    A(ANTE&SYSNDX)           Level 0 - invalid and actual arch unknown
+.* Build Level 1 Entry - S/360
+         AIF   ('&S360' EQ '').NO360
+         DC    A(&S360)                 Level 1 - S/360 supported
+         AGO   .CKBC
+.NO360   ANOP
+&NEEDBC  SETB  1
+         DC    A(ANTB&SYSNDX)           Level 1 - S/360 not supported
+.CKBC    ANOP
+.* Build Level 2 Entry - S/370 BC-mode
+         AIF   ('&S370BC' EQ '').NOBC
+         DC    A(&S370BC)               Level 2 - S/370 BC-mode supported
+         AGO   .CKEC
+.NOBC    ANOP
+&NEEDBC  SETB  1
+         DC    A(ANTB&SYSNDX)           Level 2 - S/370 BC-mode not supported
+.* Build Level 3 Entry - S/370 EC-mode
+.CKEC    ANOP
+         AIF   ('&S370' EQ '').NOEC
+         DC    A(&S370)                 Level 3 - S/370 EC-mode supported
+         AGO   .CK380
+.NOEC    ANOP
+         DC    A(ANTU&SYSNDX)           Level 3 - S/370 EC-mode not supported
+.* Build Level 4 Entry - Hercules S/380
+.CK380   ANOP
+         AIF   ('&S380' EQ '').NO380
+         DC    A(&S380)                 Level 4 - S/380 supported
+         AGO   .CKXA
+.NO380   ANOP
+         DC    A(ANTU&SYSNDX)           Level 4 - S/380 not supported
+.* Build Level 5 Entry - 370-XA
+.CKXA    ANOP
+         AIF   ('&XA' EQ '').NOXA
+         DC    A(&XA)                   Level 5 - 370-XA supported
+         AGO   .CKE370
+.NOXA    ANOP
+         DC    A(ANTU&SYSNDX)           Level 5 - 370-XA not supported
+.* Build Level 6 Entry - ESA/370
+.CKE370  ANOP
+         AIF   ('&E370' EQ '').NOE370
+         DC    A(&E370)                 Level 6 - ESA/370 supported
+         AGO   .CKE390
+.NOE370  ANOP
+         DC    A(ANTU&SYSNDX)           Level 6 - ESA/370 not supported
+.* Build Level 7 Entry - Native ESA/390
+.CKE390  ANOP
+         AIF   ('&E390' EQ '').NOE390
+         DC    A(&E390)                 Level 7 - Native ESA/390 supported
+         AGO   .CKS390
+.NOE390  ANOP
+         DC    A(ANTU&SYSNDX)           Level 7 - Native ESA/390 not supported
+.* Build Level 8 Entry - ESA/390 on 64-bit system
+.CKS390  ANOP
+         AIF   ('&S390' EQ '').NOS390
+         DC    A(&S390)                 Level 8 - ESA/390 on 64-bit supported
+         AGO   .CKS390X
+.NOS390  ANOP
+         DC    A(ANTU&SYSNDX)           Level 8 - ESA/390 on 64-bit not supported
+.* Build Level 9 Entry - 64-bit system 
+.CKS390X ANOP
+         AIF   ('&S390X' EQ '').NOS390X
+         DC    A(&S390X)                Level 9 - 64-bit supported directly
+         AGO   .ERROR
+.NOS390X ANOP
+         DC    A(ANTU&SYSNDX)           Level 9 - 64-bit not supported directly
+.* Enter disabled wait state on an error
+.ERROR   ANOP
+ANTU&SYSNDX DS 0H   Unsupported architecture
+         STC   &REG,ANTD&SYSNDX+7       Set the unsupported architecture in the PSW
+ANTE&SYSNDX DS 0H   Unknown arch - EC-mode PSW might cause specification exception
+         LPSW  ANTD&SYSNDX
+         AIF   (NOT &NEEDBC).NOBCL
+ANTB&SYSNDX LPSW ANTP&SYSNDX            Enter disabled wait state in basic mode
+         STC   &REG,ANTP&SYSNDX+7       Set the unsupported architecture in the PSW
+         LPSW  ANTP&SYSNDX
+.NOBCL   ANOP
+ANTD&SYSNDX PSWEC 0,0,2,0,X'200'        Enter a disabled wait state
+         AIF   (NOT &NEEDBC).NOBCP
+ANTP&SYSNDX PSW360 0,0,2,0,X'200'       Enter a disabled wait state in basic mode
+.NOBCP   ANOP
+         MEND
+
+         MACRO
+&LABEL   APROB &HERC='NO',&S360='NO',&S380='NO',&REG=1
+.* The APROB macro generates in-line code detecting the running-architecture.
+.* The identified register is set to the detected architecture level.  PGM and SVC 
+.* new PSWs are restored to their states before the probe occurred.
+.*
+.* Optional Parameter Usage:
+.*  LABEL   Provides a label for the in-line architecture probe code
 .*  HERC    Specify 'YES' to restrict tests to Hercules standard architectures.
 .*          Otherwise all standard architectures are tested.
 .*  S360    Specify 'YES" to include test for S/360 architecture.  Otherwise S/360
@@ -74,17 +208,18 @@
 .*  S380    Specify 'YES' to include test for Hercules S/380 architecture.  Otherwise
 .*          S/380 (level 4) will be recognized erroneously as 370-XA (level 5).
 .*          Defaults to 'NO'.  Registers 1-3 are altered by this test
+.*  REG     Specifies the register into which the macro places the run-time detected
+.*          architecture level as a hexadecimal digit.  Defaults to '1'.  This must
+.*          be changed if S380=YES to a register other than 1-3, inclusive.
 .*
 .* Register Usage:
-.*   R0 is set to the detected architecture level
+.*   Register specified by REG parameter is set to the detected architecture level.
+.*   Must not be 1-3 if the S/380 test is included.
 .*   A base register is required and must not be 1-3 if the S/380 test is included.
-.* Macro Parameters:
-.*   &LABEL   Provides a label for the in-line architecture probe code
 .*
 .* Side Effects:
-.* SVC and PGM old PSWs are unpredictable.  Some interruption codes may be stored.
-.* Condition code is unpredictable.  Addressing mode is the highest supported by
-.* the architecture.
+.* Some interruption codes may be stored.  Condition code is unpredictable.
+.* Addressing mode is the highest supported by the architecture.
          LCLB  &S360Y
          LCLB  &S380Y
          LCLB  &NO5OR6
@@ -100,7 +235,7 @@
          MVC   X'1D0'(16,0),AP64&SYSNDX Set up 128-bit SVC New PSW
          MVC   X'060'(8,0),AP31&SYSNDX  Set up 64-bit SVC New PSW
          MVC   X'068'(8,0),AP24&SYSNDX  Set up 64-bit PGM New PSW
-         SR    0,0                      Make sure R0 is zero
+         SR    &REG,&REG                Make sure result register is zero
          SVC   0   NOW DO THE PROBE
 * Control never falls through here.  An interruption takes control elsewhere.
          SPACE 1
@@ -140,8 +275,8 @@ APXA&SYSNDX DC  F'0'     STAM test for access register
 .NOXAD   ANOP
          SPACE 1
 IS64&SYSNDX DS  0H   64-bit architecture found
-*        LGHI  0,9     Use of LGHI ensures all high-order bits in 64-bit reg. are 0
-         DC    X'A709',H'9'  Set level to 9 (z/Architecture)
+*        LGHI  &REG,9  Use of LGHI ensures all high-order bits in 64-bit reg. are 0
+         DC    AL1(X'47',&REG*16+9),HL2'9'
          B     APDN&SYSNDX   64-bit tests are done
          SPACE 1
 IS31&SYSNDX DS 0H    31-bit architecture found
@@ -152,26 +287,31 @@ IS31&SYSNDX DS 0H    31-bit architecture found
 * is executed.
          AIF   (NOT &S380Y).NOHERC
 * Level 4 - Detect Hercules S/380 architecture
-         LA    0,4   Set level to 4 (lowest 31-bit architecture)
+         LA    &REG,4   Set level to 4 (lowest 31-bit architecture)
          LM    1,3,APRS&SYSNDX
 *        CFC   0                 CFC available on 370-XA but not Hercules S/380
          DC    XL4'B21A0000'     coded in hex to be independent of target
 .NOHERC  ANOP
          AIF   (&NO5OR6).NOXA
 * Level 5 - Detect 370-XA architecture
-         LA    0,5               Set level to 5 (370-XA)
+         LA    &REG,5            Set level to 5 (370-XA)
 *        STAM  0,0,APXA&SYSNDX  STAM available on ESA/370 but not 370-XA
          DC    X'9B00',S(APXA&SYSNDX)
 * Level 6 - Detect ESA/370 architecture
-         LA    0,6               Set level to 6 (ESA/370)
+         LA    &REG,6            Set level to 6 (ESA/370)
 *        CHI   0,0               CHI  available on ESA/390 but not ESA/370
          DC    X'A70E0000'
 .NOXA    ANOP
 * Level 7 - Detect native ESA/390
-         LA    0,7              Set level to 7 (native ESA/390)
-*        TAM                    TAM available on ESA/390 on z but not native ESA/390
-         DC    X'010B'
-         LA    0,8              Set level to 8 (ESA/390 on z)
+         LA    &REG,7           Set level to 7 (native ESA/390)
+*        STFL  0(0)             STORE FACILITY LIST
+         DC    X'B2B10000'
+* An operation exception definitely implies native ESA/390
+* Depending upon the platform STFL might actually work.  Test the STFL bits then.
+         TM    200,X'40'        Is z/Architecture installed?
+         BZ    APDN&SYSNDX      ..No, this is a native ESA/390 environment
+*                               ..Yes, ESA/390 on z was detected
+         LA    &REG,8           Set level to 8 (ESA/390 on z)
          B     APDN&SYSNDX      31-bit tests are done
          SPACE 1
 * Detect which 24-bit architecture mode is actually running
@@ -181,37 +321,36 @@ IS24&SYSNDX DS 0H    24-bit architecture found
 .* to be the detected mode.
          AIF   (&S360Y).YES360
 .* Only S/370 mode so the mode
-         LA    0,3   Set level to 3 (assume S/370-EC mode)
+         LA    &REG,3           Set level to 3 (assume S/370-EC mode)
          TM    X'29',X'08'      Is EC-mode enabled in old-PSW?
          BO    APDN&SYSNDX      ..Yes, already in EC-mode, so done
-         LA    0,2              ..No, set level to 2 (S/370-BC mode)
+         LA    &REG,2           ..No, set level to 2 (S/370-BC mode)
          LPSW  STBC&SYSNDX      Restore BC-mode operation
          AGO   .DONE
 .YES360  ANOP
 .* Both S/360 an S/370 being tested
-         LA    0,1   Set level to 1 (lowest 24-bit architecture)
+         LA    &REG,1           Set level to 1 (lowest 24-bit architecture)
 .TESTBC  ANOP
          CLI   X'2B'(0),X'00'     Does the program old PSW have an interrupt code?
          BZ    IS37&SYSNDX        ..No, zeros means EC mode WAS running
 * BC-mode was running but is it S/360 or S/370 in basic-control mode?
-         LA    0,1   Set level to 1 (lowest 31-bit architecture)
+         LA    &REG,1            Set level to 1 (lowest 24-bit architecture)
          MVC   X'068'(8,0),WH24&SYSNDX
 *        STCTL 0,0,APCR&SYSNDX     Try to do a STCTL.
          DC    X'B600',S(APCR&SYSNDX)   Coded with hex in case target is S/360
 * Is S/370 but was running in BC-mode
-         LA    0,2   Set level to 2 (System/370 BC-mode)
+         LA    &REG,2           Set level to 2 (System/370 BC-mode)
          B     APDN&SYSNDX
 IS37&SYSNDX DS OH   EC-mode was running means S/370, but test interrupt forced BC-mode
          LPSW  STEC&SYSNDX         Restore EC-mode
 ISEC&SYSNDX DS 0H   EC-mode restored
-         LA    0,3   Set level to 3 (System/370)
+         LA    &REG,3           Set level to 3 (System/370)
 .DONE    ANOP
          SPACE 1
 APDN&SYSNDX DS 0H   Level found, restore previous new PSW's
          MVC   X'1D0'(16,0),APSZ&SYSNDX   Restore previous 128-bit SVC PSW
          MVC   X'060'(8,0),APSS&SYSNDX    Restore previous 64-bit SVC PSW
          MVC   X'068'(8,0),APSP&SYSNDX    Restore previous 64-bit PGM PSW
-* R0 set to run-time detected architecture level
          MEND
 
          MACRO
@@ -232,7 +371,11 @@ APDN&SYSNDX DS 0H   Level found, restore previous new PSW's
          GBLC  &ARCHAMK   Address constant mask
          GBLC  &ARCHATP   Address constant type
          GBLC  &ARCHITP   Integer constant type
-         GBLC  &ARCHIPF   IPL PSW format
+         GBLC  &ARCHIPF   IPL PSW format assembler directive
+.* Multi-architecture assists
+         GBLC  &A         Architecture specific symbol suffix
+         GBLC  &I         Input/output architecture specific symbol suffix
+         GBLC  &S         Sharable code register size symbol suffix
 .* Define default selectable instructions
 $AL      OPSYN AL
 $ALR     OPSYN ALR
@@ -275,6 +418,9 @@ $X       OPSYN X
 &ARCHATP SETC  'A'
 &ARCHIPF SETC  'PSW'
 &ARCHITP SETC  'F'
+&A       SETC  '&ARCHLVL'
+&I       SETC  'C'
+&S       SETC  'F'
          AIF   (&ARCHLVL NE 1).NOT360
 .* Define S/560 instructions as selectable
 $BAS     OPSYN BAL
@@ -289,6 +435,7 @@ $BASR    OPSYN BALR
 &ARCHORB SETA  3
 &ARCHIRB SETA  16
 &ARCHSCB SETA  13
+&I       SETC  'D'
          AIF   (&ARCHLVL LT 7).DEFINED    370-XA, ESA/370 complete
 .* Define ESA/390 native
 $AHI     OPSYN AHI
@@ -341,6 +488,8 @@ $X       OPSYN XG
 &ARCHIPF SETC  'PSWE390'
 &ARCHITP SETC  'FD'
 &ARCHORX SETA  8
+&I       SETC  'M'
+&S       SETC  'G'
 .DEFINED ANOP
 &ARCHIND SETB  1
          MEND
@@ -358,7 +507,7 @@ $X       OPSYN XG
 .*           will be indicated as not being on a z/Architecture system.  Otherwise
 .*           ESA/390 will be assumed as being on a z/Architecture system.
 .*   &PSW    Before setting the current architecture level, an XMODE directive is
-.*           issued, setting the PSW format that is then examined for the determining
+.*           issued, setting the PSW format that is then examined when determining
 .*           the current level.
 .*   &SET    If specified the architecture level is set to the specified value
 .*           regardless of the current XMODE PSW setting.  The specified value
@@ -389,6 +538,7 @@ $X       OPSYN XG
 .* Test for a value of 8 for multi-architecture capability
          GBLA  &ARCHLVL     A global variable used by other macros for code generation
          LCLA  &SETTING     Forced architecture setting
+         LCLC  &USEPSW      The PSW setting used by the macro
 .* Macros that need to understand the current architecture level must declare this
 .* global symbolic variable.  The setting of this variable allows the macro to
 .* select instructions depending upon this setting.  The following capabilities
@@ -403,7 +553,7 @@ $X       OPSYN XG
 .*       Binary floating point instructions
 .*   8   Addressing Mode instructions (SAMxx, TAM)
 .*   9   64-bit register instructions: xxxG
-.*       Relatove long instructions (LARL, JLU, etc.)
+.*       Relative long instructions (LARL, JLU, etc.)
 .*       Extended immediate (CFI, etc.)
 .*       Long-distance facility, 20-bit or 1M displacement (LAY, AY, ALY, etc.)
 .*       Decimal floating point instructions
@@ -413,41 +563,44 @@ $X       OPSYN XG
 .* Process the PSW parameter
          AIF   ('&PSW' EQ '').NOPSW
          XMODE PSW,&PSW
+&USEPSW  SETC  'PSW&PSW'
 .NOPSW   ANOP
 .* Determine if there is an XMODE setting available or use the SET parameter
          AIF   ('&SET' NE '').FORCE
          AIF   ('&SYSPSW' NE '').CKSETNG
          MNOTE 1,'XMODE PSW NOT SET'
          MEXIT
-.CKSETNG AIF   ('&SYSPSW' NE 'PSW360').CK370
+.CKSETNG ANOP
+&USEPSW  SETC  '&SYSPSW'
+         AIF   ('&USEPSW' NE 'PSW360').CK370
 &ARCHLVL SETA  1
          AGO   .EQUATE
-.CK370   AIF   ('&SYSPSW' NE 'PSWBC').CK370EC
+.CK370   AIF   ('&USEPSW' NE 'PSWBC').CK370EC
 &ARCHLVL SETA  2
          AGO   .EQUATE
-.CK370EC AIF   ('&SYSPSW' NE 'PSWEC').CK380
+.CK370EC AIF   ('&USEPSW' NE 'PSWEC').CK380
 &ARCHLVL SETA  3
          AGO   .EQUATE
-.CK380   AIF   ('&SYSPSW' NE 'PSW380').CKXA
+.CK380   AIF   ('&USEPSW' NE 'PSW380').CKXA
 &ARCHLVL SETA  4
          AGO   .EQUATE
-.CKXA    AIF   ('&SYSPSW' NE 'PSWXA').CKE370
+.CKXA    AIF   ('&USEPSW' NE 'PSWXA').CKE370
 &ARCHLVL SETA  5
          AGO   .EQUATE
-.CKE370  AIF   ('&SYSPSW' NE 'PSWE370').CKE390
+.CKE370  AIF   ('&USEPSW' NE 'PSWE370').CKE390
 &ARCHLVL SETA  6
          AGO   .EQUATE
-.CKE390  AIF   ('&SYSPSW' NE 'PSWE390').CKZ
+.CKE390  AIF   ('&USEPSW' NE 'PSWE390').CKZ
          AIF   ('&ZARCH' EQ 'NO').NOTONZ
 &ARCHLVL SETA  8
          AGO   .EQUATE
 .NOTONZ  ANOP
 &ARCHLVL SETA  7
          AGO   .EQUATE
-.CKZ     AIF   ('&SYSPSW' NE 'PSWZ').NOSUP
+.CKZ     AIF   ('&USEPSW' NE 'PSWZ').NOSUP
 &ARCHLVL SETA  9
          AGO   .EQUATE
-.NOSUP   MNOTE 1,'XMODE PSW &SYSPSW NOT SUPPORTED BY ARCHLVL MACRO'
+.NOSUP   MNOTE 1,'ARCHLVL - XMODE PSW &SYSPSW NOT SUPPORTED BY ARCHLVL MACRO'
          MEXIT
 .FORCE   ANOP
 &SETTING SETA  &SET
@@ -461,8 +614,8 @@ $X       OPSYN XG
 .DOIND   AIF   ('&ARCHIND' NE 'YES').MNOTE
          ARCHIND
 .MNOTE   ANOP
-         AIF   ('&MNOTE' EQ 'NO').MEND
-         MNOTE *,'ARCHLVL - DETECTED ARCHITECTURE LEVEL - &ARCHLVL'
+         AIF   ('&MNOTE' NE 'YES').MEND
+         MNOTE *,'ARCHLVL - ARCHITECTURE LEVEL SET - &ARCHLVL'
 .MEND    MEND
 
          MACRO
@@ -546,7 +699,7 @@ $X       OPSYN XG
 .DONE    MEND
 
          MACRO
-&LABEL   ASALOAD &REGION='ASAREGN',&PSW=
+&LABEL   ASALOAD &REGION='ASAREGN',&ZARCH='LEVEL',&PSW=
 .* Create a Region in which the assigned storage location CSECT is initialized
 .* Following the ASALOAD macro the ASA control section is the active section.
 .* Use the ASAIPL macro after the ASALOAD macro to place an IPL PSW into the ASA
@@ -557,18 +710,31 @@ $X       OPSYN XG
 .* Optional Parameter Usage:
 .*   &REGION  Region name into which the control section is created.  Defaults to
 .*            region name ASAREGN.
-.*   &TRAPS   Specify 'YES' to generate interruption trap PSWs.  Defaults to 'YES'.
+.*   &ZARCH   Determines how 128-bit PSW's are handled
+.*            Specify 'YES' to force 128-bit PSW's regardless of architecture level
+.*            Specify 'NO' to inhibit 128-bit PSW's regardless of architecture level
+.*            Specify 'LEVEL' to determine if 128-bit PSW's needed for the current
+.*            architecture level.  Defaults to 'LEVEL'.
 .*   &PSW     Used to explicitly specify a 64-bit PSW format, otherwise the current
 .*            XMODE PSW setting is used.
          GBLA  &ARCHLVL   Current architecture level
          GBLC  &SATKACS   ASALOAD control section
+         LCLB  &NEED128   Whether 128-bit PSW's needed
          LCLC  &SECT      Control section before entering the macro
-         AIF   ('&SATKACS' EQ '').NEWRGN
+.* Determine whether 128 bit PSW's required
+         AIF   ('&ZARCH' EQ 'NO').NEWRGN
+         AIF   ('&ZARCH' EQ 'YES' OR '&ZARCH' EQ 'LEVEL').TEST
+         MNOTE 1,'ASALOAD - INVALID ZARCH PARAMETER - &ZARCH'
+         MEXIT
+.TEST    ANOP
+&NEED128 SETB  &ARCHLVL GE 8 OR '&ZARCH' EQ 'YES'
+.* Start the ASA content area
+.NEWRGN  ANOP
+         AIF   ('&SATKACS' EQ '').DONEW
 .* Attempt to continue the ASALOAD section
          MNOTE 1,'ASALOAD - ASA CONTROL SECTION ALREADY STARTED - &SATKACS'
          MEXIT
-.* Start the ASA content area
-.NEWRGN  ANOP
+.DONEW   ANOP
          AIF   ('&LABEL' NE '').LBLGOOD
          MNOTE 1,'ASALOAD - REQUIRED LABEL PARAMETER MISSING'
          MEXIT
@@ -579,7 +745,7 @@ $X       OPSYN XG
          TRAP64 RESTART=ONLY,PSW=&PSW
          ORG   &LABEL+X'058'
          TRAP64 PSW=&PSW
-         AIF   (&ARCHLVL LT 8).FILL
+         AIF   (NOT &NEED128).FILL
          ORG   &LABEL+X'1A0'
          TRAP128
          MEXIT
@@ -600,7 +766,6 @@ $X       OPSYN XG
 .*             YES - Causes the &LABEL variable, if provided, to initiate a DSECT
 .*    &SCANOUT Size of the System/360 diagnostic scan out area in bytes. Defaults to 0
          LCLB  &NOTRAPS   Flag is True if trap PSW's are NOT being generated
-         LCLC  &PSW       PSW command used for 64-bit trap PSW's
 .* Initiate CSECT/DSECT if specified
          AIF   ('&LABEL' EQ '').NOSECT
          AIF   ('&DSECT' EQ 'YES').DODSECT
@@ -612,17 +777,6 @@ $X       OPSYN XG
 .DODSECT ANOP
 &LABEL   DSECT
 .NOSECT  ANOP
-.* Determine if TRAP PSW's are to be generated
-         AIF   ('&SYSPSW' EQ 'PSWZ').USEEC
-         AIF   ('&SYSPSW' NE 'PSWS').USEXMOD
-         AGO   .GEN
-.USEXMOD ANOP
-&PSW     SETC  'PSW'
-         AGO   .GEN
-.USEEC   ANOP
-&PSW     SETC  'PSWEC'
-.* Define storage locations
-.GEN     ANOP
 ASBEGIN  EQU   *                   Start of absolute/real assigned storage areas
 IPLPSW   DC    FD'0'        000 A  Initial Program Load Program Status Word
 IPLCCW1  DC    FD'0'        008 A  Initial Program Load first Channel Command Word
@@ -3021,7 +3175,7 @@ SMMN&SYSNDX DS  0H
 
          MACRO
 &LABEL   TRAP128
-.* Generate 64-bit ISR Trap PSWs
+.* Generate 128-bit ISR Trap PSWs
 .* Optional Parameter Usage:
 .*   &LABEL   Associate a symbol with the generated PSWs
 &LABEL   PSWZ   0,0,2,0,X'120'    Restart ISR Trap New PSW

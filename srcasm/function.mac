@@ -34,6 +34,14 @@
 *    STACK     Assemble a symbol representing the bottom of the stack
 *    STKINIT   Initialize the stack from a value in a register or an assembled symbol
 *
+* Multi-architecture function assists
+*    ACALL     Call an architecture specific function defined by AFUN
+*    AFUN      Defines an architecture specific function
+*    ICALL     Call an input/output architecture specific function defined by IFUN
+*    IFUN      Defines a function supporting multiple input/output architecture
+*    SCALL     Call a multi architecture sharable function defined by SFUN
+*    SFUN      Defines a function sharable by multiple architectures
+*
 * Register convenctions used with SATK functions:
 *  Register on Entry:
 *    R0      = unpredictable
@@ -173,7 +181,7 @@
 .* Dependendy:
 .* Depends upon the ARCHIND operator synonyms.
 .* Analyze the option
-         AIF   ('&REG' EQ '').GEN
+         AIF   ('&REG' EQ '').CALLIT
 &REGSUB  SETA  N'&REG
          AIF   (&REGSUB EQ 0).NEEDFCH
          AIF   (&REGSUB EQ 1).USEREG
@@ -486,7 +494,6 @@
 .LOCAL   ANOP
 &LBL     SETC  '&PFX.LCL '
 &LBL EQU   *
-&SYSECT  CSECT
          AIF   (&ARCHLVL EQ 9).SET64
 &SATKFRN SETA  &GRN
 &SATKFFN SETA  &FPRN
@@ -887,4 +894,46 @@ STKI&SYSNDX DC    &ARCHATP.(&BOTTOM) Bottom of stack
          MEXIT
 .RELAD   ANOP
 STKI&SYSNDX RELOA &BOTTOM            Bottom of stack
+         MEND
+
+         MACRO
+&LABEL   ACALL  &FUNC,&INLINE=,&RELO='NO'
+         GBLC  &A      Architecture specific symbol suffix
+&LABEL   CALL  &FUNC&A,INLINE=&INLINE,RELO=&RELO
+         MEND
+         
+         MACRO
+&LABEL   ICALL &FUNC,&INLINE=,&RELO='NO'
+         GBLC  &I      Input/output architecture specific symbol suffix
+&LABEL   CALL  &FUNC&I,INLINE=&INLINE,RELO=&RELO
+         MEND
+         
+         MACRO
+&LABEL   SCALL &FUNC,&INLINE=,&RELO='NO'
+         GBLC  &S      Sharable symbol suffix
+&LABEL   CALL  &FUNC&S,INLINE=&INLINE,RELO=&RELO
+         MEND
+
+         MACRO
+&LABEL   AFUN  &FP='NO',&AFP='NO'
+         GBLC  &A      Architecture specific symbol suffix
+         LCLC  &LBL    Used to constuct function label
+&LBL     SETC  '&LABEL&A'
+&LBL     FUNCTION FP=&FP,AFP=&AFP
+         MEND
+
+         MACRO
+&LABEL   IFUN  &FP='NO',&AFP='NO'
+         GBLC  &I      Input/output architecture specific symbol suffix
+         LCLC  &LBL    Used to constuct function label
+&LBL     SETC  '&LABEL&I'
+&LBL     FUNCTION FP=&FP,AFP=&AFP
+         MEND
+
+         MACRO
+&LABEL   SFUN  &FP='NO',&AFP='NO'
+         GBLC  &S      Sharable symbol suffix
+         LCLC  &LBL    Used to constuct function label
+&LBL     SETC  '&LABEL&S'
+&LBL     FUNCTION FP=&FP,AFP=&AFP
          MEND
