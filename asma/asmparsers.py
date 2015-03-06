@@ -425,7 +425,7 @@ class PLitLabelAttr(expression.PLitSmart):
             if trace:
                 print("%s.value() v=%s" % (self.__class__.__name__,v))
         except KeyError:
-            raise assembler.LabelError(lable,ltok=self.src,msg="undefined label") \
+            raise assembler.LabelError(label,ltok=self.src,msg="undefined label") \
                 from None
         return v
 
