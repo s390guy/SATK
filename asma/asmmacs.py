@@ -2641,10 +2641,10 @@ class MacroLanguage(object):
         
         # Looking for prototype statmenet
         if state==1:
-            if flds.comment:
+            if flds.comment or flds.empty:
                 self.state=3
                 raise assembler.AssemblerError(line=stmt.lineno,\
-                    msg="comment not allowed for prototype statement")
+                    msg="comment or empty line not allowed for prototype statement")
             op=flds.opuc
 
             if __debug__:
