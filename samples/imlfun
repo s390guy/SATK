@@ -19,20 +19,22 @@
 # Function to Initial Microprogram Load a Hercules CPU
 iml()
 {
-        # iml -h hercbin -c conf -r rc_file -l logfile
+        # iml -v -h hercbin -c conf -r rc_file -l logfile
         #
-        #   option      variable
+        #   option     variable
         #
         # -h hercbin  HERCULES       required    Hercules binary
         # -c conf     HERCULES_CNF   required    Hercules configuration file
         # -r rc_file  HERCULES_RC    optional    Hercules run command file
         # -l logfile  HERCULES_LOG   optional    Herucles logfile
+        # -v                                     verbose logging (Hyperion only)
         hercbin=""    
         hercconf=""
         hercrc=""
         herclog=""
+        hercverb=""
         error=0
-        while getopts ":h:c:r:l:" Option
+        while getopts ":h:c:r:l:v" Option
           do
               #echo "Option=${Option} OPTARG=${OPTARG}"
               case "$Option" in
@@ -40,6 +42,7 @@ iml()
                  "c") hercconf="${OPTARG}" ;;
                  "r") hercrc="${OPTARG}"   ;;
                  "l") herclog="${OPTARG}"  ;;
+                 "v") hercverb="-v"        ;;
                  ":") echo "iml: Missing argument for option: $OPTARG"
                       error=1
                       ;;
@@ -81,7 +84,7 @@ iml()
           echo "herclog=${herclog}"
           echo "HERCULES_RC=${HERCULES_RC}"
           echo "hercconf=${hercconf}"
-          cmd="${hercbin} -v ${hercconf}"
+          cmd="${hercbin} ${hercverb} ${hercconf}"
           echo "cmd=${cmd}"
           if [ -n "${herclog}" ]
              then echo "${cmd}" >${herclog}
