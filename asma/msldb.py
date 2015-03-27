@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014 Harold Grovesteen
+# Copyright (C) 2014, 2015 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -104,6 +104,7 @@
 # *    mnemonics <mnemonic> ... <mnemonic>       # instruction mnemonic
 
 #   inst <mnemonic> <opcode> <format-id> <priv>  # Instruction definition
+# *    fixed <ifield> <hex-value>               # Fixed portion of instruction
 
 #   format <format-id>                           # Instruction format
 #      length <bytes>                            # Instruction length in bytes
@@ -120,7 +121,7 @@ import sys               # Access to exit() method to terminate run
 # SATK imports:
 import sopl              # Access the Statement Oriented Paramater Language tool
 
-copyright="msldb.py Copyright (C) %s Harold Grovesteen" % "2014"
+copyright="msldb.py Copyright (C) %s Harold Grovesteen" % "2014, 2015"
 
 
 #
@@ -157,6 +158,7 @@ class icu(object):
         self.addr=addr          # Prefered address of the attached device
 
 class mfield(object):
+    rxb={8:0b1000,12:0b0100,16:0x0b0010,32:0xb0001}
     # Used by functools for sorting of mfield objects by starting bit number
     # select_list=sorted(possible,key=functools.cmp_to_key(mfield.compare))
     @staticmethod
@@ -166,15 +168,33 @@ class mfield(object):
         if a.beg>b.beg:
             return 1
         return 0
-    def __init__(self,name,typ,beg,end,signed=False):
+    def __init__(self,name,typ,beg,end,signed=False,fixed=False,vector=False):
         self.name=name        # Name of the machine field
         self.typ=typ          # Field type
         self.beg=beg          # starting bit of the field (inclusive of this bit)
         self.end=end          # ending bit of the field (inclusive of this bit)
         self.signed=signed    # If True, field content is signed, otherwise unsigned
+        self.fixed=fixed      # If True, a fixed source assigns value
+        # Instruction bit where high-order bit of vector register number is placed.
+        # Used when a vector register value greater than 15 is supplied.  All
+        # vector machine field rxb values are merged together to create the
+        # instruction RXB field.
+        self.rxb=0
+        if vector:
+            try:
+                self.rxb=mfield.rxb[beg]
+            except KeyError:
+                cls_str="msldb.py - %s.__init__() -" % self.__class__.__name__
+                raise ValueError("%s usupported vector register field start: %s" \
+                    % (cls_str,beg))
     def __str__(self):
-        return "mfield('%s',type='%s',%s,%s,signed=%s)" \
-            % (self.name,self.typ,self.beg,self.end,self.signed)
+        rxb=self.isvector()
+        return "mfield('%s',type='%s',%s,%s,signed=%s,fixed=%s,vector=%s: rxb=0x%X)" \
+            % (self.name,self.typ,self.beg,self.end,self.signed,self.fixed,\
+                rxb,self.rxb)
+    # Returns True or False depending upon whether this is a vector field
+    def isvector(self):
+        return self.rxb!=0
 
 class soper(object):
     def __init__(self,name,typ,mfields=[]):
@@ -430,10 +450,6 @@ class CPU(MSLDBE):
             s="%s\n    addrmax parameter required, missing" % s
             error=True
 
-        #if self.psw is None:
-        #    s="%s\n    psw parameter required, missing" % s
-        #    error=True
-
         if error:
             raise MSLError(loc=self.loc,\
                 msg="cpu %s statement contains errors:%s" % (self.ID,s)) 
@@ -675,16 +691,19 @@ class CU(MSLDBE):
 #   format <format-id>                           # Instruction format
 #      length <bytes>                            # Instruction length in bytes
 #      xopcode <start-bit> <end-bit>             # Extended opcode bit positions
-# *    mach <mfield> <start-bit> <ending-bit> [signed]   # machine instruction field
+# *    mach <mfield> <start-bit> <ending-bit> [signed] [fixed]   # instruction field
 # *    source <sfield> <mfield> <mfield>...      # source statement operands
 class Format(MSLDBE):
     lengths=[2,4,6]   # Valid instruction length sizes in bytes
     # The sops source operand names are tightly coupled to ASMA.  Changes there or
     # here must be coordinated.  This dictionary maps source operand type to the 
     # number of machine fields to which it provides values.
-    sops={"I":1,"M":1,"R":1,"RELI":1,"RI":1,"S":2,\
+    sops={"I":1,"M":1,"R":1,"RELI":1,"RI":1,"V":1,"S":2,\
           "SY":3,"SL":3,"SR":3,"SX":3,"SYL":4,"SYX":4}
-    mflds=["B","D","DH","DL","I","L","M","R","RELI","RI","X"]
+    mflds=["B","D","DH","DL","I","L","M","R","RELI","RI","RXB","V","X"]
+    # Machine fields supplied by the assembler.  No match with a source field
+    # is required for these machine field types.
+    asm=["RXB",]
     styp_re=re.compile(r'([A-Z]+)([0-9]+)?')
     def __init__(self,els,keep=False):
         super().__init__(els,"format",keep=keep)
@@ -753,15 +772,14 @@ class Format(MSLDBE):
 
     def length_proc(self,elp):
         if self.length is not None:
-            raise MSLError(loc=p.source,\
-                msg="format %s statement encounterd more than one length parameter at "
-                    "line %s" % (els.source,p.source))
+            raise MSLError(loc=elp.source,\
+                msg="format statement encounterd more than one length parameter ")
 
         length=elp.attr[0]
         try:
             l=int(length,10)
         except IndexError:
-            raise MSLError(loc=p.source,\
+            raise MSLError(loc=elp.source,\
                  msg="format %s invalid length parameter not numeric: %s" \
                      % (self.ID,length))
             self.length=Format.lengths[length]
@@ -770,20 +788,20 @@ class Format(MSLDBE):
                  msg="format %s invalid length parameter: %s" % (self.ID,length))
         self.length=l
 
-    # <mfield> <start-bit> <ending-bit> [signed]
+    # <mfield> <start-bit> <ending-bit> [signed] [fixed]
     def mach_proc(self,elp):
         attr=elp.attr
         if len(attr)==0:
             raise MSLError(loc=elp.source,\
                 msg="format %s statement 'mach' parameter field definition missing"\
                     % elp.ID)
-        if len(attr)>4:
+        if len(attr)>5:
             raise MSLError(loc=elp.source,\
                 msg="format %s statement 'mach' parameter contains too many "
                 "attributes: %s" % (self.ID,len(attr)))
         if len(attr)<3:
             raise MSLError(loc=elp.source,\
-                msg="format %s statement 'mach' parameter requires between 3 and 4 "
+                msg="format %s statement 'mach' parameter requires between 3 and 5 "
                      "attributes incomplete, found: %s" % (self.ID,len(attr)))
         mfld=attr[0].upper()
         typ,num=self.separate(mfld,elp.source,"mach")
@@ -791,15 +809,24 @@ class Format(MSLDBE):
             raise MSLError(loc=elp.source,\
                 msg="format %s statement 'mach' parameter 'mfield' type "
                 "invalid: %s" % (self.ID,typ))
+
+        # Determine if the machine field is a vector register.  They require
+        # special handling for the high-order bit of the register number.
+        vector = typ=="V"
+
+        # Determine if the supplied value is signed
         signed=False
-        if len(attr)==4:
-            s=elp.attr[3]
-            if s=="signed":
-                signed=True
-            else:
-                raise MSLError(loc=elp.source,\
-                    msg="format %s statement 'mach' parameter %s contains "
-                        "unrecognized signed attribute: %s" % (self.ID,mfld,s))
+        fixed=False
+        if len(attr)>3:
+            for a in attr[3:]:
+                if a == "signed":
+                    signed=True
+                elif a == "fixed":
+                    fixed=True
+                else:
+                    raise MSLError(loc=elp.source,\
+                        msg="format %s statement 'mach' parameter %s contains "
+                            "unrecognized attribute: %s" % (self.ID,mfld,a))
 
         beg_bit,end_bit=self.bit_range(attr[1],attr[2],"machine",elp.source)
         if beg_bit>end_bit:
@@ -807,7 +834,10 @@ class Format(MSLDBE):
                 msg="format %s statement 'mach' parameter %s beginning bit follows "
                      "ending bit: %s>%s" % (self.ID,mfld,beg_bit,end_bit))
 
-        mfieldo=mfield(mfld,typ,beg_bit,end_bit,signed)
+        mfieldo=mfield(mfld,typ,beg_bit,end_bit,\
+            signed=signed,vector=vector,fixed=fixed)
+
+        # Make sure the machine field was not previously defined
         try:
             self.mach[mfld]
             raise MSLError(loc=elp.source,\
@@ -827,7 +857,11 @@ class Format(MSLDBE):
         out_of_range=[]  # List of machine fields outside the valid instruction.
 
         fldsrc={}        # Working dictionary of machine field references
-        for key in self.mach.keys():
+        for key,mfld in self.mach.items():
+            # Don't look for a source if the assembler supplies the field
+            # or it is defined in the instruction with a fixed value
+            if key in Format.asm or mfld.fixed:
+                continue
             fldsrc[key]=[]
 
         for item in self.soper.values():
@@ -985,6 +1019,7 @@ class Format(MSLDBE):
 
 #   inst <mnemonic> <opcode> <format-id> [flags]  # Instruction definition
 #            ID     <-------attributes--------->
+#       fixed <ifield> <hex-value>
 class Inst(MSLDBE):
     opcode_factor=[None,None,1,16,256]
     priv={"G":False,"P":True}    # Values for privileged operation mode eligibility
@@ -1004,6 +1039,10 @@ class Inst(MSLDBE):
         self.extended=False           # 'E' sets True, for an extended mnemonic
         self.experimental=False       # 'X' sets True, for an experimental instruction
         self.nolenck=False            # 'L' sets True, do not check bits 0,1 vs format
+
+        # Fixed constant instruction content fields
+        self.fixed=[]                 # List of fixed ifield names
+        self.fixed_value={}           # Values assigned to the fixed ifield
 
         attr=els.attr
         if len(attr)==0:
@@ -1059,6 +1098,13 @@ class Inst(MSLDBE):
                     msg="inst %s statement contains one or more unrecognized "
                         "flags: '%s' " % (self.ID,invalid))
 
+        for p in els.parms:
+            if p.typ=="fixed":
+                self.fixed_proc(p)
+            else:
+                raise ValueError("%s invalid parameter type for inst statement: %s" \
+                    % (cls_str,p.typ))
+
     def consistent(self,db):
         try:
             db.validate(self.format,"format")
@@ -1075,6 +1121,20 @@ class Inst(MSLDBE):
             raise MSLError(loc=self.loc,\
                 msg="inst %s opcode implies a length of %s bytes, but format %s "
                     "requires length: %s" % (self.ID,length,format.ID,format.length))
+            
+        # Ensure format and instruction fixed fields are consistent
+        mfields=format.mach
+        for ff in self.fixed:
+            try:
+                ffield=mfields[ff]
+            except KeyError:
+                raise MSLError(loc=self.loc,\
+                    msg="inst %s fixed source %s not found in format %s" \
+                        % (self.ID,ff,format.ID))
+            if not ffield.fixed:
+                raise MSLError(loc=self.loc,\
+                    msg="inst %s fixed source %s not a fixed field in format %s" \
+                        % (self.ID,ff,format.ID))
 
     def dump(self,indent="",string=False):
         s="%sInst ID: %s" % (indent,self.ID)
@@ -1084,9 +1144,38 @@ class Inst(MSLDBE):
         s="%s\n%sopcode digits: %s" % (s,lcl,self.opc_len)
         s="%s\n%sformat: %s" % (s,lcl,self.format)
         s="%s\n%sprivileged: %s" % (s,lcl,self.priv)
+        for f in self.fixed:
+            s="%s\n%sfixed %s: %s" % (s,lcl,f,self.fixed_value[f])
         if string:
             return s
         print(s)
+
+    def fixed_proc(self,fparm):
+        attr=fparm.attr
+        if len(attr) != 2:
+            raise MSLError(loc=fparm.source,\
+                msg="inst statement fixed parameter requires two attributes: %s" \
+                    % len(attr))
+        
+        # Make sure no duplicate fixed parmaters
+        fchar=attr[0]
+        if fchar in self.fixed:
+            raise MSLError(loc=fparm.source,\
+                msg="inst %s statement duplicate fixed field: %s" % (self.ID,fchar))
+
+        # Process value field
+        vchar=attr[1]
+        try:
+            #value=int(vchar,16)
+            value=int(vchar,0)
+        except IndexError:
+            raise MSLError(loc=fparm.source,\
+                msg="inst %s statement fixed field %s value not hex: %s" \
+                    % (self.ID,field,vchar))
+
+        # Add to objects interpreted value
+        self.fixed.append(fchar)
+        self.fixed_value[fchar]=value
 
     def references(self):
         return [self.format,]
@@ -1457,7 +1546,7 @@ class MSL(sopl.SOPL):
         self.regStmt("cu",parms=["channels","devices"])
         self.regStmt("format",parms=["length","mach","source","xopcode"])
         self.regStmt("iset",parms=["mnemonics",])
-        self.regStmt("inst")
+        self.regStmt("inst",parms=["fixed",])
         self.regStmt("model",parms=["cpu","channel","cus","icu","exclude"])
         self.regStmt("system",parms=["model","memory","muxdevs"])
 
