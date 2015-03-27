@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014 Harold Grovesteen
+# Copyright (C) 2014, 2015 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -17,6 +17,8 @@
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
 # This module builds machine instructions for ASMA.
+
+this_module="insnbldr.py"
 
 # Python imports: None
 # SATK imports: None
@@ -166,8 +168,8 @@ class Builder(object):
 
     # This method performs a check on the presented value for its fit in a field
     # of a specific size.  The check is sensitive to signed and unsigned data.
-    # A ValueError is raised if the check fails.  The caller should except the
-    # ValueError and handle it appropriately for the context.
+    # A RangeCheckError is raised if the check fails.  The caller should except the
+    # RangeCheckError and handle it appropriately for the context.
     #
     # Method arguments:
     #    size     The size of the target field in bits
@@ -216,14 +218,34 @@ class Builder(object):
 # format information of a given instruction in preperation for generation of the 
 # machine instruction itself.
 class AOper(object):
-    def __init__(self,operand,soper):
+    def __init__(self,operand,soper,fixed):
         self.operand=operand        # Assembler.Operand subclass object
         self.soper=soper            # msldb.soper object
+        self.fixed=fixed            # Dictionary of fixed content
 
-    # Returns a list of Field objects with their respecfive values from the assembly
+    # Returns a list of Field objects with their respective values from the assembly
     def fields(self,fmt):
-        mach=fmt.mach
+        mach=fmt.mach  # Dictionary of machine field definitions
         my_fields=[]
+        # Determine values for all fixed content fields
+        vector=False
+        for mfield,mf in mach.items():
+            vector = vector or mf.typ=="V"  # Detect vector registers
+            if not mf.fixed:
+                continue
+            try:
+                fixed_value=self.fixed[mfield]
+            except KeyError:
+                # WARNING: this should not occur if msldb has done a proper validation.
+                # Correct the bug in msldb.py if this is raised.
+                raise ValueError("%s instruction definition does not define "
+                    "fixed value for field: %s"\
+                        % (eloc(self,"fields",module=this_module),mfield))
+            fld=Field(mfield=mf,value=fixed_value)
+            my_fields.append(fld)
+            
+        # Process values from statement operands
+        rxb=0
         for mfield in self.soper.mfields:
             try:
                 mf=mach[mfield]
@@ -231,15 +253,36 @@ class AOper(object):
             except KeyError:
                 # WARNING: this should not occur if msldb has done proper validation.
                 # Correct the bug in msldb.py if this is raised.
-                cls_str="insnbldr.py - %s.fields() -" % self.__class__.__name__
                 raise ValueError("%s instruction format %s does not define mach "
-                    "field: %s" % (cls_str,fmt.ID,mfield))
+                    "field: %s" % (eloc(self,"fields",module=this_module),\
+                        fmt.ID,mfield))
 
-            # Get the value provided by the assembler
             mf_typ=mf.typ    # This is the machine field type
             # The Operand object now provides its value for this mfield type
             value=self.operand.field(mf_typ)
-            fld=Field(mfield=mf,value=value)
+            if mf_typ=="V":
+                if value<0 or value>31:
+                    raise assembler.AssemblerError(line=line,\
+                        msg="%s field outside of valid vector register range: %s" \
+                            % (mf.name,value))
+                vreg=value & 0xF
+                if value>15:
+                    rxb|=mf.rxb
+                fld=Field(mfield=mf,value=vreg)
+            else:
+                fld=Field(mfield=mf,value=value)
+            my_fields.append(fld)
+            
+        # Generate RXB field if required
+        if rxb:
+            try:
+                mf_rxb=mach["RXB"]
+            except KeyError:
+                # WARNING: this should not occur if msldb has done a proper validation.
+                # Correct the bug in msldb.py if this is raised.
+                raise ValueError("%s instruction definition does not define field "\
+                    "RXB"% eloc(self,"fields",module=this_module))
+            fld=Field(mfield=mf_rxb,value=rxb)
             my_fields.append(fld)
 
         return my_fields
@@ -351,11 +394,12 @@ class Instruction(object):
         self.line=line                # Stmt Line number
 
         # These attributes contain
-        self.aops=[]            # From Step 1 - List of AOper objects
-        self.fields=[]          # From Step 2 - List of Field objects
+        self.aops=[]            # From Step 1a - List of AOper objects
+        self.fixed={}           # From Step 1b - 
+        self.fields=[]          # From Step 2  - List of Field objects
         self.laddr=[]           # 
 
-        # Step 1 - build the AOper list (one per assembler statement operand)
+        # Step 1a - build the AOper list (one per assembler statement operand)
         soper_seq=fmt.soper_seq
         if len(operands)!=len(soper_seq):
             cls_str="insnbldr.py - %s.__init__() -" % self.__class__.__name__
@@ -367,7 +411,8 @@ class Instruction(object):
             name=soper_seq[n]        # A source parameter type/id attribute
             soper=fmt.soper[name]    # The msldb.soper object it defines
             operand=operands[n]      # The assembler.Operand object for the soper object
-            aop=AOper(operand,soper) # Link the assembly results with the format
+            # Link the assembly results with the format, instruction fixed content
+            aop=AOper(operand,soper,self.inst.fixed) # Link the assembly results with the format
             self.aops.append(aop)    # Add to the list.
         # The aops list is an intermediate step in figuring out how to build the 
         # instruction.
@@ -456,12 +501,13 @@ class MSLentry(object):
         self.mslformat=mslformat       # The original format statement from the MSL DB
 
         # Data from the MSL Inst object
-        self.mnemonic=mslinst.mnemonic # The instruction mnemonic
-        self.opcode=mslinst.opcode     # The opcode field value(s) [for OP, for OPX]
+        self.mnemonic=mslinst.mnemonic  # The instruction mnemonic
+        self.opcode=mslinst.opcode      # The opcode field value(s) [for OP, for OPX]
+        self.fixed=mslinst.fixed_value  # Fixed instruction content field:value dict.
 
         # Data from the MSL Format object
-        self.format=mslformat.ID       # The format ID
-        self.length=mslformat.length   # length of instruction in bytes
+        self.format=mslformat.ID        # The format ID
+        self.length=mslformat.length    # length of instruction in bytes
 
     def dump(self):
         self.mslinst.dump()

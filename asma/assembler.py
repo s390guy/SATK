@@ -772,10 +772,10 @@ class Single(Operand):
         super().__init__(name)
         self.immediate=None
 
-    # Return operand values for 'I', 'M' or 'R' type machine fields
+    # Return operand values for 'I', 'M', 'R' or 'V' type machine fields
     # Results depend upon the resolve() method having completed its work.
     def field(self,typ):
-        if typ in ["I","M","R","RI"]:
+        if typ in ["I","M","R","RI","V"]:
             return self.immediate
         cls_str="assembler.py - %s.field() -" % self.__class__.__name__
         raise ValueError("%s upsupported machine type requested: %s" \
@@ -1427,6 +1427,7 @@ class Stmt(object):
     types={"I":  Single,                  # unsigned int
            "M":  Single,                  # unsigned int
            "R":  Single,                  # unsigned int
+           "V":  Single,                  # unsigned int
            "RI": Single,                  # signed int
            "RELI": SingleRelImed,         # signed integer 
            "S":  Storage,                 # addr or int(int)
@@ -4847,7 +4848,7 @@ class Assembler(object):
             opr.resolve(self,stmt,ndx,trace=idebug)
             if opr.laddr is not None:
                 laddrs.append(opr.laddr)
-        
+
         # Figure out what should go into the ADDR1 and ADDR2 listing fields
         if len(laddrs)==1:
             stmt.laddr.append(laddrs[0])
@@ -4856,7 +4857,7 @@ class Assembler(object):
             stmt.laddr.append(laddrs[-1])
         else:
             pass
-            
+
         self.builder.build(stmt,trace=idebug)
 
 
