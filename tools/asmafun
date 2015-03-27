@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (C) 2014 Harold Grovesteen
+# Copyright (C) 2014, 2015 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -40,7 +40,7 @@ fi
 #       ccw     0|1|disable|cpu     Sets the XMODE CCW setting or uses MSL CPU
 #       cpfile  file|reset     Sets the code page file
 #       cptrans defn|reset     Sect the code page translation definition
-#       cpu     CPU id         Sets the cpu id
+#       cpu     MSLFILE=cpu    Sets the MSLFILE and targeted cpu
 #       debug   reset|<point>  Sets or resets a debug point. See asma.py --help
 #       dump    enable|disable Enables or disables hex dump of image file in listing
 #       error   0|1|2|default  Sets the error handling level
@@ -106,7 +106,7 @@ asma_env()
         "cptrans")
             asma_cptrans=" --cptrans ${2}" ;;
         "cpu")
-            asma_cpu=" -c ${2}" ;;
+            asma_cpu=" --cpu ${2}" ;;
         "deck")
             if [ "${2}" = "nodeck" ]
             then 
@@ -187,7 +187,6 @@ asma_env()
                 asma_list=" -l ${2}"
             fi
             ;;
-        "msl")   asma_msl=" -m ${2}" ;;
         "nest")
             if [ "${2}" = "default" ]
             then 
@@ -248,7 +247,6 @@ asma_env()
                     asma_env reset error
                     asma_env reset image
                     asma_env reset list
-                    asma_env reset msl
                     asma_env reset nest
                     asma_env reset psw
                     asma_env reset rc
@@ -267,7 +265,6 @@ asma_env()
                 "image")  asma_image=""  ;;
                 "ldipl")  asma_ldipl=""  ;;
                 "list")   asma_list=""   ;;
-                "msl")    asma_msl=""    ;;
                 "nest")   asma_nest=""   ;;
                 "psw")    asma_psw=""    ;;
                 "rc")     asma_rc=""     ;;
@@ -341,7 +338,7 @@ asma()
     ccp="${asma_cpfile}${asma_cptrans}"
     cdebug="${asma_debug}${asma_oper}"
     clist="${asma_dump}${asma_list}"
-    copt="${asma_arch}${asma_msl}${asma_cpu}${asma_addr}${asma_psw}${asma_error}"
+    copt="${asma_arch}${asma_cpu}${asma_addr}${asma_psw}${asma_error}"
     copt="${copt}${asma_bltin}${asma_case}${asma_stats}${asma_def}"
     cmd="${asma} ${copt}${ccp}${cdebug}${cout}${clist} ${1}"
     if [ "${2}" = "echo" ]
