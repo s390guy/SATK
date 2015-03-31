@@ -310,7 +310,8 @@ class Listing(object):
         self.linesize=linesize    # Maximum size of a line in the listing
         self.lines=lines          # Lines per page
         self.report=[]            # Lines later merged into a string
-        self.pagelines=0
+        self.pagelines=0          # Number of detail lines on this page
+        self.first_page=True      # Indicates whether this is the first new page
 
     # Completes the listing file by returning the report as a string or, if
     # filename is provided, writes the report to the file.  In this latter case
@@ -355,7 +356,12 @@ class Listing(object):
     def __new_page(self):
         title=self.title()
         title=title.rstrip()
-        line="\f%s\n" % title
+        if self.first_page:
+            self.first_page=False
+            ff=""
+        else:
+            ff="\f"
+        line="%s%s\n" % (ff,title)
         self.report.append(line)
         self.pagelines=1
         self.space(n=1)
