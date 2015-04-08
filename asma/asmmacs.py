@@ -2411,7 +2411,7 @@ class MacroLanguage(object):
 
         # Convert arithmetic expression lexical tokens into pratt2.PExpr object
         expr=self.parsers.L2ArithExpr("_AGO",stmt,ltoks=computed,debug=debug)
-        
+
         # Convert list of SEQSYM lexical tokens into a list of strings
         dest=[]
         for ltok in sequence:
