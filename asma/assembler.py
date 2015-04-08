@@ -3568,7 +3568,7 @@ class Assembler(object):
         mo=self.sqtre.match(operfld)
         if mo is None:
             return
-        filename=operfld[mo.pos:mo.endpos]     # "'include file name'"
+        filename=operfld[mo.start():mo.end()]     # "'include file name'"
         fname=filename[1:-1]   # remove single quotes "include file name"
         self.LB.newFile(fname,stmtno=stmt.lineno)
         stmt.ignore=True        
