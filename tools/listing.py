@@ -254,9 +254,7 @@ class Title(object):
         rcols.extend([pg,num])
         self.right=Group(rcols)
 
-    def setTitle(self,string):
-        title=string.strip()
-        ctitle=string.center(self.linesize)
+    def setTitle(self,string,center=False):
         leftsize=0
         if self.left is not None:
             leftsize=len(self.left)
@@ -264,10 +262,20 @@ class Title(object):
         if self.right is not None:
             rightsize=len(self.right)
         title_size=self.linesize-(leftsize+rightsize)
-        if title_size<len(title):
-            cls_str="%s %s.setTitle() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s not enough room in line for title")
-        ctitle=ctitle[leftsize:self.linesize-rightsize]
+
+        if center:
+            title=string.strip()
+            ctitle=title.center(self.linesize)
+            if title_size<len(title):
+                cls_str="%s %s.setTitle() -" % (this_module,self.__class__.__name__)
+                raise ValueError("%s not enough room in line for title")
+            else:
+                ctitle=ctitle[leftsize:self.linesize-rightsize]
+        else:
+            ctitle=string.rstrip()
+            if title_size<len(ctitle):
+                ctitle=ctitle[:title_size]
+
         self.title=CharCol(title_size,default=ctitle)
 
     def string(self,left=[],right=[]):
