@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2013,2014 Harold Grovesteen
+# Copyright (C) 2013-2015 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -317,6 +317,9 @@ class Listing(object):
     # filename is provided, writes the report to the file.  In this latter case
     # None is returned.
     def __eor(self,filename=None,filemode="wt"):
+        # Add a final FF to report
+        if self.report:
+            self.report.append("\f")
         lines="".join(self.report)
         if filename is None:
             return lines
