@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014 Harold Grovesteen
+# Copyright (C) 2014,2015 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -1334,14 +1334,14 @@ class AsmListing(Listing):
         dc.append(filecol)
         hc.append(CharCol(filecol.size,sep=2,colnum=0))
 
+        stmt_hdr="STMT"
+        dc.append(DecCol(maximum=self.max_copy_stmt,sep=2,colnum=1))
+        hc.append(CharCol(len(stmt_hdr),colnum=1,sep=2,default=stmt_hdr))
+
         name_hdr="FILE NAME"
         namesize=max(self.name_len,len(name_hdr))
-        dc.append(CharCol(namesize,sep=2,colnum=1))
-        hc.append(CharCol(namesize,just="center",sep=2,colnum=1,default=name_hdr))
-
-        stmt_hdr="STMT"
-        dc.append(DecCol(maximum=self.max_copy_stmt,colnum=2))
-        hc.append(CharCol(len(stmt_hdr),colnum=2,default=stmt_hdr))
+        dc.append(CharCol(namesize,sep=2,colnum=2))
+        hc.append(CharCol(namesize,just="center",sep=2,colnum=2,default=name_hdr))
 
         hgrp=Group(columns=hc)
         hdr=hgrp.string(values=[None,None,None])
@@ -1350,7 +1350,8 @@ class AsmListing(Listing):
         self.filgrp=Group(columns=dc)
 
     def part6_details(self,src):
-        detail=[self.filgrp.string(values=[src.fileno,src.fname,src._stmtno]),]
+        #detail=[self.filgrp.string(values=[src.fileno,src.fname,src._stmtno]),]
+        detail=[self.filgrp.string(values=[src.fileno,src._stmtno,src.fname]),]
         return detail
 
     def part6_init(self):
