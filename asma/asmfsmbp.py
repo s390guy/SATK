@@ -116,7 +116,6 @@ class AsmFSMParser(fsmparser.FSMParser):
     def Lexer(self):
         return Parsers.lexer
 
-
 class AsmFSMState(fsmparser.PState):
     def __init__(self,state,pfx="",exit=None):
         self.pfx=pfx
