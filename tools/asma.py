@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014,2015 Harold Grovesteen
+# Copyright (C) 2014, 2015 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -84,7 +84,6 @@ class ASMA(object):
         self.assembler=assembler.Assembler(cpu,msl,self.aout,\
             msldft=satkutil.satkdir("asma/msl"),\
             addr=args.addr,\
-            bltin=args.bltin,\
             case=args.case,\
             debug=dm,\
             defines=defn,\
@@ -97,7 +96,7 @@ class ASMA(object):
             cptrans=cptrans)
 
         self.source=args.source[0]     # Source input file
-        
+
         # Gather together time related data saved outside this object.
         self.process_start=process_start
         self.wall_start=wall_start
@@ -105,13 +104,13 @@ class ASMA(object):
         self.import_start_w=import_start_w
         self.objects_start=objects_start
         self.objects_start_w=objects_start_w
-        
+
         # Timer information gathered during run() method
         self.assemble_end=None
         self.assemble_end_w=None
         self.out_end=None
         self.out_end_w=None
-        
+
         # Save some of my own time information
         self.objects_end=time.process_time()
         self.objects_end_w=time.time()
@@ -133,34 +132,16 @@ class ASMA(object):
 
     # Execute the assembler
     def run(self):
-
-        # Perform Pass 0
         if self.clstats:
             stats=assembler.Stats
             stats.start("assemble_p")
             stats.start("assemble_w")
-            stats.start("pass0_p")
-            stats.start("pass0_w")
+            #stats.start("pass0_p")
+            #stats.start("pass0_w")
 
         try:
-            self.assembler.statement(filename=self.source)
-        except Exception:
-            # This attempts to give a clue where the error occurred
-            print(self.assembler._error_pass0())
-            # Now output the exception information
-            raise
-
-        if self.clstats:
-            stats.stop("pass0_p")
-            stats.stop("pass0_w")
-
-        # All of the parsed and sane statements are now queued for assembly
-        # Perform Pass 1 and 2
-        try:
-            self.assembler.assemble()
-        except assembler.AssemblerAbort as aae:
-            print(aae)
-            sys.exit(1)
+            #self.assembler.statement(filename=self.source)
+            self.assembler.assemble(filename=self.source)
         except Exception:
             # This attempts to give a clue where the error occurred
             print(self.assembler._error_passn())
@@ -188,15 +169,15 @@ class ASMA(object):
         # For error level 3 errors are only reported in the listing
         if self.args.error==2:
             img.errors()
-            
+
         self.out_end_w=time.time()
         self.out_end=time.process_time()
-        
+
         # Report assembler stats if requested by the --stats argument
         if self.clstats:
             # Manually change to False to output stats from the assembler
             self.stats(update=True)
-        
+
     # This method separates a name[=value] or name=value string into a tuple of one 
     # or two strings: (name,value) or (name,None)
     # Method Arguments:
@@ -225,30 +206,30 @@ class ASMA(object):
 
         name_value=string.split("=")
         return (name_value[0],name_value[1])
-        
+
     # Report assembler stats
     def stats(self,update=True):
         stats=assembler.Stats
         if update:
             stats.update_start("process",self.process_start)
             stats.update_start("wall",self.wall_start)
-        
+
             stats.update_start("import_p",self.import_start)
             stats.update_start("import_w",self.import_start_w)
-        
+
             stats.update_start("objects_p",self.objects_start)
             stats.update_start("objects_w",self.objects_start_w)
             stats.update_stop( "objects_p",self.objects_end)
             stats.update_stop( "objects_w",self.objects_end_w)
-        
+
             stats.update_stop( "assemble_p",self.assemble_end)
             stats.update_stop( "assemble_w",self.assemble_end_w)
-        
+
             stats.update_start("output_p",self.out_start)
             stats.update_start("output_w",self.out_start_w)
             stats.update_stop( "output_p",self.out_end)
             stats.update_stop( "output_w",self.out_end_w)
-        
+
         print(stats.report())
 
     # Determine target cpu and MSL database file from --target or --cpu
@@ -256,7 +237,7 @@ class ASMA(object):
         msl=None
         cpu=None
         args=self.args
-        
+
         # Try the --target argument
         try:
             msl,cpu=ASMA.archs[args.target]
@@ -303,7 +284,7 @@ def parse_args(dm):
     parser.add_argument("-e","--error",type=int,metavar="LEVEL",\
         choices=[0,1,2,3],default=2,\
         help="specifies error handling level.  Defaults to 2")
-    
+
     # Specify the initial XMODE PSW format
     psw_formats=["S","360","67","BC","EC","380","XA","E370","E390","Z","none"]
     parser.add_argument("--psw",metavar="FORMAT",
@@ -328,6 +309,11 @@ def parse_args(dm):
     # May be specified in a local configuration
     parser.add_argument("-d","--dump",action="store_true",default=False,\
         help="listing provides the image content in storage dump format.")
+
+    # Set macro call printing option
+    parser.add_argument("-m","--mcall",action="store_true",default=False,\
+        help="Include inner macro statements during PRINT ON listing option. "
+             "By default inner macro statements are suppressed")
 
     # Generic list directed IPL option
     parser.add_argument("-g","--gldipl",metavar="FILEPATH",
@@ -362,10 +348,6 @@ def parse_args(dm):
     parser.add_argument("-v","--vmc",metavar="FILEPATH",
         help="virtual machine STORE command file with assembled content.  If omitted, "
              "a command file is not created.")
-
-    # Enable built-in macros
-    parser.add_argument("--bltin",action="store_true",default=False,\
-        help="Enables built-in macros.  Default built-in macros are disabled")
 
     # Set case sensitivity
     parser.add_argument("--case",action="store_true",default=False,\
@@ -417,6 +399,7 @@ def parse_args(dm):
     dm.add_argument(parser,"--debug")
 
     return parser.parse_args()
+
 
 if __name__ == "__main__":
     objects_start=time.process_time()

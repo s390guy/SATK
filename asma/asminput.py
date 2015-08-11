@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014 Harold Grovesteen
+# Copyright (C) 2014, 2015 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -29,7 +29,6 @@ import os.path       # Access path tools by FileBuffer class
 import satkutil      # Access the path manager
 
 # ASMA imports:
-import asmcards      # Logical line continuation handler
 import asmmacs       # Access macro facilities
 import assembler     # Access assembler exceptions
 
@@ -54,7 +53,8 @@ class SourceEmpty(Exception):
     def __init__(self):
         super().__init__()
 
-# An InputSource object raises this exception if it encounters a source related problem.
+# An InputSource object raises this exception if it encounters a source related 
+# problem.
 class SourceError(Exception):
     def __init__(self,msg):
         self.msg=msg
@@ -100,116 +100,118 @@ class InputSource(object):
     # If a problem occurs in terminating the input source, a SourceError exception
     # must be raised.
     def fini(self):
-        cls_str=assembler.eloc(self,"fini")
         raise NotImplementedError("%s subclass must provide fini() method" \
-            % cls_str)
+            % assembler.eloc(self,"fini",module=this_module))
 
     # This method returns an Line object when requested by the LineBuffer.
     # When the source is exhausted it must raise a SourceEmpty exception.
     # If the source encounters a problem in producing the input line, is must raise
     # a SourceError exception.
     def getLine(self):
-        cls_str=assembler.eloc(self,"getLine")
         raise NotImplementedError("%s subclass must provide getLine() method" \
-            % cls_str)
+            % assembler.eloc(self,"getLine",module=this_module))
 
     # Initialize the source if needed.  If not needed simply return
     # If the source is unsuccessful in initializing itself, it must raise a SourceError
     # exception.
     def init(self):
-        cls_str=assembler.eloc(self,"init")
         raise NotImplementedError("%s subclass must provide init() method" \
-            % cls_str)
+            % assembler.eloc(self,"init",module=this_module))
 
 # Manage a text file as an input source.
 # Instance Arguments:
 #    typ        Type of input source. Always 'F' supplied by LineBuffer
 #    filename   A file name is the source id for a FileSource
-#    legacy     Specify True to use legacy line continuation conventions.
+#    fixed      Specify True to use legacy line continuation conventions.
 #               Specify False to use stream line continuation conventions.
 class FileSource(InputSource):
-    def __init__(self,typ,filename,stmtno=None,srcno=None,legacy=False):
+    def __init__(self,typ,filename,stmtno=None,srcno=None,fixed=False):
         super().__init__(typ,filename,stmtno=stmtno)
-        if not isinstance(filename,str):
-            cls_str=assembler.eloc(self,"__init__")
-            raise ValueError("%s 'filename' argument must be a string: %s" 
-                % (cls_str,filename))
+        assert isinstance(filename,str),\
+            "%s 'filename' argument must be a string: %s" \
+                % (assembler.eloc(self,"__init__",module=this_module),filename)
+
         self.rname=filename       # Text input file relative path or absolute path
-        self.legacy=legacy        # True if legacy line contuation in use.
+        self.fixed=fixed          # True if fixed line contuation in use.
         self.fileno=srcno         # File number of this source
         self.fname=None           # Text absolute path from search path.
         self.eof=False            # Flag set at physical end-of-file
         self.leof=False           # Flas set when at logical end-of-file
         self.fo=None              # Python file object
         self.lineno=None          # File line number
-        self.legacy=legacy
-        self.handler=asmcards.InputHandler()  # line continuation handler
+        #self.handler=asmcards.InputHandler()  # line continuation handler
+        
+        # Physical line class returned by this source
+        if fixed:
+            self.pcls=FixedLine
+        else:
+            self.pcls=StreamLine
+        
+        self.queued=[]  # Allows physical lines to be pushed back and read again
 
+    # Finish use of this file input source
     def fini(self):
         if self.fo is None:
-            cls_str=assembler.eloc(self,"fini")
             raise ValueError("%s file object not created for file: %s" \
-                % (cls_str,self.fname))
+                % (assembler.eloc(self,"fini",module=this_module),self.fname))
         try:
             self.fo.close()
         except OSError:
             raise SourceError("could not close input text file: %s" % self.fname) \
                 from None
 
-    def getLine(self):
+    # Returns a physical line conforming to the files continuation convention
+    def getLine(self,debug=False):
         # Validate source state for getLine() method
         if self.fo is None:
-            cls_str=assembler.eloc(self,"getLine")
+            cls_str=assembler.eloc(self,"getLine",module=this_module)
             raise ValueError("%s file object not created for file: %s" \
                 % (cls_str,self.fname))
         if self.eof:
             if self.leof:
-                cls_str=assembler.eloc(self,"getLine")
+                cls_str=assembler.eloc(self,"getLine",module=this_module)
                 raise ValueError("%s text file already at end-of-file: %s" \
                     % (cls_str,self.fname))
             else:
                 raise SourceEmpty()
 
-        # Read a single line with universal newlines
-        line=None
-        while line is None:
-            try:
-                inline=self.fo.readline()
-            except OSError:
-                raise SourceError("could not read from text file: %s" % self.fname) \
-                    from None
-                    
-            if len(inline)==0:
-                self.eof=True
-                line=self.handler.end()
-                
-                if line is None:
-                    self.leof=True
-                    raise SourceEmpty()
-            else:
-                self.lineno+=1
-                line=self.handler.text(inline,\
-                    source=Source(lineno=self.lineno,fileno=self.fileno))
-                #print("line: %s" % line)
+        # Read from queued physical lines before reading from file
+        if len(self.queued)!=0:
+            pline=self.queued[0]
+            del self.queued[0]
+            return pline
 
-        # The line variable now contains an unvalidated logical line from which
-        # actual active content has not been consolided by either the normal()
-        # or stream() continuation conventions.
-        ln=Line(line)
-        return ln
+        # No queued lines, so read from the file
+        line=self.fo.readline()
+        if len(line)==0:
+            self.fini()
+            raise SourceEmpty()
+        self.lineno+=1
+        if line[-1]=="\n":
+            line=line[:-1]
 
-    def init(self,pathmgr=None):
+        return self.pcls(Source(lineno=self.lineno,fileno=self.fileno),line)
+
+    # Perform file input source initialization
+    # Locate the file based upon ASMPATH environment variable and open it
+    def init(self,pathmgr=None,variable="ASMPATH"):
         if self.fo is not None:
-            cls_str=assembler.eloc(self,"init")
             raise ValueError("%s file object already exists for file: %s" \
-                % (cls_str,self.fname))
+                % (assembler.eloc(self,"init",module=this_module),self.fname))
         try:
-            self.fname,self.fo=pathmgr.ropen(self.rname,variable="ASMPATH")
+            self.fname,self.fo=pathmgr.ropen(self.rname,variable=variable)
         except ValueError as ve:
             raise SourceError("%s" % ve) from None
 
         self.lineno=0
-        self.handler.begin(legacy=self.legacy)
+        
+    # Queue a  physical line for reading instead of the platform file
+    def queue(self,pline):
+        assert isinstance(pline,PhysLine),\
+            "%s 'pline' argument must be an instance of asmline.PhyLine: %s" \
+                % (assembler.eloc(self,"queue",module=this_module),pline)
+
+        self.queued.append(pline)
 
 # This is the base class for a source that injects lines into the input stream during
 # execution of the assembler.
@@ -224,7 +226,7 @@ class InjectableSource(InputSource):
 
     def fini(self): pass
 
-    def getLine(self):
+    def getLine(self,debug=False):
         try:
             line=self.lines[0]
             del self.lines[0]
@@ -232,7 +234,7 @@ class InjectableSource(InputSource):
             raise SourceEmpty() from None
         return line
 
-    def init(self,pathmgr=None): pass
+    def init(self,pathmgr=None,variable=None): pass
 
    #
    #  Methods unique to injectable sources
@@ -258,18 +260,21 @@ class InjectableSource(InputSource):
                 "strings: %s" % lines)
         self.lines.extend(ln)
 
+
 class MacroSource(InputSource):
-    def __init__(self,typ,exp,stmtno=None,srcno=None):
+    def __init__(self,typ,exp,stmtno=None,srcno=None,fixed=False):
         if not isinstance(exp,asmmacs.Invoker):
             cls_str=assembler.eloc(self,"__init__",module=this_module)
             raise ValueError("%s 'exp' argument must be an asmmacs.Expander object: "
                 "%s" % (cls_str,exp))
 
         self.exp=exp          # asmmacs.Invoker object
+        self.depth=None       # Macro level nesting depth - See init() method.
         super().__init__(typ,exp.macro.name,stmtno=stmtno)
-       
-    def init(self,pathmgr=None):
-        self.exp.mgr.nest(self.exp)
+        self.queued=[]
+
+    def init(self,pathmgr=None,variable=None):
+        self.depth=self.exp.mgr.nest(self.exp)
         self.exp.enter()
 
     def fini(self):
@@ -278,124 +283,193 @@ class MacroSource(InputSource):
         mm.unnest()
         self.exp=None
 
-    # Returns a generated macro line
+    # Returns a generated macro generated logical line from a macro model statement
+    # Returns:
+    #   A StreamLine object containing a physical line generated by a macro model 
+    #   statement. The physical line may be continued or not.  The physical
+    #   lines will always use the normal statement format.
     # Exception:
     #   MacroError if the macro detected a user error
-    def getLine(self):
+    def getLine(self,debug=False):
         # Throws a MacroError if a user error is detected
-        line=self.exp.generate()
+        # Note: Need to accept a list of physical lines and a line continuation
+        # convention
 
-        if line is None:
-            raise SourceEmpty() # Tell LineBuffer object that this source is exhausted.
-        # Create logincal input line
-        # Create a raw stream input "card".
-        raw=asmcards.StreamRaw(line,None,stream="")
-        logline=asmcards.LogLineString(raw)
-        return Line(logline,macro=True)
+        if len(self.queued)>0:
+            line=self.queued.pop(0)
+            pline=StreamLine(None,line,genlvl=self.depth)
+            if __debug__:
+                if debug:
+                    print("%s returning queued: %s" \
+                        % (assembler.eloc(self,"getLine",module=this_module),pline))
+            return pline
+
+        # No previously queed physical lines so not get one (or more) from the
+        # macro.
+        plines=self.exp.generate()
+        if __debug__:
+            if debug:
+                print("%s received from macro %s Invoker: %s" \
+                    % (assembler.eloc(self,"getLine",module=this_module),\
+                        self.exp.name,plines))
+
+        # Determine if the macro is done generating input
+        if plines is None:
+            if __debug__:
+                if debug:
+                    print("%s end of input from macro %s Invoker: " \
+                        "raising SourceEmpty()" \
+                            % (assembler.eloc(self,"getLine",module=this_module),\
+                                self.exp.name))
+            # Tell LineBuffer object that this source is exhausted
+            raise SourceEmpty()
+
+        # Create a new physical line - eventually multiple physical lines will be
+        # required of different continuation styles.
+        assert isinstance(plines,list) and len(plines)>0,\
+            "%s macro invocation must return a non-empty list of strings: %s" \
+                % (assembler.eloc(self,"getLine",module=this_module),plines)
+
+        if len(plines)>1:
+            self.queued=plines[1:]  # Queue the extra lines for the next call
+
+        # Return the first or only line
+        pline=StreamLine(None,plines[0],genlvl=self.depth)
+        if __debug__:
+            if debug:
+                print("%s returning: %s" \
+                    % (assembler.eloc(self,"getLine",module=this_module),pline))
+
+        return pline
 
 
-# This class associates source information of a line with the text itself.
-class Line(object):
-    def __init__(self,line,lineno=None,source=None,typ="X",macro=False):
-        assert isinstance(line,asmcards.LogLine),\
-            "%s 'line' argument must be an instance of asmcards.LogLine: %s" \
-                % (assembler.eloc(self,"__init__",module=this_module),line)
-        assert (source is None) or isinstance(source,Source),\
-            "%s 'source' argument must be an instance of Source: %s" \
+#
+#  +-------------------------------------+
+#  |                                     |
+#  |   Pysical Input Text Line Objects   |
+#  |                                     | 
+#  +-------------------------------------+
+#
+
+class PhysLine(object):
+    conspaces=" "*15
+    def __init__(self,source,content,genlvl=None):
+        assert source is None or isinstance(source,Source),\
+            "%s 'source' argumenet must be an instance of Source: %s" \
                 % (assembler.eloc(self,"__init__",module=this_module),source)
+        assert isinstance(content,str),\
+            "%s 'content' argumenet must be a string: %s" \
+                % (assembler.eloc(self,"__init__",module=this_module),content)
 
-        # typ attribute controls how the line is processed by the assembler
-        #   'B' --> This is a macro body statement
-        #   'E' --> Expanded line (typ after expansion)
-        #   'F' --> Text expansion failed, see self.merror for reason
-        #   'P' --> This is a macro prototype statement
-        #   'X' --> This is a normal input line and must be expanded by the current
-        #           asmmacs.Expander object
-        self.typ=typ         # Line type
-        self.logline=line    # asmcards.LogLine object
-        self._normal=False   # normal method() called if True
+        self.source=source      # Location of source content
+        # This attribute is the basis for the Statement column in the assembly
+        # listing.
+        self.content=content    # a string, may be of length of 0
+        # This tracks the source of generated physical lines by macros or open code
+        # If None, the input comes from a file.  If 0 it comes from open code.
+        # If 1 or more, it comes from a macro.  Used to determine if a macro statement
+        # is an inner macro call or not for listing purposes.
+        self.genlvl=genlvl      # If generated by assembler, level of generator
 
-        # THIS ATTRIBUTE IS USED FOR LISTING SOURCE CONTENT
-        self.text=None       # Text of logical line of text
-        
-        self.lineno=lineno   # Global line number (The statement number in the listing)
-        self.source=source   # Input source information
-        self.psource=None    # This is used for printing source lines
+        # Established by subclass init() method
+        self.cont=False         # Whether physical line is continued
+        self.empty=False        # Phyiscal line is empty
+        self.text=None          # Actual parsable content of the line
 
-        # Macro related information
-        self.macro=macro     # If True, this line is a macro generated line
-        self.merror=None     # MacroError exception if expansion failed
+        # Physical line flags - set below in this __init__() method
+        self.comment=False      # Physical line is a comment
+        self.quiet=False        # Physical line is also a quiet comment
 
-        self.comment=line.comment   # If True this is a comment statement
-        self.silent=line.silent     # If comment and True, it is a silent comment
-        self.empty=line.empty       # True if line is empty or all spaces
-        
-        # Validate the logical line.  LineError exceptions caught and reraised as
-        # assembler errors which must be handled by Stmt instantiator
-        self.validate()
+        # Field information - starting index of fields
+        self.oper_start=None        # Set by LogLine.fields() method
+        self.operand_start=None     # Set by Logline.fields() method
+        self.comment_start=None     # Set by asmline.cfsm.ACT_Found_Comment() method
 
-        # Early comment and empty line detection
-        if self.empty:
+        # Make sure we do not process an empty physical line
+        if len(self.content)==0:
+            self.empty=True
+            self.cont=False
             self.text=""
+            return
+
+        # Perform subclass initialization
+        self.init()
+        
+        # Also do not process a line with an empty logical content (like some spaces)
+        if len(self.text)==0:
+            self.empty=True
+            self.cont=False
+            return
+
+        # Complete base class initialization
+        # Continuation of comment lines is never recognized so no continuation forced
+        if self.text[0]=="*":
+            self.comment=True
+            self.cont=False
+        elif len(self.text)>=2 and self.text[:2]==".*":
+            self.comment=self.quiet=True
+            self.cont=False
 
     def __str__(self):
-        string="%s" % self.source
-        if len(string)>0:
-            string="%s " % string
-        return "%s %s %s" % (string,self.typ,self.text)
+        c=e=" "
+        if self.cont:
+            c='+'
+        if self.empty:
+            e=" "
+        return '%s %s%s %s %s %s "%s"' % (self.source,c,e,\
+            self.oper_start,self.operand_start,self.comment_start,self.text)
 
-    # Return the first raw line of the logical line for statement classification
-    def first(self):
-        return self.logline.first()
+    # Performs generic initialization, called by subclass
+    def init(self):
+        raise NotImplementedError("subclass %s must provide init() method"\
+            % self.__class__.__name__)
 
-    # Perform normal continuation conventions on logical lines raw input.
-    def normal(self):
-        logline=self.logline
-        logline.normal()
-        self.text=logline.line
-        self.empty=logline.empty
-        assert isinstance(self.text,str),\
-            "%s text attribute not a string: %s" \
-                % (assembler.eloc(self,"normal",module=this_module),logline)
-        self._normal=True
+    # Test for physical line being a valid continuation line (for a previous
+    # physical line)
+    # Valid continuation lines must be at least 16 bytes of text and the first
+    # 16 bytes must be spaces.
+    # Return: True if valid continuation line
+    #         False if not a valid continuation line and set.error to True
+    def isContinuation(self):
+        if len(self.text)<15 or self.text[:15]!=PhysLine.conspaces:
+            return False
+        self.operand_start=15   # Operand starts at index 15 (column 16)
+        return True
 
-    # Returns the size of the prefix location information before printing
-    def prefix(self):
-        psource="%s" % self.source   # Make it printable
-        self.psource=psource
-        return len(psource)
+class FixedLine(PhysLine):
+    def __init__(self,source,content,genlvl=None):
+        super().__init__(source,content,genlvl=genlvl)
 
-    def print(self,locsize=None,string=False):
-        loc="%s" % self.source
-        if locsize is None:
-            size=self.prefix()
+    # Fixed physical line initialization
+    # 1. Mark the line as empty if physical line content is zero.
+    # 1. Determine if there is a continuation in column 72.  If there is no colume
+    #    72 then blank is implied and no continuation
+    # 2. Extract parsable text from columns 1-71, or less if line is shorter than
+    #    71 columns
+    # 3. Remove trailing trailing blanks from parsable text
+    def init(self):
+        self.cont=len(self.content)>=72 and self.content[71]!=" "
+        text=self.content[:min(len(self.content),72)]
+        self.text=text.rstrip()
+
+class StreamLine(PhysLine):
+    def __init__(self,source,content,genlvl=None):
+        super().__init__(source,content,genlvl=genlvl)
+
+    # Steam physical line initialization for non-empty lines
+    # 1. Identify continuation as a backslash, \, in the last byte of string content
+    # 2. Set parsable text, right hand spaces removed, not including an optional
+    #    line continuation.
+    def init(self):
+        #print("content: '%s'" % self.content)
+        if self.content[-1]=="\\":
+            self.cont=True
+            text=self.content[:-1]
+            #print("text: '%s'" % text)
         else:
-            size=locsize
-        st="%*s  %s" % (size,self.psource,self.text)
-        if string:
-            return st
-        print(st)
-
-    def print_raw(self):
-        if self._normal:
-            N="N"
-        else:
-            N="."
-        return "\nLine: %s%s\nLogLine: %s\nRaw: %s" \
-            % (self.typ,N,self.logline,self.logline.print_raw())
-
-    # Sets the external globally unique line number used in listings.
-    def setLineNo(self,n):
-        self.lineno=n
-
-    # Validate the Logical Line object.
-    def validate(self):
-        logline=self.logline
-        try:
-            logline.validate()
-        except asmcards.LineError as le:
-            raise assembler.AssemblerError(source=le.source,line=self.lineno,\
-                msg=le.msg) from None
+            self.cont=False
+            text=self.content
+        self.text=text.rstrip()
 
 
 # This class buffers input lines in a LIFO stack of input sources.
@@ -409,7 +483,9 @@ class Line(object):
 #
 # Instance Arguments:
 #    depth     The number of nested input sources supported
-#    error     Report if a file source in included more than once. (not yet implemented)
+#    env       Environment variable defining file source directory search order
+#    error     Report if a file source in included more than once.
+#              (not yet implemented)
 #
 # Instance Methods:
 #    end       Terminate additional input.  Called when END directive encountered
@@ -418,9 +494,10 @@ class Line(object):
 #              inclusion for initial input source file.
 class LineBuffer(object):
     source_type={"F":FileSource,"M":MacroSource}
-    def __init__(self,depth=20):
-        # ASMPATH search path manager
-        self._opath=satkutil.PathMgr(variable="ASMPATH",debug=False)
+    def __init__(self,depth=20,env="ASMPATH"):
+        # Directory search order path manager
+        self._opath=satkutil.PathMgr(variable=env,debug=False)
+        self._env=env              # Environment variable used by this LineBufer
         self._depth=depth          # Supported depth of input sources.
         self._sources=[]           # List of input sources
         self._files=[]             # List of input files
@@ -443,9 +520,15 @@ class LineBuffer(object):
             self._files.append(src)
 
     # Source terminated, resume previous source
+    # Method Argument:
+    #   excp  If True a BufferEmpty exception is raised when all sources are empty.
+    #         If False and all sources are empty, simply returns.  Defaults to True
+    #         This argument is set to False when an explicit source is closed by
+    #         closeSource() method.
     # Exceptions:
-    #   BufferEmpty   Tells the assembler ALL input sources are exhausted
-    def __exhausted(self):
+    #   BufferEmpty   Tells the assembler ALL input sources are exhausted. Only
+    #         raised if excp argument is True.
+    def __exhausted(self,excp=True):
         # Current source is done
         try:
             self._cur_src.fini()
@@ -456,32 +539,42 @@ class LineBuffer(object):
         # Unnest one input source
         self._sources.pop()
         if len(self._sources)==0:
-            raise BufferEmpty from None  # All sources done, tell the assembler
+            if excp:
+                raise BufferEmpty from None  # All sources done, tell the assembler
+            else:
+                return
         self._cur_src=self._sources[-1]
         # Unnested source becomes the current providing input
 
     # Initiate a new input source
-    def __source(self,typ,sid,stmtno=None,srcno=0):
+    def __source(self,typ,sid,stmtno=None,srcno=0,fixed=False):
         if len(self._sources)>=self._depth:
             raise assembler.AssemblerError(line=stmtno,\
                 msg="nested input source depth reached: %s" % self.depth)
         src_cls=LineBuffer.source_type[typ]
-        srco=src_cls(typ,sid,stmtno=stmtno,srcno=srcno)
+        srco=src_cls(typ,sid,srcno=srcno,fixed=fixed)
         try:
-            srco.init(pathmgr=self._opath)
+            srco.init(pathmgr=self._opath,variable=self._env)
         except SourceError as se:
             raise assembler.AssemblerError(line=stmtno,msg=se.msg) from None
 
         # Input source now ready to be used
         self.__appendSource(srco)
 
+    # Closes the current input source and returns to previous source if any.
+    # BufferEmpty is not raised even if all sources are empty.
+    def closeSource(self):
+        self.__exhausted(excp=False)
+
     # Terminate input acceptance.  No new lines or files accepted and requests for
     # lines by the assembler will fail if the buffer isn't empty.
     def end(self):
         self._end=True
 
-    # Retrieve the next input Line object from the current source
-    def getline(self):
+    # Retrieve the next input Physical line object from the current source
+    # Exceptions:
+    #   BufferEmpty when all input is exhaused
+    def getLine(self):
         if self._end:
             raise ValueError("%s input statements present after END statement" \
                 % assembler.eloc(self,"getline"))
@@ -495,7 +588,7 @@ class LineBuffer(object):
         # read from the unnested source, now the current source.
         while True:
             try:
-                ln=self._cur_src.getLine()
+                ln=self._cur_src.getLine(debug=False)
                 # WARNING: this break is required!  DO NOT DELETE
                 break
             except SourceEmpty:
@@ -510,13 +603,21 @@ class LineBuffer(object):
                 # Then we raise it again to allow the assembler to handle it
                 raise me from None
 
-        self._lineno+=1
-        ln.setLineNo(self._lineno)
         return ln
 
+    # Returns the absolute path of the initial input file
+    # A helper method for building system variable symbols involving the assembled
+    # file
+    # Returns:
+    #   A Python string of the initial file's absolute path
+    #   None  if no initial file (should not occur)
+    def InputPath(self):
+        if len(self._files) == 0:
+            return None
+        return self._files[0].fname
+
     # Initiate a new file input source
-    def newFile(self,filename,stmtno=None):
-        #fname=os.path.abspath(filename)
+    def newFile(self,filename,stmtno=None,fixed=False):
         fname=filename
         # Detection of recursion requires work
         for src in self._sources:
@@ -528,19 +629,19 @@ class LineBuffer(object):
                         % (fname))
         # No recursion, safe to add as source
         self._fileno+=1
-        self.__source("F",filename,stmtno=stmtno,srcno=self._fileno)
+        self.__source("F",filename,srcno=self._fileno,fixed=fixed)
 
     # Initiate a new source of injected input statements
     def newInject(self,typ,sid,stmtno=None):
-        if self._inject is not None:
-            cls_str=assemlber.eloc(self,"newInject")
-            raise ValueError("%s already queueing injectable source: %s" \
-                % (cls_str,self._inject))
+        assert self._inject is None,\
+            "%s already queueing injectable source: %s" \
+                % (assembler.eloc(self,"newInject",module=this_module),self._inject)
+
         self._inject=InjectableSource(typ,sid)
 
     # Initialize a new macro source for statements
-    def newMacro(self,macro,stmtno=None):
-        self.__source("M",macro,stmtno=stmtno)
+    def newMacro(self,macro,stmtno=None,fixed=False):
+        self.__source("M",macro,stmtno=stmtno,fixed=fixed)
 
     # Inject a line or list of lines
     def putline(self,line):
@@ -548,6 +649,11 @@ class LineBuffer(object):
             cls_str=assembler.eloc(this_module,"putline")
             raise ValueError("%s InjectableSource not established" % cls_str)
         self._inject.inject(line)
+
+    # Return a physical line to the current input source to be read again
+    # Currently only support for file input sources.
+    def queue(self,pline):
+        self._cur_src.queue(pline)
 
     # Release injected source as input to the assembler.
     def release(self):
@@ -580,6 +686,8 @@ class Source(object):
             if self.fileno is not None:
                 string="%s-%s" % (string,self.fileno)
         return string
+    def clone(self):
+        return Source(fileno=self.fileno,lineno=self.lineno,linepos=self.linepos)
 
 if __name__ == "__main__":
     raise NotImplementedError("%s - intended for import use only" % this_module)

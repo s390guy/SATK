@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014 Harold Grovesteen
+# Copyright (C) 2014,2015 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -22,6 +22,9 @@
 # Long-term this module will replace asmparsers.py eliminating LL1 parser technology
 # and the more limited pratt.py module use.
 
+# All functionality of this module has moved to either parsers.py or asmdcds.py
+raise NotImplementedError("asmfsmcs.py has been deprecated by ASMA 0.2.0")
+
 this_module="asmfsmcs.py"
 
 # Python imports: None
@@ -31,163 +34,22 @@ import lexer          # Access lexical analyzers
 
 # ASMA imports:
 import assembler      # Access assembler shared objects and exceptions
+import asmbase        # Acces parser base classes
 import asmdcds        # Access DC/DS directive processing support
 import asmtokens      # Access the common lexical tokens and parsing related objects
 
 
-class DCDS_Bin_Token(asmtokens.LexicalToken):
-    def __init__(self):
-        super().__init__()
-
-class DCDS_Bin_Type(lexer.Type):
-    def __init__(self,debug=False):
-        pattern="[01]+"
-        super().__init__("DCBIN",pattern,tcls=DCDS_Bin_Token,debug=debug)
-
-class DCDS_Dec_Token(asmtokens.LexicalToken):
-    signs={"U":1,"+":1,"-":-1,None:1}
-    def __init__(self):
-        super().__init__()
-        # Set by convert() method
-        self.unsigned=None
-        self._sign=None
-        self.value=None
-
-    def convert(self):
-        groups=self.groups()
-
-        # Recognize the sign of the value
-        sign=self.sign()
-        if sign=="U":
-            self.unsigned=True
-        try:
-            self._sign=sign=DCDS_Dec_Token.signs[sign]
-        except KeyError:
-            raise ValueError("%s unrecognized sign matched in re pattern: %s" \
-                % (assembler.eloc(self,"convert",module=this_module),sign))
-
-        # Determine the digits in the value
-        self.digits=self.dec_digits()
-
-        # Convert to a Python value
-        self.value=int(self.digits,10)*sign
-        return self.value
-
-    def dec_digits(self):
-        groups=self.groups()
-        fraction=groups[2]   # Fractional part of value with decimal point
-        if fraction is not None:
-            fraction=fraction[1:]     # drop off decimal point
-        else:
-            fraction=""    # No fractional part supplied
-        return "%s%s" % (groups[1],fraction)
-
-    def sign(self):
-        sign=self.groups()[0]
-        if sign:
-            return sign.upper()
-        return None
-
-class DCDS_Dec_Type(lexer.Type):
-    def __init__(self,debug=False):
-        pattern=r'([Uu+-])?([0-9]+)(\.[0-9]*)?'
-        super().__init__("DCDPT",pattern,tcls=DCDS_Dec_Token,mo=True,debug=debug)
-
-class DCDS_Hex_Token(asmtokens.LexicalToken):
-    def __init__(self):
-        super().__init__()
-
-class DCDS_Hex_Type(lexer.Type):
-    def __init__(self,debug=False):
-        pattern="[0-9A-Fa-f]+"
-        super().__init__("DCHEX",pattern,tcls=DCDS_Hex_Token,debug=debug)
-
-class DCDS_Length_Token(asmtokens.LexicalToken):
-    def __init__(self):
-        super().__init__()
-
-class DCDS_Length_Type(lexer.Type):
-    def __init__(self,debug=False):
-        super().__init__("DCLEN","[Ll]",tcls=DCDS_Length_Token,debug=debug)
-
-class DCDS_Number_Token(asmtokens.LexicalToken):
-    signs={"U":1,"+":1,"-":-1,None:1}
-    def __init__(self):
-        super().__init__()
-        # Set by convert() method
-        self.unsigned=None
-        self._sign=None
-        self.value=None
-
-    def digits(self):
-        grps=self.mo.groups()
-        return grps[1]
-
-    def sign(self):
-        grps=self.mo.groups()
-        return grps[0]
-
-    def convert(self):
-        mo=self.mo
-        groups=self.mo.groups()
-        sign=groups[0].upper()
-        if sign=="U":
-            self.unsigned=True
-        try:
-            self.sign=sign=DCDS_Number_Token.signs[sign]
-        except KeyError:
-            raise ValueError("%s unrecognized sign matched in re pattern: %s" \
-                % (assembler.eloc(self,"convert",module=this_module),sign))
-        value=groups[1]
-        self.value=int(value,10)*sign
-        return self.value
-
-class DCDS_Number_Type(lexer.Type):
-    def __init__(self,debug=False):
-        pattern="([Uu+-])?([0-9]+)"
-        super().__init__("DCNUM",pattern,tcls=DCDS_Number_Token,mo=True,debug=debug)
-
-class DCDS_Quote_Token(asmtokens.LexicalToken):
-    def __init__(self):
-        super().__init__()
-
-class DCDS_Quote_Type(lexer.Type):
-    def __init__(self,debug=False):
-        super().__init__("DCQUOTE","'",tcls=DCDS_Quote_Token,debug=debug)
-
-class DCDS_String_Token(asmtokens.StringToken):
-    def __init__(self):
-        super().__init__()
-        # Because this token type uses a different pattern we do not need to drop
-        # the initial quote.  The pattern used here already excludes the initial quote.
-        self.drop=False  # Affects asmtokens.StringToken.init() method
-
-class DCDS_String_Type(lexer.Type):
-    def __init__(self,debug=False):
-        pattern="[^']*'"  # everything upto and including the next single quote
-        super().__init__("DCSTR",pattern,tcls=DCDS_String_Token,debug=debug)
-
-class DCDS_Type_Token(asmtokens.LexicalToken):
-    def __init__(self):
-        super().__init__()
-    
-class DCDS_Types_Type(lexer.Type):
-    def __init__(self,debug=False):
-        pattern="[Aa][Dd]?|[Bb]|[Cc][AaEe]?|[Dd]|[Ff][Dd]?|[Hh]|[Pp]"
-        pattern="%s|%s" % (pattern,"[Ss]|[Xx]|[Yy]|[Zz]")
-        super().__init__("DCTYPE",pattern,tcls=DCDS_Type_Token,debug=debug)
-
 # Defined lexical analyzer token types
 AOPER=asmtokens.AOperType()
 COMMA=asmtokens.CommaType()
-DCBIN=DCDS_Bin_Type()
-DCDPT=DCDS_Dec_Type()
-DCHEX=DCDS_Hex_Type()
-DCLEN=DCDS_Length_Type()
-DCNUM=DCDS_Number_Type()
-DCQUOTE=DCDS_Quote_Type()
-DCSTRING=DCDS_String_Type()
-DCTYPE=DCDS_Types_Type()
+DCBIN=asmtokens.DCDS_Bin_Type()
+DCDPT=asmtokens.DCDS_Dec_Type()
+DCHEX=asmtokens.DCDS_Hex_Type()
+DCLEN=asmtokens.DCDS_Length_Type()
+DCNUM=asmtokens.DCDS_Number_Type()
+DCQUOTE=asmtokens.DCDS_Quote_Type()
+DCSTRING=asmtokens.DCDS_String_Type()
+DCTYPE=asmtokens.DCDS_Types_Type()
 EOO=asmtokens.EoOperType()
 EOS=lexer.EOSType()
 LABEL=asmtokens.LabelType()
@@ -374,102 +236,6 @@ class CSLA(lexer.CSLA):
         self.type(c,[LABEL,EOO],debug=tdebug)
 
 
-#
-#  +---------------------------------------------------+
-#  |                                                   |
-#  |   Base Assembler Context Sensitive Global Scope   |
-#  |                                                   |
-#  +---------------------------------------------------+
-#
-
-class AsmCtxScope(asmtokens.AsmFSMScope):
-    def __init__(self):
-        super().__init__()
-        
-        # The statements operation field in upper case.
-        self.stmt_inst=None  # See the statement() method
-        
-    def statement(self,stmt):
-        assert isinstance(stmt,assembler.Stmt),\
-            "%s 'stmt' argument must be an assembler.Stmt object: %s" \
-                % (assembler.eloc(self,"statement",module=this_module),stmt)
-
-        self.stmt_inst=stmt.instu   # The statement in upper case
-    
-
-#
-#  +-----------------------------------------------------------+
-#  |                                                           |
-#  |   Base Assembler Context Sensitive Syntactical Analyzer   |
-#  |                                                           |
-#  +-----------------------------------------------------------+
-#
-
-# This is an adaptation of asmfsmbp.py AsmFSMParser for the use of context sensitive
-# parsers.
-#
-# Instance Arguments:
-#   dm        The debug manager object in use
-#   scope     The global scope class used by the parser.  Defaults to 
-#   init      The initial FSM parser state.  Defaults to 'init'
-#   context   The initial context.  Defaults to 'init'
-#   external  External helper object supplied to the parser.  Defaults to None
-#   trace     Specify True to enable tracing of the finite state machine.  
-#             Defaults to False (no tracing)
-class AsmCtxParser(fsmparser.FSMContext):
-    csla=None     # Built during first instantiation
-    def __init__(self,dm,scope=asmtokens.AsmFSMScope,init="init",context="init",\
-                 external=None,trace=False):
-        if AsmCtxParser.csla:
-            lex=AsmCtxParser.csla
-        else:
-            AsmCtxParser.csla=lex=CSLA(dm)
-
-        super().__init__(lex,scls=scope,external=external,init=init,context=context,\
-                         trace=trace)
-
-        self.init_ctx=context # Initial context when starting a parse
-        self.init_context()   # Initialize the parser contexts
-        self.initialize()     # Initialize the finite-state machine
-
-    # This overrides the semantics of the super class fmsparser.FSMParser
-    # _init_scope() method by reversing the priority.  It returns:
-    #    1. the provided scope in the scope argument
-    # or 2. A new object initialized by the super class 
-    def _init_scope(self,scope=None):
-        if scope is not None:
-            return scope
-        return super()._init_scope(scope)
-
-    # This override changes the default context scope class to asmtokens.AsmFSMScope
-    # rather than the more generic fsmparser.PScope
-    def ctx(self,name,lexctx=None,ccls=AsmCtxScope):
-        super().ctx(name,lexctx=lexctx,ccls=ccls)
-
-    # This method uses the super class ctx() method to register defined contexts.
-    def init_context(self):
-        cls_str=assembler.eloc(self,"initialize",module=this_module)
-        raise NotImplementedError("%s subclass %s must provide initialize() method" \
-            % (cls_str,self.__class__.__name__))
-
-    # This method uses the super class state() method to register defined states
-    def initialize(self):
-        cls_str=assembler.eloc(self,"initialize",module=this_module)
-        raise NotImplementedError("%s subclass %s must provide initialize() method" \
-            % (cls_str,self.__class__.__name__))
-
-    def ACT_Expected(self,expected,value,found=None):
-        msg="expected %s, found " % expected
-        if found is None:
-            if isinstance(value,asmtokens.EoOperToken):
-                msg="%s%s" % (msg,"end of operands")
-            elif isinstance(value,lexer.EOS):
-                msg="%s%s" % (msg,"end of statement")
-            else:
-                msg='%s"%s"' % (msg,value.string)
-        else:
-            msg="%s%s" % (msg,found)
-        raise assembler.AsmParserError(value,msg=msg)
 
 #
 #  +----------------------------+
@@ -493,9 +259,11 @@ class AsmCtxParser(fsmparser.FSMContext):
 # values are optional for DS directives, but if present must be validly recognized.
 # In all cases at least one operand is required.
 
-class DCDS_Parser(AsmCtxParser):
-    def __init__(self,dm):
-        super().__init__(dm,scope=DCDS_Scope,context="dup",init="dup",trace=False)
+class DCDS_Parser(asmbase.AsmCtxParser):
+    def __init__(self,dm,pm):
+        super().__init__(dm,pm,"cslex",scope=DCDS_Scope,\
+            context="dup",init="dup",trace=False)
+        # Note: "cslex" is used by both the START_Parser and the DCDS_Parser
 
         # Dictionary of supported constant types
         self.types={}
@@ -579,24 +347,24 @@ class DCDS_Parser(AsmCtxParser):
 
     # Initialize the lexical contexts used by the parser.
     def init_context(self):
-        self.ctx("addr",   lexctx="addrexpr",ccls=asmtokens.AsmFSMScope)
+        self.ctx("addr",   lexctx="addrexpr",ccls=asmbase.AsmFSMScope)
         #self.ctx("addradj",lexctx="addradj", ccls=asmtokens.AsmFSMScope)
-        self.ctx("dcnum",  lexctx="dcnum",   ccls=asmtokens.AsmFSMScope)
-        self.ctx("dup",    lexctx="dupbeg",  ccls=asmtokens.AsmFSMScope)
-        self.ctx("dupexpr",lexctx="absexpr", ccls=asmtokens.AsmFSMScope)
-        self.ctx("dcbin",  lexctx="dcbin",   ccls=asmtokens.AsmFSMScope)
-        self.ctx("dcchr1", lexctx="dcchr1",  ccls=asmtokens.AsmFSMScope)
-        self.ctx("dcchr2", lexctx="dcchr2",  ccls=asmtokens.AsmFSMScope)
-        self.ctx("dcdpt",  lexctx="dcdpt",   ccls=asmtokens.AsmFSMScope)
-        self.ctx("dchex",  lexctx="dchex",   ccls=asmtokens.AsmFSMScope)
-        self.ctx("type",   lexctx="dctypes", ccls=asmtokens.AsmFSMScope)
-        self.ctx("lpb",    lexctx="lenpbeg", ccls=asmtokens.AsmFSMScope)
-        self.ctx("lqb",    lexctx="lenqbeg", ccls=asmtokens.AsmFSMScope)
-        self.ctx("length", lexctx="lenbeg",  ccls=asmtokens.AsmFSMScope)
-        self.ctx("lenexpr",lexctx="absexpr", ccls=asmtokens.AsmFSMScope)
-        self.ctx("lpren",  lexctx="lpren",   ccls=asmtokens.AsmFSMScope)
-        self.ctx("opernxt",lexctx="dccont",  ccls=asmtokens.AsmFSMScope)
-        self.ctx("quote",  lexctx="quote",   ccls=asmtokens.AsmFSMScope)
+        self.ctx("dcnum",  lexctx="dcnum",   ccls=asmbase.AsmFSMScope)
+        self.ctx("dup",    lexctx="dupbeg",  ccls=asmbase.AsmFSMScope)
+        self.ctx("dupexpr",lexctx="absexpr", ccls=asmbase.AsmFSMScope)
+        self.ctx("dcbin",  lexctx="dcbin",   ccls=asmbase.AsmFSMScope)
+        self.ctx("dcchr1", lexctx="dcchr1",  ccls=asmbase.AsmFSMScope)
+        self.ctx("dcchr2", lexctx="dcchr2",  ccls=asmbase.AsmFSMScope)
+        self.ctx("dcdpt",  lexctx="dcdpt",   ccls=asmbase.AsmFSMScope)
+        self.ctx("dchex",  lexctx="dchex",   ccls=asmbase.AsmFSMScope)
+        self.ctx("type",   lexctx="dctypes", ccls=asmbase.AsmFSMScope)
+        self.ctx("lpb",    lexctx="lenpbeg", ccls=asmbase.AsmFSMScope)
+        self.ctx("lqb",    lexctx="lenqbeg", ccls=asmbase.AsmFSMScope)
+        self.ctx("length", lexctx="lenbeg",  ccls=asmbase.AsmFSMScope)
+        self.ctx("lenexpr",lexctx="absexpr", ccls=asmbase.AsmFSMScope)
+        self.ctx("lpren",  lexctx="lpren",   ccls=asmbase.AsmFSMScope)
+        self.ctx("opernxt",lexctx="dccont",  ccls=asmbase.AsmFSMScope)
+        self.ctx("quote",  lexctx="quote",   ccls=asmbase.AsmFSMScope)
 
     def initialize(self):
         # Looks for duplication factor as a self-defining term or parenthesized 
@@ -1109,7 +877,7 @@ class DCDS_Parser(AsmCtxParser):
 # The global context for a DC or DS statement.  It keeps track of the operands
 # being recognized.  The current operand holds the DCDS_Constant object being
 # recognized once the type has been identified.
-class DCDS_Scope(AsmCtxScope):
+class DCDS_Scope(asmbase.AsmCtxScope):
     def __init__(self):
         super().__init__()
         self.operands=[]     # List of parsed operands of DCDS_Context_Scope objects
@@ -1117,10 +885,10 @@ class DCDS_Scope(AsmCtxScope):
         #self.stmt_inst=None  # The statements operation filed in upper case.
 
         # Pass 0 results:
-        self.dc=False        # True if parsing DC operands
+        #self.dc=False        # True if parsing DC operands
         
         # Pass 1 results:
-        self.values=None     # List of DSDC_Operand and/or asmdcds.Nominal objects.
+        #self.values=None     # List of DSDC_Operand and/or asmdcds.Nominal objects.
 
     def init(self):
         self.operand_new()
@@ -1132,23 +900,19 @@ class DCDS_Scope(AsmCtxScope):
         self.operands.append(self.operand)
         self.operand=None
 
-    def Pass0(self,stmt,parsers,debug=False):
-        self.dc=dc=stmt.instu=="DC"
-        for n,oprnd in enumerate(self.operands):
-            oprnd.Pass0(stmt,parsers,n+1,dc)
+    #def Pass0(self,stmt,parsers,debug=False):
+    #    self.dc=dc=stmt.instu=="DC"
+    #    for n,oprnd in enumerate(self.operands):
+    #        oprnd.Pass0(stmt,parsers,n+1,dc)
 
-    def Pass1(self,stmt,asm,debug=False,trace=False):
-        values=[]
-        for oprnd in self.operands:
-            values.extend(oprnd.Pass1(stmt,asm,debug=debug,trace=trace))
-        self.values=values
-        
-    #def statement(self,stmt):
-    #    assert isinstance(stmt,assembler.Stmt),\
-    #        "%s 'stmt' argument must be an assembler.Stmt object: %s" \
-    #            % (assembler.eloc(self,"statement",module=this_module),stmt)
-    #
-    #   self.stmt_inst=stmt.instu   # The statement in upper case
+    # Process DCDS_Operand objects converting them into a list of asmdcds.Nominal
+    # objects
+    #def Pass1(self,stmt,asm,debug=False,trace=False):
+    #    values=[]
+    #    for oprnd in self.operands:
+    #        values.extend(oprnd.Pass1(stmt,asm,debug=debug,trace=trace))
+    #    self.values=values
+
 
 # This object describes operand processing by the context parser.  Handling of the
 # duplication factor and constant type are common for each constant.  This object
@@ -1203,7 +967,7 @@ class DCDS_Constant(object):
 
 # The context of a single operand.  Used for Pass 0, 1. 
 # Pass 2 uses build() method to create binary content.
-class DCDS_Operand(asmtokens.AsmFSMScope):
+class DCDS_Operand(asmbase.AsmFSMScope):
     def __init__(self):
         self.typ=None       # DCDS_Constant object associated with the operand
         self.value=[]       # Parsed current value
@@ -1230,6 +994,7 @@ class DCDS_Operand(asmtokens.AsmFSMScope):
         self.act_len=1      # Actual length
         self.act_algn=0     # Actual alignement
         self.ds_stg=None    # asmdcds.Storage object if this is a DS operand
+        self.T="U"          # Type attribute of operand
         # also updates asndcds.Nominal objects in self.values with explicit lengths 
         # if required.
 
@@ -1299,7 +1064,7 @@ class DCDS_Operand(asmtokens.AsmFSMScope):
     #   factor) and subclasses of asmdcds.Nominal for constant nominal values or
     #   storage allocations.
     def Pass0(self,stmt,parsers,n,dc):
-        parsers.ltoken_update(stmt,self._typ_tok)
+        parsers.ltoken_update(stmt,self._typ_tok,asmstr=stmt.opnd_fld)
 
         self.dc=dc                 # Remember whether DC (True) or DS (False)
         self.opnum=n               # Remember the operand number within the directive.
@@ -1320,7 +1085,7 @@ class DCDS_Operand(asmtokens.AsmFSMScope):
                 val=parsers.L2ArithExpr("oprnd %s val %s expr" % (n,vn+1),\
                     stmt,ltoks=val)
             else:
-                parsers.ltoken_update(stmt,val)
+                parsers.ltoken_update(stmt,val,asmstr=stmt.opnd_fld)
             nom=self.nomcls(val)
             self.values.append(nom)
 
@@ -1334,7 +1099,7 @@ class DCDS_Operand(asmtokens.AsmFSMScope):
     #   4. Calculate explict length modifier.  Must not be negative and must be
     #      valid for the constant type.
     def Pass1(self,stmt,asm,debug=False,trace=False):
-        parsers=asm.fsmp
+        parsers=asm.PM
         # Calculate explicit duplication factors if provided.
         # All symbols must already be defined.
         if self._dup:
@@ -1366,9 +1131,11 @@ class DCDS_Operand(asmtokens.AsmFSMScope):
                     msg="operand %s length modifier exceeds allowed maximum of "
                     "%s: %s" % (self.opnum,max_len,self.act_len))
             self.act_algn=0
+            self.T=self.nomcls.utyp
         else:
             self.act_len=self.imp_len 
             self.act_algn=self.imp_algn
+            self.T=self.nomcls.atyp
 
         assert exp_len is None or isinstance(exp_len,int),\
             "%s 'exp_len' variable must be an integer or None: %s" \
@@ -1376,10 +1143,12 @@ class DCDS_Operand(asmtokens.AsmFSMScope):
           
         if exp_len is not None:
             for val in self.values:
-                val.Pass1(exp_len)
+                val.Pass1(exp_len,T=self.T)
             
         # If there is at least one nominal value for a DC, its length becomes
         # the length of an assigned lable even if the duplication factor is zero.
+        #if self.valuse:
+            
         if self.dc and self.values:
             first=self.values[0]
             self.act_len=first.length()
@@ -1396,11 +1165,23 @@ class DCDS_Operand(asmtokens.AsmFSMScope):
                 linepos=self._typ_tok.linepos,\
                 msg="constant operand %s requires a nominal value" % n)
 
-        # Unroll the nominal values per duplication factor dictates
+        # Unroll the nominal values per duplication factor
         nominal_values=[]
         for n in range(self.dup):
             for m in self.values:
-                nominal_values.append(m.clone())
+                assert m.content is None or \
+                  isinstance(m.content.barray,bytesarray), \
+                    "%s [%s] cloned nominal does not have bytearray: %s" \
+                        % (assembler.eloc(self,"Pass1",module=this_module),\
+                            self.lineno,nom.content.barray)
+                nom=m.clone()
+                #nom.T=self.T
+                nominal_values.append(m)
+                assert nom.content is None or \
+                  isinstance(nom.content.barray,bytearray), \
+                    "%s [%s] clone nominal does not have bytearray: %s" \
+                        % (assembler.eloc(self,"Pass1",module=this_module),\
+                            self.lineno,nom.content.barray)
         return nominal_values
 
 
@@ -1415,9 +1196,10 @@ class DCDS_Operand(asmtokens.AsmFSMScope):
 
 # Syntax: [csect] START [start-expression][,[region-name]]
 
-class START_Parser(AsmCtxParser):
-    def __init__(self,dm):
-        super().__init__(dm,scope=START_Scope,context="loc",trace=False)
+class START_Parser(asmbase.AsmCtxParser):
+    def __init__(self,dm,pm):
+        super().__init__(dm,pm,"cslex",scope=START_Scope,context="loc",trace=False)
+        # Note: "cslex" is used by both the START_Parser and the DCDS_Parser
 
     def __loc_end(self):
         gs=self.scope()
@@ -1425,7 +1207,7 @@ class START_Parser(AsmCtxParser):
         gs.start_list(cs.expr(value))
 
     def init_context(self):
-        self.ctx("loc",lexctx="absexpr",ccls=asmtokens.AsmFSMScope)
+        self.ctx("loc",lexctx="absexpr",ccls=asmbase.AsmFSMScope)
         self.ctx("region",lexctx="region")
 
     def initialize(self):
@@ -1499,7 +1281,7 @@ class START_Parser(AsmCtxParser):
         return "end"
 
 
-class START_Scope(AsmCtxScope):
+class START_Scope(asmbase.AsmCtxScope):
     def __init__(self):
         super().__init__()
         # Parser results
@@ -1516,7 +1298,8 @@ class START_Scope(AsmCtxScope):
         self.new_region = (self.region_tok is not None) or (len(self.expr_list)>0)
         if self.new_region and self.region_tok:
             tok=self.region_tok
-            parser.ltoken_update(stmt,tok)
+            # Update location from LOperands object for error reporting
+            parser.ltoken_update(stmt,tok,asmstr=stmt.opnd_fld)
             self.region=tok.extract()
         else:
             self.region=None

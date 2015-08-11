@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014 Harold Grovesteen
+# Copyright (C) 2014, 2015 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -15,6 +15,11 @@
 #
 #     You should have received a copy of the GNU General Public License
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+#
+#  WARNING - THIS ENTIRE MODULE WILL BE REPLACED WITH A NEW INSTRUCTION PARSER BASED
+#  UPON A FINITE-STATE MACHINE FROM THE asmopnd.py MODULE
+#
 
 # This module provides the Python based mainframe assembler all of its statement
 # operand parsing support.  Syntactical analysis is performed only on the operand
@@ -163,6 +168,13 @@
 # of the analysis.  Such regular expressions may be combined with the use of finite-
 # state machines designed for parsing.
 
+# All functionality here has been moved to other modules, parsers.py in particular.
+# This was primarily motivated by the elimination of grammar based parsing in ASMA
+# 0.2.0 in preference for finite-state machine parsing as implemented by 
+# asmopnd.py and macopnd.py
+raise NotImplementedError("asmparsers.py has been depricated by ASMA 0.2.0")
+
+
 # Python imports
 import re           # Use Python's regular expression module
 
@@ -178,6 +190,8 @@ from   LL1parser import ParserAbort   # Access exception for try statement
 
 # ASMA imports
 import assembler    # Access the assembler's user error exception and Translator
+import asmbase      # Access machine instruction and template processing objects
+import lnkbase      # Access address objects
 
 
 #
@@ -346,10 +360,12 @@ class PLitCur(expression.PLitSmart):
         #cur=self.external.cur_loc.retrieve()
         #if not isinstance(cur,assembler.Address):
         if cur is None:
-            raise assembler.AddrArithError(\
+            #raise assembler.AddrArithError(\
+            raise lnkbase.AddrArithError(\
                 msg="current location counter not established")
         else:
-            assert isinstance(cur,assembler.Address),\
+            #assert isinstance(cur,assembler.Address),\
+            assert isinstance(cur,lnkbase.Address),\
                 "%s current location of statement %s not an address: %s" \
                     % (assembler.eloc(self,"value",module=this_module),\
                         cur_stmt.lineno,cur)
@@ -383,8 +399,11 @@ class PLitLabel(expression.PLitSmart):
                 from None
 
         value=ste.value()
-        if isinstance(value,(assembler.SectAddr,assembler.DDisp,assembler.AbsAddr)):
-            value.length=ste.attrGet("L")
+        #if isinstance(value,(assembler.SectAddr,assembler.DDisp,assembler.AbsAddr)):
+        if isinstance(value,(assembler.Section,assembler.Region,assembler.Img)):
+            value=value.loc
+            #value.length=ste.attrGet("L")
+            value.length=ste["L"]
             if trace:
                 print("%s.convert() v=%s,length=%s" \
                     % (self.__class__.__name__,value,value.length))
@@ -401,7 +420,8 @@ class PLitLabel(expression.PLitSmart):
     def value(self,debug=False,trace=False):
         v=self.convert()
         if trace:
-            if isinstance(v,Address):
+            #if isinstance(v,Address):
+            if isinstance(v,lnkbase.Address):
                 print("%s.value() v=%s" % (self.__class__.__name__,v,v.length))
             else:
                 print("%s.value() v=%s" % (self.__class__.__name__,v))
@@ -836,13 +856,20 @@ class Parsed(object):
         cls_str="asmparsers.py - %s.__init__() -" % self.__class__.__name__
 
         # Perform sanity checks on output from the parser
+        #if not isinstance(operand,\
+        #                 (assembler.Single,\
+        #                  assembler.Storage,\
+        #                  assembler.StorageExt,\
+        #                  assembler.SingleAny,\
+        #                  assembler.SingleAddress,
+        #                  assembler.SingleRelImed)):
         if not isinstance(operand,\
-                         (assembler.Single,\
-                          assembler.Storage,\
-                          assembler.StorageExt,\
-                          assembler.SingleAny,\
-                          assembler.SingleAddress,
-                          assembler.SingleRelImed)):
+                         (asmbase.Single,\
+                          asmbase.Storage,\
+                          asmbase.StorageExt,\
+                          asmbase.SingleAny,\
+                          asmbase.SingleAddress,
+                          asmbase.SingleRelImed)):
             raise ValueError("%s 'operand' argument must be an Operand instance: %s"\
                 % (cls_str,operand))
         if not isinstance(exprs,list):

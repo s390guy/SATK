@@ -26,8 +26,33 @@ from translate import E2A  # Character translation table
 
 # ASMA imports
 import assembler           # Access to some assembler objects
+import lnkbase             # Access address objects
 
 this_module="asmlist.py"
+
+# This object helps in creation of assembly listing detail lines with potentially
+# multipl physical lines (when continuation is present), multiple lines of object
+# code are required (when PRINT DATA is in use) and potentially multiple errors.
+class ListingLine(object):
+    def __init__(self,loc=None,objcode=None,addr1=None,addr2=None,lineno=None,\
+                 typ=" ",pline=None):
+        # These values supply the detail line format 
+        self.loc=loc             # Location columne
+        self.objcode=objcode     # object code column
+        self.addr1=addr1         # addr1 column
+        self.addr2=addr2         # addr2 column
+        self.lineno=lineno       # stmt number column
+        self.typ=typ             # source type
+        # This value is added to the detail after formatting
+        self.pline=pline         # physical line
+        
+    def format(self,detail):
+        values=[self.loc,self.objcode,self.addr1,self.addr2,self.lineno,self.typ]
+        string=detail.string(values=values)
+        if self.pline is not None:
+            string="%s%s" % (string,self.pline.content)
+        return string
+    
 
 class AsmListing(Listing):
 
@@ -169,31 +194,33 @@ class AsmListing(Listing):
             # Build symbol table listing entry object list
             ste=self.ST[sym]
             name=sym
-            typ=ste.queryType()
-            value=ste.attrGet("value")
-            value=assembler.Address.extract(value)
+            value=ste.value()
+            value=lnkbase.Address.extract(value)
             max_value=max(max_value,value)
-            length=ste.attrGet("L")
+            length=ste["L"]     # L' attribute
             max_length=max(max_length,value)
             defn=ste._defined
             refs=ste._refs
+            typ=ste["T"]        # T' attribute
             s=Sym(name,typ,length,value,defn=defn,refs=refs)
             self.stes.append(s)
-            # Build image map information
-            if typ in ["I","R","C"]:
-                image=ste.attrGet("I")
+            # Build image map information (Image, Region and Control sections)
+            if typ in ["1","2","J"]:
+                image=ste["M"]  # M' attribute
                 m=Map(name,typ,image,value,length)
                 imginfo[name]=m
         self.max_length=max_length
         self.mac_value=max_value
-        
+
         # Build the macro cross-reference list
-        macs=self.asm.MM.macros    # The dictionary of defined macros
+        macs=self.asm.OMF.macros    # The dictionary of defined macros
         mtes=[]
         max_mac=0
         for macname in sorted(macs.keys()):
-            mac=macs[macname]
-            macent=Mac(mac.name,mac._defined,mac._refs)
+            mte=macs[macname]
+            # mte is a MacroTable entry object, MTE.  It holds the XREF object
+            xref=mte.xref
+            macent=Mac(mte.name,xref)
             mtes.append(macent)
             max_mac=max(max_mac,len(macname))
         self.mtes=mtes
@@ -213,7 +240,7 @@ class AsmListing(Listing):
             name=r.name
             if name=="":
                 # Unnamed region
-                rinfo=Map("","R",r.img_loc,r.value().address,len(r))
+                rinfo=Map("","2",r.img_loc,r.value().address,len(r))
                 #print("pos: %s" % rinfo.pos)
                 #print("bound: %s" % rinfo.bound)
                 #print("length: %s" % rinfo.length)
@@ -229,7 +256,7 @@ class AsmListing(Listing):
                 name=c.name
                 if name=="":
                     # Unnamed section
-                    cinfo=Map("","C",r.img_loc,r.value().address,len(r))
+                    cinfo=Map("","J",r.img_loc,r.value().address,len(r))
                 else:
                     cinfo=imginfo[name]
                 max_name=max(max_name,len(name))
@@ -244,7 +271,7 @@ class AsmListing(Listing):
         self.max_size=max_size
 
         # Build file list
-        sources=self.asm.LB._files
+        sources=self.asm.IM.LB._files
         files={}
         for s in sources:
             fileno=s.fileno
@@ -351,10 +378,9 @@ class AsmListing(Listing):
         self.image.listing=listing
 
     def create_title(self):
-        #print("asmlist.py - create_title()")
         asmtitle=Title(self.linesize,pages=99999)
-        version="ASMA Ver. 0.1"
-        asmtitle.setLeft([CharCol(size=len(version),default="ASMA Ver. 0.1",sep=2),])
+        version="ASMA Ver. %s.%s.%s" % assembler.asma_version
+        asmtitle.setLeft([CharCol(size=len(version),default=version,sep=2),])
         asmtitle.setRight([DateTimeCol(now=self.asm.now,sep=2)],)
         asmtitle.setTitle(self.dir_title,center=False)
         self.asmtitle=asmtitle
@@ -559,76 +585,100 @@ class AsmListing(Listing):
         self.instgrp=Group(columns=instgrp)
 
     def part1_details(self,stmt,trace=False):
-        cls_str="asmlist.py - %s.part1_details -" % self.__class__.__name__
+        if trace:
+            cls_str=assembler.eloc(self,"part1_details",module=this_module)
+            
+        # Retrieve the binary content of this statement
         content=stmt.content
+
+        # Determine if object code is present and hence a value for the location
+        # column is required.
         if content is None:
             loc=None
         else:
             loc=content.loc.lval()
 
-        laddr=stmt.laddr
+        # Determine the content of the ADDR1 and ADDR2 columnes
+        laddr=stmt.laddr    # This retrieves the list of two elements from the stmt
+
         if stmt.asmdir:
             if trace:
                 print("%s directive: %s" % (cls_str,stmt.instu))
             # Assembler directive
-            addr1=assembler.Address.extract(laddr[0])
-            addr2=assembler.Address.extract(laddr[1])
+            addr1=lnkbase.Address.extract(laddr[0])
+            addr2=lnkbase.Address.extract(laddr[1])
         else:
             # Machine instructions
             if len(laddr)==1:
                 addr1=None
-                addr2=assembler.Address.extract(laddr[0])
+                addr2=lnkbase.Address.extract(laddr[0])
             elif len(laddr)==2:
-                addr1=assembler.Address.extract(laddr[0])
-                addr2=assembler.Address.extract(laddr[1])
+                addr1=lnkbase.Address.extract(laddr[0])
+                addr2=lnkbase.Address.extract(laddr[1])
             else:
                 addr1=None
                 addr2=None
 
+        # Determinte the STMT number column
         lineno=stmt.lineno
-        
+
+        # Determine the statement type column: + for generated, space for open code
         if stmt.gened:
             stype="+"
         else:
             stype=" "
 
-        source=stmt.line.text
-        # Leave this to help in debugging a listing line that shows 'None' for
-        # the input statement.
-        #if __debug__:
-        #    if source is None:
-        #        print(stmt.line.print_raw())
-
+        # Break the object code into content for the object code columns
         data_lines=self.part1_data(stmt)
+        # Determine the content for the last or only physical line 
         if len(data_lines)==0:
             data=None
         else:
             data=data_lines[0]
             del data_lines[0]
-            # data_lines is now the number PRINT DATA extra lines
 
-        vals=[loc,data,addr1,addr2,lineno,stype]
-        if trace:
-            print("%s vals: %s" % (cls_str,vals))
+        # Determine the content of each listing line based upon the column values
+        # and the number of physical lines.
+        plines=stmt.logline.plines
+        first=0               # First physical line
+        last=len(plines)-1    # Last physical line
+        dtlo=[]               # Created ListingLine objects
 
-        detail=self.asmdet.string(values=vals)
-        if trace:
-            print("%s detail from asmdet: '%s'" % (cls_str,detail))
+        for pndx,pline in enumerate(plines):
+            if pndx==first and pndx==last:
+                # Only one physical line
+                dtl=ListingLine(loc=loc,objcode=data,addr1=addr1,addr2=addr2,\
+                    lineno=lineno,typ=stype,pline=pline)
+            elif pndx==first:
+                # First of multiple physical lines
+                dtl=ListingLine(loc=None,objcode=None,addr1=None,addr2=None,\
+                    lineno=lineno,typ=stype,pline=pline)
+            elif pndx==last:
+                # Last of multiple physical lines
+                dtl=ListingLine(loc=loc,objcode=data,addr1=addr1,addr2=addr2,\
+                    lineno=None,typ=stype,pline=pline)
+            else:
+                # Midde physcial line
+                dtl=ListingLine(loc=None,objcode=None,addr1=None,addr2=None,\
+                    lineno=None,typ=stype,pline=pline)
+            dtlo.append(dtl)
 
-        detail="%s%s" % (detail,source)
-        if trace:
-            print("%s detail from with source: '%s'" % (cls_str,detail))
-
-        details=[]
-        details.append(detail)
-        
         # PRINT DATA in effect, need to create extra lines of OBJECT CODE
+        # Create additional object code lines when PRINT DATA is active and more
+        # than 8 bytes of object exist.
         if stmt.pdata:
             for n in data_lines:
                 loc+=8
-                vals=[loc,n,None,None,None]
-                detail=self.asmdet.string(values=vals)
-                details.append(detail)
+                dtl=ListingLine(loc=loc,objcode=n,addr1=None,addr2=None,\
+                    lineno=None,typ=None,pline=None)
+                dtlo.append(dtl)
+              
+        # This is the list of actual strings returned for this statement that
+        # contstitute the listing for it.
+        details=[]
+        for dtl in dtlo:
+            detail=dtl.format(self.asmdet)
+            details.append(detail)
 
         # Add error(s) following the line in error
         if stmt.error:
@@ -642,20 +692,22 @@ class AsmListing(Listing):
     # This method returns a list of strings destined for the OBJECT CODE column.
     def part1_data(self,stmt,trace=False):
         if trace:
-            cls_str="asmlist.py - %s.part1_data -" % self.__class__.__name__
+            cls_str=assembler.eloc(self,"part1_data",module=this_module)
             print("%s stmt '%s' pdata=%s" % (stmt.inst,stmt.pdata))
+
         content=stmt.content
         if trace:
             print("%s content: %s" % (cls_str,content))
         if content is None:
             return [None,]
+
         data=content.barray
         if trace:
             print("%s data: %s" % (cls_str,data))
         if data is None:
             return [None,]
         if trace:
-            print("%s len(data)=%s" % (len(data)))
+            print("%s len(data)=%s" % (cls_str,len(data)))
         if len(data)==0:
             return [None,]
         if (not stmt.pdata) or stmt.error:
@@ -689,6 +741,7 @@ class AsmListing(Listing):
                 break   # Bail after one instruction -- NEVER need more
         if trace:
             print("%s data_lines: %s" % data_lines)
+
         return data_lines
 
     def part1_init(self):
@@ -836,34 +889,30 @@ class AsmListing(Listing):
     def part2_5_create_detail(self):
         hdr=[]
         det=[]
-        detb=[]
-        
+
         # MACRO Column
         mac_col=max(5,self.max_mac)
         maccol=CharCol(mac_col,sep=2,colnum=0)
-        #det.append(CharCol(mac_col,sep=2,colnum=0))
         det.append(maccol)
-        detb.append(maccol)
         hdr.append(CharCol(mac_col,just="center",sep=2,colnum=0,default="MACRO"))
 
         # Defn Column
         maximum=max(self.max_line,99990)
         size=Column.dec_size(maximum)
         det.append(DecCol(maximum=maximum,sep=2,colnum=1))
-        detb.append(CharCol(size=size,just="center",colnum=1,default="BLTIN"))
         hdr.append(CharCol(size,just="center",sep=2,colnum=1,default="DEFN"))
 
         #References
         ref="REFERENCES"
         hdr.append(CharCol(len(ref),just="left",colnum=2,default=ref))
-        
+
         hdrgrp=Group(columns=hdr)
         hdrstr=hdrgrp.string(values=[None,None,None])
         self.headers[2]=hdrstr
-        
+
         macgrp=Group(columns=det)
         self.macgrp=macgrp
-        self.macgrpb=Group(columns=detb)
+        self.macgrpb=Group(columns=det)
         used_chars=len(macgrp)
         available_chars=self.linesize-used_chars
         colsize=self.max_char
@@ -872,10 +921,10 @@ class AsmListing(Listing):
 
         refcol=[]
         for n in range(self.macrpl):
-            refcol.append(DecCol(maximum=self.max_line,sep=2,colnum=n))
+            refcol.append(CharCol(ref_size,just="right",sep=1,colnum=n))
         mrefgrp=Group(columns=refcol)
         self.mrefgrp=mrefgrp
-        
+
     def part2_5_data(self,refs):
         rpl=self.macrpl
 
@@ -890,7 +939,9 @@ class AsmListing(Listing):
             vals=rpl * [None,]
             for ndx in range(min(len(chunk),rpl)):
                 ref=chunk[ndx]
-                vals[ndx]=ref
+                #vals[ndx]=ref
+                # ref is an asmbase.xref object
+                vals[ndx]="%s%s" % (ref.line,ref.flag)
             ref_str=self.mrefgrp.string(values=vals)
             data_lines.append(ref_str)
 
@@ -900,12 +951,10 @@ class AsmListing(Listing):
         details=[]      # List of detail lines being returned
 
         defn=mte.defn
-        if defn:
-            detail=self.macgrp.string(values=[mte.name,defn])
-        else:
-            detail=self.macgrpb.string(values=[mte.name,None])
+        detail=self.macgrp.string(values=[mte.name,defn])
 
         ref_info=self.part2_5_data(mte.refs)
+
         if len(ref_info)==0:
             refs=""
         else:
@@ -922,7 +971,7 @@ class AsmListing(Listing):
             details.append(det_line)
 
         return details
-        
+
     def part2_5_init(self):
         self.eject()            # Force a new page starting part 2
         self.part2_5()          # Prime details
@@ -944,10 +993,10 @@ class AsmListing(Listing):
         return
 
     def part3_create_detail(self):
-        self.map_desc={"I":"Image",
-                       "R":"  Region",
-                       "C":"    CSECT"}
-        lit0=self.map_desc["C"]
+        self.map_desc={"1":"Image",
+                       "2":"  Region",
+                       "J":"    CSECT"}
+        lit0=self.map_desc["J"]
         hdr1=[]
         h1=0
         det1=[]
@@ -1582,10 +1631,14 @@ class Dump(object):
 
 
 class Mac(object):
-    def __init__(self,name,defn=None,refs=[]):
+    def __init__(self,name,refs):
         self.name=name          # Macro name
-        self.defn=defn          # Statement defining the macro
-        self.refs=refs          # List of statement referencing the macro
+        self.defn=None          # Statement defining the macro
+        refents=refs.sort()     # List of sorted asmoper.xref objects
+        if len(refents)>0:
+            self.defn=refents[0].line  # The first xref entry is the first definition
+            refents=refents[1:]        # The others go inte REFERENCES area
+        self.refs=refents      # List of sorted asmoper.xref objects
     def __str__(self):
         return "Mac('%s',defn=%s,refs=%s)" % (self.name,self.defn,self.refs)
 
@@ -1612,6 +1665,9 @@ class Sym(object):
         self.value=value        # Symbol value
         self.defn=defn          # Statement defining the symbol
         self.refs=refs          # List of statements referencing the symbol
+        for n,x in enumerate(self.refs):
+            if x is None:
+                print("Symbol: %s Reference ndx: %s is None" % (self.name,n))
 
 if __name__ == "__main__":
     raise NotImplementedError("asmlist.py - intended for import use only")
