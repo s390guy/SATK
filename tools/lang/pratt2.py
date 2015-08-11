@@ -1174,7 +1174,7 @@ class PParser(object):
 
 if __name__ == "__main__":
     # Comment out the following statement to run tests
-    raise NotImplementedError("%s - intended for import use only" % this_module)
+    #raise NotImplementedError("%s - intended for import use only" % this_module)
 
     #       5      +      1       /      (         2        )
     lst1=[PLit(5),PAdd(),PLit(1),PDiv(),PLParen(),PLit(2),PRParen()]
@@ -1198,5 +1198,5 @@ if __name__ == "__main__":
     p.operator(PSub,lbp=10,rbp=100,symbol="-",isinfix=True,isunary=True)
 
     p.run(pexpr1,debug=False,trace=True,_test=True)
-    p.run(pexpr2,debug=False,trace=True,_test=True)
+    p.run(pexpr2,debug=True,trace=True,_test=True)
     p.run(pexpr3,debug=False,trace=True,_test=True)
