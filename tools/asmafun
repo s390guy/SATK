@@ -50,6 +50,7 @@ fi
 #       init    optimize       Sets the PYTHONOPTIMIZE variable for -O option
 #       init    python         Sets the PYTHONPATH (not required)
 #       list    file|nolist    Sets the listing file or disables it
+#       mcall   enable|disable Sets the --mcall command line option
 #       nest    n|default      Sets the input nesting level or lets it default
 #       psw     s|s360|67|BC|EC|380|XA|E370|E290|Z|disable|cpu
 #                              Sets the XMODE PSW value or uses the MSL cpu
@@ -187,6 +188,13 @@ asma_env()
                 asma_list=" -l ${2}"
             fi
             ;;
+        "mcall")
+            case ${2} in
+                "enable") asma_mcall=" --mcall" ;;
+                "disable") asma_mcalle="" ;;
+                *) echo "invalid mcall option value: ${2}" ; return 1 ;;
+            esac
+            ;;
         "nest")
             if [ "${2}" = "default" ]
             then 
@@ -247,6 +255,7 @@ asma_env()
                     asma_env reset error
                     asma_env reset image
                     asma_env reset list
+                    asma_env reset mcall
                     asma_env reset nest
                     asma_env reset psw
                     asma_env reset rc
@@ -265,6 +274,7 @@ asma_env()
                 "image")  asma_image=""  ;;
                 "ldipl")  asma_ldipl=""  ;;
                 "list")   asma_list=""   ;;
+                "mcall")  asma_mcall=""  ;;
                 "nest")   asma_nest=""   ;;
                 "psw")    asma_psw=""    ;;
                 "rc")     asma_rc=""     ;;
@@ -339,7 +349,7 @@ asma()
     cdebug="${asma_debug}${asma_oper}"
     clist="${asma_dump}${asma_list}"
     copt="${asma_arch}${asma_cpu}${asma_addr}${asma_psw}${asma_error}"
-    copt="${copt}${asma_bltin}${asma_case}${asma_stats}${asma_def}"
+    copt="${copt}${asma_bltin}${asma_case}${asma_mcall}${asma_stats}${asma_def}"
     cmd="${asma} ${copt}${ccp}${cdebug}${cout}${clist} ${1}"
     if [ "${2}" = "echo" ]
     then
