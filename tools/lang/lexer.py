@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2013 Harold Grovesteen
+# Copyright (C) 2013, 2015 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -46,7 +46,7 @@
 # Python imports:
 import re
 
-this_module="lexer.py"
+this_module="%s.py" % __name__
 
 # The following public classes are provided by the lexer module:
 #   Token    Represents a portion of a string recognized by a Type instance.
@@ -773,8 +773,8 @@ class Recognizer(object):
     #    LexerError if not match is found and fail is True
     def recognize(self,string,pos=0,line=0,linepos=0,fail=False):
         for typ in self.typs:
-            #if self.eos and isinstance(typ,EOSType):  # put pseudo token type test here
-            #    continue
+            # Recognition of the EOS (end-of-string) condition occurs before entry
+            # to this method
             try:
                 return typ.match(string,pos,line,linepos)
             except LexerError:
@@ -782,7 +782,7 @@ class Recognizer(object):
         # None of the token types associated with this context matches the string
         if fail:
             raise LexerError(pos=pos,line=line,linepos=linepos)
-        
+
         # Return an Unrecognized token with some of the unrecognized content
         unrecognized=Unrecognized()
         unrecognized.init(pos,line,linepos)
@@ -834,15 +834,13 @@ class CSLA(object):
         
         # Current string being recognized under different contexts
         # See start() method
-        self.string=None  # Current string being recognized
-        self.curctx=None  # Current context in use for recognition
-        self.pos=None     # Current position being recognized
-        self.eosfnd=False # True when EOS found in the current string
-        self.eospos=None  # Position marking end-of-string
+        self.string=None     # Current string being recognized
+        self.curctx=None     # Current context in use for recognition
+        self.pos=None        # Current position being recognized
+        self.start_pos=None  # Starting position of the parse
+        self.eosfnd=False    # True when EOS found in the current string
+        self.eospos=None     # Position marking end-of-string
         self.eostype=eostype()
-        
-        # Initialize the subclass
-        self.init()
 
     # Set the current context for the string being recognized
     def context(self,name):
@@ -894,6 +892,17 @@ class CSLA(object):
         self.pos=tok.end  # Look next time from where we left off in the string
         return tok
 
+    # Causes the supplied token to be rejected.  This is effected by resetting
+    # the current position to the start of the recognized token.  The content can
+    # then be re-recognized possibly under a different lexical context with different
+    # results.
+    def reject(self,token):
+        new=self.pos-len(token.string)
+        assert new>=self.start_pos,"%s - %s.reject() - new position, %s, precedes "\
+            "starting position, %s, token: %s" \
+                % (this_module,self.__class__.__name__,new,self.start_pos,token)
+        self.pos=new
+
     # Start context sensitive recognition of a new string from a given position
     # Method Arguments:
     #   string   The string being recognized
@@ -914,7 +923,7 @@ class CSLA(object):
                 raise ValueError("%s 'name' argument not supplied an no current "
                     "context has been set" % cls_str)
         self.string=string
-        self.pos=pos
+        self.start_pos=self.pos=pos
         self.eosfnd=False
         self.eospos=len(string)
 
