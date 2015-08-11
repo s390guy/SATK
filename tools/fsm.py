@@ -84,7 +84,7 @@ def eloc(clso,method_name,module=None):
 #   trace     Specify True to enable state action tracing.  Defaults to False. 
 # Instance methods:
 #   current   Returns the current state of the FSM
-#   init      Specify the starting state of the FSM
+#   init      Specify the starting state of the FSM. Use start() to set the state.
 #   machine   Run a single cycle of the finite state machine.
 #   scope     Returns the current global scope object or None
 #   start     Ready the finite state machine for use by setting the start state.
@@ -106,7 +106,7 @@ class FSM(object):
         # FSM processing state initialized by the start() method
         self._started=False    # When started, True
         self._terminated=True  # When started, False
-        self._scope=None       # Global scope share with processing states
+        self._scope=None       # Global scope shared with processing states
 
     # Return the current state of the FSM
     def current(self):
@@ -205,7 +205,7 @@ class FSM(object):
             self._states[s]=state
 
     # Enable or disable FSM state tracing
-    def trace(self,on=True):
+    def trace(self,on=False):
         if on:
             self._trace=self.name
         else:
