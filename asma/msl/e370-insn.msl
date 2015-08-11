@@ -156,7 +156,7 @@ inst MVCP   DA   SSD            # MOVE TO PRIMARY
 inst MVCS   DB   SSD            # MOVE TO SECONDARY
 inst MVI    92   SI             # MOVE (immediate)
 inst MVN    D1   SSA            # MOVE NUMERICS
-inst MVO    F1   SSA            # MOVE WITH OFFSET
+inst MVO    F1   SSB            # MOVE WITH OFFSET
 inst MVZ    D3   SSA            # MOVE NUMERICS
 inst MXD    67   RXA            # MULTIPLY (EH<LH)
 inst MXDR   27   RR             # MULTIPLY (EH<LH)
