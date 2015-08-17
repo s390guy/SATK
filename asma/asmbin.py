@@ -18,7 +18,7 @@
 
 # This module generates the binary output for ASMA.
 
-this_module="asmbin.py"
+this_module="%s.py" % __name__
 
 # Python imports: None
 

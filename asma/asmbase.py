@@ -18,7 +18,7 @@
 
 # This module provides base classes used in multiple places within ASMA
 
-this_module="asmbase.py"
+this_module="%s.py" % __name__
 
 # Python imports: None
 # SATK imports: None

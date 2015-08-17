@@ -20,7 +20,7 @@
 # all assembler and macro directives and interfaces with the MSL database for
 # instruction definition.  Definitions reside here.
 
-this_module="asmoper.py"
+this_module="%s.py" % __name__
 
 # Python imports: None
 # SATK imports: None

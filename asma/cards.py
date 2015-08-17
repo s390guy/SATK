@@ -37,7 +37,7 @@
 #   The generated ASMA statement will appear in the assembler listing after processing.
 #   This has the potential to create exceedingly long lines in the assemler listing.
 
-this_module="cards.py"
+this_module="%s.py" % __name__
 copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014")
 
 # Python imports:

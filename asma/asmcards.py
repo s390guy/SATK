@@ -64,7 +64,7 @@
 # to actually provide to the input handler individual lines of ASCII text.  Line
 # termination characters if present will be removed.
 
-this_module="asmcards.py"
+this_module="%s.py" % __name__
 
 # Python imports: None
 # SATK imports: None

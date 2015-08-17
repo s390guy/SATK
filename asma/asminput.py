@@ -22,6 +22,8 @@
 #
 # Environment variable ASMPATH used to search for input files.
 
+this_module="%s.py" % __name__
+
 # Python imports
 import os.path       # Access path tools by FileBuffer class
 
@@ -32,7 +34,6 @@ import satkutil      # Access the path manager
 import asmmacs       # Access macro facilities
 import assembler     # Access assembler exceptions
 
-this_module="%s.py" % __name__
 
 #
 #  +--------------------------------+

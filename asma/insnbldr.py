@@ -18,7 +18,7 @@
 
 # This module builds machine instructions for ASMA.
 
-this_module="insnbldr.py"
+this_module="%s.py" % __name__
 
 # Python imports: None
 # SATK imports: None

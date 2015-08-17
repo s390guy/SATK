@@ -65,6 +65,8 @@
 # At present no plans exist to replace the assembler usage of LL1 grammars with the
 # new techniques being used by the macro facilities.  That may be a future objective.
 
+this_module="%s.py" % __name__
+
 # Python imports:
 import datetime               # Access UTC time
 import os.path                # For file path manipulation
@@ -85,7 +87,6 @@ import macsyms                # Access symbolic variable and parameter implement
 import macopnd                # Access complex terms
 import asmtokens              # Access Pratt expression evaluators
 
-this_module="%s.py" % __name__
 
 #
 #  +--------------------------------+

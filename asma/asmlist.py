@@ -18,6 +18,8 @@
 
 # This module generates the output listing for ASMA.
 
+this_module="asmlist.py"
+
 # Python imports: none
 # SATK imports:
 from listing import *      # Access the listing generator tools
@@ -28,7 +30,6 @@ from translate import E2A  # Character translation table
 import assembler           # Access to some assembler objects
 import lnkbase             # Access address objects
 
-this_module="asmlist.py"
 
 # This object helps in creation of assembly listing detail lines with potentially
 # multipl physical lines (when continuation is present), multiple lines of object

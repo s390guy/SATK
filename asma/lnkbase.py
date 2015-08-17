@@ -20,7 +20,7 @@
 # include address management and object module creation.  Both ASMA and SALINK
 # utuilize these objects.
 
-this_module="lnkbase.py"
+this_module="%s.py" % __name__
 
 # SATK imports:
 import assembler     # Access the global assember module

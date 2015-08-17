@@ -18,7 +18,7 @@
 
 # This module provides support for local assembler command-line parameters
 
-this_module="asmlocal.py"
+this_module="%s.py" % __name__
 
 # ASMA imports:
 from assembler import local
