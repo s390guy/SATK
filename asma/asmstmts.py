@@ -432,7 +432,7 @@ class ASMStmt(object):
             spaces=spaces
 
         logline=self.logline
-        #if self.lineno==139:
+        #if self.lineno==39:
         #    ddebug=True
         #else:
         #    ddebug=debug # or True
@@ -4082,8 +4082,7 @@ class START(ASMStmt):
         # Pass 0
         self.gscope=None         # Pass 0 scope object returned by parser
         self.csect=None          # CSECT being initiated
-        
-        
+
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         pm=asm.PM
         # Either of these two methods may raise an AssemblerError
@@ -4098,7 +4097,7 @@ class START(ASMStmt):
             asm.sysect=self.csect
         else:
             asm.sysect=""
-    
+
     def Pass1(self,asm,debug=False,trace=False):
         csect_name=self.csect
 
@@ -4170,7 +4169,7 @@ class START(ASMStmt):
 
 # Set a new listing title
 #
-#         TITLE  'new listing title'
+#         TITLE  ['new listing title']
 
 class TITLE(ASMStmt):
     # Statement processing controls
@@ -4178,8 +4177,8 @@ class TITLE(ASMStmt):
     lfld="Q"       # Valid label field content
     ofld="L"       # Valid operation field content
     alt=False      # Whether the alternate statement format is allowed
-    parser=None    # Operand parser used by statement
-    sep=False      # Whether operands are to be separated from the logline
+    parser="mopnd" # Operand parser used by statement
+    sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     attrs=""       # Attributes supported in expression
 
@@ -4189,20 +4188,19 @@ class TITLE(ASMStmt):
         self.prdir=True          # It is also a print directive
         
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.ignore=True          # No more processing needed by assembler passes
-        
-        if not self.opnd_fld:
+        self.ignore=True         # No more processing needed by assembler passes
+        if len(self.operands)==0:
             self.plist=""
+        elif len(self.operands)==1:
+            result=asm.PM.parse_operand(self,self.operands[0],"TITLE",debug=debug)
+            self.plist=result.convert(amp=True)    # New title in listing
         else:
-            scope=asm.PM.parse_operands(self,"title",required=True)
-            token=scope.str_end()     # asmtokens.StringToken object
-            # Extract the string, double quotes handles by the token
-            data=token.convert()
-            # Handle double ampersands here
-            self.plist=data.replace("&&","&")    # New title in listing
+            raise assembler.AssemblerError(line=self.lineno,\
+                msg="TITLE directive supports only one operand, found: %s" \
+                    % len(self.operands))
 
         self.prdir=True        # This statement requires processing during listing
-        
+
     def Pass1(self,asm,debug=False,trace=False): pass
     def Pass2(self,asm,debug=False,trace=False): pass
 

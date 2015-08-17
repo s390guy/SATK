@@ -32,7 +32,7 @@ import satkutil      # Access the path manager
 import asmmacs       # Access macro facilities
 import assembler     # Access assembler exceptions
 
-this_module="asminput.py"
+this_module="%s.py" % __name__
 
 #
 #  +--------------------------------+
@@ -139,8 +139,7 @@ class FileSource(InputSource):
         self.leof=False           # Flas set when at logical end-of-file
         self.fo=None              # Python file object
         self.lineno=None          # File line number
-        #self.handler=asmcards.InputHandler()  # line continuation handler
-        
+
         # Physical line class returned by this source
         if fixed:
             self.pcls=FixedLine
@@ -442,11 +441,11 @@ class FixedLine(PhysLine):
 
     # Fixed physical line initialization
     # 1. Mark the line as empty if physical line content is zero.
-    # 1. Determine if there is a continuation in column 72.  If there is no colume
+    # 2. Determine if there is a continuation in column 72.  If there is no column
     #    72 then blank is implied and no continuation
-    # 2. Extract parsable text from columns 1-71, or less if line is shorter than
+    # 3. Extract parsable text from columns 1-71, or less if line is shorter than
     #    71 columns
-    # 3. Remove trailing trailing blanks from parsable text
+    # 4. Remove trailing trailing blanks from parsable text
     def init(self):
         self.cont=len(self.content)>=72 and self.content[71]!=" "
         text=self.content[:min(len(self.content),72)]

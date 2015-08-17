@@ -221,6 +221,7 @@ SDCHR=asmtokens.SDChrType()
 SDDEC=asmtokens.SDDecType()
 SDHEX=asmtokens.SDHexType()
 SEQSYM=asmtokens.SeqType()
+STRING=asmtokens.StringType()    # Used during open code quoted string recognition
 SYM=asmtokens.SymType()          # Used during symbolic replacement in strings
 SYMBOL=asmtokens.SymbolType()    # Used during symbolic replacement in strings
 
@@ -295,6 +296,7 @@ class MacroCSLexer(lexer.CSLA):
         # Initialize lexical contexts                      Name
         self.init_cexpr(ldebug=ldebug,tdebug=tdebug)     # 'cexpr'
         self.init_default(ldebug=ldebug,tdebug=tdebug)   # 'init'
+        self.init_quote(ldebug=ldebug,tdebug=tdebug)     # 'quote'
         self.init_rep(ldebug=ldebug,tdebug=tdebug)       # 'rep'
         self.init_seq(ldebug=ldebug,tdebug=tdebug)       # 'seq'
         self.init_setc(ldebug=ldebug,tdebug=tdebug)      # 'setc'
@@ -327,6 +329,12 @@ class MacroCSLexer(lexer.CSLA):
         self.ctx(c,debug=ldebug)
         types=[LPAREN,RPAREN,COMMA,LOGNOT,LOGICAL,COMPARE,AOPER,NOT,SDBIN,SDCHR,\
                SDHEX,SDDEC,SEQSYM,SATTR,LATTR,QUOTE]
+        self.type(c,types,debug=tdebug)
+
+    def init_quote(self,ldebug=False,tdebug=False):
+        c="quote"
+        self.ctx(c,debug=ldebug)
+        types=[STRING,]
         self.type(c,types,debug=tdebug)
 
     def init_rep(self,ldebug=False,tdebug=False):
@@ -880,6 +888,29 @@ class AIFScope(MacroScope):
         self.opnd.target(target)
 
 
+#
+#  +-----------------------------------+
+#  |                                   |
+#  |    QUOTED STRING OPERAND SCOPE    |
+#  |                                   |
+#  +-----------------------------------+
+#
+
+class QuoteScope(asmbase.AsmFSMScope):
+    def __init__(self,lopnd):
+        super().__init__()
+        self.lopnd=lopnd       # LOperand source object
+        
+    def init_result(self):
+        pass
+
+    # Return result object, a Python string
+    def result(self):
+        return self.str_end()
+        
+    def token(self,value):
+        raise NotImplementedError("%s only calls to str_xxx methods supported" \
+            % assembler.eloc(self,"token",module=this_module))
 
 #
 #  +--------------------------+
@@ -1476,22 +1507,22 @@ class MPControl(object):
 
 
 class MacroParser(asmbase.AsmCtxParser):
-    init_states={"ACTR":MPControl("inita",pctx="init",scope=MacroScope),
-                 "AGO": MPControl("ago",  pctx="init",scope=AGOScope),
-                 "AIF": MPControl("aif",  pctx="init",scope=AIFScope),
-                 "GBLA":MPControl("inits",pctx="sym", scope=SymbolicReference),
-                 "GBLB":MPControl("inits",pctx="sym", scope=SymbolicReference),
-                 "GBLC":MPControl("inits",pctx="sym", scope=SymbolicReference),
-                 "LCLA":MPControl("inits",pctx="sym", scope=SymbolicReference),
-                 "LCLB":MPControl("inits",pctx="sym", scope=SymbolicReference),
-                 "LCLC":MPControl("inits",pctx="sym", scope=SymbolicReference),
-                 "SETA":MPControl("inita",pctx="init",scope=MacroScope),
-                 "SETB":MPControl("initb",pctx="init",scope=MacroScopeBinary),
-                 #"SETC":MPControl("setc", pctx="init",scope=SETCScope),
-                 "SETC":MPControl("setc", pctx="setc",scope=SETCScope),
-                 "rep" :MPControl("initr",pctx="rep", scope=CharacterExpr),
-                 "seq": MPControl("seqb", pctx="seq", scope=SeqSymScope),
-                 "sym": MPControl("inits",pctx="sym", scope=SymbolicReference)}
+    init_states={"ACTR": MPControl("inita",pctx="init", scope=MacroScope),
+                 "AGO":  MPControl("ago",  pctx="init", scope=AGOScope),
+                 "AIF":  MPControl("aif",  pctx="init", scope=AIFScope),
+                 "GBLA": MPControl("inits",pctx="sym",  scope=SymbolicReference),
+                 "GBLB": MPControl("inits",pctx="sym",  scope=SymbolicReference),
+                 "GBLC": MPControl("inits",pctx="sym",  scope=SymbolicReference),
+                 "LCLA": MPControl("inits",pctx="sym",  scope=SymbolicReference),
+                 "LCLB": MPControl("inits",pctx="sym",  scope=SymbolicReference),
+                 "LCLC": MPControl("inits",pctx="sym",  scope=SymbolicReference),
+                 "SETA": MPControl("inita",pctx="init", scope=MacroScope),
+                 "SETB": MPControl("initb",pctx="init", scope=MacroScopeBinary),
+                 "SETC": MPControl("setc", pctx="setc", scope=SETCScope),
+                 "TITLE":MPControl("initq",pctx="quote",scope=QuoteScope),
+                 "rep" : MPControl("initr",pctx="rep",  scope=CharacterExpr),
+                 "seq":  MPControl("seqb", pctx="seq",  scope=SeqSymScope),
+                 "sym":  MPControl("inits",pctx="sym",  scope=SymbolicReference)}
     def __init__(self,dm,pm):
         # Lexical token lists used during initialze() method processing
         self.term= [SDBIN,SDHEX,SDCHR,SDDEC,LATTR]
@@ -1508,6 +1539,7 @@ class MacroParser(asmbase.AsmCtxParser):
     def init_context(self):
         self.ctx("cexpr", lexctx="cexpr", gbl=True,ccls=None)
         self.ctx("init",  lexctx="init",  gbl=True,ccls=None)
+        self.ctx("quote", lexctx="quote", gbl=True,ccls=None)
         self.ctx("rep",   lexctx="rep",   gbl=True,ccls=None)
         self.ctx("seq",   lexctx="seq",   gbl=True,ccls=None)
         self.ctx("setc",  lexctx="setc",  gbl=True,ccls=None)
@@ -1541,6 +1573,7 @@ class MacroParser(asmbase.AsmCtxParser):
         self.Binary()    # Initialize binary (logical) expression states
         self.Chr()       # Initialize character expression complex term states
         self.Decl()      # Initialize symbolic declaration states
+        self.Quote()     # Initialize open code quoted string states
         self.Rep()       # Initialize symbolic replacement states
         self.Seq()       # Initialize sequence symbol recognition states
         self.Sym()       # Initialize symbolic reference states
@@ -1697,7 +1730,8 @@ class MacroParser(asmbase.AsmCtxParser):
 
             opnd=self._parse_operand(stmt,opnd,mp,debug=debug)
 
-            if isinstance(opnd,asmbase.ASMOperand):
+            if isinstance(opnd,asmbase.ASMOperand) \
+               or isinstance(opnd,asmtokens.StringToken):
                 self.operands.append(opnd)
             else:
                 raise ValueError("operand not returned from parse: %s" % opnd)
@@ -1720,6 +1754,21 @@ class MacroParser(asmbase.AsmCtxParser):
             if debug:
                 print("%s resulto: %s" \
                     % (assembler.eloc(self,"parse_model",module=this_module),result))
+        return result
+
+    # This method is used to parse an individual ASMString object.  Some statements
+    # need to control how each operand in recognized.
+    def parse_operand(self,stmt,asmstr,mpname,debug=False):
+        try:
+            mp=MacroParser.init_states[mpname]
+        except KeyError:
+            raise ValueError("%s 'mpname argument unrecognized: %s" \
+                % (assembler.eloc(self,"parse_operand",module=this_module),mpname))
+        result=self._parse_operand(stmt,asmstr,mp,debug=debug)
+        if __debug__:
+            if debug:
+                print("%s resulto: %s" \
+                    % (assembler.eloc(self,"parse_operand",module=this_module),result))
         return result
 
     # This method is used to parse an individual field or operand containing a 
@@ -2769,6 +2818,52 @@ class MacroParser(asmbase.AsmCtxParser):
         state.atend()
 
 
+  #                 +-------------------------------+
+  #                 |                               |
+  #                 |    OPEN CODE QUOTED STRING    |
+  #                 |                               |
+  #                 +-------------------------------+
+
+    # Context: quote - tokens: STRING
+    # Scope: QuotedScope()
+    # See MacroCSLexer.init_quote() method
+    
+    # Parses: An ppen code quoted string operand.  Double single quotes are 
+    #         replaced with a single quote.  Double ampersands are not replaced
+    #         by a single ampersand.  The user of the result object must do
+    #         that.
+    #
+    #        'xxx ''stuff '' more stuff'
+    #         \____________ __________/            
+    #                      v
+    #            asmtokens.STRING object
+
+    def Quote(self):
+    
+        initq=fsmparser.PState("initq")
+        initq.action([STRING,],self.Quote_Begin)             #   ...  'stuff  contq
+        initq.error(self.ACT_Expected_Quote)
+        self.state(initq)
+
+        contq=fsmparser.PState("contq")
+        contq.action([STRING,],self.Quote_Cont)              # 'stuff 'more   contq
+        contq.action([EOS,],self.Quote_End)                  # EOS     done
+        contq.error(self.ACT_Expected_Quote)
+        self.state(contq)
+        
+    def Quote_Begin(self,value,state,trace=False):
+        gs=self.scope()
+        gs.str_begin(value)
+        return "contq"
+        
+    def Quote_Cont(self,value,state,trace=False):
+        gs=self.scope()
+        gs.str_cont(value)
+        return "contq"
+        
+    def Quote_End(self,value,state,trace=False):
+        state.atend()
+
   #                 +----------------------------+
   #                 |                            |
   #                 |    SYMBOLIC REPLACEMENT    |
@@ -3117,6 +3212,9 @@ class MacroParser(asmbase.AsmCtxParser):
     def ACT_Expected_LP_Term(self,value,state,trace=False):
         self.ACT_Expected("label, self-defining term, currrent location or left "
             "parenthesis",value)
+
+    def ACT_Expected_Quote(self,value,state,trace=False):
+        self.ACT_Expected("quote",value)
 
     def ACT_Expected_RP_Oper(self,value,state,trace=False):
         self.ACT_Expected("right parenthesis or operator",value)

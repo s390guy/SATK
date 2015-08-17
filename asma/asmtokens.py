@@ -1610,21 +1610,28 @@ class StringToken(LexicalToken):
         super().__init__()
 
     def atoken(self):
-        cls_str=assembler.eloc(self,"atoken",module=this_module)
-        raise NotImplementedError("%s TID:%s must not be recognized in "
-            "arithemetic expressions" % (cls_str,self.tid))
+        raise NotImplementedError(\
+            "%s TID:%s must not be recognized in arithemetic expressions" \
+                % (assembler.eloc(self,"atoken",module=this_module),self.tid))
         
     def btoken(self):
-        raise NotImplementedError("%s Use of StringToken as a character expression "\
-            "is deprecated in favor of macopnd.py processing" \
-                % assembler.eloc(self,"btoken",module=this_module))
-        return BPLitStr(self)
+        raise NotImplementedError(\
+            "%s TID:%s must not be recognized in binary expressions" \
+                % assembler.eloc(self,"btoken",module=this_module),self.tid)
 
-    def convert(self):
+    # Returns the recognized quoted string.
+    # Method Arguments:
+    #   amp   Specify True to cause double ampersands to be replaced with a single
+    #         ampersand.  Default is True
+    def convert(self,amp=True):
         # Because self.string does not contain a leading single quote having it
         # removed in the overridden init() method, it is only necessary to remove
         # the trailing single quote.
-        return self.string[:-1]
+        data=self.string[:-1]
+        if amp:
+            data=data.replace("&&","&") 
+        #return self.string[:-1]
+        return data
 
     # This method allows for the logical extension of a string token, allowing two
     # successive quotes to be converted into one in the final result.
@@ -1648,9 +1655,8 @@ class StringToken(LexicalToken):
             self.string=self.string[1:]   # String now contains xxxxxx'
 
     def ptoken(self):
-        cls_str=assembler.eloc(self,"ptoken",module=this_module)
-        raise NotImplementedError("%s TID:%s must only be recognized in binary "
-            "expressions" % (cls_str,self.tid))
+        raise NotImplementedError("%s TID:%s not supported in Pratt expressions" \
+            % (assembler.eloc(self,"ptoken",module=this_module),self.tid))
 
 class StringType(lexer.Type):
     def __init__(self,debug=False):

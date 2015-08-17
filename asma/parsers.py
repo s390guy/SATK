@@ -736,47 +736,6 @@ class START_Scope(asmbase.AsmCtxScope):
 
 
 #
-#  +------------------------------------+
-#  |                                    |
-#  |   Assembler TITLE Operand Parser   |
-#  |                                    |
-#  +------------------------------------+
-#
-
-class TITLEParser(asmbase.AsmFSMParser):
-    def __init__(self,dm,pm):
-        super().__init__(dm,pm,scope=asmbase.AsmFSMScope)
-
-    def initialize(self):
-        init=fsmparser.PState("init")
-        init.action([STRING,],self.ACT_Begin_String)
-        init.error(self.ACT_Expected_String)
-        self.state(init)
-
-        cont=fsmparser.PState("cont")
-        cont.action([STRING,],self.ACT_Cont_String)
-        cont.action([EOO,EOS],self.ACT_End)
-        cont.error(self.ACT_Expected_String)
-        self.state(cont)
-
-    def ACT_Begin_String(self,value,state,trace=False):
-        gs=self.scope()
-        gs.str_begin(value)
-        return "cont"
-        
-    def ACT_Cont_String(self,value,state,trace=False):
-        gs=self.scope()
-        gs.str_cont(value)
-        return "cont"
-        
-    def ACT_End(self,value,state,trace=False):
-        state.atend()
-        
-    def ACT_Expected_String(self,value,state,trace=False):
-        self.ACT_Expected("quoted string",value)
-
-
-#
 #  +-----------------------------+
 #  |                             |
 #  |   Common Parser Interface   |
@@ -811,7 +770,6 @@ class ParserMgr(object):
         self.parsers["mparms"]=macsyms.MacroOperands()      # asmstmts.MacroStmt
         self.parsers["mproto"]=macsyms.ProtoParser()        # asmstmts.MacroProto
         self.parsers["sdterm"]=SDParser(dm,self)            #         "lexer"
-        self.parsers["title"]=TITLEParser(dm,self)          # TITLE   "lexer"
 
         # Context sensitive FSM parsers
         self.parsers["dcds"]=asmdcds.DCDS_Parser(dm,self)   # DC/DS   "cslex"
@@ -929,6 +887,15 @@ class ParserMgr(object):
         parser=self.__fetch_parser("mopnd")
         return parser.parse_model(stmt,field,debug=debug)
 
+    # This provides direct access to the macro parser to validate an operand
+    # using a specific control state name.  This allows statement control over
+    # individual operand parsing.
+    # Exception:
+    #   AsmParserError from MacroParser if parse fails
+    def parse_operand(self,stmt,field,mpname,debug=False):
+        parser=self.__fetch_parser("mopnd")
+        return parser.parse_operand(stmt,field,mpname,debug=debug)
+
     # Perform a parse using the supplied FSM-based parser on statement operands.
     # Method arguments:
     #   stmt      An assembler.Stmt object
@@ -973,8 +940,6 @@ class ParserMgr(object):
             # Returns a asmfsmbp.xxxScope object
             return self.__parse(parser,string,scope=scope)
         except assembler.AsmParserError as ape:
-            #raise assembler.AssemblerError(source=stmt.source,line=stmt.lineno,\
-            #    linepos=ape.token.linepos+flds.operpos+1,msg=ape.msg) from None
             #raise assembler.AssemblerError(source=source,line=stmt.lineno,\
             #    linepos=ape.token.linepos+flds.operpos+1,msg=ape.msg) from None
             raise assembler.AssemblerError(source=source,line=stmt.lineno,\
