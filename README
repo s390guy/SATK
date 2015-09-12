@@ -39,6 +39,7 @@ The following directories are provided:
     tools           - Python and bash tools for use with SATK.
                          asma.py - command-line interface to ASMA
                          codepage.py - ASMA code page customization
+                         config.py - local tool configuration management and testing
                          msl.py - Machine Specification Language (MSL) processor
                          mslrpt.py - MSL architecture comparison report
                          xmi.py - XMI file format PDS and member utility
