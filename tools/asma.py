@@ -43,6 +43,7 @@ satkutil.pythonpath("tools/ipl")
 
 # ASMA imports
 import assembler
+import config
 
 class ASMA(object):
     # Default MSL database file and CPU for recognized generic architecture
@@ -375,7 +376,7 @@ def parse_args(dm):
     #         "apply.  If omitted, documented defaults are used.")
 
     # Machine Target
-    parser.add_argument("--cpu",metavar="MSLFILE=CPU",
+    parser.add_argument("--cpu",metavar="MSLFILE=CPU",\
         help="identifies the CPU and its MSL file targeted by the assembly. MSLFILE "
              "must be found in the default MSL directory or a directory specified by "
              "the MSLPATH environment variable.")

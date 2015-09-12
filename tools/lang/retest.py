@@ -177,11 +177,19 @@ if __name__ == "__main__":
     #sdchr.match("C'a'")
     #sdchr.match("C''''")
     
-    pattern="([%s]')?([%s][%s0-9]*)" % ("KkNn","A-Za-z","A-Za-z")
-    lattr=retest(pattern)
-    lattr.match("Alabel")
-    lattr.match("K'Alabel")
-    lattr.match("N'Alable")
-    lattr.match("A'Alable")
-    lattr.match("K'")
+    #pattern="([%s]')?([%s][%s0-9]*)" % ("KkNn","A-Za-z","A-Za-z")
+    #lattr=retest(pattern)
+    #lattr.match("Alabel")
+    #lattr.match("K'Alabel")
+    #lattr.match("N'Alable")
+    #lattr.match("A'Alable")
+    #lattr.match("K'")
+    
+    pattern="('[^']*')+"
+    ctest=retest(pattern)
+    ctest.match("'this is a quoted string'")
+    ctest.match("''")
+    ctest.match("'a field''s value'other stuff")
+    
+
     

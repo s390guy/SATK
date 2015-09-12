@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2013, 2014 Harold Grovesteen
+# Copyright (C) 2013-2015 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -19,7 +19,7 @@
 # This module contains a set of useful functionality that does not easily fit 
 # elsewhere.
 #
-# The mdoules includes the following classes:
+# The mdoule includes the following classes:
 #   dir_tree     Class useful in managing directory trees.
 #   DM           A Debug Manager that interfaces with the argparse class.
 #   PathMgr      Manages one or more environment variables each of which defines 
@@ -426,6 +426,93 @@ class DM(object):
 # +-------------------------------------+
 #
 
+# This class encapsulates the processing of a single search order path
+class SOPath(object):
+    def __init__(self,variable):
+        self.variable=variable   # Environment variable
+        self.directories=[]      # Directory source tuple list
+        self.dir_list=[]         # Directory search list
+
+    def __str__(self):
+        return "SOPath %s: %s" % (self.variable,self.dir_list)
+
+    def append(self,source,directory):
+        t=(source,directory)
+        self.directories.append(t)
+        self.dir_list.append(directory)
+
+    # Add a list of externally configured directories to the search order
+    def config(self,lst):
+        for d in lst:
+            self.append("C",d)
+
+    # Provide a config information list of directories
+    def cinfo(self,indent=""):
+        lst=[]
+        for source,d in self.directories:
+            string="%s%s %s" % (indent,source,d)
+            lst.append(string)
+        return lst
+
+    # Add the current working directory if not present in the list
+    # Method Argument:
+    #   option   defines how the current working directory is to be handled when
+    #            creating a search order path.
+    #            Specify 'last' to add as the last directory if not explicitly used
+    #            Specify 'first' to allways place the cwd as the first directory.
+    #            Specify 'omit' or None to not automatically add the cwd.
+    #            Defaults to None (or omit)
+    # Note: the option argument implements the action requested by the site.cfg
+    # SITE section configuration file option 'cwduse'.
+    def cwd(self,option=None):
+        if option is None or option=="omit":
+            return
+        elif option=="last":
+            curwd=os.getcwd()
+            if curwd not in self.dir_list:
+                self.append("W",curwd)
+        elif option=="first":
+            curwd=os.getcwd()
+            new_dirs=[("W",curwd),]
+            new_dirs.extend(self.directories)
+            self.directories=new_dirs
+            new_list=[curwd,]
+            new_list.extend(self.dir_list)
+            self.dir_list=new_list
+        else:
+            clsstr="satkutil.py - %s.cwd() -" % (self.__class__.__name__)
+            raise ValueError("%s 'option' argument unexpected value: %s" \
+                % (clsstr,option))
+
+    # Display the path information
+    def display(self,indent="",string=False):
+        lst=["%s%s path:" % (indent,self.variable),]
+        lcl="%s    " % indent
+        #for source,d in self.directories:
+        #    s="%s\n%s%s %s" % (s,lcl,source,d)
+        lst.extend(self.cinfo(indent=lcl))
+        string=lst.join("\n")
+        if string:
+            return s
+        print(s)
+
+    # Populates the directory lists from the environment variable
+    def environment(self,default=None,debug=False):
+        try:
+            path=os.environ[self.variable]
+            if debug:
+                clsstr="satkutil.py - %s.environment() -" % (self.__class__.__name__)
+                print("%s environment variable '%s': '%s'" \
+                    % (clsstr,self.variable,path))
+        except KeyError:
+            if default is not None:
+                self.append("D",default)
+            return
+        rawlist=path.split(os.pathsep)
+        for d in rawlist:
+            self.append("E",d.strip())
+
+
 # This class manages paths environment variables for an applications opening
 # files via search paths.  Path environment variables are registered with the
 # class when instantiated or later using the path() method.  This class is designed
@@ -442,25 +529,34 @@ class PathMgr(object):
         self.debug=debug          # Enable debugging of all methods
         self.paths={}             # Dictionary of supported paths
 
+        if __debug__:
+            clstr="satkutil.py - %s.__init__() -" % (self.__class__.__name__)
+
         if variable is None:
             return
         elif isinstance(variable,list):
-            for n in range(len(variable)):
-                v=variable[n]
-                if not isinstance(v,str):
-                    clstr="satkutil.py - %s.__init__() -" % (self.__class__.__name__)
-                    raise ValueError("%s 'variable' argument list element %s not a "
-                        "string: %s" % (clsstr,n,v))
+            for n,v in enumerate(variable):
+                assert isinstance(v,str),\
+                    "%s 'variable' argument list element %s not a string: %s" \
+                        % (clsstr,n,v)
             vars=variable
         elif isinstance(variable,str):
             vars=[variable,]
         else:
-            clstr="satkutil.py - %s.__init__() -" % (self.__class__.__name__)
             raise ValueError("%s 'variable' argument must be a list or str: %s" \
                 % (clsstr,variable))
 
         for v in vars:
             self.path(v,default=default)
+
+    # Returns configuration information about the specific path
+    def cinfo(self,variable):
+        try:
+            return self.paths[variable]
+        except KeyError:
+            clstr="satkutil.py - %s.cinfo() -" % (self.__class__.__name__)
+            raise ValueError("%s 'variable' argument not a recognized path "
+                "environment variable: %s" % (clsstr,variable))
 
     # Returns a list of file names in the path with the specified extension.
     # File names are not absolute.  ropen() method required to access the file.
@@ -470,20 +566,21 @@ class PathMgr(object):
     #   ext         Selects files with this extension.  If ommitted, all files returned
     #               The ext string must contain the initial "." to match
     def files(self,variable,ext=None,debug=False):
-        if not isinstance(variable,str):
+        if __debug__:
             clsstr="satkutil.py - %s.path() -" % self.__class__.__name
-            raise ValueError("%s 'variable' argument must be a string: %s" \
-                % (clsstr,variable))
+        assert isinstance(variable,str),\
+            "%s 'variable' argument must be a string: %s" % (clsstr,variable)
 
         fdebug=debug or self.debug
         try:
-            pathlist=self.paths[variable]
+            path=self.paths[variable]
+            pathlist=path.dir_list
         except KeyError:
-            pathlist=None
-            if ldebug:
-                clsstr="satkutil.py - %s.files() -" % (self.__class__.__name__)
-                print("%s 'variable' argument not a defined path: '%s'" \
-                    % (clsstr,variable))
+            pathlist=[]
+            if __debug__:
+                if fdebug:
+                    print("%s 'variable' argument not a defined path: '%s'" \
+                        % (clsstr,variable))
         files=[]
         for d in pathlist:
             entries=os.listdir(d)
@@ -507,58 +604,56 @@ class PathMgr(object):
     #
     # Method arguments:
     #   variable    Environment variable string.
-    #   default     Specifies a default directory if the environment variable is
-    #               unavailable
+    #   config      Specifies one or more directories configured independently
+    #               of the environment variable, appended to the environment variable
+    #               list.  Configured directories are searched after environment
+    #               variable directories.
+    #   cwdopt      Specifies how current working directory is to be handled.
+    #               Specify 'first' to always place cwd first in directory list
+    #               Specify 'last' to place cwd as last directory if not in list
+    #               Specify None to ignore current working directory.  Defaults to 
+    #               None.
+    #   default     Specifies a default directory if the environment variable and is
+    #               configured directories are both unavailable
     #   debug       Specify True to enable debug message generation.
-    def path(self,variable,default=None,debug=False):
-        if not isinstance(variable,str):
-            clsstr="satkutil.py - %s.path() -" % self.__class__.__name
-            raise ValueError("%s 'variable' argument must be a string: %s" \
-                % (clsstr,variable))
+    def path(self,variable,config=[],cwdopt=None,default=None,debug=False):
+        if __debug__:
+            clsstr="satkutil.py - %s.path() -" % self.__class__.__name__
+        assert isinstance(variable,str),\
+            "%s 'variable' argument must be a string: %s" % (clsstr,variable)
+        assert default is None or isinstance(default,str),\
+            "%s 'default' argument must be a string: %s" % (clsstr,default)
 
         ldebug=debug or self.debug
-        pathlist=[]
-        rawlist=[]
-        try:
-            path=os.environ[variable]
+
+        path=SOPath(variable)
+
+        # List of configured directories
+        cfglist=[]
+        if __debug__:
             if ldebug:
-                print("satkuil.py - %s.path() - environment variable '%s': '%s'" \
-                    % (self.__class__.__name__,variable,path))
-            rawlist=path.split(os.pathsep)
-        except KeyError:
-            # Environment variable is not defined so ignore it
-            if default is not None:
-                if not isinstance(default,str):
-                    clsstr="satkutil.py - %s.path() -" % self.__class__.__name
-                    raise ValueError("%s 'default' argument must be a string: %s" \
-                        % (clsstr,default))
-                if ldebug:
-                    print("satkutil.py - %s.path() - environment variable %s not "
-                          "defined, using default path: '%s'" \
-                          % (self.__class__.__name__,variable,default))
-                rawlist=[default,]
-            else:
-                if ldebug:
-                    print("satkutil.py - %s.path() - environment variable not "
-                        "defined: '%s'" % (self.__class__.__name__,variable))
+                print("%s config: %s" % (clsstr,config))
+        for n,d in enumerate(config):
+            assert isinstance(d,str),\
+                "%s configured directory %s not a string: %s" % (clsstr,n,d)
+            cfglist.append(d)
+        if __debug__:
+            if ldebug:
+                print("%s cfglist: %s" % (clsstr,cfglist))   
 
-        if ldebug:
-            print("satkutil.py - %s.path() - rawpath list: %s" \
-                % (self.__class__.__name__,rawlist))
-
-        for p in rawlist:
-            pathlist.append(p.strip())
-
+        # Populate the path from the environment variable (or default if
+        # environment variable is not currently defined)
+        path.environment(default=default)
+        # Add the configured directories to the list
+        path.config(cfglist)
         # Add current working directory if not already in the path
-        curwd=os.getcwd()
-        if curwd not in pathlist:
-            pathlist.append(curwd)
+        path.cwd(option=cwdopt)
 
         # Register the recognized path
-        self.paths[variable]=pathlist
-        if ldebug:
-            print("satkutil.py - %s.path() - register path '%s'=%s" \
-                % (self.__class__.__name__,variable,pathlist))
+        self.paths[path.variable]=path
+        if __debug__:
+            if ldebug:
+                print("%s %s" % (clsstr,path.display(string=True)))
 
     # Opens the file in the specified mode and returns the file object.  If supplied,
     # the predefined path variable is used to find the supplied relative path.
@@ -574,7 +669,7 @@ class PathMgr(object):
     #               class was instantiated (via the 'variable' argument or later
     #               added via the path() method.
     #   stdio       Specify True to open a file object.  Specify False to open a file
-    #               descriptor.  Defaults to True
+    #               descriptor object.  Defaults to True
     #   debug       Enable debug messages during the call.
     #
     # If path=False, returns the tuple:  (absolute_path, open_file_object)
@@ -593,13 +688,15 @@ class PathMgr(object):
 
         # Try locating the path list to open the file.
         try:
-            pathlist=self.paths[variable]
+            path=self.paths[variable]
+            pathlist=path.dir_list
         except KeyError:
             pathlist=None
-            if ldebug:
-                clsstr="satkutil.py - %s.ropen() -" % (self.__class__.__name__)
-                print("%s 'variable' argument not a defined path: '%s'" \
-                    % (clsstr,variable))
+            if __debug__:
+                if ldebug:
+                    clsstr="satkutil.py - %s.ropen() -" % (self.__class__.__name__)
+                    print("%s 'variable' argument not a defined path: '%s'" \
+                        % (clsstr,variable))
 
         # For absolute paths or where a path variable name has not been supplied, or
         # the supplied variable is not recognized, default to Python's native behavior
@@ -617,10 +714,11 @@ class PathMgr(object):
                     return None
 
         # Try using search path to open the relative path
-        if ldebug:
-            clsstr="satkutil.py - %s.ropen() -" % (self.__class__.__name__)
-            print("%s using path %s with directories: %s" \
-                % (self.__class__.__name__,variable,pathlist))
+        if __debug__:
+            if ldebug:
+                clsstr="satkutil.py - %s.ropen() -" % (self.__class__.__name__)
+                print("%s using path %s with directories: %s" \
+                    % (self.__class__.__name__,variable,pathlist))
         if stdio:
             # Return the open file object
             for p in pathlist:
@@ -642,7 +740,7 @@ class PathMgr(object):
             
                 try:
                     return (filepath,os.open(filepath,os.O_RDONLY))
-                # on success, simply return the tuple (abspath,file_object)
+                # on success, simply return the tuple (abspath,descriptor_object)
                 except EnvironmentError:
                     continue
 
@@ -652,9 +750,10 @@ class PathMgr(object):
 
     # Perform the actual opening of the file
     def osopen(self,filename,mode,debug=False):
-        if debug:
-             print("satkutil.py - %s.osopen() - trying: open('%s','%s')" \
-                   % (self.__class__.__name__,filename,mode))
+        if __debug__:
+            if debug:
+                print("satkutil.py - %s.osopen() - trying: open('%s','%s')" \
+                    % (self.__class__.__name__,filename,mode))
         return open(filename,mode)
 
 
@@ -753,22 +852,25 @@ def method_name(method):
 # Add a relative directory dynamically to the PYTHONPATH search path
 def pythonpath(dir,debug=False):
     path=[satkdir(dir,debug=debug),]
-    if debug:
-        print("satkutil.py - pythonpath() - adding path: '%s'" % path[0])
+    if __debug__:
+        if debug:
+            print("satkutil.py - pythonpath() - adding path: '%s'" % path[0])
     path.extend(sys.path)
     sys.path=path
-    if debug:
-        print("satkutil.py - pythonpath() - sys.path=%s" % sys.path)
+    if __debug__:
+        if debug:
+            print("satkutil.py - pythonpath() - sys.path=%s" % sys.path)
 
 
 # Determine an SATK directory based upon the root
 def satkdir(reldir,debug=False):
-    if os.path.isabs(reldir):
-        raise ValueError("satkutil.py - satkdir() - 'reldir' argument must be a "
-            "relative path: '%s'" % reldir)
+    assert not os.path.isabs(reldir),\
+        "satkutil.py - satkdir() - 'reldir' argument must be a relative path: '%s'" \
+            % reldir
     root=satkroot()
-    if debug:
-        print("satkutil.py - satkdir() - SATK root: '%s'" % root)
+    if __debug__:
+        if debug:
+            print("satkutil.py - satkdir() - SATK root: '%s'" % root)
     return os.path.join(root,reldir)
 
 

@@ -101,7 +101,7 @@ asma_version=(0,2,0)
 #     cls_str=assembler.eloc(self,"method",module=this_module)
 #     raise Exception("%s %s" % (cls_str,"error information"))
 #
-# It results in a Exceptin string of:
+# It results in a Exception string of:
 #     'module - class_name.method_name() - error information'
 def eloc(clso,method_name,module=None):
     if module is None:
@@ -480,17 +480,12 @@ import asmline      # 0.2 - Access the logical line input manager
 import asmstmts     # 0.2 - Directive, instruction and macro statements
 import macopnd      # 0.2 - Macro operand handling
 import asmbin       #       Access binary output generator
-#import asmcards     #      DEPRECATED: Access the line continuation handler
-#import asmfsmbp     #       Access the finite state machine parsing technology
-#import asmfsmcs     #       Access objects related to context sensitive parsing
 import asminput     #       Access the input handler for the assembler
 import asmlist      #       Access the assembler listing generator
 import asmmacs      #       Access the macro framework
 import asmoper      #       Access the operation management framework
 import asmopnd      # 0.2 - Assembler operand processing
-#import asmparsers   #      DEPRECATED: Access all of my parsers of statement operands
 import parsers      # 0.2 - Consolidates parser management module
-#import expression   #      DEPRECATED: Access to Pratt parser interface for grammar
 import insnbldr     #       Access the machine instruction construction machinery
 import msldb        #       Access the Format class for type checking
 
