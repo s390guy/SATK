@@ -34,7 +34,7 @@ import_start_w=wall_start=time.time()
 
 import argparse
 
-
+# SATK imports:
 # Setup PYTHONPATH
 import satkutil
 satkutil.pythonpath("asma")
@@ -42,8 +42,9 @@ satkutil.pythonpath("tools/lang")
 satkutil.pythonpath("tools/ipl")
 
 # ASMA imports
-import assembler
-import config
+import asmconfig    # Usage by ASMA of the configuration system
+import assembler    # The actual assembler
+
 
 class ASMA(object):
     # Default MSL database file and CPU for recognized generic architecture
@@ -61,42 +62,71 @@ class ASMA(object):
     target_choices=\
         ["s360","s370","s380","370xa","e370","e390","s390","s390x","24","31","64"]
     def __init__(self,args,dm):
+        
         self.dm=dm                # Global Debug Manager instance
-        self.args=args            # Command line arguments
-        self.clstats=args.stats   # Command-line statistics flag
+        self.args=args            # Tool Config object
+        #self.clstats=args.stats   # Command-line statistics flag
+        self.clstats=args["stats"]   # Command-line statistics flag
 
         # Enable any command line debug flags
-        for flag in self.args.debug:
+        #for flag in self.args.debug:
+        #    self.dm.enable(flag)
+        for flag in args["debug"]:
             self.dm.enable(flag)
 
+        #self.aout=assembler.AsmOut(\
+        #    deck=args.object,\
+        #    image=args.image,\
+        #    ldipl=args.gldipl,\
+        #    listing=args.listing,\
+        #    mc=args.store,\
+        #    rc=args.rc,\
+        #    vmc=args.vmc)
+        
         self.aout=assembler.AsmOut(\
-            deck=args.object,\
-            image=args.image,\
-            ldipl=args.gldipl,\
-            listing=args.listing,\
-            mc=args.store,\
-            rc=args.rc,\
-            vmc=args.vmc)
+            deck=args["object"],\
+            image=args["image"],\
+            ldipl=args["gldipl"],\
+            listing=args["listing"],\
+            mc=args["store"],\
+            rc=args["rc"],\
+            vmc=args["vmc"])
 
         msl,cpu=self.target()
+        mslpath=args["mslpath"]     # MSL PathMgr object
         cptrans,cpfile=self.code_page("94C")
         defn=self.defines()
 
-        self.assembler=assembler.Assembler(cpu,msl,self.aout,\
-            msldft=satkutil.satkdir("asma/msl"),\
-            addr=args.addr,\
-            case=args.case,\
+        #self.assembler=assembler.Assembler(cpu,msl,self.aout,\
+        #    msldft=satkutil.satkdir("asma/msl"),\
+        #    addr=args.addr,\
+        #    case=args.case,\
+        #    debug=dm,\
+        #    defines=defn,\
+        #    dump=args.dump,\
+        #    error=args.error,\
+        #    nest=self.args.nest,\
+        #    ptrace=args.pas,\
+        #    otrace=args.oper,\
+        #    cpfile=cpfile,\
+        #    cptrans=cptrans)
+
+        self.assembler=assembler.Assembler(cpu,msl,mslpath,self.aout,\
+            addr=args["addr"],\
+            case=args["case"],\
             debug=dm,\
             defines=defn,\
-            dump=args.dump,\
-            error=args.error,\
-            nest=self.args.nest,\
-            ptrace=args.pas,\
-            otrace=args.oper,\
+            dump=args["dump"],\
+            error=args["error"],\
+            nest=args["nest"],\
+            otrace=args["oper"],\
             cpfile=cpfile,\
-            cptrans=cptrans)
+            cptrans=cptrans,\
+            asmpath=args["asmpath"],\
+            maclib=None)
 
-        self.source=args.source[0]     # Source input file
+        #self.source=args.source[0]     # Source input file
+        self.source=args["input"]       # Source input file
 
         # Gather together time related data saved outside this object.
         self.process_start=process_start
@@ -118,7 +148,8 @@ class ASMA(object):
 
     # Process --cp command-line argument
     def code_page(self,default):
-        cp=self.args.cp
+        #cp=self.args.cp
+        cp=self.args["cp"]
         if cp is None:
             return (default,None)
         return self.sep(cp,"--cp",optional=2)
@@ -126,7 +157,8 @@ class ASMA(object):
     # Process -D command-line arguments
     def defines(self):
         lst=[]
-        for d in self.args.D:
+        #for d in self.args.D:
+        for d in self.args["symbol"]:
             dtuple=self.sep(d,"-D",optional=2)
             lst.append(dtuple)
         return lst
@@ -168,7 +200,7 @@ class ASMA(object):
         # Provide the error report to the command-line if error-level is 2.
         # For error levels 0 or 1, error(s) have already been displayed.
         # For error level 3 errors are only reported in the listing
-        if self.args.error==2:
+        if self.args["error"]==2:
             img.errors()
 
         self.out_end_w=time.time()
@@ -241,13 +273,15 @@ class ASMA(object):
 
         # Try the --target argument
         try:
-            msl,cpu=ASMA.archs[args.target]
+            #msl,cpu=ASMA.archs[args.target]
+            msl,cpu=ASMA.archs[args["target"]]
         except KeyError:
             pass
 
         # If present try --cpu argument
-        if args.cpu is not None:
-            msl,cpu=self.sep(args.cpu,"--cpu",optional=None)
+        arg_cpu=args["cpu"]
+        if arg_cpu is not None:
+            msl,cpu=self.sep(arg_cpu,"--cpu",optional=None)
 
         if msl is None or cpu is None:
             print("argument error: could not identify target instruction set by "
@@ -257,8 +291,14 @@ class ASMA(object):
         return (msl,cpu)
 
 
-# Parse the command line arguments
-def parse_args(dm):
+# Parse the command line arguments and configuration files.
+# Returns:
+#   config.Config object
+def parse_args(dm=None):
+    tool=asmconfig.asma()
+    return tool.configure()
+
+    # ALL OF THE FOLLOWING STATEMENTS MAY BE ELIMINATED
     parser=argparse.ArgumentParser(prog="asma.py",
         epilog=copyright, 
         description="from assembler source create a bare-metal usable file")
@@ -365,16 +405,6 @@ def parse_args(dm):
         help="specify the code page translation and, if provided, the code page file "\
              "containing it. Defaults to '94C' in the default code page file")
 
-    # The future of local configurations is yet to be determined.  For now this
-    # option is disabled.  It depends upon assembler.AsmConfigs, assembler.AsmConfig
-    # and the asmlocal module.  If supported, local configuration management may
-    # move to this module.
-    #
-    # Define the local default specification
-    #parser.add_argument("--config",default="default",\
-    #    help="identify the local configuration, if not specified standard defaults "\
-    #         "apply.  If omitted, documented defaults are used.")
-
     # Machine Target
     parser.add_argument("--cpu",metavar="MSLFILE=CPU",\
         help="identifies the CPU and its MSL file targeted by the assembly. MSLFILE "
@@ -407,6 +437,6 @@ if __name__ == "__main__":
     objects_start_w=time.time()
 
     dm=assembler.Assembler.DM()
-    args=parse_args(dm)
+    tool=parse_args(dm=None)
     print(copyright)
-    ASMA(args,dm).run()
+    ASMA(tool,dm).run()

@@ -337,12 +337,11 @@ class DM(object):
             self.flag("gtdebug")   # Grammar processing token debug flag
             self.flag("gLL1debug") # Granmar LL(1) analysis debug flag
 
-    # Add a debug control argument to an argument parser.
-    # Method arguments:
-    #   argparser   An instance of argparse.ArgumentParser to which debug options
-    #               are being added.
-    #   arg         The command-line argument.
-    def add_argument(self,argparser,arg,help=None):
+    # Build command-line or configuration argument options and help
+    # Returns:
+    #   a tuple   tuple[0]  a list of choices for debugging
+    #             tuple[1]  a help string
+    def build_arg(self,help=None):
         choose=[]
         for x in self.flags.keys():
             choose.append(x)
@@ -356,8 +355,38 @@ class DM(object):
             for opt in choose:
                 help_str="%s %s," % (help_str,opt)
             help_str=help_str[:-1]
+        return (choose,help_str)
+    
+
+    # Add a debug control argument to an argument parser.
+    # Method arguments:
+    #   argparser   An instance of argparse.ArgumentParser to which debug options
+    #               are being added.
+    #   arg         The command-line argument.
+    def add_argument(self,argparser,arg,help=None):
+        choose,help_str = self.build_arg(help=help)
         argparser.add_argument(arg,action="append",metavar="OPTION",choices=choose,\
             default=[],help=help_str)
+        
+    # Build command-line or configuration argument options and help
+    # Returns:
+    #   a tuple   tuple[0]  a list of choices for debugging
+    #             tuple[1]  a help string
+    def build_arg(self,help=None):
+        choose=[]
+        for x in self.flags.keys():
+            choose.append(x)
+        choose=sorted(choose)
+        # build the help
+        if help:
+            help_str=help
+        else:
+            help_str="enable debugging output. Multiple occurences supported. " \
+                "Available options:"
+            for opt in choose:
+                help_str="%s %s," % (help_str,opt)
+            help_str=help_str[:-1]
+        return (choose,help_str)
 
     # Disable a defined debug flag
     def disable(self,dflag):

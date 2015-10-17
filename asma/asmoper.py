@@ -105,9 +105,10 @@ class MSLentry(object):
 # macro definition state.
 #
 # Instance Arguments
-#   mach    The MSL cpu definition being requested from the MSL file
-#   mslfile The MSL filename requested
-#   msldft  Default directory if the MSLPATH environment variable is missing
+#   asm     The Assembler object
+#   machine The MSL cpu definition being requested from the MSL file
+#   msl     The MSL filename requested
+#   mslpath PathMgr object of the MSL database
 #   debug   Specify True to enable debugging of the file access operations
 class OperMgr(asmbase.ASMOperTable):
     # XMODE values accepted
@@ -124,7 +125,7 @@ class OperMgr(asmbase.ASMOperTable):
                "Z":"PSWZ","PSWZ":"PSWZ",
                "none":None,"NONE":None}
 
-    def __init__(self,asm,machine,msl,msldft=None,debug=False):
+    def __init__(self,asm,machine,msl,mslpath,debug=False):
         super().__init__()
         self.asm=asm         # The Assembler object
         # Legacy AsmPasses objects for assembler directives
@@ -134,7 +135,7 @@ class OperMgr(asmbase.ASMOperTable):
         self.addrsize=None   # Maximum address size supported by the CPU
         self.ccw=None        # Expected CCw format used by the CPU
         self.psw=None        # Expected PSW format used by the CP
-        self.cache=self.__getMachine(machine,msl,msldft=msldft,debug=debug)
+        self.cache=self.__getMachine(machine,msl,mslpath=mslpath,debug=debug)
 
         # Manage Directive Statements
         self.def_adirs()     # Define Assembler directives
@@ -154,8 +155,8 @@ class OperMgr(asmbase.ASMOperTable):
 
     # Create the MSL cache and supplies maximum address size for listing
     # Method arguments are passed from the instance arguments.
-    def __getMachine(self,machine,mslfile,msldft=None,debug=False):
-        mslproc=msldb.MSL(default=msldft,debug=debug)
+    def __getMachine(self,machine,mslfile,mslpath,debug=False):
+        mslproc=msldb.MSL(default=None,pathmgr=mslpath,debug=debug)
         mslproc.build(mslfile,fail=True)
         cpux=mslproc.expand(machine)  # Return the expanded version of cpu
         self.addrsize=cpux.addrmax    # Set the maximum address size for CPU

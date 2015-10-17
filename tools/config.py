@@ -73,7 +73,7 @@ import argparse     # Python command-line parser utility
 import configparser # Python configuration file parser
 import os.path      # Manipulate platform paths
 import time         # Access date and time for run-time default options
-from collections import OrderedDict  # Dictionary used by the configparser module
+#from collections import OrderedDict  # Dictionary used by the configparser module
 # SATK imports
 import satkutil     # Various utilities
 
@@ -89,7 +89,8 @@ def eloc(clso,method_name,module=None):
     else:
         m=module
     return "%s - %s.%s() -" % (m,clso.__class__.__name__,method_name)
-    
+
+
 #
 #  +-------------------------------+
 #  |                               |
@@ -97,10 +98,12 @@ def eloc(clso,method_name,module=None):
 #  |                               | 
 #  +-------------------------------+
 #
+
 class ConfigError(Exception):
     def __init__(self,msg=""):
         self.msg=msg         # Text associated with the error
         super().__init__(self.msg)
+
 
 #
 #  +------------------------------------+
@@ -143,11 +146,11 @@ class ConfigFile(object):
         self.missing=[]       # Requested section but missing
         
         # Current default setting after reading a new config file
-        self.defaults={}      # See read_cfg() method
+        self.defaults=self.defaults()   # Also, see read_cfg() method
         
         # Whether the configuration system is disabled (meaning it can't find
         # the site)
-        self.config_disabled=False
+        #self.config_disabled=False
 
     # Return the defined configuration defaults
     def defaults(self):
@@ -177,26 +180,27 @@ class ConfigFile(object):
     #   KeyError if either the section or option does not exist in the configuration
     def option(self,section,option,raw=False):
         opt=option.lower()
+        optv=None
         try:
-            opt=self.parser.get(section,opt,raw=raw)
+            optv=self.parser.get(section,opt,raw=raw)
             # If the option is not found in the section but a default value
             # in the configuration system is available, it will be returned
             # by the parser.
         except configparser.NoOptionError:
+            pass
             #print("error: option not found: %s" % opt)
-            return None
+            
         except configparser.NoSectionError:
             # Remember that the section is missing
             if not section in self.missing:
-                #print("warning: section not found: %s" % section)
                 self.missing.append(section)
-            # Access defaults anyway
-            try:
-                opt=self.defaults[opt]
-            except KeyError:
-                opt=None
 
-        return opt
+        # Access defaults anyway
+        if optv is None:
+           optv=self.defaults.get(opt)  # If option is not in defaults returns None
+        print("%s section:%s  option:%s = %s" \
+            % (eloc(self,"option"),section,option,optv))
+        return optv
 
     # Updates the configuration information with tool defaults and any user
     # sections contained in the file.
@@ -388,8 +392,6 @@ class Option(object):
         self.use_cl=cl         # Whether the option is a command-line option
         self.short=short       # Short name of command line option
         self.full=full         # Long name of command line option
-        self.clreq= self.required and self.use_cl \
-                    and (not self.use_cfg) and (not self.use_env)
         self.action=action     # command-line parser action for argument
         self.metavar=metavar   # METAVAR used by argparser.
         self.help=help         # command-line help information
@@ -406,6 +408,10 @@ class Option(object):
         elif env:
             self.env_name=name.upper()
             self.use_env=True
+
+        # Whether command line reflects it being required _in the command-line_.
+        self.clreq= self.required and self.use_cl \
+                    and (not self.use_cfg) and (not self.use_env)
 
         # Populated information from sources
         self.typ="?"       # Source of populated information
@@ -491,11 +497,14 @@ class Option(object):
     # conversion to a dictionary)
     def cl(self,pargs):
         if self.use_cl:
-            self._cl=pargs[self.full]
+            if self.full is None:
+                self._cl=None
+            else:
+                self._cl=pargs[self.full]
 
     # Populate the argument from the configuration file
     def cfg(self,cfg,section):
-        #print("%s %s use_cfg: %s" % (eloc(self,"cfg"),self.name,self.use_cfg))
+        print("%s %s use_cfg: %s" % (eloc(self,"cfg"),self.name,self.use_cfg))
         if not self.use_cfg:
             return
 
@@ -528,6 +537,8 @@ class Option(object):
     # Exception:
     #   KeyError if option not found 
     def cfg_value(self,cfg,section):
+        print("%s section:%s  option:%s" \
+            % (eloc(self,"cfg_value"),section,self.name))
         try:
             return cfg.option(section,self.name)
         except KeyError:
@@ -619,6 +630,33 @@ class Boolean(Option):
             return Boolean.booleans[value]
         except KeyError:
             self.invalid_error(value)
+            
+class Flag(Boolean):
+    def __init__(self,name,action,default,short=None,full=None,help=None,\
+                 cl=True,cfg=True):
+        super().__init__(name,short=short,full=full,action=action,default=default,\
+            help=help,cl=cl,cfg=cfg)
+
+    # Add the argument to an argument parser
+    def add_argument(self,argparser):
+        sopt=lopt=None
+        if self.short:
+            sopt="-%s" % self.short
+        if self.full:
+            lopt="--%s" % self.full
+        if self.cl:
+            if sopt is not None: 
+                if lopt is not None:
+                    argparser.add_argument(sopt,lopt,action=self.action,\
+                        help=self.help)
+                else:
+                    argparser.add_argument(sopt,action=self.action,help=self.help)
+            elif lopt is not None:
+                argparser.add_argument(lopt,action=self.action,help=self.help)
+            else:
+                raise ValueError("%s either argument 'full' or 'short' are required" \
+                   % eloc(self,"argument"))
+
 
 # Supports an option of multiple values on a single line.  No value results in an
 # error.  This option allows spaces to be present in a value.
@@ -662,7 +700,7 @@ class Option_MLMV(Option):
         try:
             value=cfg.option(section,self.name)
         except KeyError:
-            return
+            return []
         if Option.isNoValue(value) or value is None:
             return []
 
@@ -688,56 +726,49 @@ class Option_SV(Option):
         return value
 
 
-class ListArgument(Option_MLMV):
-    def __init__(self,name,short=None,full=None,help=None,required=False,\
-                 cl=False,cfg=False,env=False):
-        super().__init__(name,short=short,full=full,required=required,help=help,\
-            cl=cl,cfg=cfg,env=env)
-
-    def add_argument(self,argparser):
-        argparser.add_argument(self.full,action="append",help=self.help,default=[])
-
-    def cl(self,pargs):
-        if self.use_cl:
-            self._cl=pargs.get(self.full)
-
-
-class Flag(Boolean):
-    def __init__(self,name,action,default,short=None,full=None,help=None,\
-                 cl=True,cfg=True):
-        super().__init__(name,short=short,full=full,action=action,default=default,\
-            help=help,cl=cl,cfg=cfg)
-
-    # Add the argument to an argument parser
-    def add_argument(self,argparser):
-        sopt=lopt=None
-        if self.short:
-            sopt="-%s" % self.short
-        if self.full:
-            lopt="--%s" % self.full
-        if self.cl:
-            if sopt is not None: 
-                if lopt is not None:
-                    argparser.add_argument(sopt,lopt,action=self.action,\
-                        help=self.help)
-                else:
-                    argparser.add_argument(sopt,action=self.action,help=self.help)
-            elif lopt is not None:
-                argparser.add_argument(lopt,action=self.action,help=self.help)
-            else:
-                raise ValueError("%s either argument 'full' or 'short' are required" \
-                   % eloc(self,"argument"))
-
 class Choices(Option_SV):
     def __init__(self,name,short=None,full=None,default=None,required=False,\
-                 choices=None,help=None,\
+                 choices=None,metavar=None,help=None,\
                  cl=False,cfg=False,env=False,site=False):
         assert choices is not None,\
             "%s 'choices' argument must not be None" % eloc(self,"__init__")
 
         super().__init__(name,short=short,full=full,default=default,\
-            required=required,choices=choices,metavar=None,action=None,\
+            required=required,choices=choices,metavar=metavar,action=None,\
             novalue=False,help=help,cl=cl,cfg=cfg,env=env,site=site)
+        
+        
+class Decimal(Option_SV):
+    def __init__(self,name,short=None,full=None,default=None,required=False,\
+                 metavar=None,help=None,\
+                 cl=False,cfg=False,env=False,site=False):
+
+        super().__init__(name,short=short,full=full,default=default,\
+            required=required,choices=None,metavar=metavar,action=None,\
+            novalue=False,help=help,cl=cl,cfg=cfg,env=env,site=site)
+
+    def value_xform(self,value):
+        try:
+            return int(value,10)
+        except ValueError:
+            self.invalid_error(value)
+        
+        
+class IntChoices(Choices):
+    def __init__(self,name,short=None,full=None,default=None,required=False,\
+                 choices=None,metavar=None,help=None,\
+                 cl=False,cfg=False,env=False,site=False):
+        assert choices is not None,\
+            "%s 'choices' argument must not be None" % eloc(self,"__init__")
+
+        super().__init__(name,short=short,full=full,default=default,\
+            required=required,choices=choices,metavar=metavar,help=help,\
+            cl=cl,cfg=cfg,env=env,site=site)
+        
+    def value_xform(self,value):
+        if value is None:
+            return None
+        return int(value)
 
 
 class Disable(Flag):
@@ -750,7 +781,7 @@ class Enable(Flag):
     def __init__(self,name,short=None,full=None,help=None,cl=True,cfg=True):
         super().__init__(name,"store_true",False,short=short,full=full,help=help,\
             cl=cl,cfg=cfg)
-        
+
 
 class Environment(Option_SV):
     def __init__(self,name,full=None,default=None,metavar=None,\
@@ -774,6 +805,68 @@ class Environment(Option_SV):
         except KeyError:
             return
         self._env=variable
+
+
+class ListArg(Option_MLMV):
+    def __init__(self,name,short=None,full=None,metavar=None,help=None,\
+                 required=False,choices=None,cl=False,cfg=False,env=False):
+        super().__init__(name,short=short,full=full,default=[],metavar=metavar,\
+            required=required,choices=choices,help=help,cl=cl,cfg=cfg,env=env)
+
+    def add_argument(self,argparser):
+        option=0
+        if self.short is not None:
+            option+=2
+            short="-%s" % self.short
+        if self.full is not None:
+            option+=1
+            full="--%s" % self.full
+        if option == 1:
+            # Full name only
+            argparser.add_argument(full,action="append",metavar=self.metavar,\
+                default=[],choices=self.choices,help=self.help)
+        elif option==2:
+            argparser.add_argument(short,action="append",metavar=self.metavar,\
+                default=[],choices=self.choices,help=self.help)
+        elif option==3:
+            argparser.add_argument(short,full,action="append",metavar=self.metavar,\
+                default=[],choices=self.choices,help=self.help)
+        else:
+            raise ValueError("%s neither a short nor full command-line argument"\
+                % eloc(self,"add_argument"))
+            
+    # Establishes the option's value 
+    def option(self,tool):
+        value=None
+        typ="?"
+        if self.use_cl and self._cl:
+            value=self._cl
+            typ="*"
+        elif self.use_env and self._env:
+            value=self._env
+            typ="E"
+        elif self.use_cfg and self._cfg:
+            value=self._cfg
+            typ="C"
+        if value is None: 
+            if self.default is not None:
+                value=self.default
+                typ="D"
+            else:
+                value=[]
+                typ="O"
+        assert isinstance(value,list),\
+            "%s option %s value not a list: %s" \
+                % (eloc(self,"option"),self.name,value)
+        tvals=[]
+        for v in value:
+            if self.choices is not None and value not in self.choices:
+                self.choice_error(value)
+                self.error=True
+                typ="?"
+            tvals.append(self.value_xform(v))
+        self.value=tvals
+        self.typ=typ
 
 
 # Supports a directory search-order path as an environment variable or a
@@ -803,12 +896,25 @@ class Path(Option_MLMV):
     
 
 # Supports a source command-line option.  Configuration files or environment
-# variables are not supported.
+# variables are not supported for an option of type Source.
+#
+# Instance Arguments:
+#   name      The name of option as known by the configuration system
+#   inopt     The input file option associated with this source section name
+#   pathopt   The Path type option associated with this input source.
+#   required  Whether the option must have a value or not.  Defaults to True.
+#   help      Command-line help information.
+#
+# Note: arguments 'inopt' and 'pathopt' are only used in support of the config.py
+# tool's --tool testing role.  Normally the tool defining this option marries the
+# input option and path option in its code.  To support the config.py tool's test
+# role, it needs to know which options are tied together.
 class Source(Option):
-    def __init__(self,name,inopt,required=True,help=None):
+    def __init__(self,name,inopt,pathopt=None,required=True,help=None):
         super().__init__(name,full=name,required=required,help=help,\
             cl=True,cfg=False,env=False)
         self.inopt=inopt  # input file option associated with this source
+        self.pathopt=pathopt   # input path type option associated with this source
 
     def add_argument(self,argparser):
         if self.required:
@@ -1271,13 +1377,16 @@ class TextFile(object):
 # Tool (by making the tool a subclass) or the Tool object may be an intermediary
 # and supply just the resultant Config object to the tools processor.
 class Tool(object):
-    def __init__(self,name,ro=True,site=True):
+    def __init__(self,name,ro=True,site=True,test=False):
         self.name=name          # Tool name as recognized by configuration system
         self.site=site          # Whether this tool is included in site directory
+        self.test=test          # Whether this is a config test being performed
         # Path information used by the configuration system
         self.satk=satkutil.satkroot()
         # Build the configuration options used by tool (Configuration object) 
         self.spec=self.tool_spec()
+        if self.test:
+            self.option_tool_test(self.spec)
         # Build the command-line parser (argparse.parser object)
         self.arg_parser=self.spec.arg_parser()
         self.notice=False    # Whether copyright notice has been displayed
@@ -1303,7 +1412,6 @@ class Tool(object):
         self._satkcfg=None      # The site.cfg file in $SATK/config directory
         self._toolcfg=None      # The tool.cfg File in the site directory
         self._srccfg=None       # The --cfg option file from tool.cfg CONFIGS section
-        self.ro=ro              # Whether the config files may be written
 
         # Bootstrap the configuration system
         self.cfgdir=satkutil.satkdir("config")
@@ -1502,7 +1610,7 @@ class Tool(object):
 
     # Return the run-time defaults as a dictionary supplied to the ConfigFile
     # object and ultimately to the configparser.
-    def __run_time(self):
+    def __run_time(self,inopt=None):
         defaults={}
         defaults["cwd"]=os.getcwd()
         defaults["date"]=time.strftime("%Y%m%d")
@@ -1513,6 +1621,9 @@ class Tool(object):
             defaults["home"]=self.env_raw["HOME"]
         except KeyError:
             pass
+        
+        if not inopt is None:
+            defaults["input"]=inopt
 
         self.tool_config_defaults(defaults)  # Add tool specific defaults
         return defaults
@@ -1582,9 +1693,20 @@ class Tool(object):
             # this method call is avoided.  Otherwise it does it for a tool
             # that does not require this behavior.
             self.cli_args()
+            
+        # Determine input source
+        source=self.cli_ns.source
+        if source is not None:
+            if isinstance(source,list) and len(source)>0:
+                source=source[0]
+            elif isinstance(source,str):
+                pass
+            else:
+                raise ValueError("%s unexpected command-line source value: %s" \
+                    % (eloc(self,"configure"),source))
 
         # Build the ConfigFile object to interface with the configuration system
-        self.create_cfg_parser()
+        self.create_cfg_parser(inopt=source)
         # Update Argument objects with site information as needed
         # 
         self.parse_site()
@@ -1592,12 +1714,6 @@ class Tool(object):
         self.site=self.find_site()  # Determine site directory location.
         # Figure out how to handle cwd in paths
         self.cwduse=self.find_option("cwduse")
-
-        # Determine input source
-        source=self.cli_ns.source
-        if source is not None:
-            if isinstance(source,list) and len(source)>0:
-                 source=source[0]
 
         if self.site is not None:
             # site directory found so, proceed with the rest of the configuration
@@ -1607,9 +1723,8 @@ class Tool(object):
         else:
             # site directory not found, so do not populate from the config files
             src_sect=None
-        #self.cwduse=self.find_option("cwduse")
+
         self.populate(self.spec._args_list,section=src_sect)
-        #self.cwduse=self.find_option("cwduse")
 
         # All of the options are set in the Config object.
         # If errors are encountered, the process ends without return
@@ -1619,8 +1734,9 @@ class Tool(object):
         return self.config
 
     # Create the configuration file parser
-    def create_cfg_parser(self):
-        self.cfg_parser=ConfigFile(parms=self.spec,defaults=self.__run_time())
+    def create_cfg_parser(self,inopt=None):
+        self.cfg_parser=ConfigFile(parms=self.spec,\
+            defaults=self.__run_time(inopt=inopt))
 
     # This method creates the default section for the tool's tool.cfg file
     # Returns:
@@ -1694,7 +1810,7 @@ class Tool(object):
     # Definte the standard option for locating the site directory
     # It is enabled for all source: command-line, environment variable and SITE
     # section in the site.cfg file.
-    def option_satkcfg(self,cfg):
+    def option_satkcfg(self,cfg,cl=False):
         site_name=Configuration.site[0]   # site option name
         site_cli=site_name.lower()        # Command line argument: satkcfg
         site_name=site_name.upper()       # Environment variable name: SATKCFG
@@ -1702,13 +1818,19 @@ class Tool(object):
             help="identifies --init site targeted configuration site directory. "\
             "If command-line argument is omitted, --init site expects to find "\
             "the %s environment variable." % site_cli,\
-            cl=True,cfg=True,env=site_name))
+            cl=cl,cfg=True,env=site_name))
         
     # Define the source/input file option pair
-    def option_source(self,cfg,source,inopt,required=False,shelp=None,ihelp=None):
-        cfg.arg(Source(source,inopt,required=required,help=shelp))
+    def option_source(self,cfg,source,inopt,pathopt,required=False,\
+                      shelp=None,ihelp=None):
+        cfg.arg(Source(source,inopt,pathopt=pathopt,required=required,help=shelp))
         cfg.arg(Option_SV(inopt,required=False,help=ihelp,\
             cl=False,env=False,cfg=True))
+
+    # Define the --tool option when testing a tools configuration
+    def option_tool_test(self,cfg):
+        cfg.arg(Option_SV("tool",full="tool",required=False,\
+            cl=True,env=False,cfg=False))
 
     # Read the tool.cfg default configuraiton file and update the Configuration
     # objects
@@ -1727,7 +1849,7 @@ class Tool(object):
         found=self.cfg_parser.parse_satk(self._satkcfg)
         if not found:
             return
-        self.populate(self.spec._site_list,section="SITE")   
+        self.populate(self.spec._site_list,section="SITE")
 
     # Read the source configuration file identified by the --cfg command-line
     # argument and defined in the default configuration file's CONFIGS section.
@@ -1755,7 +1877,7 @@ class Tool(object):
     #   arg_list  a list of Option objects being populated
     #   section   configuration section from which options are being used
     #   debug     Whether processing of this method is displayed.
-    def populate(self,arg_list,section=None,debug=False):
+    def populate(self,arg_list,section=None,debug=True):
         if __debug__:
             if debug:
                 print("%s section: %s" % (eloc(self,"populate"),section))
@@ -1763,8 +1885,7 @@ class Tool(object):
         for arg in arg_list:
             arg.cl(self.cli)
             arg.env(self.env_raw)
-            if section is not None:
-                arg.cfg(self.cfg_parser,section)
+            arg.cfg(self.cfg_parser,section)
             # Set the Option object's value attribute.  Pass myself for access
             # to other configuration information.
             arg.option(self)
@@ -1783,7 +1904,10 @@ class Tool(object):
             return
         # Establish the source's partner input option with a default from the 
         # command line.
-        dfts[source.inopt]=self.cli_ns.source
+        src=self.cli_ns.source
+        if isinstance(src,list):
+            src=src[0]
+        dfts[source.inopt]=src
 
   #  
   #  Method's required from subclass
@@ -1889,6 +2013,9 @@ class Config(object):
     #   ValueError if the pathopt option does not exist or PathMgr.ropen method can
     #              not open the file.
     def path_open(self,pathopt,filename,mode="rt",debug=False):
+        assert isinstance(filename,str),\
+            "%s 'filename' argument must be a string: %s" \
+                % (eloc(self,"path_open"),filename)
         pathmgr=self[pathopt.lower()]
         assert isinstance(pathmgr,satkutil.PathMgr),\
             "%s option '%s' did not return a PathMgr object: %s" \
@@ -1914,9 +2041,9 @@ class config(Tool):
     # Define a tool to the configuration system
     @staticmethod
     def deftool(toolcls):
-        assert issubclass(toolcls,Tool),\
-            "%s - %s - 'toolcls' argument must be an sub class of Tool: %s" \
-                % (this_module,"config.define()",toolcls.__name__)
+        #assert issubclass(toolcls,Tool),\
+        #    "%s - %s - 'toolcls' argument must be an sub class of Tool: %s" \
+        #        % (this_module,"config.define()",toolcls.__name__)
         config.tools.append(toolcls)
     def __init__(self):
         # Build a list of tool objects that use the configuration system
@@ -1927,8 +2054,7 @@ class config(Tool):
         self.tools={}
         for t in config.tools:
             print(t)
-            return
-            toolo=t()
+            toolo=t(test=True)
 
             try:
                 self.tools[toolo.name]
@@ -1950,6 +2076,13 @@ class config(Tool):
 
         # site.cfg set to allow writing
         super().__init__(name,ro=False,site=False)
+
+    # Terminate the test normally
+    # Method Argument:
+    #   tool   the name of the tool as a string
+    def __tool_test_complete(self,tool):
+        print("--tool %s test: completed" % tool)
+        sys.exit(0)
 
     def action_init(self):
         init=self.cli_ns.init
@@ -2000,28 +2133,76 @@ class config(Tool):
             
         print("\n--tool %s test: started ..." % tool)
         print("accessing configuration system")
+        
+        try:
+            toolo=self.tools[tool]
+        except KeyError:
+            print("--tool %s test: failed, tool not located")
+            return
 
         try:
-            cfg=self.configure()  # Returns the cinfo object
+            cfg=toolo.configure()  # Returns the cinfo object
         except ConfigError as ce:
             print("ERROR: %s" % ce)
             print("--tool %s test: failed\n" % tool)
             sys.exit(1)
         cfg.display()         # Display configuration information if requested
 
-        inopt=cfg["input"]
-        verbose=cfg["verbose"]
+        # Gather options related to source option handling
+        srcopt=toolo.spec._source  # Source option object
+        if srcopt is None:
+            print("tool %s does not utilize an input source" % toolo.name)
+            self.__tool_test_complete(toolo.name)
+            # Method does not return
+
+        inopt=srcopt.inopt       # input file option name
+        pathopt=srcopt.pathopt   # path option's name associated with input source
+
+        if inopt is None:
+            raise ValueError(\
+                "%s tool %s source option '%s' does not provide an input file option" \
+                    % (eloc(self,"action_test"),tool,srcopt.name))
+        if pathopt is None:
+            print("tool %s does not use a path associated with an input source" \
+                % tool)
+            print("file opening test bypassed")
+            self.__tool_test_complete(toolo.name)
+            # Method does not return
+
+        try:
+            inopt=cfg[inopt]
+            # if successful, inopt is a file name or path string
+        except KeyError:
+            raise ValueError("%s tool %s source input file option '%s' not "
+                "defined in its configuration" \
+                    % (eloc(self,"action_test"),tool,inopt)) from None
+        try:
+            pathmgr=cfg[pathopt]
+            # if successful pathmgr is an satkutil.PathMgr object
+        except KeyError:
+            raise ValueError("%s tool %s source input path option '%s' not "
+                "defined in its configuration" \
+                    % (eloc(self,"action_test"),tool,pathopt)) from None
+        
+        # Set verbose setting.  For config.py (the only tool that will not be
+        # set for testing) use its verbose configuration option.  All others,
+        # set verbose to True for more information.
+        if not toolo.test:
+            verbose=cfg["verbose"]
+        else:
+            verbose=True
 
         # Try to open the file using the defined path
         try:
             if verbose:
-                print("opening with option tstpath: %s" % inopt)
-            fo=cfg.path_open("tstpath",inopt,debug=verbose)
+                print("opening with option %s: %s" % (pathopt,inopt))
+            fo=cfg.path_open(pathopt,inopt,debug=verbose)
             fo.close()
         except ValueError as ve:
             print(ve)
 
-        print("--tool %s test: completed" % tool)
+        self.__tool_test_complete(tool)
+        # Method does not return, config.py processing ends
 
     # Create the $SATK/config directory if needed
     def create_config_dir(self,verbose=False,force=False):
@@ -2186,8 +2367,8 @@ class config(Tool):
         cfg.arg(Choices("init",full="init",choices=["satk","site"],default=None,
             help="perform an initialization of the satk.cfg file or the site "
             "directory",cl=True))
-        self.option_satkcfg(cfg)      # Standard satkcfg option
-        self.option_cwd(cfg,cl=True)  # cwduse option value in SITE
+        self.option_satkcfg(cfg,cl=True)  # Standard satkcfg option
+        self.option_cwd(cfg,cl=True)      # cwduse option value in SITE
         cfg.arg(Enable("force",full="force",\
             help="force overwriting of existing files by option --init",\
             cl=True,cfg=False))
@@ -2198,7 +2379,7 @@ class config(Tool):
         # Each tool that uses the configuration system should use these options:
         self.option_cfg(cfg)     # Standard cfg option definition
         self.option_cinfo(cfg)   # Standard configuration information option
-        self.option_source(cfg,"source","input",required=False,\
+        self.option_source(cfg,"source","input","tstpath",required=False,\
             shelp="tested tool's user provided input source section or FILENAME",\
             ihelp="identifies the tool's input file.  Option is of type FILENAME."\
                   "Defaults to option 'source'"\
@@ -2211,4 +2392,10 @@ class config(Tool):
 
 
 if __name__ == "__main__":
+    import satkutil
+    satkutil.pythonpath("asma")       # Access asmconfig for assembler
+    satkutil.pythonpath("tools/ipl")  # Access hexdump by assembler
+    satkutil.pythonpath("tools/lang") # Access sopl by assembler
+    import asmconfig                  # Access the ASMA configuration system usage
+    config.deftool(asmconfig.asma)    # Add it to the list of possible tools
     tool=config().process()

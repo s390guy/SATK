@@ -1443,7 +1443,7 @@ class MSL(sopl.SOPL):
                 "format":Format,
                 "inst":Inst,
                 "iset":Iset}
-    def __init__(self,default=None,debug=False):
+    def __init__(self,default=None,pathmgr=None,debug=False):
         self.db=MSLDB()          # The master database being built
 
         # Attribute supplied by the build() method
@@ -1452,7 +1452,8 @@ class MSL(sopl.SOPL):
 
         # Instantiate super class.  Use 'MSLPATH' environment variable for includes
         # or supplied default directory.
-        super().__init__(variable="MSLPATH",default=default,debug=debug)
+        super().__init__(variable="MSLPATH",default=default,pathmgr=pathmgr,\
+            debug=debug)
 
     # Processes SOPL Statmeent and Parameter objects, creating the MSL database.
     # Method arguments:

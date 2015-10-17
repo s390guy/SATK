@@ -910,7 +910,7 @@ class TransTable(object):
 
 # This is the primary interface to the tool kit.  
 class CODEPAGE(sopl.SOPL):
-    def __init__(self):
+    def __init__(self,pathmgr=None):
         self.clists={}
         self.codepages={}
         self.translations={}
@@ -920,7 +920,7 @@ class CODEPAGE(sopl.SOPL):
              "codepage":(CodePage,self.codepages),
              "translation":(Translation,self.translations)}
 
-        super().__init__(variable="CDPGPATH",debug=False)
+        super().__init__(variable="CDPGPATH",pathmgr=pathmgr,debug=False)
 
     def __process(self):
         for s in self.getStmts():

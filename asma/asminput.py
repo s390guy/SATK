@@ -486,6 +486,7 @@ class StreamLine(PhysLine):
 #    env       Environment variable defining file source directory search order
 #    error     Report if a file source in included more than once.
 #              (not yet implemented)
+#    pathmgr   PathMgr object for access to input.
 #
 # Instance Methods:
 #    end       Terminate additional input.  Called when END directive encountered
@@ -494,9 +495,12 @@ class StreamLine(PhysLine):
 #              inclusion for initial input source file.
 class LineBuffer(object):
     source_type={"F":FileSource,"M":MacroSource}
-    def __init__(self,depth=20,env="ASMPATH"):
+    def __init__(self,depth=20,env="ASMPATH",pathmgr=None):
         # Directory search order path manager
-        self._opath=satkutil.PathMgr(variable=env,debug=False)
+        if pathmgr is None:
+            self._opath=satkutil.PathMgr(variable=env,debug=False)
+        else:
+            self._opath=pathmgr
         self._env=env              # Environment variable used by this LineBufer
         self._depth=depth          # Supported depth of input sources.
         self._sources=[]           # List of input sources

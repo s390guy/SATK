@@ -904,9 +904,9 @@ class Assembler(object):
     # Instance arguments:
     #
     #   machine     The string ID of the targeted system or cpu in the MSL database
-    #   msl         Path the Machine Specification Language database source
+    #   msl         The requested MSL database file
+    #   mslpath     Path Manager for  the Machine Specification Language database
     #   aout        AsmOut object describing output characteristics.
-    #   msldft      Default MSL directory if MSLPATH not defined
     #   addr        Size of addresses in this assembly.  Overrides MSL CPU statement
     #   case        Enables case sensitivity for lables, symbolic variables and
     #               sequence symbols.  Defaults to case insensitive.
@@ -938,10 +938,13 @@ class Assembler(object):
     #               PRINT ON is the current printing statements.
     #   stats       Specify True to enable statistics reporting at end of pass 2.  
     #               Should be False if an external driver is updating statistics.
-    def __init__(self,machine,msl,aout,msldft=None,addr=None,case=False,\
+    # Path Managers for various input sources:
+    #   asmpath     Assembler source COPY directive PathMgr object
+    #   maclib      Macro library PathMgr object
+    def __init__(self,machine,msl,mslpath,aout,addr=None,case=False,\
                  debug=None,defines=[],dump=False,eprint=False,error=2,nest=20,\
                  ccw=None,psw=None,ptrace=[],otrace=[],cpfile=None,cptrans="94C",\
-                 mcall=False,stats=False):
+                 mcall=False,stats=False,asmpath=None,maclib=None):
 
         # Before we do anything else start my timers
         Stats.start("objects_p")
@@ -972,6 +975,10 @@ class Assembler(object):
         self.gblc=defines           # GBLC/SETC definitions from driver.
         self.mcall=mcall            # Print inner macro statements
 
+        # PathMgr objects
+        self.asmpath=asmpath        # Assembler COPY directive search order path
+        self.macpath=maclib         # Macro library search order path
+
         # Error handling flag
         self.error=error
         self.fail=self.error==0
@@ -998,7 +1005,7 @@ class Assembler(object):
         self.MP=MACLIBProcessor(self)
 
         # Operation Management Framework
-        self.OMF=asmoper.OperMgr(self,machine,msl,msldft=msldft)
+        self.OMF=asmoper.OperMgr(self,machine,msl,mslpath)
         self.OMF.init_xmode(ccw,psw)      # Initialize XMODE settings
         self.addrsize=self.OMF.addrsize   # Maximum address size in bits
 
@@ -2993,7 +3000,8 @@ class STMTProcessor(asmbase.ASMProcessor):
         self.MB=asmmacs.MacroBuilder(asm)
 
         # Manage input:
-        self.IM=asmline.LineMgr(asm,self.MB,depth=depth,env="ASMPATH")
+        self.IM=asmline.LineMgr(asm,self.MB,depth=depth,env="ASMPATH",\
+            pathmgr=asm.asmpath)
 
         # Pass 0
         self.stmts=[]        # Populated by initial input pass
@@ -3374,7 +3382,8 @@ class MACLIBProcessor(asmbase.ASMProcessor):
         self.MB=asmmacs.MacroBuilder(asm)
 
         # Manage input:
-        self.IM=asmline.LineMgr(asm,self.MB,depth=depth,env="MACLIB")
+        self.IM=asmline.LineMgr(asm,self.MB,depth=depth,env="MACLIB",\
+            pathmgr=asm.macpath)
 
         # Supplied by run() method
         self.macro=None         # Macro name being defined from library

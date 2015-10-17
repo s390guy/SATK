@@ -818,14 +818,15 @@ class LogLine(object):
 #   mb      The active asmmacs.MacroBuilder object
 #   depth   The depth of included source files.  Defaults to 20.
 #   env     The environment variable defining included file directory search order
+#   pathmgr PathMgr object for LineMgr (used by LineBuffer object)
 class LineMgr(object):
-    def __init__(self,asm,mb,depth=20,env="ASMPATH"):
+    def __init__(self,asm,mb,depth=20,env="ASMPATH",pathmgr=None):
         self.asm=asm           # Assembler object
         self.mb=mb             # MacroBuilder object
         self._end=False        # Set True when assembler encounters END
 
         # Physical line source manager
-        self.LB=asminput.LineBuffer(depth=depth,env=env)
+        self.LB=asminput.LineBuffer(depth=depth,env=env,pathmgr=pathmgr)
 
         # Universal Operand Field Parser
         self.fsm=cfsm(trace=False)
