@@ -939,6 +939,13 @@ class Source(Option):
 # This class encapsulates the specification of configuration parameters used in
 # either the command-line (via a Python argparse.parser object) or configuration files
 # (via Python configparser.ConfigParser object) or both.
+
+# Required Instance Arguments:
+#   prog       Program name used for command-line help information
+#   copyright  Epilog information displayed following command-line arguement
+#              descriptions.  Must include copyright information but may include
+#              additional information.
+#   desc       The program description when displaying command-line help
 class Configuration(object):
     # Options expected in site.cfg.  The first element identifies the site directory
     # pointer.
@@ -955,6 +962,7 @@ class Configuration(object):
             "%s 'desc' argument must be a string: %s" \
                 % (eloc(self,"__init__"),desc)
         self.parser=argparse.ArgumentParser(\
+            formatter_class=argparse.RawDescriptionHelpFormatter,\
             prog=prog,epilog=copyright,description=desc)
 
         self._args={}         # defined options
@@ -1113,6 +1121,23 @@ class CINFO(object):
     
     # supported cinfo option request flags and default display order
     infoids="AYEVUFSDO"
+    
+    # Return a formatted string of configuration information options.
+    @staticmethod
+    def cinfo_options():
+        return \
+"""CINFO configuration information options:
+    'A' = script arguments from the command-line,
+    'D' = configuration defaults,
+    'E' = tool environment variables,
+    'F' = configruation files used by the tool,
+    'L' = all information (equals '%s')
+    'O' = configuration options and source,
+    'S' = configruation sections,
+    'U' = option usage specification,
+    'V' = all process environment variables, or
+    'Y' = PYTHONPATH as seen by the tool
+""" % CINFO.infoids
 
     def __init__(self):
         self.info_dict={}      # List of detail strigns built by tool
@@ -1788,17 +1813,8 @@ class Tool(object):
         cfg.arg(Option("cinfo",full="cinfo",default=None,\
             help="requested configuration option related information in any order, "\
             "without intervening spaces and combined as a single option value. "\
-            "'Y' = PYTHONPATH as seen by the tool, "\
-            "'U' = option usage specification, "\
-            "'E' = tool environment variables, "\
-            "'A' = script arguments from the command-line, "\
-            "'F' = configruation files used by the tool, "\
-            "'D' = configuration defaults, "\
-            "'O' = configuration options and source, "\
-            "'V' = all process environment variables, "\
-            "'L' = all information (equals '%s'). "\
-            "If omitted no configuration information is supplied" \
-            % CINFO.infoids,\
+            "Option sequence dictates presentation sequence. "\
+            "If omitted no configuration information is supplied.",\
             cl=True,cfg=True))
 
     def option_cwd(self,cfg,cl=False):
@@ -1821,6 +1837,15 @@ class Tool(object):
             cl=cl,cfg=True,env=site_name))
         
     # Define the source/input file option pair
+    # Require Method Arguments:
+    #   cfg     Configuration object to which source/input file option pair is added
+    #   source  command-line positional argument name
+    #   inopt   configuration option name
+    #   pathopt related directory search order environment variable
+    # Optional Method Arguments:
+    #   required  Specify True if required.  Defaults to False.
+    #   shelp   Command line help information for 'source' argument
+    #   ihelp   Configuration option help for 'inopt' arguement
     def option_source(self,cfg,source,inopt,pathopt,required=False,\
                       shelp=None,ihelp=None):
         cfg.arg(Source(source,inopt,pathopt=pathopt,required=required,help=shelp))
