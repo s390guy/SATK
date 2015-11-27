@@ -120,13 +120,15 @@ class ConfigError(Exception):
 #             configuration system.
 #   defaults  An optional dictionary that defines run-time supplied configuration
 #             file default values.
+#   debug     Whether debug messages should be generated.
 class ConfigFile(object):
-    def __init__(self,parms,defaults={}):
+    def __init__(self,parms,defaults={},debug=False):
         assert isinstance(parms,Configuration),\
             "%s 'parms' argument must be a Configuration object: %s" \
                 % (eloc(self,"__init__"),parms)
 
         self.parms=parms  # Configuration object used by tool
+        self.debug=debug  # Whether debug messages are enabled.
         
         # List of configuration files used by the tool
         self.files=[]
@@ -198,8 +200,11 @@ class ConfigFile(object):
         # Access defaults anyway
         if optv is None:
            optv=self.defaults.get(opt)  # If option is not in defaults returns None
-        print("%s section:%s  option:%s = %s" \
-            % (eloc(self,"option"),section,option,optv))
+        
+        if __debug__:
+            if self.debug:
+                print("%s section:%s  option:%s = %s" \
+                    % (eloc(self,"option"),section,option,optv))
         return optv
 
     # Updates the configuration information with tool defaults and any user
@@ -382,6 +387,8 @@ class Option(object):
 
         # General configuration systme option information
         self.name=name     # Name of option as known by the configuration system
+        # Whether debug message to be displayed.
+        self.debug=False   # Enabled by Tool.populate() method.
 
         # General definitional information
         self.required=required # Whether the argument is required somewhere
@@ -504,7 +511,7 @@ class Option(object):
 
     # Populate the argument from the configuration file
     def cfg(self,cfg,section):
-        print("%s %s use_cfg: %s" % (eloc(self,"cfg"),self.name,self.use_cfg))
+        #print("%s %s use_cfg: %s" % (eloc(self,"cfg"),self.name,self.use_cfg))
         if not self.use_cfg:
             return
 
@@ -537,8 +544,10 @@ class Option(object):
     # Exception:
     #   KeyError if option not found 
     def cfg_value(self,cfg,section):
-        print("%s section:%s  option:%s" \
-            % (eloc(self,"cfg_value"),section,self.name))
+        if __debug__:
+            if self.debug:
+                print("%s section:%s  option:%s" \
+                    % (eloc(self,"cfg_value"),section,self.name))
         try:
             return cfg.option(section,self.name)
         except KeyError:
@@ -1396,16 +1405,29 @@ class TextFile(object):
 # Provides the basis for a tools interaction with the configuration system.
 # Instance Arguments:
 #   name      The name of the tool.
+#   ro        Whether the config files may be written.  Specify True to inhibit
+#             writing.  Specify False to enable writing.  Defaults to True.
+#             Note: this option is primarily for use of the config.py tool itself
+#             to allow it to write configuration files.
 #   site      Whether the site directory contains a defaults config file for the tool
+#             Defaults to True.
+#   test      Whether this Tool is participating in a test driven by config.py.
+#             Defaults to False.
+#   debug     Whether to provide certain debug messages.  Specify True to provide 
+#             the messages.  Specify False to disable them.  Defaults to False.
+#             This option is manually driven when the tool subclass instantiates
+#             the Tool object for the configuration system.  Normally CINFO should
+#             be used for problem resolution.
 #
 # Note: The Tool object may be the foundation for the entire processing of the
 # Tool (by making the tool a subclass) or the Tool object may be an intermediary
 # and supply just the resultant Config object to the tools processor.
 class Tool(object):
-    def __init__(self,name,ro=True,site=True,test=False):
+    def __init__(self,name,ro=True,site=True,test=False,debug=False):
         self.name=name          # Tool name as recognized by configuration system
         self.site=site          # Whether this tool is included in site directory
         self.test=test          # Whether this is a config test being performed
+        self.debug=debug        # Whether debug messages are enabled.
         # Path information used by the configuration system
         self.satk=satkutil.satkroot()
         # Build the configuration options used by tool (Configuration object) 
@@ -1761,7 +1783,7 @@ class Tool(object):
     # Create the configuration file parser
     def create_cfg_parser(self,inopt=None):
         self.cfg_parser=ConfigFile(parms=self.spec,\
-            defaults=self.__run_time(inopt=inopt))
+            defaults=self.__run_time(inopt=inopt),debug=self.debug)
 
     # This method creates the default section for the tool's tool.cfg file
     # Returns:
@@ -1903,8 +1925,9 @@ class Tool(object):
     #   section   configuration section from which options are being used
     #   debug     Whether processing of this method is displayed.
     def populate(self,arg_list,section=None,debug=True):
+        dbg=debug or self.debug
         if __debug__:
-            if debug:
+            if dbg:
                 print("%s section: %s" % (eloc(self,"populate"),section))
 
         for arg in arg_list:
@@ -1915,7 +1938,10 @@ class Tool(object):
             # to other configuration information.
             arg.option(self)
             if __debug__:
-                if debug:
+                if dbg:
+                    # Enable debugging message in option
+                    if self.debug:
+                        arg.debug=self.debug
                     print("%s %s" % (eloc(self,"populate"),arg))
 
     # Update the defaults with the tool specific option
