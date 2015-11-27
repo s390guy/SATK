@@ -501,7 +501,11 @@ class ASMStmt(object):
         #print("%s [%s]" \
         #    % (assembler.eloc(self,"pre_process",module=this_module),self.lineno))
 
-        self.trace=self.instu in asm.otrace   # Set operation based tracing
+        self.trace=asm._is_otrace(self.instu)      # Set operation based tracing
+        if self.trace:
+            print("%s [%s] setting %s self.trace <- %s" \
+                % (assembler.eloc(self,"pre_process",module=this_module),\
+                    self.lineno,self.instu,self.trace))
         self.oper_fld=oper=self.logline.oper_fld   # Get the operation from the log line
         if oper.amp:
             self.amp=True
@@ -697,10 +701,11 @@ class SETx(ASMStmt):
         self.parse_line(asm)
         self.pre_process(asm)
         lineno=self.lineno
+        pdebug=debug or self.trace    # TRACE if either call is TRUE or ATRACEON
 
         setname=self.symvar()
         if __debug__:
-            if debug:
+            if pdebug:
                 print("%s [%s] symvar: %s" \
                     % (assembler.eloc(self,"process",module=this_module),\
                         self.lineno,setname))
@@ -712,10 +717,10 @@ class SETx(ASMStmt):
                         % self.__class__.__name)
 
         # Parse the operands.
-        self.parse_sep(asm,debug=debug)
+        self.parse_sep(asm,debug=pdebug)
         # P0_operands contains a list of asmbase.ASMOperand objects
         if __debug__:
-            if debug:
+            if pdebug:
                 self.debug_list(self.P0_operands)
 
         # Prepare the label field for execution
@@ -732,7 +737,7 @@ class SETx(ASMStmt):
 
             e=exp._primary
             if __debug__:
-                if debug:
+                if pdebug:
                     print("%s exp primary: %s" \
                         % (assembler.eloc(self,"process",module=this_module),\
                             e.display(string=True)))
@@ -1467,8 +1472,9 @@ class AIF(ASMStmt):
         if len(self.operands)==0:
             raise assembler.AssemblerError(line=self.lineno,source=self.source,\
                 msg="AIF directive requires at least one operand")
+        pdebug=debug or self.trace
 
-        self.parse_sep(asm,debug=debug)
+        self.parse_sep(asm,debug=pdebug)
         # P0_operands contains a list of macopnd.CondBranch objects
         if __debug__:
             if debug:
@@ -4006,7 +4012,7 @@ class SETC(SETx):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.process(asm,"setc",macro.indefn._setc,debug=debug)
+        self.process(asm,"setc",macro.indefn._setc,debug=self.trace)
 
     # Pass1 - should never be called
     # Pass2 - should never be called

@@ -107,6 +107,8 @@ class FSM(object):
         self._started=False    # When started, True
         self._terminated=True  # When started, False
         self._scope=None       # Global scope shared with processing states
+        # In single context fsmparser.FSMParser objects, this is the global scope
+        # In multi-context fsmparser.FSMContext objects, this is the active scope
 
     # Return the current state of the FSM
     def current(self):

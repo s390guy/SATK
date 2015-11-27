@@ -189,6 +189,8 @@ class FileSource(InputSource):
         self.lineno+=1
         if line[-1]=="\n":
             line=line[:-1]
+            
+        # TBD: Need to add logic for the 'guess' continuation method....
 
         return self.pcls(Source(lineno=self.lineno,fileno=self.fileno),line)
 

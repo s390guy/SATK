@@ -659,6 +659,7 @@ class PChrExpr(PCTerm):
         return macsyms.C_Val(result)
 
 
+# Character Expression result object
 class ChrExpr(asmbase.CTerm):
     def __init__(self,string=False):
         super().__init__()
@@ -1482,7 +1483,7 @@ class SymbolicReference(CTermScope):
 
 # This class helps to direct macro statement parsing.  The enter_scope() and
 # leave_scope() methods use this object to determine actions taken during a
-# change of scope.
+# change of scope or where a context change occurs.
 #
 # These objects are long lived and should be considered immutable.  If there is
 # a need for a new object or one based upon dynamic considerations, it should
@@ -1603,15 +1604,45 @@ class MacroParser(asmbase.AsmCtxParser):
 
         return scope.result()
 
-    # Return from a context "call"
+    # Return from a scope/context "call"
     def Call_Return(self,token=None,trace=False):
         gs=self.scope()
         if token:
-            self.reject(token,trace=trace)
+            self.lex_retry(token,trace=trace)
         result=gs.result()
-        return self.leave_scope(result=result,stack=None,trace=trace)
+        return self.leave_scope(result=result,stack=None,trace=trace)  
 
+    # Enter a new scope, stacking the current scope.
     # This method uses an MPControl object to enter a new scope
+    # Method Arguments:
+    #   old   Current active context
+    #   retmp MPControl object defining how called scope returns to the current 
+    #         scope
+    #   new   Scope of new context
+    #   newmp MPControl object defining how to start the new scope
+    #   stack a Token object that is optionally passed to the new context/scope as
+    #         its first input item presented to its initial FSM state.
+    #   trace Specify True to cause information about the enter_scope method to 
+    #         be displayed.
+    # Note: This method is normally used by a method that invokes the new context
+    # and scope that understand how to enter it.
+    # 
+    # A current context/scope calls a new context and scope by calling a method
+    # dedicated to entering the new context/scope.  This occurs within an action
+    # of the current context/scope.  The current/scope knows to where the called
+    # context/scope whould return and constructs that information in a MPControl
+    # object, passed to the called context/scope's entry helper method.
+    #
+    #      return self.Sub_Call(returnMP)
+    #
+    # Sub_Call will determine the current active scope and pass it with
+    # the returnMP to the enter_scope() method.  It will further create the the
+    # MPControl object for entering the new context/scope and a new context object.
+    # Sub_Call will marshall the values to call the enter_scope() method.  Its
+    # final act is to return the initial FSM state to enter the called context/scope.
+    # It is the responsibility of the caller of Sub_Call to pass the new FSM state
+    # of the called context/scopt to the finite state machine processor, hence the
+    # return in the above statement.
     def enter_scope(self,old,retmp,new,newmp,stack=None,trace=False):
         if __debug__:
             if trace:
@@ -1622,7 +1653,7 @@ class MacroParser(asmbase.AsmCtxParser):
         # returned in the new scope.
         if stack:
             # This sequence results in passing this lexical token to the 
-            # next states input, letting it be processed as the first token of
+            # next state's input, letting it be processed as the first token of
             # the new scope.
             self.stack(stack,trace=trace)
             self.unstack(trace=trace)
@@ -1635,13 +1666,16 @@ class MacroParser(asmbase.AsmCtxParser):
         assert old.next_pctx is not None,"%s old.next_pctx is None" \
             % assembler.eloc(self,"enter_scope",module=this_module)
 
-        # Prepare the new scope with information from the old
+        # Prepare the new scope with assembler information from the old scope
+        # object.
         new.init(stmt=old._stmt,case=self.case)
-        # Old scope is now on the LIFO stack
+
         self.push_scope(new,trace=trace)
+        # Old scope is now on the LIFO stack and the new scope is active
         if newmp.context:
             # Switch to the new lexical context of the new scope
             self.context(newmp.context)
+        # Enter the new context/scope by returning its initial FSM state
         return newmp.start
 
     # Returning to a previously stacked scope.  Most of the relavent information
@@ -1655,7 +1689,7 @@ class MacroParser(asmbase.AsmCtxParser):
     #             tokens.  Specify None to return no object.  Defaults to None.
     #   stack     Specify the input value to be stacked for processing by the
     #             next state of the scope to which control returns.  Specify None
-    #             to not perform input stacking.  Defaults to None
+    #             to not perform input stacking.  Defaults to None.
     def leave_scope(self,result=None,stack=None,trace=False):
         if __debug__:
             if trace:
@@ -1681,6 +1715,26 @@ class MacroParser(asmbase.AsmCtxParser):
         next=ret.next_state
         ret.next_state=None
         return next
+
+    # Cause the context sensitive lexical analyzer to reset its next position
+    # so that this sequence can be recognized in its new lexical context.
+    # The new lexical context may recognize an entirely different token and present
+    # it to the new FSM state as input.
+    #
+    # The exception is the End-of-String (EOS) token that will simply be made
+    # available to the next FSM state as input.  Once at the EOS there is nothing
+    # to retry by the lexer.
+    def lex_retry(self,token,trace=False):
+        if __debug__:
+            if trace:
+                print("%s lexical recognition retry for: %s" \
+                    % (assembler.eloc(self,"reject",module=this_module),token))
+
+        if token.tid=="EOS":
+            self.stack(token,trace=trace)
+            self.unstack(trace=trace)
+        else:
+            self.lex.reject(token)
 
     # Parses the first operand of an AGO statement, differentiating between a 
     # computed AGO and unconditional AGO transfer of control.
@@ -1803,20 +1857,6 @@ class MacroParser(asmbase.AsmCtxParser):
 
         mp=MacroParser.init_states["sym"]
         return self._parse_operand(stmt,field,mp,debug=debug)
-
-    # Cause the context sensitive lexical analyzer to reset its next position
-    # so that this sequence can be recognized in its new context
-    def reject(self,token,trace=False):
-        if __debug__:
-            if trace:
-                print("%s token rejected: %s" \
-                    % (assembler.eloc(self,"reject",module=this_module),token))
-
-        if token.tid=="EOS":
-            self.stack(token,trace=trace)
-            self.unstack(trace=trace)
-        else:
-            self.lex.reject(token)
 
 
   #                 +-----------+
@@ -2096,7 +2136,8 @@ class MacroParser(asmbase.AsmCtxParser):
 
         binaryb=fsmparser.PState("binaryb")
         binaryb.action(self.term,self.Expr_Term)             #   binary term  term
-        binaryb.action([SATTR,],self.Expr_Binary_S)          #   binary sym  >
+        binaryb.action([QUOTE,],self.Expr_Start_Ch)          #   binary chr   >
+        binaryb.action([SATTR,],self.Expr_Binary_S)          #   binary sym   >
         binaryb.action(self.boper,self.Expr_Binary_O)        #   binary boper unary/term
         binaryb.action([AOPER,],self.Expr_Binary_O)          #   binary aoper unary/term
         binaryb.action([LPAREN,],self.Expr_Binary_L)         #   binary (
@@ -2107,6 +2148,7 @@ class MacroParser(asmbase.AsmCtxParser):
 
         lparenb=fsmparser.PState("lparenb")
         lparenb.action(self.term,self.Expr_Term)             #   ( term     term
+        lparenb.action([QUOTE,],self.Expr_Start_Ch)          #   ( chr      >
         lparenb.action([SATTR,],self.Expr_LParen_S)          #   ( sym      >
         lparenb.action(self.boper,self.Expr_LParen_O)        #   ( boper  unary/term/E
         lparenb.action([AOPER,],self.Expr_LParen_O)          #   ( aoper  unary/term/E
@@ -2152,14 +2194,28 @@ class MacroParser(asmbase.AsmCtxParser):
             "%s 'ret' argument must be a MPControl object: %s" \
                 % (assembler.eloc(self,"Binary_Call",module=this_module),ret)
 
+        # Make the next input token the one passed by the calling context/scope
         if token:
             self.stack(token,trace=trace)
             self.unstack(trace=trace)
+
+        # Retrieve the active scope where we will store the return information
         gs=self.scope()
+        if __debug__:
+            if trace:
+                print("%s active scope: %r" \
+                    % (assembler.eloc(self,"Binary_Call",module=this_module),gs))
+
         gs.suffix="b"
         gs.follow=follow
         gs.next_state=ret.start
         gs.next_pctx=ret.context
+        assert gs.next_state is not None,"%s %s return state is None" \
+            % (assembler.eloc(self,"Binary_Call",module=this_module),\
+                gs.__class__.__name__)
+        assert gs.next_pctx is not None,"%s %s return parser context is None" \
+            % (assembler.eloc(self,"Binary_Call",module=this_modules),\
+                gs.__class__.__name__)
         self.context("init",trace=trace)
         return "initb"
 
@@ -2239,8 +2295,10 @@ class MacroParser(asmbase.AsmCtxParser):
         gs=self.scope()
         if not gs.balanced_parens():
             self.ACT_Expected_RP_Oper(value,state,trace=trace)
+        #print("gs.follow: %s" % gs.follow)
         for follow in gs.follow:
             if follow.tid == value.tid:
+                print("tids follow=%s : value=%s" % (follow.tid,value.tid))
                 # We might be at the valid end of the expression.
                 #gs.expression_end()
                 return self.Expr_Return(token=value,trace=trace)
@@ -2303,8 +2361,11 @@ class MacroParser(asmbase.AsmCtxParser):
         self.context(gs.next_pctx,trace=trace)
         gs.next_pctx=None
         if token:
-            self.reject(token,trace=trace)
+            self.lex_retry(token,trace=trace)
         next=gs.next_state
+        assert next is not None,"%s %s return FSM state is None" \
+            % (assembler.eloc(self,"Expr_Return",module=this_module),\
+                gs.__class__.__name__)
         gs.next_state=None
         return next
 
@@ -2403,7 +2464,7 @@ class MacroParser(asmbase.AsmCtxParser):
                             gs,gs._primary))
             gs.expression_end()
             if gs.cterm:
-                self.Expr_Return(token=value)
+                return self.Expr_Return(token=value)
                 #return self.ACT_Cterm_End(state,value,trace=trace)
             return "end%s" % gs.suffix
         else:
@@ -2421,7 +2482,7 @@ class MacroParser(asmbase.AsmCtxParser):
         gs=self.scope()
         # Treat a character expression as a 'term' so enter the state 
         # following a term when we come back
-        ret_state="term%s" % gs.suffx
+        ret_state="term%s" % gs.suffix
         ret=MPControl(ret_state,pctx="init")
         return self.Chr_Call(ret)
 
@@ -2626,14 +2687,14 @@ class MacroParser(asmbase.AsmCtxParser):
         initc.error(self.Chr_Expected_Chrs)                  # E      other
         self.state(initc)
 
-        # Symbol with possible subscripts found within string
+        # Symbol withi possible subscripts found within string
         # Determining whether subscripts are present
         csym=fsmparser.PState("csym")
         csym.action([LPAREN,],self.Chr_Subs)                 #   &SYM  (     >
         csym.error(self.Chr_Sym_End)                         #   &SYM  other initr
         self.state(csym)
 
-    def Chr_Call(self,ret,token=None,trace=False):
+    def Chr_Call(self,ret,token=None,trace=True):
         if __debug__:
             if trace:
                 print("%s ret: %s token:%s trace:%s" \
@@ -2664,21 +2725,28 @@ class MacroParser(asmbase.AsmCtxParser):
                     % (assembler.eloc(self,"Rep_End",module=this_module),\
                         gs,gs._primary))
         gs.expression_end()
-        state.atend()
+        #result=gs.result()      # Get the result object (ChrExpr)
+        #assert isinstance(result,ChrExpr),\
+        #    "%s expected CharacterExpr object from current scope (%s): %s" \
+        #        % (assembler.eloc(self,"Chr_End",module=this_module),\
+        #            result.__class__.__name__,result)
+ 
+        return "csym"    # See if we have a substring
+        # Return the result to the caller and stack the
+        #return self.leave_scope(result=result)
+        #state.atend()
 
-    # Subscript(s) detected with symbolic variable
-    #   Scope:   SymbolicReference
-    #   Context: rep
+    # Sublist detected with character string
     def Chr_Subs(self,value,state,trace=False):
         gs=self.scope()
         # Because the replacement scope has already been pushed, don't need to use
         # enter_scope(), but do need to set how to get back to the rep context
         # we are about to leave
 
-        # Enter scope for subscript recognition
-        self.context("init",trace=trace)
-        return "init%s" % gs.suffix
-        # When the RPAREN is detected at the end of the subscript, we return to 
+        # Enter context for sublist arithmetic expressions
+        return self.Arith_Call(MPControl("csym",pctx="cexpr"))
+        
+        # When the RPAREN is detected at the end of the sublist, we return to 
         # these states and context via a leave_scope()
 
     # A replacement symbolic reference started (without concatenation)
@@ -2707,23 +2775,25 @@ class MacroParser(asmbase.AsmCtxParser):
         self.token(symref)
         return "initc"
 
-    # Complete a symbolic variable reference without sugscripts:
+    # Complete a symbolic variable reference without subscripts:
     #   Scope: SymbolicReference
     #   Context: rep
     def Chr_Sym_End(self,value,state,trace=False):
-        gs=self.scope()
-        result=gs.result()      # Get the result object (SymbolRef)
-        assert isinstance(result,SymbolRef),\
-            "%s expected SymbolRef object from current scope (%s): %s" \
-                % (assembler.eloc(self,"Rep_Sym_End",module=this_module),\
-                    gs.__class__.__name__,result)
+        #gs=self.scope()
+        #result=gs.result()      # Get the result object (SymbolRef)
+        #assert isinstance(result,SymbolRef),\
+        #    "%s expected SymbolRef object from current scope (%s): %s" \
+        #        % (assembler.eloc(self,"Rep_Sym_End",module=this_module),\
+        #            result.__class__.__name__,result)
 
-        old=self.pop_scope()    # Return to CharacterExpr scope
-        old.token(result)       # Add the result object to the CharacterExpr scope
+        
+        #old=self.pop_scope()    # Return to CharacterExpr scope
+        #old.token(result)       # Add the result object to the CharacterExpr scope
         # Make the input token available to the next FSM state
-        self.stack(value)
-        self.unstack()
-        return "initc"
+        #self.stack(value)
+        #self.unstack()
+        #return "initc"
+        return self.Call_Return(token=value,trace=trace)
 
     def Chr_Expected_Chrs(self,value,state,trace=False):
         # This action should not occur.  Should it be a value exception?
@@ -3134,9 +3204,9 @@ class MacroParser(asmbase.AsmCtxParser):
     #
     #   Case 2: Primary Expression of a single assembler label or symbol attribute
     #
-    #        X'LABEL
-    #        X'&SYMBOL
-    #        X"&SYMBOL(subscript,...)    Depends upon symbol's sublist or subscript
+    #        [X']LABEL
+    #        [X']&SYMBOL
+    #        [X']&SYMBOL(subscript,...)   Depends upon symbol's sublist or subscript
     
     def SETC(self):
         
@@ -3161,7 +3231,7 @@ class MacroParser(asmbase.AsmCtxParser):
         # Start new complex term scope for Character expression
         gs=self.scope()                # Fetch the current scope (MacroScope)
         retmp=MPControl("setc_end",pctx="init")
-        return self.Chr_Call(retmp,token=None,trace=trace)
+        return self.Chr_Call(retmp,token=None,trace=True)
 
     def SETC_LAttr(self,value,state,trace=False):
         gs=self.scope()

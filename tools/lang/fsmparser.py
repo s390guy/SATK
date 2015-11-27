@@ -120,7 +120,7 @@ class FSMParser(fsm.FSM):
         self._scope=self._scope_stack.pop()
         if __debug__:
             if trace:
-                print("FSM:%s [%s] popped scope: %s" \
+                print("FSM:%s [%s] popped gscope: %s" \
                     % (self.__class__.__name__,self.current(),self._scope))
 
         return self._scope
@@ -132,9 +132,9 @@ class FSMParser(fsm.FSM):
     def push_scope(self,new,trace=False):
         if __debug__:
             if trace:
-                print("FSM:%s [%s] pushed scope: %s" \
+                print("FSM:%s [%s] pushed gscope: %s" \
                     % (self.__class__.__name__,self.current(),self._scope))
-                print("FSM:%s [%s] new scope: %s" 
+                print("FSM:%s [%s] new gscope: %s" 
                     % (self.__class__.__name__,self.current(),new))
         self._scope_stack.append(self._scope)
         self._scope=new
