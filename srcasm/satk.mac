@@ -194,7 +194,7 @@ ANTP&SYSNDX PSW360 0,0,2,0,X'200'       Enter a disabled wait state in basic mod
          MEND
 
          MACRO
-&LABEL   APROB &HERC='NO',&S360='NO',&S380='NO',&REG=1
+&LABEL   APROB &HERC=NO,&S360=NO,&S380=NO,&REG=1
 .* The APROB macro generates in-line code detecting the running-architecture.
 .* The identified register is set to the detected architecture level.  PGM and SVC 
 .* new PSWs are restored to their states before the probe occurred.
@@ -495,7 +495,7 @@ $X       OPSYN XG
          MEND
 
          MACRO
-&LABEL   ARCHLVL &ZARCH='YES',&PSW=,&SET=,&ARCHIND='YES',&MNOTE='YES'
+&LABEL   ARCHLVL &ZARCH=YES,&PSW=,&SET=,&ARCHIND=YES,&MNOTE=YES
 .* Sets the global symbolic variable based upon current value of &SYSPSW.  May be
 .* used multiple times to set the current assembly architecture level.
 .* If a &LABEL is provided an equate to the &LABEL symbol is made.  Multiple uses
@@ -699,7 +699,7 @@ $X       OPSYN XG
 .DONE    MEND
 
          MACRO
-&LABEL   ASALOAD &REGION='ASAREGN',&ZARCH='LEVEL',&PSW=
+&LABEL   ASALOAD &REGION=ASAREGN,&ZARCH=LEVEL,&PSW=
 .* Create a Region in which the assigned storage location CSECT is initialized
 .* Following the ASALOAD macro the ASA control section is the active section.
 .* Use the ASAIPL macro after the ASALOAD macro to place an IPL PSW into the ASA
@@ -754,7 +754,7 @@ $X       OPSYN XG
          MEND
 
          MACRO
-&LABEL   ASAREA &DSECT='NO',&SCANOUT=0
+&LABEL   ASAREA &DSECT=NO,&SCANOUT=0
 .* The LC360 macro generates assigned storage areas for the first 128+ locations as
 .* used by System/360.  It may be used within either a CSECT or DSECT or generates a
 .* new one.
@@ -939,7 +939,7 @@ CPUID    EQU   *+X'11B'     31B L  System/370 CPU Identity used during DAS traci
          MEND
 
          MACRO
-&LABEL   ASAZAREA &DSECT='NO',&ORG=
+&LABEL   ASAZAREA &DSECT=NO,&ORG=
 .* This macro defines the various save areas and other fields moved to higher storage
 .* to accommodate increased field sizes due to 64-bit addressing.  Because the area
 .* is not contigous positioning is effected by means of the &ORG parameter
@@ -1022,7 +1022,7 @@ ZABSLEN  EQU   ZABSEND-ZABSBEG        Size of absolute high area usage
          MEND
 
          MACRO
-&LABEL   CPUWAIT  &EXT=,&EPSW=,&ESA='YES',&IO=,&IPSW=,&ISA='YES',&AM=,&REG=1,&RELO='NO',&CHAN=254
+&LABEL   CPUWAIT  &EXT=,&EPSW=,&ESA=YES,&IO=,&IPSW=,&ISA=YES,&AM=,&REG=1,&RELO=NO,&CHAN=254
 .* Causes the CPU to enter an enabled wait state for either or both external and 
 .* input/output interruptions.  The location to which control is passed is expected
 .* to immediately follow the CPUWAIT macro, although other options exist.
@@ -1551,7 +1551,7 @@ ASAZ     ASAZAREA DSECT=YES
 .DONE    MEND
 
          MACRO
-&LABEL   DWAIT &PGM='1',&CMP='0',&CODE='BAD',&LOAD='NO'
+&LABEL   DWAIT &PGM=1,&CMP=0,&CODE=BAD,&LOAD=NO
 .* This macro creates a disabled wait PSW with the following instruction address format
 .* and loads it if requested
 .*   PPXRRR  where
@@ -1616,7 +1616,7 @@ DWAT&SYSNDX &ARCHIPF 0,0,2,0,X'&P&C&CD'
          MEND
 
          MACRO
-&LABEL   ENADEV &READY,&FAIL,&REG=,&CLS=,&CSNS='NO'
+&LABEL   ENADEV &READY,&FAIL,&REG=,&CLS=,&CSNS=NO
 .* Supplies the device identifier for the IOCB device and makes the device ready for
 .* I/O operations.
 .* Required Parameter Usage:
@@ -3025,7 +3025,7 @@ CPU&SYSNDX DC  H'0'
          MEND
 
          MACRO
-&LABEL   SMMGR &PAIR,&PAIR1,&W,&BLOCK=9,&RETURN=''
+&LABEL   SMMGR &PAIR,&PAIR1,&W,&BLOCK=9,&RETURN=
 .* Generates an inline algorithm for a serially re-usable Static Memory Manager.
 .* Allocations are performed sequentially from lower to higher addresses.  Allocations
 .* are permanent.
@@ -3151,7 +3151,7 @@ SMMN&SYSNDX DS  0H
          MEND
 
          MACRO
-&LABEL   TRAP64 &RESTART='NO',&PSW=''
+&LABEL   TRAP64 &RESTART=NO,&PSW=
 .* Generate 64-bit ISR Trap PSWs
 .* Optional Parameter Usage:
 .*   &LABEL   Associate a symbol with the generated PSWs
@@ -3187,7 +3187,7 @@ SMMN&SYSNDX DS  0H
          MEND
          
          MACRO
-&LABEL   TRAPS &ENABLE=,&PSW=''
+&LABEL   TRAPS &ENABLE=,&PSW=
 .* Enable in-line ISR Trap PSWs based upon current architecture level
 .* Optional Parameter Usage:
 .*   &LABEL   Associate a symbol with the in-line enabling instructions

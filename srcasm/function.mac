@@ -89,7 +89,7 @@
 .*         MEND
 
          MACRO
-&LABEL   CALL  &FUNC,&INLINE=,&RELO='NO'
+&LABEL   CALL  &FUNC,&INLINE=,&RELO=NO
 .* Calls a function using an in-line location.  The in-line location may be
 .* an address constant or a relative location.
 .* Required Parameter Usage:
@@ -208,7 +208,7 @@
          MEND
 
          MACRO
-         FRAME &PACK='NO',&FP='NO',&AFP='NO',&BACKPTR='NO',&PRINT=
+         FRAME &PACK=NO,&FP=NO,&AFP=NO,&BACKPTR=NO,&PRINT=
 .* Defines the standard frame size and format used by all functions.  The options
 .* selected here dictate what registers can be saved and preserved during function
 .* calls.  If fields are not available in the STKF or STKG DSECT the corresponding
@@ -517,7 +517,7 @@
 .ENDMAC  MEND
 
          MACRO
-&LABEL   FUNCTION &FP='NO',&AFP='NO'
+&LABEL   FUNCTION &FP=NO,&AFP=NO
 .* Defines a function entry
 .* Required Parameter Usage:
 .*    &LABEL   Assigns a location to the function entry.
@@ -845,7 +845,7 @@ FUNL&SYSNDX DC A(&STKEND-&PFX)
          MEND
 
          MACRO
-&LABEL   STKINIT &BOTTOM,&LOAD='NO',&RELO='NO'
+&LABEL   STKINIT &BOTTOM,&LOAD=NO,&RELO=NO
 .* Initializes the program stack.  Required before any functions may be called.
 .* Required Parameter Usage:
 .*  &BOTTOM   Identifies the source of the stack bottom address.  If enclosed in
@@ -897,25 +897,25 @@ STKI&SYSNDX RELOA &BOTTOM            Bottom of stack
          MEND
 
          MACRO
-&LABEL   ACALL  &FUNC,&INLINE=,&RELO='NO'
+&LABEL   ACALL  &FUNC,&INLINE=,&RELO=NO
          GBLC  &A      Architecture specific symbol suffix
 &LABEL   CALL  &FUNC&A,INLINE=&INLINE,RELO=&RELO
          MEND
          
          MACRO
-&LABEL   ICALL &FUNC,&INLINE=,&RELO='NO'
+&LABEL   ICALL &FUNC,&INLINE=,&RELO=NO
          GBLC  &I      Input/output architecture specific symbol suffix
 &LABEL   CALL  &FUNC&I,INLINE=&INLINE,RELO=&RELO
          MEND
          
          MACRO
-&LABEL   SCALL &FUNC,&INLINE=,&RELO='NO'
+&LABEL   SCALL &FUNC,&INLINE=,&RELO=NO
          GBLC  &S      Sharable symbol suffix
 &LABEL   CALL  &FUNC&S,INLINE=&INLINE,RELO=&RELO
          MEND
 
          MACRO
-&LABEL   AFUN  &FP='NO',&AFP='NO'
+&LABEL   AFUN  &FP=NO,&AFP=NO
          GBLC  &A      Architecture specific symbol suffix
          LCLC  &LBL    Used to constuct function label
 &LBL     SETC  '&LABEL&A'
@@ -923,7 +923,7 @@ STKI&SYSNDX RELOA &BOTTOM            Bottom of stack
          MEND
 
          MACRO
-&LABEL   IFUN  &FP='NO',&AFP='NO'
+&LABEL   IFUN  &FP=NO,&AFP=NO
          GBLC  &I      Input/output architecture specific symbol suffix
          LCLC  &LBL    Used to constuct function label
 &LBL     SETC  '&LABEL&I'
@@ -931,7 +931,7 @@ STKI&SYSNDX RELOA &BOTTOM            Bottom of stack
          MEND
 
          MACRO
-&LABEL   SFUN  &FP='NO',&AFP='NO'
+&LABEL   SFUN  &FP=NO,&AFP=NO
          GBLC  &S      Sharable symbol suffix
          LCLC  &LBL    Used to constuct function label
 &LBL     SETC  '&LABEL&S'

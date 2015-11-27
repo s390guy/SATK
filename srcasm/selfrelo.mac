@@ -37,7 +37,7 @@
 * relocation base.
 
          MACRO
-         RELO  &NAME,&BASE,&INDEX=2,&CONT='NO'
+         RELO  &NAME,&BASE,&INDEX=2,&CONT=NO
 .* Initiates a self-relocation list
 .* Parameter Usage:
 .*   &NAME   The control section used to collect addresses requiring relocation
@@ -110,7 +110,7 @@
 .DONE    MEND
 
          MACRO
-&LABEL   RELOA &ADDR,&TYP='A',&NTYP='Y'
+&LABEL   RELOA &ADDR,&TYP=A,&NTYP=Y
 .* Makes an address self relocatable.  In most contexts this macro operates like a
 .* DC A or AD-type statement while adding the needed relocation information to the 
 .* relocation list.  The macro may also be used to simply add an existing address
@@ -368,7 +368,7 @@ RELI&SYSNDX EQU *
 .DONE    MEND
 
          MACRO
-         RELOITEM &LOC,&SIZE,&TYP='Y'
+         RELOITEM &LOC,&SIZE,&TYP=Y
 .* Generates a relocation item in the current relocation CSECT established by 
 .* Symbolic parameter supplied by RELO macro
          GBLC  &SATKRLB   Current relocation base
@@ -408,7 +408,7 @@ RELI&SYSNDX EQU *
          MEND
 
          MACRO 
-&LABEL   RELOCATE &RET='NO',&FAIL=
+&LABEL   RELOCATE &RET=NO,&FAIL=
 .* Perform address list relocation.  The generated instructions may be inline or
 .* part of a subroutine call.
 .* Parameter Usage:

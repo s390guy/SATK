@@ -86,7 +86,7 @@ HRCC&SYSDX DS 0H
          MEND
 
          MACRO
-&LABEL   HRCIPLP &ADDR=X'200',&CLEAR='NO'
+&LABEL   HRCIPLP &ADDR=X'200',&CLEAR=NO
 .* Saves Hercules IPL parameters supplied in 32-bit R0-R15 at a directly addressable
 .* location.  Instructions are inline.  Because the IPL parameters are placed in the
 .* registers and the parameters are used, this macro will likely be the first statement
