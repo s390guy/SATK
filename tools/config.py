@@ -1924,7 +1924,7 @@ class Tool(object):
     #   arg_list  a list of Option objects being populated
     #   section   configuration section from which options are being used
     #   debug     Whether processing of this method is displayed.
-    def populate(self,arg_list,section=None,debug=True):
+    def populate(self,arg_list,section=None,debug=False):
         dbg=debug or self.debug
         if __debug__:
             if dbg:
