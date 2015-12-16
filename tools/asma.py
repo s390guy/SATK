@@ -293,7 +293,7 @@ class ASMA(object):
 
 # Parse the command line arguments and configuration files.
 # Returns:
-#   config.Config object
+#   config.Tool object
 def parse_args(dm=None):
     tool=asmconfig.asma()
     return tool.configure()
@@ -437,6 +437,5 @@ if __name__ == "__main__":
     objects_start_w=time.time()
 
     dm=assembler.Assembler.DM()
-    tool=parse_args(dm=None)
-    print(copyright)
+    tool=parse_args(dm=None)  # config.py prints copyright notice
     ASMA(tool,dm).run()

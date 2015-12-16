@@ -970,13 +970,19 @@ class Configuration(object):
         assert isinstance(desc,str),\
             "%s 'desc' argument must be a string: %s" \
                 % (eloc(self,"__init__"),desc)
-        self.parser=argparse.ArgumentParser(\
-            formatter_class=argparse.RawDescriptionHelpFormatter,\
-            prog=prog,epilog=copyright,description=desc)
+
+        # Return to this definition when epilog not shown without help
+        # Seems to be an error with Python 3.4.1
+        #self.parser=argparse.ArgumentParser(prog=prog,\
+        #    formatter_class=argparse.RawDescriptionHelpFormatter,\
+        #    description=desc,epilog=copyright,add_help=True)
+        self.parser=argparse.ArgumentParser(prog=prog,\
+            description=desc,epilog=copyright,add_help=True)
 
         self._args={}         # defined options
         self._args_list=[]    # Tool specific arguments (Option objects)
         self._site_list=[]    # Argument objects associated with root (Option objects)
+        self._tool_copyright=copyright  # Tool's copyright notice
         
         # Helpers for cinfo build methods.  See options() method.
         self._opt_list=None   # Sorted option names
@@ -1719,7 +1725,8 @@ class Tool(object):
     def cli_args(self):
         self.cli_ns=self.arg_parser.parse_args()
         if not self.notice:
-            print(copyright)
+            #print(copyright)
+            print(self.spec._tool_copyright)
             self.notice=True
         self.cli=vars(self.cli_ns)   # Convert the Namespace into a dictionary
 

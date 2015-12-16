@@ -149,6 +149,8 @@ class ASMExprArith(ASMExpr):
         # Now popultate it with pratt tokens from lexical tokens usign their
         # atoken() method.
         for ltok in self.tokens:
+            if isinstance(ltok,CTerm):
+                ltok.prepare(stmt,desc)
             pexpr.token(ltok.atoken())
 
         if __debug__:
@@ -187,8 +189,10 @@ class ASMExprBinary(ASMExpr):
                 print("%s: %s expr before: %s" % (desc,lineno,expr))
 
         # Now popultate it with pratt tokens from lexical tokens usign their
-        # atoken() method.
+        # btoken() method.
         for ltok in self.tokens:
+            if isinstance(ltok,CTerm):
+                ltok.prepare(stmt,desc)
             pexpr.token(ltok.btoken())
 
         if __debug__:
@@ -871,13 +875,15 @@ class AsmCtxScope(AsmFSMScope):
         
         # The statements operation field in upper case.
         self.stmt_inst=None  # See the statement() method
+        self.stmt_lineno=None  # The statemetn's assemly line number
         
     def statement(self,stmt):
-        assert isinstance(stmt,assembler.Stmt),\
-            "%s 'stmt' argument must be an assembler.Stmt object: %s" \
-                % (assembler.eloc(self,"statement",module=this_module),stmt)
+        #assert isinstance(stmt,assembler.Stmt),\
+        #    "%s 'stmt' argument must be an assembler.Stmt object: %s" \
+        #        % (assembler.eloc(self,"statement",module=this_module),stmt)
 
         self.stmt_inst=stmt.instu   # The statement in upper case
+        self.stmt_lineno=stmt.lineno  # The statement's line number
 
 
 # This is an adaptation of AsmFSMParser for the use of context sensitive parsers.
@@ -951,14 +957,14 @@ class AsmCtxParser(fsmparser.FSMContext):
 
 
 # Context specifc scope
-class AsmCtxScope(AsmFSMScope):
-    def __init__(self):
-        super().__init__()
+#class AsmCtxScope(AsmFSMScope):
+#    def __init__(self):
+#        super().__init__()
         
-        self.stmt_inst=None    # The statement's operation field in upper case.
-        self.stmt_lineno=None  # The statemetn's assemly line number
+#        self.stmt_inst=None    # The statement's operation field in upper case.
+#        self.stmt_lineno=None  # The statemetn's assemly line number
 
-    def statement(self,stmt):
+#    def statement(self,stmt):
         #assert isinstance(stmt,assembler.Stmt),\
         #    "%s 'stmt' argument must be an assembler.Stmt object: %s" \
         #        % (assembler.eloc(self,"statement",module=this_module),stmt)
@@ -966,8 +972,8 @@ class AsmCtxScope(AsmFSMScope):
         #    "%s 'stmt' argument must be an assembler.Stmt object: %s" \
         #        % (assembler.eloc(self,"statement",module=this_module),stmt)
 
-        self.stmt_inst=stmt.instu     # The statement in upper case
-        self.stmt_lineno=stmt.lineno  # The statement's line number
+#        self.stmt_inst=stmt.instu     # The statement in upper case
+#        self.stmt_lineno=stmt.lineno  # The statement's line number
 
 
 #

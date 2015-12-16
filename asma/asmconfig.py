@@ -39,7 +39,7 @@ class asma(config.Tool):
     ASMPATH  Locates the initial source file and COPY directive files.
     MACLIB   Locates macro library definitions.
     MSLPATH  Loactes Machine Specification Language files.  Defaults to asma/msl.
-    CDPGPATH Locates user supplied code page definitions."
+    CDPGPATH Locates user supplied code page definitions.
 """
 
     def __init__(self,test=False):
@@ -47,7 +47,11 @@ class asma(config.Tool):
 
     def tool_spec(self):
         prog="%s.py" % self.name
-        epilog="%s\n%s\n%s" % (asma.variables,config.CINFO.cinfo_options(),copyright)
+        
+        # Return to full usage when epilog not shown whithout help
+        # Seems to be an error with Python 3.4.1
+        #epilog="%s\n%s\n%s" % (asma.variables,config.CINFO.cinfo_options(),copyright)
+        epilog=copyright
         cfg=config.Configuration(prog,epilog,\
             "from assembler source create a bare-metal usable file")
 

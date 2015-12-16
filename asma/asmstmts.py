@@ -1315,9 +1315,9 @@ class ACTR(ASMStmt):
                 msg="ACTR directive requires one operand, found: %s" \
                     % len(self.operands))
 
-        self.parse_sep(asm,debug=debug)
+        self.parse_sep(asm,debug=self.trace)
         # PO_operands is a list of one asmbase.ASMOperand object
-        expr=self.P0_operands[0]
+        expr=self.P0_operands[0]       # expr is an asmbase.ASMExprArith object
         assert len(expr._secondary)==0,\
             "%s [%s] secondary expression found in operand: %s" \
                 % (assembler.eloc(self,"process",module=this_module),lineno,n)
@@ -1370,7 +1370,7 @@ class AGO(ASMStmt):
         indefn=macro.indefn
         case=asm.case
         try:
-            result=pm.parse_ago(self,self.operands[0],debug=debug)
+            result=pm.parse_ago(self,self.operands[0],debug=self.trace)
         except assembler.AsmParserError as ape:
             raise assembler.AssemblerError(source=self.source,line=lineno,\
                 msg=ape.msg) from None

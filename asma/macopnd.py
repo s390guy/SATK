@@ -303,14 +303,6 @@ class MacroCSLexer(lexer.CSLA):
         self.init_string(ldebug=ldebug,tdebug=tdebug)    # 'string'
         self.init_sym(ldebug=ldebug,tdebug=tdebug)       # 'sym'
 
-#        self.init_ago()        # AGO operand(s)
-#        self.init_aif()        # AIF operand
-#        self.init_arith()      # Arithmetic expression
-#        self.init_binary()     # Binary expression
-#        self.init_chr()        # Character expression
-#        self.init_default()    # Default context
-#        self.init_symbol()     # Symbolic reference
-
         # Print the tokens when the debug manager is set for ldebug
         # Token debugging is determined by 
         #if self.dm.isdebug("ldebug"):
@@ -380,7 +372,10 @@ class MacroCSLexer(lexer.CSLA):
 # This object is the basic interface object between the statement processor and
 # the parser.  Different statements and complex terms may use their own subclass
 # of this object.  The result method determines what is produced by the parser
-# for the operand parsed.
+# for the operand parsed.  
+#
+# This foundation class itself processes macro arithmetic expressions.  This role
+# is moving to class MacroScopeExprA.
 
 # Instance Methods:
 #   balanced_parens  Checks for balanced parenthesis.
@@ -409,8 +404,18 @@ class MacroCSLexer(lexer.CSLA):
 #   str_pending Return whether a string is pending (True) or not (False).
 #   token       Add a token to the pending expression
 #   update_loc  Update a lexical token with is physical source (ASMPLoc object)
+#
+# Instance Arguments:
+#   lopnd       The asmline.LOperand or asmline.LField object assocated with the
+#               portion of the statement being parsed.
+#   suffix      Operator precedence expressions share actions.  For a given type
+#               of expression, the supplied suffix is appended by the action when
+#               returning the finite-state machine state.  Defaults to ''.
+#               Presently the following suffixes are used:
+#                  d - macro arithmentic expression
+#                  e - macro binary (logical) expression
 class MacroScope(asmbase.AsmFSMScope):
-    def __init__(self,lopnd,suffix="",seqsym=False):
+    def __init__(self,lopnd,suffix=""):
         super().__init__()
         assert isinstance(lopnd,(asmline.LOperand,asmline.LField)),\
             "%s 'lopnd' argument must be an asmline.LOperand object: %s" \
@@ -418,7 +423,6 @@ class MacroScope(asmbase.AsmFSMScope):
 
         self.lopnd=lopnd       # LOperand source object
         self.opnd=None         # ASMOperand result object. See init_result() method
-        self.first_tok=None    # The first lexical token for complex terms
 
         # This attribute allows a context under a scope to determine what should
         # be the next FSM state when control is returned to this scope during a
@@ -438,8 +442,7 @@ class MacroScope(asmbase.AsmFSMScope):
 
         # Subclass can modify these after it calls this initializer
         self.cterm=False    # Assume this is not a complex term scope
-        self.suffix="a"     # Assume arithmetic expression states
-        self.seqok=False
+        self.suffix=suffix  # Expression state suffix used by expression actions
 
     # Checks the surrent state of parenthesis balancing
     # Returns:
@@ -449,24 +452,26 @@ class MacroScope(asmbase.AsmFSMScope):
         return self._parens==0
 
     # This method completes the current expression being accumulated by the scope
-    # and automatically moves from the primary expression to the secondary
-    # expressions when the primary expression is completed.
-    # The result ASMOperand object in self.opnd is updated with the completed
-    # operand.
+    # or returned by a called scope.  It automatically moves from the primary
+    # expression to the secondary expressions when the primary expression is
+    # completed.
+    #
+    # Method Argument:
+    #   result    Result opbject supplied by a called scope.  Default is None.
+    #             When result is None, the subclass primary() and secondary()
+    #             methods must locate or create the result object.
     #
     # Returns:
     #   True  If scope is done after primary expression (cterm=False)
     #   False If scope is not done after primary expression (cterm=True)
-    def expression_end(self):
+    def expression_end(self,result=None):
         if self._primary:
             #print("scope %r expression_end completed primary" % self)
-            self.primary()
+            self.primary(result=result)
             self._primary=False
         else:
             #print("scope %r expression_end completed, secondary" % self)
-            self.secondary()
-        self.previous=None
-        return False
+            self.secondary(result=result)
 
     # Initializes the scope for use and instantiates the result object
     # Override this method to create a different result object
@@ -474,17 +479,6 @@ class MacroScope(asmbase.AsmFSMScope):
         self.opnd=self.init_result()
         super().init(stmt=stmt,case=case)
         return self
-        
-    # Set the return scope state for this scope
-    def return_state(self,fsmstate,context):
-        #print("%s next state %s , next context: %s" \
-        #    % (assembler.eloc(self,"return_state",module=this_module),\
-        #        fsmstate,context))
-        self.next_state=fsmstate
-        self.next_pctx=context
-        assert self.next_pctx is not None,\
-            "%s %s.next_pctx is None" \
-                % (assembler.eloc(self,"return_state",module=this_module),self)
 
 
   #
@@ -492,39 +486,111 @@ class MacroScope(asmbase.AsmFSMScope):
   # 
 
 
-    # Returns the result object used by this scope.
-    # Override this method to create a result object other than asmbase.Operand
-    def init_result(self):
-        return asmbase.ASMOperand()
-
-    # This method processes recognized primary expressions
-    # It will add an ASMExprArith object as the results primary expression
-    #
-    # To supply a different expression or add error handling, override this method
-    # Subclass detected errors should raise assembler.AsmParserError that contains
-    # the offending lexical token.
-    def primary(self):
-        expr=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
-        self.opnd.primary(asmbase.ASMExprArith(expr))
-
     # Returns the result object creaed by init_result() method
     def result(self):
         return self.opnd
 
-    # This method processes a recognized secondary expression
-    # It will add an ASMExprArith object to the result's secondary expresion list
-    #
-    # To supply a different expression or add error handling, override this method.
-    # Subclass detected errors should raise assembler.AsmParserError that contains
-    # the offending lexical token.
-    def secondary(self):
-        expr=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
-        self.opnd.secondary(asmbase.ASMExprArith(expr))
+    # Processes returned result object from a called scope.  By default the 
+    # result object is treated as a new token.  Scopes that support expression
+    # results must override this method to support primary/secondary expression
+    # handling.
+    def result_returned(self,res):
+        self.token(res)
 
+
+  #
+  # Methods that must be supplied by the subclass
+  # 
+
+    # Returns the result object used by this scope.
+    # Override this method to create a result object other than asmbase.Operand
+    def init_result(self):
+        raise NotImplementedError("%s subclass %s must provide init_result() method" \
+            % (assembler.eloc(self,"init_result",module=this_module),\
+                self.__class__.__name__))
+        
+        # Legacy default behavior.  Preserved for reference
+        # return asmbase.ASMOperand()
+
+
+    # This method processes a recognized operand's primary expression.  Subclass
+    # must provide this method.  Subclass detected errors should raise
+    # assembler.AsmParserError that contains the offending lexical token.
+    #
+    # Method Argument:
+    #   result   Result opbject supplied by a called scope.  Default is None.
+    def primary(self,result=None):
+        raise NotImplementedError("%s subclass %s must provide primary() method" \
+            % (assembler.eloc(self,"primary",module=this_module),\
+                self.__class__.__name__))
+
+        # Legacy default behavior.  Preserved for reference
+        # expr=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
+        # self.opnd.primary(asmbase.ASMExprArith(expr))
+
+    # This method processes a recognized operand's secondary expression.  Subclass
+    # must provide this method.  Subclass detected errors should raise
+    # assembler.AsmParserError that contains the offending lexical token.
+    #
+    # Method Argument:
+    #   result   Result opbject supplied by a called scope.  Default is None.
+    def secondary(self,result=None):
+        raise NotImplementedError("%s subclass %s must provide secondary() method" \
+            % (assembler.eloc(self,"secondary",module=this_module),\
+                self.__class__.__name__))
+
+        # Legacy default secondary behavior.  Preserved for reference.
+        # expr=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
+        # self.opnd.secondary(asmbase.ASMExprArith(expr))
+
+
+# This scope is used for a macro statement operand that is an arithmetic expression.
+# Used by ACTR and SETA macro directives.
+class ArithScope(MacroScope):
+    def __init__(self,lopdn):
+        super().__init__(lopdn)
+
+    def init_result(self):
+        return asmbase.ASMOperand()
+
+    def primary(self,result=None):
+        assert isinstance(result,asmbase.ASMExprArith),\
+            "%s result not a ASMExprArith object: %s" \
+                % (assembler.eloc(self,"primary",module=this_module),result)
+        self.opnd.primary(result)
+
+    def result_returned(self,result):
+        assert isinstance(result,asmbase.ASMExprArith),\
+            "%s result not a ASMExprArith object: %s" \
+                % (assembler.eloc(self,"result_returned",module=this_module),result)
+        self.expression_end(result=result)
+
+
+class BinaryScope(MacroScope):
+    def __init__(self,lopdn):
+        super().__init__(lopdn)
+
+    def init_result(self):
+        return asmbase.ASMOperand()
+
+    def primary(self,result=None):
+        assert isinstance(result,asmbase.ASMExprBinary),\
+            "%s result not a ASMExprArith object: %s" \
+                % (assembler.eloc(self,"primary",module=this_module),result)
+        #print("%s result: %s" \
+        #    % (assembler.eloc(self,"primary",module=this_module),result))
+        self.opnd.primary(result)
+
+    def result_returned(self,result):
+        assert isinstance(result,asmbase.ASMExprBinary),\
+            "%s result not a ASMExprArith object: %s" \
+                % (assembler.eloc(self,"result_returned",module=this_module),result)
+        self.expression_end(result=result)
+    
 
 class CTermScope(MacroScope):
     def __init__(self,lopnd,suffix="",seqsym=False):
-        super().__init__(lopnd,suffix=suffix,seqsym=seqsym)
+        super().__init__(lopnd,suffix=suffix)
         self.cterm=True        # Identify this as a complex term
         self.first_tok=None    # Remember first lexical token for PCTerm object
 
@@ -535,27 +601,107 @@ class CTermScope(MacroScope):
 
 
 #
-#  +---------------------------------+
-#  |                                 |
-#  |    BINARY EXPRESSION CLASSES    |
-#  |                                 |
-#  +---------------------------------+
+#  +------------------------------------+
+#  |                                    |
+#  |    EVALUATED EXPRESSION CLASSES    |
+#  |                                    |
+#  +------------------------------------+
 #
 
-# See MacroScope object for method descriptions.
-class MacroScopeBinary(MacroScope):
-    def __init__(self,lopnd,seqsym=False):
-        super().__init__(lopnd,suffix="b",seqsym=seqsym)
 
-    # This method processes recognized primary expressions
-    # It will add an ASMExprBinary object as the results primary expression
-    #
-    # To supply a different expression or add error handling, override this method
-    # Subclass detected errors should raise assembler.AsmParserError that contains
-    # the offending lexical token.
-    def primary(self):
+# Scope for recognition and creation of operator precedence based expressions.
+# Result Object, a subclass of ASMExpr that is not a complex term
+#
+# Method Arguments:
+#   lopnd    Logical operand (LOperand object) being parsed.
+#   suffix   For shared action methods, the character suffix of FSM states
+#            This is used for all operator precedent expressions evaluated by 
+#            a Pratt expression evaluator.
+#   exprcls  The subclass of ASMExpr being created by the scope
+class MacroScopeExpr(MacroScope):
+    def __init__(self,lopnd,suffix,exprcls):
+        super().__init__(lopnd,suffix=suffix)
+        self.exprcls=exprcls
+
+    # Create the result object accumulated with the help of MacroScope superclass.
+    def build_expression(self):
+        assert self.opnd is None,"%s self.opnd is not None: %s" \
+            % (assembler.eloc(self,"expression_end",module=this_module),self.opnd)
         expr=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
-        self.opnd.primary(asmbase.ASMExprBinary(expr))
+        self.opnd=self.exprcls(expr)
+
+    # The handling of primary or secondary expressions performed by the
+    # MacroScope object is not supported for operator precedence expressions.
+    def expression_end(self,result=None):
+        raise NotImplementedError("%s does support primary or secondry expressions" \
+            % assembler.eloc(self,"expression_end",module=this_module))
+
+    # Has the effect of setting self.opnd to None
+    # The result object is not created until the expression_end() method is called
+    def init_result(self):
+        return None
+
+    # Tests if a lexical token is in the follow list
+    def isFollow(self,token,trace=False):
+        if __debug__:
+            cls_str=assembler.eloc(self,"isFollow",module=this_module)
+            if trace:
+                print("%s follow: %s" % (cls_str,self.follow))
+
+        for follow in self.follow:
+            if follow.tid == token.tid:
+                if __debug__:
+                    if trace:
+                        print("%s folow tid %s -> True" % (cls_str,token.tid))
+                return True
+
+        if __debug__:
+            if trace:
+                print("%s folow tid %s -> False" % (cls_str,token.tid))
+        return False
+
+    # Expression scopes do not have the concept of primary or secondary expressions.
+    # This class builds the expression itself used by other scopes
+    def primary(self,result=None):
+        raise NotImplementedError("%s primary expressions not supported" \
+            % assembler.eloc(self,"secondary",module=this_module))
+
+    # Return the scope's result object: an ASMExpr
+    def result(self):
+        assert self.opnd is not None,\
+            "%s build_expression method not called, self.opnd is still None" \
+                % assembler.eloc(self,"results")
+        return self.opnd
+
+    # Expression scopes do not have the concept of primary or secondary expressions.
+    # This class builds the expression itself used by other scopes
+    def secondary(self,result=None):
+        raise NotImplementedError("%s secondary expressions not supported" \
+            % assembler.eloc(self,"secondary",module=this_module))
+
+
+# Macro Arithmetic Expression Scope
+# Result Object: asmbase.ASMExprArith
+# Used by AGO and SETA macro directives and various secondary expressions in macro
+# related complex terms.
+class MacroScopeExprA(MacroScopeExpr):
+    def __init__(self,lopnd):
+        super().__init__(lopnd,"d",asmbase.ASMExprArith)
+
+
+# Macro Binary Expression Scope
+# Result Object: asmbase.ASMExprBinary
+# Used by AIF and SETB macro directives.
+class MacroScopeExprB(MacroScopeExpr):
+    def __init__(self,lopnd):
+        super().__init__(lopnd,"e",asmbase.ASMExprBinary)
+
+
+# Macro Character String Expression Scope
+# Result Object: asmbase.ASMExprChar
+class MacroScopeExprC(MacroScopeExpr):
+    def __init__(self,lopnd):
+        super().__init__(lopnd,None,asmbase.ASMExprChar)
 
 
 #
@@ -700,7 +846,7 @@ class ChrExpr(asmbase.CTerm):
         self.len_expr=self._secondary[1]
         self.len_expr.prepare(stmt,d)
 
-    def primary(self,expr):
+    def primary(self,expr,result=None):
         assert isinstance(expr,asmbase.ASMExprChar),\
             "%s 'expr' argument must be an ASMExprChar object: %s" \
                 % (assembler.eloc(self,"primary",module=this_module),expr)
@@ -761,12 +907,12 @@ class ChrExpr(asmbase.CTerm):
 class CharacterExpr(CTermScope):
     def __init__(self,lopdn):
         super().__init__(lopdn)
-        self.cterm=True          # This is a scope for complex ter
+        self.cterm=True          # This is a scope for complex term
 
     def init_result(self):
         return ChrExpr(string=True)
 
-    def primary(self):
+    def primary(self,result=None):
         expr=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
         #for n,item in enumerate(expr):
         #    print("%s token[%s]: %s" \
@@ -775,7 +921,7 @@ class CharacterExpr(CTermScope):
         #self.opnd.primary(expr)
         self.opnd.primary(asmbase.ASMExprChar(expr,string=True))
 
-    def secondary(self):
+    def secondary(self,result=None):
         expr=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
         #for n,item in enumerate(expr):
         #    print("%s token[%s]: %s" \
@@ -847,46 +993,51 @@ class AGOScope(MacroScope):
     def init_result(self):
         return CondBranch(asmbase.ASMExprArith)
 
-    def primary(self):
-        expr=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
-        if len(expr)==1:
-            first=expr[0]
-            if first.tid=="SEQSYM":
-                # This is an unconditional AGO
-                self._target(first)
+    def primary(self,result=None):
+        if isinstance(result,asmtokens.LexicalToken):
+            if result.tid=="SEQSYM":
+                self._target(result)
                 self.conditional=False
-                return
-        # Then this is a computed AGO
-        self.opnd.primary(self.opnd.exprcls(expr))
+        elif isinstance(result,asmbase.ASMExpr):
+            self.opnd.primary(result)
+        else:
+            raise ValueError("%s unexpeced result object: %s" \
+                % (assembler.eloc(self,"primary",module=this_module),result))
 
-    def secondary(self):
-        expr=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
-        if len(expr)!=1:
-            raise ValueError("%s secondary expression contains more than target "\
-                "sequence symbol: %s" \
-                    % (assembler.eloc(self,"secondary",module=this_module),expr))
-        self._target(expr[0])
+    def result_returned(self,result):
+        self.expression_end(result=result)
+
+    def secondary(self,result=None):
+        if isinstance(result,asmtokens.LexicalToken):
+            self._target(result)
+        else:
+            raise ValueError("%s unexpected result object: %s" \
+                % (assembler.eloc(self,"secondary",module=this_module),result))
 
 
 class AIFScope(MacroScope):
     def __init__(self,lopdn):
         super().__init__(lopdn)
 
+    def _target(self,token):
+        token.update_loc(self._stmt.lineno,self.lopnd)
+        self.opnd.target(token)
+
     def init_result(self):
         return CondBranch(asmbase.ASMExprBinary)
 
-    def primary(self):
-        expr=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
-        self.opnd.primary(self.opnd.exprcls(expr))
+    def primary(self,result=None):
+        self.opnd.primary(result)
 
-    def secondary(self):
-        expr=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
-        if len(expr)!=1:
-            raise ValueError("%s secondary expression does not contain one "\
-                "token: %s" \
-                    % (assembler.eloc(self,"secondary",module=this_module),expr))
-        target=expr[0]
-        self.opnd.target(target)
+    def result_returned(self,result):
+        self.expression_end(result=result)
+
+    def secondary(self,result=None):
+        if isinstance(result,asmtokens.LexicalToken):
+            self._target(result)
+        else:
+            raise ValueError("%s unexpected result object: %s" \
+                % (assembler.eloc(self,"secondary",module=this_module),result))
 
 
 #
@@ -928,8 +1079,11 @@ class QuoteScope(asmbase.AsmFSMScope):
 class SETCScope(MacroScope):
     def __init__(self,lopdn):
         super().__init__(lopdn)
+        
+    def init_result(self):
+        return asmbase.ASMOperand()
 
-    def primary(self):
+    def primary(self,result=None):
         expr=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
         #for n,item in enumerate(expr):
         #    print("%s token[%s]: %s" \
@@ -937,7 +1091,7 @@ class SETCScope(MacroScope):
         #            n,item))
         self.opnd.primary(asmbase.ASMExprChar(expr))  # Returns a C_Val object
 
-    def secondary(self):
+    def secondary(self,result=None):
         expr=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
         #for n,item in enumerate(expr):
         #    print("%s token[%s]: %s" \
@@ -964,13 +1118,13 @@ class SeqSymScope(MacroScope):
     def init_result(self):
         self.opnd=[]   # Result object will be the primary expression list
 
-    def primary(self):
+    def primary(self,result=None):
         self.opnd=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
         # List of tokens (should be only one)
         assert len(self.opnd)==1,"%s unexpected token in primary expresion: %s" \
             % assembler.eloc(self,"primary",module=this_module)
 
-    def secondary(self):
+    def secondary(self,result=None):
         raise NotImplementedError("%s does not support secondary expressions" \
             % assembler.eloc(self,"secondary",module=this_module))
 
@@ -1121,7 +1275,7 @@ class PSymRefAttr(PSymRef):
         super().__init__(token,symbol,attr=attr,indices=indices)
 
     def value(self,external=None,debug=False,trace=False):
-        # Creaty the SymbolID used to access the symbol table
+        # Create the SymbolID used to access the symbol table
         symid=self.SymID(external=external,debug=debug,trace=trace)
         # Retrieve the symbol object associated with the symbol name, if defined
         symo=self.getSymbol(external,symid,debug=debug)
@@ -1449,7 +1603,7 @@ class SymbolicReference(CTermScope):
     def init_result(self):
         return SymbolRef()
         
-    def primary(self):
+    def primary(self,result=None):
         pending=self.pending()   # How many tokens in the pending list
         # For a symbolic reference this should onle ever be 1
         assert pending==1,\
@@ -1460,6 +1614,14 @@ class SymbolicReference(CTermScope):
         self.flush()     # Now discard the tokens, I have responsibility
         self.update_loc(self.lopnd,self._stmt.lineno,pend_tok)
         self.opnd.primary(pend_tok)
+
+    def result_returned(self,res):
+        self.expression_end(result=res)
+
+    def secondary(self,result=None):
+        assert result is not None,"%s result is None" \
+            % assembler.eloc(self,"secondary",module=this_module)
+        self.opnd.secondary(result)
 
     def token(self,tok):
         # Bubble up to the statement whether syslist is needed in macro.
@@ -1508,7 +1670,7 @@ class MPControl(object):
 
 
 class MacroParser(asmbase.AsmCtxParser):
-    init_states={"ACTR": MPControl("inita",pctx="init", scope=MacroScope),
+    init_states={"ACTR": MPControl("aop",  pctx="init", scope=ArithScope),
                  "AGO":  MPControl("ago",  pctx="init", scope=AGOScope),
                  "AIF":  MPControl("aif",  pctx="init", scope=AIFScope),
                  "GBLA": MPControl("inits",pctx="sym",  scope=SymbolicReference),
@@ -1517,8 +1679,8 @@ class MacroParser(asmbase.AsmCtxParser):
                  "LCLA": MPControl("inits",pctx="sym",  scope=SymbolicReference),
                  "LCLB": MPControl("inits",pctx="sym",  scope=SymbolicReference),
                  "LCLC": MPControl("inits",pctx="sym",  scope=SymbolicReference),
-                 "SETA": MPControl("inita",pctx="init", scope=MacroScope),
-                 "SETB": MPControl("initb",pctx="init", scope=MacroScopeBinary),
+                 "SETA": MPControl("aop",  pctx="init", scope=ArithScope),
+                 "SETB": MPControl("bop",  pctx="init", scope=BinaryScope),
                  "SETC": MPControl("setc", pctx="setc", scope=SETCScope),
                  "TITLE":MPControl("initq",pctx="quote",scope=QuoteScope),
                  "rep" : MPControl("initr",pctx="rep",  scope=CharacterExpr),
@@ -1570,8 +1732,11 @@ class MacroParser(asmbase.AsmCtxParser):
 
         self.Ago()       # Initialize AGO statement states
         self.Aif()       # Initialize AIF statement states
-        self.Arith()     # Initialize arithmetic expression states
-        self.Binary()    # Initialize binary (logical) expression states
+        self.Aopnd()     # Initialize arithmetic operand states
+        self.Arith()     # Initialize arithmetic expression call scope states
+        #self.Binary_Old() # Initialize binary (logical) expression states
+        self.Binary()    # Initialize binary expression call scope states
+        self.Bopnd()     # Initialize binary operand states
         self.Chr()       # Initialize character expression complex term states
         self.Decl()      # Initialize symbolic declaration states
         self.Quote()     # Initialize open code quoted string states
@@ -1700,7 +1865,8 @@ class MacroParser(asmbase.AsmCtxParser):
         ret=self.pop_scope(trace=trace)
         # Pass to it as a new token the result of the returning scope
         if result:
-            ret.token(result)
+            ret.result_returned(result)
+            #ret.token(result)
         # If returning scope has a stack item, make it the next FSM input value
         if stack:
             self.stack(stack,trace=trace)
@@ -1891,9 +2057,13 @@ class MacroParser(asmbase.AsmCtxParser):
     #
     #
     #        (&SYM1 EQ &SYM2 OR &SYM3...).SEQSYM
-    #        \_____________ ____________/    ^      
+    #         \____________ ___________/     ^      
     #                      v                 |
-    #               Primary Expression       +--- target
+    #              Primary Expression        +--- target
+    #
+    # Note: additional target sequence symbols in the computed AGO case are
+    # processed as additional operands, not part of the first operand.  See
+    # the asmstmts.AGO class for details.
 
     def Ago(self):
         
@@ -1902,6 +2072,11 @@ class MacroParser(asmbase.AsmCtxParser):
         ago.action([LPAREN,],self.Ago_Computed)             #   None (     >a-expr
         ago.error(self.ACT_Expected_LP_Seq)                 # E None ???
         self.state(ago)
+        
+        agor=fsmparser.PState("agor")
+        agor.action([RPAREN,],self.Ago_ExprEnd)             #   expr )     agos
+        agor.error(self.ACT_Expected_RP)                    # E expr ???
+        self.state(agor)
         
         agos=fsmparser.PState("agos")
         agos.action([SEQSYM,],self.Ago_Target)              #   )    .seq  agoe
@@ -1915,11 +2090,15 @@ class MacroParser(asmbase.AsmCtxParser):
 
     def Ago_Computed(self,value,state,trace=False):
         gs=self.scope()
-        ret=MPControl("agos",pctx="init")
-        return self.Arith_Call(ret,token=value,follow=[SEQSYM,],trace=trace)
+        ret=MPControl("agor",pctx="init")
+        return self.Arith_Call(ret,follow=[RPAREN,],trace=trace)
 
     def Ago_Done(self,value,state,trace=False):
         state.atend()
+
+    def Ago_ExprEnd(self,value,state,trace=False):
+        # Just consume the ending right parenthesis and then look for first target
+        return "agos"
 
     def Ago_Target(self,value,state,trace=False):
         gs=self.scope()
@@ -1949,7 +2128,7 @@ class MacroParser(asmbase.AsmCtxParser):
     #
     #
     #        (&SYM1 EQ &SYM2 OR &SYM3...).SEQSYM
-    #        \_____________ ____________/    ^      
+    #         \____________ ___________/     ^      
     #                      v                 |
     #               Primary Expression       +--- target
 
@@ -1960,9 +2139,14 @@ class MacroParser(asmbase.AsmCtxParser):
         aif.error(self.ACT_Expected_LP)                     # E None ???
         self.state(aif)
 
+        aifr=fsmparser.PState("aifr")
+        aifr.action([RPAREN,],self.Aif_Rparen)              #   <binary )  aift
+        aifr.error(self.Aif_Binary_Call_Failure)            # E <binary ???
+        self.state(aifr)
+
         aift=fsmparser.PState("aift")
-        aift.action([SEQSYM,],self.Aif_Target)              #   )    .seq  aife 
-        aift.error(self.ACT_Expected_Seq)                   # E )    ???
+        aift.action([SEQSYM,],self.Aif_Target)              #   )  .seq  aife 
+        aift.error(self.ACT_Expected_Seq)                   # E )  ???
         self.state(aift)
 
         aife=fsmparser.PState("aife")
@@ -1970,19 +2154,112 @@ class MacroParser(asmbase.AsmCtxParser):
         aife.error(self.ACT_ExpectedEnd)                    # E .seq  ???
         self.state(aife)
 
+    def Aif_Binary_Call_Failure(self,value,state,trace=False):
+        raise ValueError("%s Binary_Call returned unexpected token: %s" \
+            % (assembler.eloc(self,"Aif_Binary_Call_Failure",module=this_module),\
+                value))
+
     def Aif_Expr(self,value,state,trace=False):
-        ret=MPControl("aift",pctx="init")
-        return self.Binary_Call(ret,token=value,follow=[SEQSYM,],trace=trace)
+        ret=MPControl("aifr",pctx="init")
+        return self.Binary_Call(ret,token=None,follow=[RPAREN,],trace=trace)
+
+    def Aif_Rparen(self,value,state,trace=False):
+        return "aift"
 
     def Aif_Target(self,value,state,trace=False):
         gs=self.scope()
-        gs.token(value)
+        gs.opnd.target(value)
         return "aife"
 
     def Aif_Done(self,value,state,trace=False):
         gs=self.scope()
-        gs.expression_end()     # Complete capture conditional branch target
+        #gs.expression_end()     # Complete capture conditional branch target
         state.atend()           # Terminate the finite state machine
+
+
+  #                 +-----------------------------------+
+  #                 |                                   |
+  #                 |   ARITHMETIC EXPRESSION OPERAND   |
+  #                 |                                   |
+  #                 +-----------------------------------+
+
+    # Context: init - tokens: LPAREN, RPAREN,  COMMA, 
+    #                         LOGNOT, LOGICAL, COMPARE, AOPER, NOT,
+    #                         SDBIN,  SDCHR,   SDHEX,   SDDEC,
+    #                         SEQSYM, SATTR,   LATTR,   QUOTE
+    # Scope: ArithScope
+    # Result Object: asmbase.ASMExprArith
+    # See MacroCSLexer.init_default() method
+
+    # Parses:
+    #
+    #    arithmetic-expression$
+    #    \__________ _________/
+    #               v
+    #      Primary Expression
+
+    def Aopnd(self):
+
+        aop=fsmparser.PState("aop")
+        aop.error(self.Aopnd_Start)                          #   None  ???  >arith
+        self.state(aop)
+        
+        aope=fsmparser.PState("aope")
+        aope.action([EOS,],self.Aopnd_End)                   #   <arith EOS  Done
+        aope.error(self.ACT_ExpectedEnd)                     # E ????
+        self.state(aope)
+
+    def Aopnd_Start(self,value,state,trace=False):
+        gs=self.scope()
+        ret=MPControl("aope",pctx="init")
+        return self.Arith_Call(ret,token=value,follow=[EOS,],trace=trace)
+        
+    def Aopnd_End(self,value,state,trace=False):
+        gs=self.scope()
+        state.atend()
+
+
+  #                 +-------------------------------+
+  #                 |                               |
+  #                 |   BINARY EXPRESSION OPERAND   |
+  #                 |                               |
+  #                 +-------------------------------+
+
+    # Context: init - tokens: LPAREN, RPAREN,  COMMA, 
+    #                         LOGNOT, LOGICAL, COMPARE, AOPER, NOT,
+    #                         SDBIN,  SDCHR,   SDHEX,   SDDEC,
+    #                         SEQSYM, SATTR,   LATTR,   QUOTE
+    # Scope: BinaryScope
+    # Result Object: asmbase.ASMExprBinary
+    # See MacroCSLexer.init_default() method
+
+    # Parses:
+    #
+    #    binary-expression$
+    #    \_______ _______/
+    #            v
+    #      Primary Expression
+
+    def Bopnd(self):
+
+        bop=fsmparser.PState("bop")
+        bop.error(self.Bopnd_Start)                          #   None  ???  >arith
+        self.state(bop)
+        
+        bope=fsmparser.PState("bope")
+        bope.action([EOS,],self.Aopnd_End)                   #   <arith EOS  Done
+        bope.error(self.ACT_ExpectedEnd)                     # E ????
+        self.state(bope)
+
+    def Bopnd_Start(self,value,state,trace=False):
+        gs=self.scope()
+        ret=MPControl("aope",pctx="init")
+        return self.Binary_Call(ret,token=value,follow=[EOS,],trace=trace)
+        
+    def Bopnd_End(self,value,state,trace=False):
+        gs=self.scope()
+        state.atend()
+
 
 
   #                 +-----------------------------+
@@ -1998,100 +2275,182 @@ class MacroParser(asmbase.AsmCtxParser):
     # Scope: current scope
     # See MacroCSLexer.init_default() method
 
-    def Arith(self):
+    #def Arith_Old(self):
 
-        inita=fsmparser.PState("inita")
-        inita.action(self.term,self.Expr_Term)               #   None  term   terma
-        inita.action([SATTR,],self.Expr_Start_S)             #   None  sym    >
-        inita.action([AOPER,],self.Expr_Start_O)             #   None  oper   unarya/E
-        inita.action([LPAREN,],self.Expr_Start_L)            #   None  (      lparena
-        inita.action(self.boper,self.ACT_Expected_Aoper)     # E None  boper
-        inita.action([QUOTE,],self.ACT_Expected_LP_Term)     # E None  '
-        inita.action([RPAREN,],self.ACT_Expected_LP_Term)    # E None  )
-        inita.action([COMMA,],self.ACT_Expected_LP_Term)     # E None  ,
-        inita.action([EOS,],self.ACT_Expected_LP_Term)       # E None  EOS
-        inita.error(self.ACT_Expected_LP_Term)               # E None  ??
-        self.state(inita)
+    #    inita=fsmparser.PState("inita")
+    #    inita.action(self.term,self.Expr_Term)               #   None  term   terma
+    #    inita.action([SATTR,],self.Expr_Start_S)             #   None  sym    >
+    #    inita.action([AOPER,],self.Expr_Start_O)             #   None  oper   unarya/E
+    #    inita.action([LPAREN,],self.Expr_Start_L)            #   None  (      lparena
+    #    inita.action(self.boper,self.ACT_Expected_Aoper)     # E None  boper
+    #    inita.action([QUOTE,],self.ACT_Expected_LP_Term)     # E None  '
+    #    inita.action([RPAREN,],self.ACT_Expected_LP_Term)    # E None  )
+    #    inita.action([COMMA,],self.ACT_Expected_LP_Term)     # E None  ,
+    #    inita.action([EOS,],self.ACT_Expected_LP_Term)       # E None  EOS
+    #    inita.error(self.ACT_Expected_LP_Term)               # E None  ??
+    #    self.state(inita)
 
-        unarya=fsmparser.PState("unarya")
-        unarya.action(self.term,self.Expr_Term)              #   unary term   terma
-        unarya.action([SATTR,],self.Expr_Unary_S)            #   unary sym    >sym
-        unarya.action([LPAREN,],self.Expr_Unary_L)           #   unary (      lparena
-        unarya.action([AOPER,],self.ACT_Expected_LP_Term)    # E unary aoper
-        unarya.action(self.boper,self.ACT_Expected_Aoper)    # E None  boper
-        unarya.action([RPAREN,],self.ACT_Expected_LP_Term)   # E unary )
-        unarya.action([COMMA,],self.ACT_Expected_LP_Term)    # E unary ,
-        unarya.action([EOS,],self.ACT_Expected_LP_Term)      # E unary EOS
-        self.state(unarya)
+    #    unarya=fsmparser.PState("unarya")
+    #    unarya.action(self.term,self.Expr_Term)              #   unary term   terma
+    #    unarya.action([SATTR,],self.Expr_Unary_S)            #   unary sym    >sym
+    #    unarya.action([LPAREN,],self.Expr_Unary_L)           #   unary (      lparena
+    #    unarya.action([AOPER,],self.ACT_Expected_LP_Term)    # E unary aoper
+    #    unarya.action(self.boper,self.ACT_Expected_Aoper)    # E None  boper
+    #    unarya.action([RPAREN,],self.ACT_Expected_LP_Term)   # E unary )
+    #    unarya.action([COMMA,],self.ACT_Expected_LP_Term)    # E unary ,
+    #    unarya.action([EOS,],self.ACT_Expected_LP_Term)      # E unary EOS
+    #    self.state(unarya)
 
-        binarya=fsmparser.PState("binarya")
-        binarya.action(self.term,self.Expr_Term)             #   binary term  terma
-        binarya.action([SATTR,],self.Expr_Binary_S)          #   binary sym   >
-        binarya.action([AOPER,],self.Expr_Binary_O)          #   binary oper unarya/terma
-        binarya.action([LPAREN,],self.Expr_Binary_L)         #   binary (
-        binarya.action(self.boper,self.ACT_Expected_Aoper)   # E binary boper
-        binarya.action([RPAREN,],self.ACT_Expected_LP_Term)  # E binary )
-        binarya.action([COMMA,],self.ACT_Expected_RP_Oper)   # E binary ,
-        binarya.action([EOS,],self.ACT_Expected_LP_Term)     # E binary EOS
-        self.state(binarya)
+    #    binarya=fsmparser.PState("binarya")
+    #    binarya.action(self.term,self.Expr_Term)             #   binary term  terma
+    #    binarya.action([SATTR,],self.Expr_Binary_S)          #   binary sym   >
+    #    binarya.action([AOPER,],self.Expr_Binary_O)          #   binary oper unarya/terma
+    #    binarya.action([LPAREN,],self.Expr_Binary_L)         #   binary (
+    #    binarya.action(self.boper,self.ACT_Expected_Aoper)   # E binary boper
+    #    binarya.action([RPAREN,],self.ACT_Expected_LP_Term)  # E binary )
+    #    binarya.action([COMMA,],self.ACT_Expected_RP_Oper)   # E binary ,
+    #    binarya.action([EOS,],self.ACT_Expected_LP_Term)     # E binary EOS
+    #    self.state(binarya)
 
-        lparena=fsmparser.PState("lparena")
-        lparena.action(self.term,self.Expr_Term)             #   ( term     terma
-        lparena.action([SATTR,],self.Expr_LParen_S)          #   ( sym      >
-        lparena.action([AOPER,],self.Expr_LParen_O)          #   ( oper unarya/terma/E
-        lparena.action([LPAREN,],self.Expr_LParen_L)         #   ( (        lparena
-        lparena.action(self.boper,self.ACT_Expected_Aoper)   # E ( boper
-        lparena.action([RPAREN,],self.ACT_Expected_LP_Term)  # E ( )
-        lparena.action([COMMA,],self.ACT_Expected_LP_Term)   # E ( ,
-        lparena.action([EOS,],self.ACT_Expected_LP_Term)     # E ( EOS
-        self.state(lparena)
+    #    lparena=fsmparser.PState("lparena")
+    #    lparena.action(self.term,self.Expr_Term)             #   ( term     terma
+    #    lparena.action([SATTR,],self.Expr_LParen_S)          #   ( sym      >
+    #    lparena.action([AOPER,],self.Expr_LParen_O)          #   ( oper unarya/terma/E
+    #    lparena.action([LPAREN,],self.Expr_LParen_L)         #   ( (        lparena
+    #    lparena.action(self.boper,self.ACT_Expected_Aoper)   # E ( boper
+    #    lparena.action([RPAREN,],self.ACT_Expected_LP_Term)  # E ( )
+    #    lparena.action([COMMA,],self.ACT_Expected_LP_Term)   # E ( ,
+    #    lparena.action([EOS,],self.ACT_Expected_LP_Term)     # E ( EOS
+    #    self.state(lparena)
 
-        rparena=fsmparser.PState("rparena")
-        rparena.action([AOPER,],self.Expr_RParen_O)          #   ) aoper  binarya/E
-        rparena.action([LPAREN,],self.Expr_RParen_L)         #   ) (       inita/E
-        rparena.action([RPAREN,],self.Expr_RParen_R)         #   ) )     rparena/enda
-        rparena.action([COMMA,],self.Expr_RParen_C)          #   ) ,       inita/E
-        rparena.action([EOS,],self.Expr_RParen_E)            #   ) EOS     done/E
-        rparena.action(self.boper,self.ACT_Expected_Aoper)   # E ) boper
-        rparena.action(self.term,self.ACT_Expected_RP_Oper)  # E ) term
-        rparena.action([SATTR,],self.ACT_Expected_RP_Oper)   # E ) sym
-        rparena.error(self.Expr_Follow)                      #   ) follow  done/E
-        self.state(rparena)
+    #    rparena=fsmparser.PState("rparena")
+    #    rparena.action([AOPER,],self.Expr_RParen_O)          #   ) aoper  binarya/E
+    #    rparena.action([LPAREN,],self.Expr_RParen_L)         #   ) (       inita/E
+    #    rparena.action([RPAREN,],self.Expr_RParen_R)         #   ) )     rparena/enda
+     #   rparena.action([COMMA,],self.Expr_RParen_C)          #   ) ,       inita/E
+    #    rparena.action([EOS,],self.Expr_RParen_E)            #   ) EOS     done/E
+    #    rparena.action(self.boper,self.ACT_Expected_Aoper)   # E ) boper
+    #    rparena.action(self.term,self.ACT_Expected_RP_Oper)  # E ) term
+    #    rparena.action([SATTR,],self.ACT_Expected_RP_Oper)   # E ) sym
+    #    rparena.error(self.Expr_Follow)                      #   ) follow  done/E
+    #    self.state(rparena)
 
-        terma=fsmparser.PState("terma")
-        terma.action([AOPER,],self.Expr_Term_O)              #   term aoper binarya/E
-        terma.action([LPAREN,],self.Expr_Term_L)             #   term (    inita/E
-        terma.action([RPAREN,],self.Expr_Term_R)             #   term )   rparena/end
-        terma.action([COMMA,],self.Expr_Term_C)              #   term ,    inita/E
-        terma.action([EOS,],self.Expr_Term_E)                #   term EOS   done/E
-        terma.action(self.boper,self.ACT_Expected_Aoper)     # E term boper
-        terma.action(self.term,self.ACT_Expected_RP_Oper)    # E term term
-        terma.action([SATTR,],self.ACT_Expected_RP_Oper)     # E term sym
-        terma.error(self.Expr_Follow)                        #   term follow  done/E
-        self.state(terma)
+    #    terma=fsmparser.PState("terma")
+    #    terma.action([AOPER,],self.Expr_Term_O)              #   term aoper binarya/E
+    #    terma.action([LPAREN,],self.Expr_Term_L)             #   term (    inita/E
+    #    terma.action([RPAREN,],self.Expr_Term_R)             #   term )   rparena/end
+    #    terma.action([COMMA,],self.Expr_Term_C)              #   term ,    inita/E
+    #    terma.action([EOS,],self.Expr_Term_E)                #   term EOS   done/E
+    #    terma.action(self.boper,self.ACT_Expected_Aoper)     # E term boper
+    #    terma.action(self.term,self.ACT_Expected_RP_Oper)    # E term term
+    #    terma.action([SATTR,],self.ACT_Expected_RP_Oper)     # E term sym
+    #    terma.error(self.Expr_Follow)                        #   term follow  done/E
+    #    self.state(terma)
 
         # This state ensures nothing follows the final secondary expression's
         # terminating right parenthesis
-        enda=fsmparser.PState("enda")
-        enda.action([EOS,],self.Expr_End)                    #   EOS (Hurray!) done
-        enda.error(self.ACT_ExpectedEnd)                     # E ??? ($#@$!)
-        self.state(enda)
+    #    enda=fsmparser.PState("enda")
+    #    enda.action([EOS,],self.Expr_End)                    #   EOS (Hurray!) done
+    #    enda.error(self.ACT_ExpectedEnd)                     # E ??? ($#@$!)
+    #    self.state(enda)
+
+
+    # Lexcial Context: init - tokens: LPAREN, RPAREN,  COMMA, 
+    #                         LOGNOT, LOGICAL, COMPARE, AOPER, NOT,
+    #                         SDBIN,  SDCHR,   SDHEX,   SDDEC,
+    #                         SEQSYM, SATTR,   LATTR,   QUOTE
+    # Scope: MacroScopeExprA
+    # Result: asmbase.ASMExprArith
+    # See MacroCSLexer.init_default() method
+    #
+    # The macro arithmentic expression does not include any enclosing parenthesis
+    # required by the macro statement.  See AGO as an example.
+
+    def Arith(self):
+
+        initd=fsmparser.PState("initd")
+        initd.action(self.term,self.Expr_Term)               #   None  term   termd
+        initd.action([SATTR,],self.Expr_Start_S)             #   None  sym    >
+        initd.action([AOPER,],self.Expr_Start_O)             #   None  oper   unaryd/E
+        initd.action([LPAREN,],self.Expr_Start_L)            #   None  (      lparend
+        initd.action(self.boper,self.ACT_Expected_Aoper)     # E None  boper
+        initd.action([QUOTE,],self.ACT_Expected_LP_Term)     # E None  '
+        initd.action([RPAREN,],self.ACT_Expected_LP_Term)    # E None  )
+        initd.action([COMMA,],self.ACT_Expected_LP_Term)     # E None  ,
+        initd.action([EOS,],self.ACT_Expected_LP_Term)       # E None  EOS
+        initd.error(self.ACT_Expected_LP_Term)               # E None  ??
+        self.state(initd)
+
+        unaryd=fsmparser.PState("unaryd")
+        unaryd.action(self.term,self.Expr_Term)              #   unary term   termd
+        unaryd.action([SATTR,],self.Expr_Unary_S)            #   unary sym    >sym
+        unaryd.action([LPAREN,],self.Expr_Unary_L)           #   unary (      lparend
+        unaryd.action([AOPER,],self.ACT_Expected_LP_Term)    # E unary aoper
+        unaryd.action(self.boper,self.ACT_Expected_Aoper)    # E None  boper
+        unaryd.action([RPAREN,],self.ACT_Expected_LP_Term)   # E unary )
+        unaryd.action([COMMA,],self.ACT_Expected_LP_Term)    # E unary ,
+        unaryd.action([EOS,],self.ACT_Expected_LP_Term)      # E unary EOS
+        self.state(unaryd)
+
+        binaryd=fsmparser.PState("binaryd")
+        binaryd.action(self.term,self.Expr_Term)             #   binary term  termd
+        binaryd.action([SATTR,],self.Expr_Binary_S)          #   binary sym   >
+        binaryd.action([AOPER,],self.Expr_Binary_O)          #   binary oper unaryd/termd
+        binaryd.action([LPAREN,],self.Expr_Binary_L)         #   binary (
+        binaryd.action(self.boper,self.ACT_Expected_Aoper)   # E binary boper
+        binaryd.action([RPAREN,],self.ACT_Expected_LP_Term)  # E binary )
+        binaryd.action([COMMA,],self.ACT_Expected_RP_Oper)   # E binary ,
+        binaryd.action([EOS,],self.ACT_Expected_LP_Term)     # E binary EOS
+        self.state(binaryd)
+
+        lparend=fsmparser.PState("lparend")
+        lparend.action(self.term,self.Expr_Term)             #   ( term     termd
+        lparend.action([SATTR,],self.Expr_LParen_S)          #   ( sym      >
+        lparend.action([AOPER,],self.Expr_LParen_O)          #   ( oper unarya/termd/E
+        lparend.action([LPAREN,],self.Expr_LParen_L)         #   ( (        lparend
+        lparend.action(self.boper,self.ACT_Expected_Aoper)   # E ( boper
+        lparend.action([RPAREN,],self.ACT_Expected_LP_Term)  # E ( )
+        lparend.action([COMMA,],self.ACT_Expected_LP_Term)   # E ( ,
+        lparend.action([EOS,],self.ACT_Expected_LP_Term)     # E ( EOS
+        self.state(lparend)
+
+        rparend=fsmparser.PState("rparend")
+        rparend.action([AOPER,],self.Expr_RParen_O)          #   ) aoper  binaryd/E
+        rparend.action([RPAREN,],self.Exor_RParen_R)         #   ) )      rparend/E
+        rparend.action([LPAREN,],self.ACT_Expected_RP_Oper)  # E ) (
+        rparend.action(self.boper,self.ACT_Expected_Aoper)   # E ) boper
+        rparend.action(self.term,self.ACT_Expected_RP_Oper)  # E ) term
+        rparend.action([SATTR,],self.ACT_Expected_RP_Oper)   # E ) sym
+        rparend.error(self.Expr_Follow)                      #   ) follow  done/E
+        self.state(rparend)
+
+        termd=fsmparser.PState("termd")
+        termd.action([AOPER,],self.Expr_Term_O)              #   term aoper binaryd/E
+        termd.action([RPAREN,],self.Expr_Term_R)             #   term )   rparend/end
+        termd.action([EOS,],self.Expr_Term_E)                #   term EOS   done/E    
+        termd.action(self.boper,self.ACT_Expected_Aoper)     # E term boper
+        termd.action(self.term,self.ACT_Expected_RP_Oper)    # E term term
+        termd.action([SATTR,],self.ACT_Expected_RP_Oper)     # E term sym
+        termd.action([LPAREN,],self.ACT_Expected_RP_Oper)    # E term (
+        termd.error(self.Expr_Follow)                        #   term follow  done/E
+        self.state(termd)
+
+        # This state ensures nothing follows the final secondary expression's
+        # terminating right parenthesis
+        endd=fsmparser.PState("endd")
+        endd.action([EOS,],self.Expr_End)                    #   EOS (Hurray!) done
+        endd.error(self.ACT_ExpectedEnd)                     # E ??? ($#@$!)
+        self.state(endd)
 
     def Arith_Call(self,ret,token=None,follow=[],trace=False):
         assert isinstance(ret,MPControl),\
-            "%s 'ret' argument must be a MPControl object: %s" \
-                % (assembler.eloc(self,"Arith_Call",module=this_module),ret)
-
-        if token:
-            self.stack(token,trace=trace)
-            self.unstack(trace=trace)
+             "%s 'ret' argument must be a MPControl object: %s" \
+                 % (assembler.eloc(self,"Arith_Call",module=this_module),ret)
         gs=self.scope()
-        gs.suffix="a"
-        gs.follow=follow
-        gs.next_state=ret.start
-        gs.next_pctx=ret.context
-        self.context("init",trace=trace)
-        return "inita"
+        new=MacroScopeExprA(gs.lopnd)
+        new.follow=follow
+        newmp=MPControl("initd",pctx="init")
+        return self.enter_scope(gs,ret,new,newmp,stack=token,trace=trace)
 
 
   #                 +-------------------------+
@@ -2107,117 +2466,176 @@ class MacroParser(asmbase.AsmCtxParser):
     # Scope: current scope
     # See MacroCSLexer.init_default() method
 
-    def Binary(self):
+    #def Binary_Old(self):
 
-        initb=fsmparser.PState("initb")
-        initb.action(self.term,self.Expr_Term)               #   None  term   termb
-        initb.action([QUOTE,],self.Expr_Start_Ch)            #   None  chr    >
-        initb.action([SATTR,],self.Expr_Start_S)             #   None  sym    >
-        initb.action(self.boper,self.Expr_Start_O)           #   None  boper  unaryb/E
-        initb.action([AOPER,],self.Expr_Start_O)             #   None  aoper  unaryb/E
-        initb.action([LPAREN,],self.Expr_Start_L)            #   None  (      lparenb
-        initb.action([RPAREN,],self.ACT_Expected_LP_Term)    # E None  )
-        initb.action([COMMA,],self.ACT_Expected_LP_Term)     # E None  ,
-        initb.action([EOS,],self.ACT_Expected_LP_Term)       # E None  EOS
-        initb.error(self.ACT_Expected_LP_Term)               # E None  ??
-        self.state(initb)
+    #    initb=fsmparser.PState("initb")
+    #    initb.action(self.term,self.Expr_Term)               #   None  term   termb
+    #    initb.action([QUOTE,],self.Expr_Start_Ch)            #   None  chr    >
+    #    initb.action([SATTR,],self.Expr_Start_S)             #   None  sym    >
+    #    initb.action(self.boper,self.Expr_Start_O)           #   None  boper  unaryb/E
+    #    initb.action([AOPER,],self.Expr_Start_O)             #   None  aoper  unaryb/E
+    #    initb.action([LPAREN,],self.Expr_Start_L)            #   None  (      lparenb
+    #    initb.action([RPAREN,],self.ACT_Expected_LP_Term)    # E None  )
+    #    initb.action([COMMA,],self.ACT_Expected_LP_Term)     # E None  ,
+    #    initb.action([EOS,],self.ACT_Expected_LP_Term)       # E None  EOS
+    #    initb.error(self.ACT_Expected_LP_Term)               # E None  ??
+    #    self.state(initb)
 
-        unaryb=fsmparser.PState("unaryb")
-        unaryb.action(self.term,self.Expr_Term)              #   unary term   term
-        unaryb.action([SATTR,],self.Expr_Unary_S)            #   unary sym    >
-        unaryb.action([LPAREN,],self.Expr_Unary_L)           #   unary (      lparen
-        unaryb.action([AOPER,],self.ACT_Expected_LP_Term)    # E None  aoper
-        unaryb.action(self.boper,self.ACT_Expected_LP_Term)  # E unary boper
-        unaryb.action([RPAREN,],self.ACT_Expected_LP_Term)   # E unary )
-        unaryb.action([COMMA,],self.ACT_Expected_LP_Term)    # E unary ,
-        unaryb.action([EOS,],self.ACT_Expected_LP_Term)      # E unary EOS
-        unaryb.error(self.ACT_Expected_LP_Term)              # E unary  ??
-        self.state(unaryb)
+    #    unaryb=fsmparser.PState("unaryb")
+    #    unaryb.action(self.term,self.Expr_Term)              #   unary term   term
+    #    unaryb.action([SATTR,],self.Expr_Unary_S)            #   unary sym    >
+    #    unaryb.action([LPAREN,],self.Expr_Unary_L)           #   unary (      lparen
+    #    unaryb.action([AOPER,],self.ACT_Expected_LP_Term)    # E None  aoper
+    #    unaryb.action(self.boper,self.ACT_Expected_LP_Term)  # E unary boper
+    #    unaryb.action([RPAREN,],self.ACT_Expected_LP_Term)   # E unary )
+    #    unaryb.action([COMMA,],self.ACT_Expected_LP_Term)    # E unary ,
+    #    unaryb.action([EOS,],self.ACT_Expected_LP_Term)      # E unary EOS
+    #    unaryb.error(self.ACT_Expected_LP_Term)              # E unary  ??
+    #    self.state(unaryb)
 
-        binaryb=fsmparser.PState("binaryb")
-        binaryb.action(self.term,self.Expr_Term)             #   binary term  term
-        binaryb.action([QUOTE,],self.Expr_Start_Ch)          #   binary chr   >
-        binaryb.action([SATTR,],self.Expr_Binary_S)          #   binary sym   >
-        binaryb.action(self.boper,self.Expr_Binary_O)        #   binary boper unary/term
-        binaryb.action([AOPER,],self.Expr_Binary_O)          #   binary aoper unary/term
-        binaryb.action([LPAREN,],self.Expr_Binary_L)         #   binary (
-        binaryb.action([RPAREN,],self.ACT_Expected_LP_Term)  # E binary )
-        binaryb.action([COMMA,],self.ACT_Expected_RP_Oper)   # E binary ,
-        binaryb.action([EOS,],self.ACT_Expected_LP_Term)     # E binary EOS
-        self.state(binaryb)
+    #    binaryb=fsmparser.PState("binaryb")
+    #    binaryb.action(self.term,self.Expr_Term)             #   binary term  term
+    #    binaryb.action([QUOTE,],self.Expr_Start_Ch)          #   binary chr   >
+    #    binaryb.action([SATTR,],self.Expr_Binary_S)          #   binary sym   >
+    #    binaryb.action(self.boper,self.Expr_Binary_O)        #   binary boper unary/term
+    #    binaryb.action([AOPER,],self.Expr_Binary_O)          #   binary aoper unary/term
+    #    binaryb.action([LPAREN,],self.Expr_Binary_L)         #   binary (
+    #    binaryb.action([RPAREN,],self.ACT_Expected_LP_Term)  # E binary )
+    #    binaryb.action([COMMA,],self.ACT_Expected_RP_Oper)   # E binary ,
+    #    binaryb.action([EOS,],self.ACT_Expected_LP_Term)     # E binary EOS
+    #    self.state(binaryb)
 
-        lparenb=fsmparser.PState("lparenb")
-        lparenb.action(self.term,self.Expr_Term)             #   ( term     term
-        lparenb.action([QUOTE,],self.Expr_Start_Ch)          #   ( chr      >
-        lparenb.action([SATTR,],self.Expr_LParen_S)          #   ( sym      >
-        lparenb.action(self.boper,self.Expr_LParen_O)        #   ( boper  unary/term/E
-        lparenb.action([AOPER,],self.Expr_LParen_O)          #   ( aoper  unary/term/E
-        lparenb.action([LPAREN,],self.Expr_LParen_L)         #   ( (        lparen
-        lparenb.action([RPAREN,],self.ACT_Expected_LP_Term)  # E ( )
-        lparenb.action([COMMA,],self.ACT_Expected_LP_Term)   # E ( ,
-        lparenb.action([EOS,],self.ACT_Expected_LP_Term)     # E ( EOS
-        self.state(lparenb)
+    #    lparenb=fsmparser.PState("lparenb")
+    #    lparenb.action(self.term,self.Expr_Term)             #   ( term     term
+    #    lparenb.action([QUOTE,],self.Expr_Start_Ch)          #   ( chr      >
+    #    lparenb.action([SATTR,],self.Expr_LParen_S)          #   ( sym      >
+    #    lparenb.action(self.boper,self.Expr_LParen_O)        #   ( boper  unary/term/E
+    #    lparenb.action([AOPER,],self.Expr_LParen_O)          #   ( aoper  unary/term/E
+    #    lparenb.action([LPAREN,],self.Expr_LParen_L)         #   ( (        lparen
+    #    lparenb.action([RPAREN,],self.ACT_Expected_LP_Term)  # E ( )
+    #    lparenb.action([COMMA,],self.ACT_Expected_LP_Term)   # E ( ,
+    #    lparenb.action([EOS,],self.ACT_Expected_LP_Term)     # E ( EOS
+    #    self.state(lparenb)
 
-        rparenb=fsmparser.PState("rparenb")
-        rparenb.action(self.boper,self.Expr_RParen_O)        #   ) boper  binaryb/E
-        rparenb.action([AOPER,],self.Expr_RParen_O)          #   ) aoper  binaryb/E
-        rparenb.action([LPAREN,],self.Expr_RParen_L)         #   ) (       initb/E
-        rparenb.action([RPAREN,],self.Expr_RParen_R)         #   ) )      rparenb/end
-        rparenb.action([COMMA,],self.Expr_RParen_C)          #   ) ,       initb/E
-        rparenb.action([EOS,],self.Expr_RParen_E)            #   ) EOS     done/E
-        rparenb.action(self.term,self.ACT_Expected_RP_Oper)  # E ) term
-        rparenb.action([SATTR,],self.ACT_Expected_RP_Oper)   # E ) sym
-        rparenb.error(self.Expr_Follow)                      #   ) follow  done/E
-        self.state(rparenb)
+    #    rparenb=fsmparser.PState("rparenb")
+    #    rparenb.action(self.boper,self.Expr_RParen_O)        #   ) boper  binaryb/E
+    #    rparenb.action([AOPER,],self.Expr_RParen_O)          #   ) aoper  binaryb/E
+    #    rparenb.action([LPAREN,],self.Expr_RParen_L)         #   ) (       initb/E
+    #    rparenb.action([RPAREN,],self.Expr_RParen_R)         #   ) )      rparenb/end
+    #    rparenb.action([COMMA,],self.Expr_RParen_C)          #   ) ,       initb/E
+    #    rparenb.action([EOS,],self.Expr_RParen_E)            #   ) EOS     done/E
+    #    rparenb.action(self.term,self.ACT_Expected_RP_Oper)  # E ) term
+    #    rparenb.action([SATTR,],self.ACT_Expected_RP_Oper)   # E ) sym
+    #    rparenb.error(self.Expr_Follow)                      #   ) follow  done/E
+    #    self.state(rparenb)
 
-        termb=fsmparser.PState("termb")
-        termb.action(self.boper,self.Expr_Term_O)            #   term boper binaryb/E
-        termb.action([AOPER,],self.Expr_Term_O)              #   term aoper binaryb/E
-        termb.action([LPAREN,],self.Expr_Term_L)             #   term (    initb/E
-        termb.action([RPAREN,],self.Expr_Term_R)             #   term )   rparenb/end
-        termb.action([COMMA,],self.Expr_Term_C)              #   term ,    initb/E
-        termb.action([EOS,],self.Expr_Term_E)                #   term EOS   done/E
-        termb.action(self.term,self.ACT_Expected_RP_Oper)    # E term term
-        termb.action([SATTR,],self.ACT_Expected_RP_Oper)     # E term sym
-        termb.error(self.Expr_Follow)                        #   term follow  done/E
-        self.state(termb)
+    #    termb=fsmparser.PState("termb")
+    #    termb.action(self.boper,self.Expr_Term_O)            #   term boper binaryb/E
+    #    termb.action([AOPER,],self.Expr_Term_O)              #   term aoper binaryb/E
+    #    termb.action([LPAREN,],self.Expr_Term_L)             #   term (    initb/E
+    #    termb.action([RPAREN,],self.Expr_Term_R)             #   term )   rparenb/end
+    #    termb.action([COMMA,],self.Expr_Term_C)              #   term ,    initb/E
+    #    termb.action([EOS,],self.Expr_Term_E)                #   term EOS   done/E
+    #    termb.action(self.term,self.ACT_Expected_RP_Oper)    # E term term
+    #    termb.action([SATTR,],self.ACT_Expected_RP_Oper)     # E term sym
+    #    termb.error(self.Expr_Follow)                        #   term follow  done/E
+    #    self.state(termb)
 
         # This state ensures nothing follows the final secondary expression's
         # terminating right parenthesis
-        endb=fsmparser.PState("endb")
-        endb.action([EOS,],self.Expr_End)                    #   EOS (Hurray!) done
-        endb.error(self.ACT_ExpectedEnd)                     # E ??? ($#@$!)
-        self.state(endb)
+    #    endb=fsmparser.PState("endb")
+    #    endb.action([EOS,],self.Expr_End)                    #   EOS (Hurray!) done
+    #    endb.error(self.ACT_ExpectedEnd)                     # E ??? ($#@$!)
+    #    self.state(endb)
+        
+    def Binary(self):
+
+        inite=fsmparser.PState("inite")
+        inite.action(self.term,self.Expr_Term)               #   None  term   terme
+        inite.action([QUOTE,],self.Expr_Start_Ch)            #   None  chr    >
+        inite.action([SATTR,],self.Expr_Start_S)             #   None  sym    >
+        inite.action(self.boper,self.Expr_Start_O)           #   None  boper  unarye/E
+        inite.action([AOPER,],self.Expr_Start_O)             #   None  aoper  unarye/E
+        inite.action([LPAREN,],self.Expr_Start_L)            #   None  (      lparene
+        inite.action([RPAREN,],self.ACT_Expected_LP_Term)    # E None  )
+        inite.action([COMMA,],self.ACT_Expected_LP_Term)     # E None  ,
+        inite.action([EOS,],self.ACT_Expected_LP_Term)       # E None  EOS
+        inite.error(self.ACT_Expected_LP_Term)               # E None  ??
+        self.state(inite)
+
+        unarye=fsmparser.PState("unarye")
+        unarye.action(self.term,self.Expr_Term)              #   unary term   term
+        unarye.action([SATTR,],self.Expr_Unary_S)            #   unary sym    >
+        unarye.action([LPAREN,],self.Expr_Unary_L)           #   unary (      lparen
+        unarye.action([AOPER,],self.ACT_Expected_LP_Term)    # E None  aoper
+        unarye.action(self.boper,self.ACT_Expected_LP_Term)  # E unary boper
+        unarye.action([RPAREN,],self.ACT_Expected_LP_Term)   # E unary )
+        unarye.action([COMMA,],self.ACT_Expected_LP_Term)    # E unary ,
+        unarye.action([EOS,],self.ACT_Expected_LP_Term)      # E unary EOS
+        unarye.error(self.ACT_Expected_LP_Term)              # E unary  ??
+        self.state(unarye)
+
+        binarye=fsmparser.PState("binarye")
+        binarye.action(self.term,self.Expr_Term)             #   binary term  term
+        binarye.action([QUOTE,],self.Expr_Start_Ch)          #   binary chr   >
+        binarye.action([SATTR,],self.Expr_Binary_S)          #   binary sym   >
+        binarye.action(self.boper,self.Expr_Binary_O)        #   binary boper unary/term
+        binarye.action([AOPER,],self.Expr_Binary_O)          #   binary aoper unary/term
+        binarye.action([LPAREN,],self.Expr_Binary_L)         #   binary (
+        binarye.action([RPAREN,],self.ACT_Expected_LP_Term)  # E binary )
+        binarye.action([COMMA,],self.ACT_Expected_RP_Oper)   # E binary ,
+        binarye.action([EOS,],self.ACT_Expected_LP_Term)     # E binary EOS
+        self.state(binarye)
+
+        lparene=fsmparser.PState("lparene")
+        lparene.action(self.term,self.Expr_Term)             #   ( term     term
+        lparene.action([QUOTE,],self.Expr_Start_Ch)          #   ( chr      >
+        lparene.action([SATTR,],self.Expr_LParen_S)          #   ( sym      >
+        lparene.action(self.boper,self.Expr_LParen_O)        #   ( boper  unary/term/E
+        lparene.action([AOPER,],self.Expr_LParen_O)          #   ( aoper  unary/term/E
+        lparene.action([LPAREN,],self.Expr_LParen_L)         #   ( (        lparen
+        lparene.action([RPAREN,],self.ACT_Expected_LP_Term)  # E ( )
+        lparene.action([COMMA,],self.ACT_Expected_LP_Term)   # E ( ,
+        lparene.action([EOS,],self.ACT_Expected_LP_Term)     # E ( EOS
+        self.state(lparene)
+
+        rparene=fsmparser.PState("rparene")
+        rparene.action(self.boper,self.Expr_RParen_O)        #   ) boper  binarye/E
+        rparene.action([AOPER,],self.Expr_RParen_O)          #   ) aoper  binarye/E
+        rparene.action([RPAREN,],self.Exor_RParen_R)         #   ) )      rparene/E
+        rparene.action(self.term,self.ACT_Expected_RP_Oper)  # E ) term
+        rparene.action([SATTR,],self.ACT_Expected_RP_Oper)   # E ) sym
+        rparene.action([LPAREN,],self.ACT_Expected_RP_Oper)  # E ) (
+        rparene.error(self.Expr_Follow)                      #   ) follow  done/E
+        self.state(rparene)
+
+        terme=fsmparser.PState("terme")
+        terme.action(self.boper,self.Expr_Term_O)            #   term boper binarye/E
+        terme.action([AOPER,],self.Expr_Term_O)              #   term aoper binarye/E
+        terme.action([RPAREN,],self.Expr_Term_R)             #   term )   rparene/end
+        terme.action([EOS,],self.Expr_Term_E)                #   term EOS   done/E
+        terme.action(self.term,self.ACT_Expected_RP_Oper)    # E term term
+        terme.action([SATTR,],self.ACT_Expected_RP_Oper)     # E term sym
+        terme.action([LPAREN,],self.ACT_Expected_RP_Oper)    # E term (
+        terme.error(self.Expr_Follow)                        #   term follow  done/E
+        self.state(terme)
+
+        # This state ensures nothing follows the final secondary expression's
+        # terminating right parenthesis
+        ende=fsmparser.PState("ende")
+        ende.action([EOS,],self.Expr_End)                    #   EOS (Hurray!) done
+        ende.error(self.ACT_ExpectedEnd)                     # E ??? ($#@$!)
+        self.state(ende)
 
     def Binary_Call(self,ret,token=None,follow=[],trace=False):
         assert isinstance(ret,MPControl),\
-            "%s 'ret' argument must be a MPControl object: %s" \
-                % (assembler.eloc(self,"Binary_Call",module=this_module),ret)
-
-        # Make the next input token the one passed by the calling context/scope
-        if token:
-            self.stack(token,trace=trace)
-            self.unstack(trace=trace)
-
-        # Retrieve the active scope where we will store the return information
+             "%s 'ret' argument must be a MPControl object: %s" \
+                 % (assembler.eloc(self,"Binary_Call",module=this_module),ret)
         gs=self.scope()
-        if __debug__:
-            if trace:
-                print("%s active scope: %r" \
-                    % (assembler.eloc(self,"Binary_Call",module=this_module),gs))
-
-        gs.suffix="b"
-        gs.follow=follow
-        gs.next_state=ret.start
-        gs.next_pctx=ret.context
-        assert gs.next_state is not None,"%s %s return state is None" \
-            % (assembler.eloc(self,"Binary_Call",module=this_module),\
-                gs.__class__.__name__)
-        assert gs.next_pctx is not None,"%s %s return parser context is None" \
-            % (assembler.eloc(self,"Binary_Call",module=this_modules),\
-                gs.__class__.__name__)
-        self.context("init",trace=trace)
-        return "initb"
+        new=MacroScopeExprB(gs.lopnd)
+        new.follow=follow
+        newmp=MPControl("inite",pctx="init")
+        return self.enter_scope(gs,ret,new,newmp,stack=token,trace=trace)
 
 
   #                 +-----------------------------------+
@@ -2295,13 +2713,10 @@ class MacroParser(asmbase.AsmCtxParser):
         gs=self.scope()
         if not gs.balanced_parens():
             self.ACT_Expected_RP_Oper(value,state,trace=trace)
-        #print("gs.follow: %s" % gs.follow)
-        for follow in gs.follow:
-            if follow.tid == value.tid:
-                print("tids follow=%s : value=%s" % (follow.tid,value.tid))
-                # We might be at the valid end of the expression.
-                #gs.expression_end()
-                return self.Expr_Return(token=value,trace=trace)
+
+        if gs.isFollow(value,trace=trace):
+            #return self.Expr_Return(token=value,trace=trace)
+            return self.Expr_Return(token=value,trace=trace)
 
         # Input token not legitimate end of expression
         self.ACT_Expected_EndExpr(value,state,trace=trace)
@@ -2338,102 +2753,127 @@ class MacroParser(asmbase.AsmCtxParser):
         # ( binary
         self.ACT_Expected_LP_Term(value,state,trace=trace)
 
-    def Expr_Return(self,token=None,trace=False):
-        gs=self.scope()         # Get the current scope (the complex term's scope)
-        if __debug__:
-            if trace:
-                print("%s %r.expression_end(): primary:%s" \
-                    % (assembler.eloc(self,"Expr_Return",module=this_module),\
-                        gs,gs._primary))
-        gs.expression_end()     # Finish the pending expression (primary/secondary)
+    #def Expr_Return(self,token=None,trace=False):
+    #    gs=self.scope()         # Get the current scope (the complex term's scope)
+    #    if __debug__:
+    #        if trace:
+    #            cls_str=assembler.eloc(self,"Expr_Return",module=this_module)
+    #            print("%s scope: %s" % (cls_str,gs.__class__.__name__))
+    #            print("%s gs.arith_new:  %s" % (cls_str,gs.arith_new))
+    #            print("%s gs.binary_new: %s" % (cls_str,gs.binary_new))
+            
+    #    if gs.arith_new or gs.binary_new:
+    #        return self.Expr_Return_New(token=token,trace=trace)
+    #    if __debug__:
+    #        if trace:
+    #            print("%s %r.expression_end(): primary:%s" \
+    #                % (assembler.eloc(self,"Expr_Return",module=this_module),\
+    #                    gs,gs._primary))
+    #    gs.expression_end()     # Finish the pending expression (primary/secondary)
 
-        if __debug__:
-            if trace:
+    #    if __debug__:
+    #        if trace:
                 #print("%s result: %s" \
                 #    % (assembler.eloc(self,"Expr_Return",module=this_module),\
                 #       result.display(string=True)))
-                print("%s gs %s next_state %s next_pctx %s" \
-                    % (assembler.eloc(self,"Expr_Return",module=this_module),\
-                        gs.__class__.__name__,gs.next_state,gs.next_pctx))
+    #            print("%s gs %s next_state %s next_pctx %s" \
+    #                % (assembler.eloc(self,"Expr_Return",module=this_module),\
+    #                    gs.__class__.__name__,gs.next_state,gs.next_pctx))
 
-        gs.suffix=None
-        gs.follow=[]
-        self.context(gs.next_pctx,trace=trace)
-        gs.next_pctx=None
-        if token:
-            self.lex_retry(token,trace=trace)
-        next=gs.next_state
-        assert next is not None,"%s %s return FSM state is None" \
-            % (assembler.eloc(self,"Expr_Return",module=this_module),\
-                gs.__class__.__name__)
-        gs.next_state=None
-        return next
+    #    gs.suffix=None
+    #    gs.follow=[]
+    #    self.context(gs.next_pctx,trace=trace)
+    #    gs.next_pctx=None
+    #    if token:
+    #        self.lex_retry(token,trace=trace)
+    #    next=gs.next_state
+    #    assert next is not None,"%s %s return FSM state is None" \
+    #        % (assembler.eloc(self,"Expr_Return",module=this_module),\
+    #            gs.__class__.__name__)
+    #    gs.next_state=None
+    #    return next
+
+    def Expr_Return(self,token=None,trace=False):
+        gs=self.scope()
+        if __debug__:
+            if trace:
+                print("%s leaving scope: %s" \
+                    % (assembler.eloc(self,"Expr_Return",module=this_module),\
+                        gs))
+
+        gs.build_expression()
+        return self.leave_scope(result=gs.result(),stack=token,trace=trace)
+
 
     #
     # Actions following a right parenthesis
     #
 
-    def Expr_RParen_C(self,value,state,trace=False):
+    # This action goes away when all expressions use the expression call interface.
+    # This is because the calling scope parses the comma by supplying it as a 
+    # follow TID class.
+    #def Expr_RParen_C_Old(self,value,state,trace=False):
         # ) ,
-        gs=self.scope()
-        if gs._primary:
-            self.ACT_Expected_RP_Oper(value,state,trace=trace)
+    #    gs=self.scope()
+    #    if gs._primary:
+    #        self.ACT_Expected_RP_Oper(value,state,trace=trace)
 
         # The comma marks the end of a secondary expression
-        if gs.balanced_parens():
-            print("%s %r.expression_end(): primary:%s" \
-                % (assembler.eloc(self,"Expr_RParen_C",module=this_module),\
-                    gs,gs._primary))
-            gs.expression_end()
-            return "init%s" % gs.suffix
+    #    if gs.balanced_parens():
+    #        print("%s %r.expression_end(): primary:%s" \
+    #            % (assembler.eloc(self,"Expr_RParen_C",module=this_module),\
+    #                gs,gs._primary))
+    #        gs.expression_end()
+    #        return "init%s" % gs.suffix
 
         # Secondary expression has unbalanced parenthesis
-        self.ACT_Unbalaced(value,state,trace=trace)
+    #    self.ACT_Unbalaced(value,state,trace=trace)
 
-    def Expr_RParen_E(self,value,state,trace=False):
+    #def Expr_RParen_E_Old(self,value,state,trace=False):
         # ) EOS
-        gs=self.scope()
+    #    gs=self.scope()
 
-        if gs._primary:
-            if gs.balanced_parens:
-                if __debug__:
-                    if trace:
-                        print("%s %r.expression_end(): primary:%s" \
-                            % (assembler.eloc(self,"Expr_RParen_E",\
-                                module=this_module),gs,gs._primary))
-                gs.expression_end()
-                if gs.cterm:
-                    return self.Expr_Return(token=value,trace=trace)
-                state.atend()
-                return
-            else:
-                self.ACT_Unbalaced_Primary(value,state,trace=trace)
+    #    if gs._primary:
+    #        if gs.balanced_parens:
+    #            if __debug__:
+    #                if trace:
+    #                    print("%s %r.expression_end(): primary:%s" \
+    #                        % (assembler.eloc(self,"Expr_RParen_E",\
+    #                            module=this_module),gs,gs._primary))
+    #            gs.expression_end()
+    #            if gs.cterm:
+    #                return self.Expr_Return(token=value,trace=trace)
+    #            state.atend()
+    #            return
+    #        else:
+    #            self.ACT_Unbalaced_Primary(value,state,trace=trace)
 
-        if gs.balanced_parens:
-            if __debug__:
-                if trace:
-                    print("%s %r.expression_end(): primary:%s" \
-                        % (assembler.eloc(self,"Expr_RParen_E",\
-                                module=this_module),gs,gs._primary))
-            return self.Expr_Return(token=value,trace=trace)
+    #    if gs.balanced_parens:
+    #        if __debug__:
+    #            if trace:
+    #                print("%s %r.expression_end(): primary:%s" \
+    #                    % (assembler.eloc(self,"Expr_RParen_E",\
+    #                            module=this_module),gs,gs._primary))
+    #        return self.Expr_Return(token=value,trace=trace)
 
         # Not balanced parenthesis, so an error.
-        self.ACT_Expected_RP_Oper(value,state,trace=trace)
+    #    self.ACT_Expected_RP_Oper(value,state,trace=trace)
 
-    def Expr_RParen_L(self,value,state,trace=False):
+    # This is always an error!!
+    #def Expr_RParen_L(self,value,state,trace=False):
         # ) (
-        gs=self.scope()
+    #    gs=self.scope()
 
-        if gs._primary:
+    #    if gs._primary:
             # See if primary expression done and now starting secondaries
-            if gs.balanced_parens():
-                print("%s %r.expression_end(): primary:%s" \
-                    % (assembler.eloc(self,"Expr_RParen_L",module=this_module),\
-                        gs,gs._primary))
-                gs.expression_end()
-                return "init%s" % gs.suffix
+    #        if gs.balanced_parens():
+    #            print("%s %r.expression_end(): primary:%s" \
+    #                % (assembler.eloc(self,"Expr_RParen_L",module=this_module),\
+    #                    gs,gs._primary))
+    #            gs.expression_end()
+    #            return "init%s" % gs.suffix
 
-        self.ACT_Expected_RP_Oper(value,state,trace=trace)
+    #    self.ACT_Expected_RP_Oper(value,state,trace=trace)
 
     def Expr_RParen_O(self,value,state,trace=False):
         value.syntax()     # Set operator syntax flags
@@ -2447,35 +2887,47 @@ class MacroParser(asmbase.AsmCtxParser):
         # ) unary
         self.ACT_Expected_RP_Oper(value,state,trace=trace)
 
-    def Expr_RParen_R(self,value,state,trace=False):
+    #def Expr_RParen_R(self,value,state,trace=False):
         # ) )
-        gs=self.scope()
+    #    gs=self.scope()
 
-        if gs._primary:
-            gs.rparen(value)
-            return "rparen%s" % gs.suffix
+    #    if gs._primary:
+    #        gs.rparen(value)
+    #        return "rparen%s" % gs.suffix
 
         # For secondary expression, this might be the ending right parenthesis
-        if gs.balanced_parens():
-            if __debug__:
-                if trace:
-                    print("%s %r.expression_end(): primary:%s" \
-                        % (assembler.eloc(self,"Expr_RParen_R",module=this_module),\
-                            gs,gs._primary))
-            gs.expression_end()
-            if gs.cterm:
-                return self.Expr_Return(token=value)
+        # This goes away for the expression call interface.  The expression call
+        # interface does not differentiate between primary or secondary expressions.
+        # That is the responsibility of the calling scope
+    #    if gs.balanced_parens():
+    #        if __debug__:
+    #            if trace:
+    #                print("%s %r.expression_end(): primary:%s" \
+    #                    % (assembler.eloc(self,"Expr_RParen_R",module=this_module),\
+    #                        gs,gs._primary))
+    #        gs.expression_end()
+    #        if gs.cterm:
+    #            return self.Expr_Return(token=value)
                 #return self.ACT_Cterm_End(state,value,trace=trace)
-            return "end%s" % gs.suffix
-        else:
+    #        return "end%s" % gs.suffix
+    #    else:
+    #        gs.rparen(value)
+    #        return "rparen%s" % gs.suffix
+    #    self.ACT_Unbalaced(value,state,trace=trace)
+
+    def Exor_RParen_R(self,value,state,trace=False):
+        gs=self.scope()
+        
+        if not gs.balanced_parens():
             gs.rparen(value)
             return "rparen%s" % gs.suffix
+            
         self.ACT_Unbalaced(value,state,trace=trace)
+        
 
     #
     # Actions at start of expression
     #
-
 
     def Expr_Start_Ch(self,value,state,trace=False):
         # ' initicating start of a character expression
@@ -2530,61 +2982,83 @@ class MacroParser(asmbase.AsmCtxParser):
     # Actions following a term
     #
 
-    def Expr_Term_C(self,value,state,trace=False):
+    # This action goes away when all expressions use the calling scope interface.
+    # The comma signaling the next secondary expression is handled by the calling
+    # scope not the expression call interface.
+    #def Expr_Term_C(self,value,state,trace=False):
         # term ,
-        gs=self.scope()
+    #    gs=self.scope()
 
-        if gs._primary:
-            self.ACT_Expected_LP_Term(value,state,trace=trace)
+    #    if gs._primary:
+    #        self.ACT_Expected_LP_Term(value,state,trace=trace)
 
         # For secondary is end of the expresion
-        if gs.balanced_parens():
-            if __debug__:
-                if trace:
-                    print("%s %r.expression_end(): primary:%s" \
-                        % (assembler.eloc(self,"Expr_Term_C",module=this_module),\
-                            gs,gs._primary))
-            gs.expression_end()
-            return "init%s" % gs.suffix
-        self.ACT_Unbalaced(value,state,trace=trace)
+    #    if gs.balanced_parens():
+    #        if __debug__:
+    #            if trace:
+    #                print("%s %r.expression_end(): primary:%s" \
+    #                    % (assembler.eloc(self,"Expr_Term_C",module=this_module),\
+    #                        gs,gs._primary))
+    #        gs.expression_end()
+    #        return "init%s" % gs.suffix
+    #    self.ACT_Unbalaced(value,state,trace=trace)
+
+    # This action is replace by Expr_Term_E_New when all expressions use the
+    # expression call interface.
+    #def Expr_Term_E(self,value,state,trace=False):
+        # term EOS
+    #    gs=self.scope()
+        
+    #    if gs.arith_new or gs.binary_new:
+    #        return self.Expr_Term_E_New(value,state,trace=trace)
+
+    #    if gs._primary:
+    #        if gs.balanced_parens():
+    #            if __debug__:
+    #                if trace:
+    #                    print("%s %r.expression_end(): primary:%s" \
+    #                        % (assembler.eloc(self,"Expr_Term_E",module=this_module),\
+    #                            gs,gs._primary))
+    #            gs.expression_end()
+    #            state.atend()
+    #            return
+    #        else:
+    #            self.ACT_Unbalaced_Primary(value,state,trace=trace)
+
+        # For secondary missing final right parenthesis
+    #    self.ACT_Expected_RP_Oper(value,state,trace=trace)
 
     def Expr_Term_E(self,value,state,trace=False):
         # term EOS
         gs=self.scope()
+        
+        if gs.balanced_parens():
+            return self.Expr_Return(token=value,trace=trace)
+        else:
+            self.ACT_Unbalaced_Primary(value,state,trace=trace)
 
-        if gs._primary:
-            if gs.balanced_parens:
-                if __debug__:
-                    if trace:
-                        print("%s %r.expression_end(): primary:%s" \
-                            % (assembler.eloc(self,"Expr_Term_E",module=this_module),\
-                                gs,gs._primary))
-                gs.expression_end()
-                state.atend()
-                return
-            else:
-                self.ACT_Unbalaced_Primary(value,state,trace=trace)
-
-        # For secondary missing final right parenthesis
-        self.ACT_Expected_RP_Oper(value,state,trace=trace)
-
-    def Expr_Term_L(self,value,state,trace=False):
+    #def Expr_Term_L(self,value,state,trace=False):
         # term (
-        gs=self.scope()
+    #    gs=self.scope()
 
-        if gs._primary:
-            if gs.balanced_parens():
+
+        # This goes away when all expressions use the expression call interface.
+        # This is because primary vs. secondary expressions are handled by the 
+        # calling scope.  So the 'term (' sequence is always an error and never
+        # _here_ signals the end of the primary expression.
+    #    if gs._primary:
+    #        if gs.balanced_parens():
                 # End of primary expression
-                if __debug__:
-                    if trace:
-                        print("%s %r.expression_end(): primary:%s" \
-                            % (assembler.eloc(self,"Expr_Term_L",module=this_module),\
-                                gs,gs._primary))
-                gs.expression_end()
-                # Start of secondary expression
-                return "init%s" % gs.suffix
+    #            if __debug__:
+    #                if trace:
+    #                    print("%s %r.expression_end(): primary:%s" \
+    #                        % (assembler.eloc(self,"Expr_Term_L",module=this_module),\
+    #                            gs,gs._primary))
+    #            gs.expression_end()
+    #            # Start of secondary expression
+    #            return "init%s" % gs.suffix
 
-        self.ACT_Expected_RP_Oper(value,state,trace=trace)
+    #    self.ACT_Expected_RP_Oper(value,state,trace=trace)
 
     def Expr_Term_O(self,value,state,trace=False):
         value.syntax()     # Set operator syntax flags
@@ -2598,32 +3072,54 @@ class MacroParser(asmbase.AsmCtxParser):
         # term unary
         self.ACT_Expected_RP_Oper(value,state,trace=trace)
 
+    # This action is replaced by Expr_Term_R_New when all expressions use the 
+    # expression call interface.
+    #def Expr_Term_R(self,value,state,trace=False):
+        # term )
+    #    gs=self.scope()
+        
+    #    if __debug__:
+    #        if trace:
+    #            cls_str=assembler.eloc(self,"Expr_Term_R",module=this_module)
+    #            print("%s scope: %s" % (cls_str,gs.__class__.__name__))
+    #            print("%s gs.arith_new:  %s" % (cls_str,gs.arith_new))
+    #            print("%s gs.binary_new: %s" % (cls_str,gs.binary_new))
+            
+    #    if gs.arith_new or gs.binary_new:
+    #        return self.Expr_Term_R_New(value,state,trace=trace)
+
+    #    if gs._primary:
+    #        gs.rparen(value)
+    #        return "rparen%s" % gs.suffix
+
+        # For secondary need to see if end of secondary expressions
+    #    if gs.balanced_parens():
+    #        if gs.cterm:
+                #return self.ACT_Cterm_End(value,state,trace=trace)
+    #            return self.Expr_Return(value,trace=trace)
+    #        else:
+    #            if __debug__:
+    #                if trace:
+    #                    print("%s %r.expression_end(): primary:%s" \
+    #                        % (assembler.eloc(self,"Expr_Term_R",module=this_module),\
+    #                            gs,gs._primary))
+    #            gs.expression_end()
+    #            if gs.cterm:
+    #                self.Expr_Return(token=value)
+    #        return "end%s" % gs.suffix
+
+    #    gs.rparen(value)
+    #    return "rparen%s" % gs.suffix
+
     def Expr_Term_R(self,value,state,trace=False):
         # term )
         gs=self.scope()
-
-        if gs._primary:
-            gs.rparen(value)
-            return "rparen%s" % gs.suffix
-
-        # For secondary need to see if end of secondary expressions
-        if gs.balanced_parens():
-            if gs.cterm:
-                #return self.ACT_Cterm_End(value,state,trace=trace)
-                return self.Expr_Return(value,trace=trace)
-            else:
-                if __debug__:
-                    if trace:
-                        print("%s %r.expression_end(): primary:%s" \
-                            % (assembler.eloc(self,"Expr_Term_R",module=this_module),\
-                                gs,gs._primary))
-                gs.expression_end()
-                if gs.cterm:
-                    self.Expr_Return(token=value)
-            return "end%s" % gs.suffix
+        if gs.balanced_parens() and gs.isFollow(value,trace=trace):
+            return self.Expr_Return(token=value,trace=trace)
 
         gs.rparen(value)
         return "rparen%s" % gs.suffix
+
 
     #
     # Actions following a unary operator
@@ -2669,7 +3165,7 @@ class MacroParser(asmbase.AsmCtxParser):
     #
     #
     #        ' &SYM. &SYM &SYM( ''  &&  '(starting-expr,length_expr)
-    #         \____________ ____________/\_____________ ___________/
+    #         \____________ ____________/ \____________ __________/
     #                      v                           v
     #               Primary Expression        Secondary Expresions
     #
@@ -2678,7 +3174,7 @@ class MacroParser(asmbase.AsmCtxParser):
 
         initc=fsmparser.PState("initc")
         initc.action([SYMBOL],self.Chr_Sym_dot)              #   ...  &SYM.  initc
-        initc.action([SYM],self.Chr_Sym)                     #   ...  &SYM   > 
+        initc.action([SYM],self.Chr_Sym)                     #   ...  &SYM   >sym
         initc.action([LPAREN,],self.Chr_Chrs)                #   ...  (      initc
         initc.action([CHRS],self.Chr_Chrs)                   #   ...  xxxx   initc
         initc.action([DBLQUOTE],self.Chr_Chrs)               #   ...  ''     initc
@@ -2687,14 +3183,31 @@ class MacroParser(asmbase.AsmCtxParser):
         initc.error(self.Chr_Expected_Chrs)                  # E      other
         self.state(initc)
 
-        # Symbol withi possible subscripts found within string
+        # Look for End-of-String after final right parenthesis
+        csube=fsmparser.PState("csube")
+        csube.action([EOS,],self.Chr_End)                    #   )    EOS     done!
+        csube.error(self.ACT_ExpectedEnd)                    # E ???
+        self.state(csube)
+
+        # Return state after parsing sublist length expression
+        csubl=fsmparser.PState("csubl")
+        csubl.action([RPAREN,],self.Chr_Subs_End)            #  arith> )     csube
+        self.state(csubl)
+
+        # Return state after parsing starting position expression
+        csubs=fsmparser.PState("csubs")
+        csubs.action([COMMA,],self.Chr_Subs_Length)          #   arith ,    >arith
+        csubs.error(self.ACT_Expected_Comma)                 # E ???
+        self.state(csubs)
+
+        # Symbol within possible subscripts found within string
         # Determining whether subscripts are present
         csym=fsmparser.PState("csym")
-        csym.action([LPAREN,],self.Chr_Subs)                 #   &SYM  (     >
+        csym.action([LPAREN,],self.Chr_Subs_Start)           #   &SYM  (     >
         csym.error(self.Chr_Sym_End)                         #   &SYM  other initr
         self.state(csym)
 
-    def Chr_Call(self,ret,token=None,trace=True):
+    def Chr_Call(self,ret,token=None,trace=False):
         if __debug__:
             if trace:
                 print("%s ret: %s token:%s trace:%s" \
@@ -2725,48 +3238,57 @@ class MacroParser(asmbase.AsmCtxParser):
                     % (assembler.eloc(self,"Rep_End",module=this_module),\
                         gs,gs._primary))
         gs.expression_end()
-        #result=gs.result()      # Get the result object (ChrExpr)
-        #assert isinstance(result,ChrExpr),\
-        #    "%s expected CharacterExpr object from current scope (%s): %s" \
-        #        % (assembler.eloc(self,"Chr_End",module=this_module),\
-        #            result.__class__.__name__,result)
- 
         return "csym"    # See if we have a substring
-        # Return the result to the caller and stack the
-        #return self.leave_scope(result=result)
-        #state.atend()
 
     # Sublist detected with character string
-    def Chr_Subs(self,value,state,trace=False):
-        gs=self.scope()
+    #def Chr_Subs(self,value,state,trace=False):
+    #    gs=self.scope()
         # Because the replacement scope has already been pushed, don't need to use
         # enter_scope(), but do need to set how to get back to the rep context
         # we are about to leave
 
         # Enter context for sublist arithmetic expressions
-        return self.Arith_Call(MPControl("csym",pctx="cexpr"))
+    #    return self.Arith_Call(MPControl("csym",pctx="cexpr"))
         
         # When the RPAREN is detected at the end of the sublist, we return to 
         # these states and context via a leave_scope()
+
+    def Chr_Subs_End(value,state,trace=False):
+        return "csube"
+
+    def Chr_Subs_Length(value,state,trace=False):
+        ret=MPControl("csubl",pctx="cexpr")
+        return self.Arith_Call(ret,token=None,follow=[RPAREN,],trace=trace)
+
+    def Chr_Subs_Start(value,state,trace=False):
+        ret=MPControl("csubs",pctx="cexpr")
+        return self.Arith_Call(ret,token=None,follow=[COMMA,],trace=trace)
 
     # A replacement symbolic reference started (without concatenation)
     #   Scope:   CharacterExpr
     #   Context: rep
     def Chr_Sym(self,value,state,trace=False):
         gs=self.scope()
+        
+        ret=MPControl("initc",pctx="cexpr")
+        return self.Sym_Call(ret,token=value,trace=trace)
+        
+        # All of this needs to be changed to using the scope call interface.  The
+        # Symbolic Reference states need to handle all of this
+        #
         # When we return to the CharcterExpr scope, this is its state.
-        gs.return_state("initc","cexpr")  # When we 
-        new=SymbolicReference(gs.lopnd)
-        new.init(stmt=gs._stmt)
-        new.token(value)
-        if __debug__:
-            if trace:
-                print("%s %r.expression_end(): primary:%s" \
-                    % (assembler.eloc(self,"Rep_Sym",module=this_module),\
-                        gs,gs._primary))
-        new.expression_end()   # Complete the primary expression (the symbol name)
-        self.push_scope(new)
-        return "csym"
+        #gs.return_state("initc","cexpr")  # When we 
+        #new=SymbolicReference(gs.lopnd)
+        #new.init(stmt=gs._stmt)
+        #new.token(value)
+        #if __debug__:
+        #    if trace:
+        #        print("%s %r.expression_end(): primary:%s" \
+        #            % (assembler.eloc(self,"Rep_Sym",module=this_module),\
+        #                gs,gs._primary))
+        #new.expression_end()   # Complete the primary expression (the symbol name)
+        #self.push_scope(new)
+        #return "csym"
 
     def Chr_Sym_dot(self,value,state,trace=False):
         gs=self.scope()
@@ -2823,7 +3345,7 @@ class MacroParser(asmbase.AsmCtxParser):
     #   Case 2: A subscripted variable symbol declaration
     #
     #         &SYMBOL(size-expression)$
-    #         \__ __/\________ _______/          
+    #         \__ __/ \_______ _____/          
     #            v            v
     #         Primary      Secondary
     #        Expression    Expression
@@ -2836,31 +3358,33 @@ class MacroParser(asmbase.AsmCtxParser):
         self.state(inits)
 
         cterms=fsmparser.PState("cterms")
-        cterms.action([LPAREN,],self.Decl_Subs)              #   cterm (     init >
-        cterms.action([EOS,],self.Decl_Sym_End)              #   cterm EOS   finished
+        cterms.action([LPAREN,],self.Decl_Subs)              #   cterm (     arith >
+        cterms.action([EOS,],self.Decl_End)                  #   cterm EOS   finished
         cterms.error(self.ACT_Expected_LP)                   # E cterm other term
         self.state(cterms)
+
+        ctermr=fsmparser.PState("ctermr")
+        # Note: The final right parenthesis is stacked by the Arith call
+        ctermr.action([RPAREN,],self.Decl_Rparen)            #   cterm )     terms
+        ctermr.error(self.ACT_Expected_RP)                   # E cterm ???
+        self.state(ctermr)
 
         terms=fsmparser.PState("terms")
         terms.action([EOS,],self.Decl_End)                    #   EOS (Hurray!) done
         terms.error(self.ACT_ExpectedEnd)                     # E ??? ($#@$!)
         self.state(terms)
 
+    def Decl_Rparen(self,value,state,trace=False):
+        # Now check for End-of-String...
+        return "terms"
 
     def Decl_Sym(self,value,state,trace=False):
         gs=self.scope()
         gs.token(value)
-        return "cterms"
-
-    def Decl_Sym_End(self,value,state,trace=False):
-        gs=self.scope()
-        if __debug__:
-            if trace:
-                print("%s %r.expression_end(): primary:%s" \
-                    % (assembler.eloc(self,"Decl_Sym_End",module=this_module),\
-                        gs,gs._primary))
+        # This is always the primary expression so complete it now.
         gs.expression_end()
-        state.atend()
+        # Determine if the declaration is for an array
+        return "cterms"
 
     def Decl_Subs(self,value,state,trace=False):
         gs=self.scope()
@@ -2869,20 +3393,9 @@ class MacroParser(asmbase.AsmCtxParser):
                 print("%s %r.expression_end(): primary:%s" \
                     % (assembler.eloc(self,"Decl_Subs",module=this_module),\
                         gs,gs._primary))
-        gs.expression_end()   # Complete the primary expression (the symbol name)
         # Stay with the SymbolicReference scope but change to arithmetic expr context
-        ret=MPControl("terms",pctx="init")
-        return self.Arith_Call(ret,token=value,trace=trace)
-
-    def Decl_Done(self,value,state,trace=False):
-        gs=self.scope()
-        if __debug__:
-            if trace:
-                print("%s %r.expression_end(): primary:%s" \
-                    % (assembler.eloc(self,"Decl_Done",module=this_module),\
-                        gs,gs._primary))
-        gs.expression_end()   # Complete either the primary or secondary
-        return "terms"
+        ret=MPControl("ctermr",pctx="init")
+        return self.Arith_Call(ret,token=None,follow=[RPAREN,],trace=trace)
         
     def Decl_End(self,value,state,trace=False):
         state.atend()
@@ -2934,6 +3447,7 @@ class MacroParser(asmbase.AsmCtxParser):
     def Quote_End(self,value,state,trace=False):
         state.atend()
 
+
   #                 +----------------------------+
   #                 |                            |
   #                 |    SYMBOLIC REPLACEMENT    |
@@ -2947,7 +3461,7 @@ class MacroParser(asmbase.AsmCtxParser):
     # Parses: Model statement fields and operands.  The entire string upto and
     #         including the end-of-string token, designated by the $ below is
     #         consumed.  The processing is similar to a character expression except
-    #         that there are no enclosing singl quotes used here and there are never
+    #         that there are no enclosing single quotes used here and there are never
     #         any secondary expressions.
     #
     #        xxx &SYM. &SYM &SYM( ''  &&xx$
@@ -3094,6 +3608,19 @@ class MacroParser(asmbase.AsmCtxParser):
     # Scope: SymbolicReference
     # See MacroCSLexer.init_sym() method
     
+    # Parses: A macro symbolic symbol reference with optional secondary arithmetic
+    #         expression as the only secondary expression.  Whatever token occurs
+    #         following either the symbol or the ending right parenthesis is
+    #         stacked for the calling scope to process.
+    #
+    #         +--primary expresion
+    #         |
+    #         v
+    #       &SYM(arithemetic-expression)
+    #            \__________ _________/
+    #                       v
+    #              secondary expression
+    
     def Sym(self):
         # These two lists control the sharing of information with other classes
         # required to correctly process lexical tokens that support symbol names.
@@ -3137,7 +3664,7 @@ class MacroParser(asmbase.AsmCtxParser):
         self.state(srsub)
 
         srend=fsmparser.PState("srend")
-        srend.action([RPAREN,],self.Sym_Subs_End)          # <    )
+        srend.action([RPAREN,],self.Sym_Subs_End)          # Arith<  )
         srend.error(self.Sym_Arith_Fail)                   # internal failure
         self.state(srend)
 
@@ -3163,6 +3690,8 @@ class MacroParser(asmbase.AsmCtxParser):
             "reference, received: %s" \
                 % (assembler.eloc(self,"Sym_Call_Fail",module=this_module),value))
         
+    # Complete symbol reference without secondary arithmetic expression
+    # The symbol is returned for the calling scope to process as one of its own
     def Sym_End(self,value,state,trace=False):
         return self.Call_Return(token=value,trace=trace)
 
@@ -3179,10 +3708,11 @@ class MacroParser(asmbase.AsmCtxParser):
 
     def Sym_Subs(self,value,state,trace=False):
         ret=MPControl("srend",pctx="init")
-        return self.Arith_Call(ret,token=None)
-        
+        return self.Arith_Call(ret,token=None,follow=[RPAREN,],trace=trace)
+
     def Sym_Subs_End(self,value,state,trace=False):
         return self.Call_Return(trace=trace)
+    
 
 
   #                 +------------+
@@ -3231,7 +3761,7 @@ class MacroParser(asmbase.AsmCtxParser):
         # Start new complex term scope for Character expression
         gs=self.scope()                # Fetch the current scope (MacroScope)
         retmp=MPControl("setc_end",pctx="init")
-        return self.Chr_Call(retmp,token=None,trace=True)
+        return self.Chr_Call(retmp,token=None,trace=trace)
 
     def SETC_LAttr(self,value,state,trace=False):
         gs=self.scope()
@@ -3266,6 +3796,9 @@ class MacroParser(asmbase.AsmCtxParser):
 
     def ACT_Expected_Aoper(self,value,state,trace=False):
         self.ACT_Expected("aritmetic operator",value)
+ 
+    def ACT_Expected_Comma(self,value,state,trace=False):
+        self.ACT_Expected("comma",value)
 
     def ACT_ExpectedEnd(self,value,state,trace=False):
         self.ACT_Expected("end of operand",value)
@@ -3285,6 +3818,9 @@ class MacroParser(asmbase.AsmCtxParser):
 
     def ACT_Expected_Quote(self,value,state,trace=False):
         self.ACT_Expected("quote",value)
+
+    def ACT_Expected_RP(self,value,state,trace=False):
+        self.ACT_Expected("right parenthesis",value)
 
     def ACT_Expected_RP_Oper(self,value,state,trace=False):
         self.ACT_Expected("right parenthesis or operator",value)
