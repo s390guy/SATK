@@ -1,4 +1,4 @@
-# Copyright (C) 2014 Harold Grovesteen
+# Copyright (C) 2014-2016 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -284,6 +284,28 @@ format RIEF
     source I3 I3
     source I4 I4
     source I5 I5
+
+
+# RIE-g
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  | M3  |           I2          |0000 |0000 |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# RIEG: MNEMONIC R1,I2,M3
+#
+format RIEG
+    length 6
+    xopcode 40 47
+    mach R1 8 11
+    mach M3 12 15
+    mach I2 16 31 signed
+    source R1 R1
+    source I2 I2
+    source M3 M3
+
 
 
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
@@ -951,6 +973,9 @@ format RXE
      source SX X2 B2 D2
 
 
+# RXF
+# ---
+# 
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | R3  | X2  | B2  |       D2        | R1  |0000 |    XOP    |
@@ -969,6 +994,29 @@ format RXF
      source R1 R1
      source R3 R3
      source SX X2 B2 D2
+
+
+# RXE - March, 2015
+# ---
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  | X2  | B2  |       D2        | M3  |0000 |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# RXFE: MNEMONIC R1,D2(X2,B2),M3
+#
+format RXFE
+     length 6
+     xopcode 40 47
+     mach R1 8 11
+     mach X2 12 15
+     mach B2 16 19
+     mach D2 20 31
+     mach M3 32 35
+     source R1 R1
+     source SX X2 B2 D2
+     source M3 M3
 
 
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
@@ -1338,6 +1386,768 @@ format SSF3
     source S2 B2 D2
 
 
+# VRI-a
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  |0000 |           I2          |0000 | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRIA: MNEMONIC V1,RI2
+# (VECTOR GENERATE BYTE MASK)
+format VRIA
+    length 6
+    xopcode 40 47
+    mach V1  8 11
+    mach I2 16 31 signed
+    mach RXB 36 39
+    source V1 V1
+    source I2 I2
+
+
+# VRI-a - with M3
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  |0000 |           I2          | M3  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRIA1: MNEMONIC V1,I2,M3
+# (VECTOR LOAD ELEMENT IMMEDIATE)
+format VRIA1
+    length 6
+    xopcode 40 47
+    mach V1  8 11
+    mach I2 16 31 signed
+    mach M3 32 35
+    mach RXB 36 39
+    source V1 V1
+    source I2 I2
+    source M3 M3
+
+
+# VRI-b
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  |0000 |     I2    |     I3    | M4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRIB: MNEMONIC V1,I2,I3,M4
+# (VECTOR GENERATE MASK)
+format VRIB
+    length 6
+    xopcode 40 47
+    mach V1 8 11
+    mach I2 16 23
+    mach I3 24 31
+    mach M4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source I2 I2
+    source I3 I3
+    source M4 M4
+
+
+# VRI-c
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V3  |          I2           | M4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRIC: MNEMONIC V1,V3,I2,M4
+# (VECTOR REPLICATE)
+format VRIC
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V3 12 15
+    mach I2 16 31
+    mach M4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V3 V3
+    source I2 I2
+    source M4 M4
+
+
+# VRI-d
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 |    I4     | M5  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRID: MNEMONIC V1,V2,V3,I4,M5
+# (VECTOR ELEMENT ROTATE AND INSERT UNDER MASK)
+format VRID
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach I4 24 31
+    mach M5 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    source I4 I4
+    source M5 M5
+
+
+# VRI-d - without M5
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 |    I4     |0000 | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRID1: MNEMONIC V1,V2,V3,I4
+# (VECTOR SHIFT LEFT BOUBLE BY BYTE)
+format VRID1
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach I4 24 31
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    source I4 I4
+
+
+# VRI-e
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  |        I3       | M5  | M4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRIE: MNEMONIC V1,V2,I3,M4,M5
+# (VECTOR FP TEST DATA CLASS IMMEDIATE)
+format VRIE
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach I3 16 27
+    mach M5 28 31
+    mach M4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source I3 I3
+    source M4 M4
+    source M5 M5
+
+
+# VRR-a
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  |0000 |0000 | M5  | M4  | M3  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRRA: MNEMONIC V1,V2,M3,M4,M5
+# (VECTOR FP CONVERT FROM FIXED 64-BIT)
+format VRRA
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach M5 24 27
+    mach M4 28 31
+    mach M3 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source M3 M3
+    source M4 M4
+    source M5 M5
+
+
+# VRR-a - without M4 and M5
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  |0000 |0000 |0000 |0000 | M3  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# VRRA1: MNEMONIC V1,V2,M3
+# (VECTOR SIGN EXTEND TO DOUBLEWORD)
+format VRRA1
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach M3 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source M3 M3
+
+
+# VRR-a - without M3, M4 and M5
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  |0000 |0000 |0000 |0000 |0000 | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# VRRA2: MNEMONIC V1,V2
+# (VECTOR TEST UNDER MASK)
+format VRRA2
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+
+
+# VRR-a - without M4
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  |0000 |0000 | M5  |0000 | M3  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# VRRA3: MNEMONIC V1,V2,M3[,M5]
+# (VECTOR ISOLATE STRING)
+format VRRA3
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach M5 24 27
+    mach M3 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source M3 M3
+    source M5 M5
+
+    
+# VRR-a - without M5
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  |0000 |0000 |0000 | M4  | M3  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# VRRA4: MNEMONIC V1,V2,M3,M4
+# (VECTOR FP COMPARE SCALAR)
+format VRRA4
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach M4 28 31
+    mach M3 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source M3 M3
+    source M4 M4
+
+
+# VRR-b
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 | M5  |0000 | M4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# VRRB: MNEMONIC V1,V2,V3,M4,M5
+#       MNEMONIC V1,V2,V3,M4[,M5]
+# (VECTOR PACK SATURATE)
+format VRRB
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M5 24 27
+    mach M4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    source M4 M4
+    source M5 M5
+
+
+# VRR-c
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 | M6  | M5  | M4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# VRRC: MNEMONIC V1,V2,V3,M4,M5,M6
+# (VECTOR FP COMPARE EQUAL)
+format VRRC
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M6 24 27
+    mach M5 28 31
+    mach M4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    source M4 M4
+    source M5 M5
+    source M6 M6
+
+
+# VRR-c - without M6 and M5
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 |0000 |0000 | M4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# VRRC1: MNEMONIC V1,V2,V3,M4
+# (VECTOR MERGE HIGH)
+format VRRC1
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    source M4 M4
+
+
+# VRR-c - without M6 and M5 and M4
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 |0000 |0000 |0000 | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# VRRC2: MNEMONIC V1,V2,V3
+# (VECTOR AND)
+format VRRC2
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+
+
+# VRR-c - without M6
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 |0000 | M5  | M4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# VRRC3: MNEMONIC V1,V2,V3,M4,M5
+# (VECTOR FP ADD)
+format VRRC3
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M5 28 31
+    mach M4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    source M4 M4
+    source M5 M5
+
+
+# VRR-d
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  | M5  | M6  |0000 | V4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# VRRD: MNEMONIC V1,V2,V3,V4,M5[,M6]
+# (VECTOR STRING RANGE COMPARE)
+format VRRD
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M5 20 23
+    mach M6 24 27
+    mach V4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    source V4 V4
+    source M5 M5
+    source M6 M6
+
+    
+# VRR-d - without M6
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  | M5  |0000 |0000 | V4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# VRRD1: MNEMONIC V1,V2,V3,V4,M5
+# (VECTOR ADD WITH CARRY)
+format VRRD1
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M5 20 23
+    mach V4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    source V4 V4
+    source M5 M5
+
+    
+# VRR-e
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  | M6  |0000 | M5  | V4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# VRRE: MNEMONIC V1,V2,V3,V4,M5,M6
+# (VECTOR FP MULTIPLY AND ADD)
+format VRRE
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M6 20 23
+    mach M5 28 31
+    mach V4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    source V4 V4
+    source M5 M5
+    source M6 M6
+
+
+# VRR-e - without M5 and M6
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 |0000 |0000 | V4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# VRRE1: MNEMONIC V1,V2,V3,V4
+# (VECTOR PERMUTE)
+format VRRE1
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach V4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    source V4 V4
+
+
+# VRR-f
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 |0000 |0000 |0000 | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# VRRF: MNEMONIC
+# (no actual instruction uses this format will all defined fields)
+#format VRRF
+#    length 6
+#    xopcode 40 47
+#    mach V1 8  11
+#    mach V2 12 15
+#    mach V3 16 19
+#    mach RXB 36 39
+
+
+# VRR-f - with GRs
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | R2  | R3  |0000 |0000 |0000 |0000 | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# VRRF1: MNEMONIC V1,R2,R3
+# (VECTOR LOAD VR FROM GRS DISJOINT)
+format VRRF1
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach R2 12 15
+    mach R3 16 19
+    mach RXB 36 39
+    source V1 V1
+    source R2 R2
+    source R3 R3
+
+
+# VRS-a
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V3  | B2  |        D2       | M4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRSA: MNEMONIC V1,V3,S2,M4
+# (VECTOR ELEMENT ROTATE LEFT LOGICAL)
+format VRSA
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V3 12 15
+    mach B2 16 19
+    mach D2 20 31
+    mach M4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V3 V3
+    source S2 B2 D2
+    source M4 M4
+
+
+# VRS-a - without M4
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V3  | B2  |        D2       |0000 | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRSA1: MNEMONIC V1,V3,S2
+# (VECTOR LOAD MULTIPLE)
+format VRSA1
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V3 12 15
+    mach B2 16 19
+    mach D2 20 31
+    mach RXB 36 39
+    source V1 V1
+    source V3 V3
+    source S2 B2 D2
+
+
+# VRS-b
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | R3  | B2  |        D2       | M4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRSB:
+# (VECTOR LOAD VR ELEMENT FROM GR)
+format VRSB
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach R3 12 15
+    mach B2 16 19
+    mach D2 20 31
+    mach M4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source R3 R3
+    source S2 B2 D2
+    source M4 M4
+
+
+# VRS-b - without M4
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | R3  | B2  |        D2       |0000 | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRSB1: MNEMONIC V1,R3,S2
+# (VECTOR STORE WITH LENGTH)
+format VRSB1
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach R3 12 15
+    mach B2 16 19
+    mach D2 20 31
+    mach RXB 36 39
+    source V1 V1
+    source R3 R3
+    source S2 B2 D2
+
+
+# VRS-c
+# -----
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  | V3  | B2  |        D2       | M4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRSC: MNEMONIC R1,V3,S2,M4
+# (VECTOR LOAD GR FROM VR ELEMENT)
+format VRSC
+    length 6
+    xopcode 40 47
+    mach R1 8  11
+    mach V3 12 15
+    mach B2 16 19
+    mach D2 20 31
+    mach M4 32 35
+    mach RXB 36 39
+    source R1 R1
+    source V3 V3
+    source S2 B2 D2
+    source M4 M4
+
+
+# VRV
+# ---
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | B2  |        D2       | M3  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRV: MNEMONIC V1,D2(V2,B2),M3
+# (VECTOR GATHER ELEMENT)
+format VRV
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach B2 16 19
+    mach D2 20 31
+    mach M3 32 35
+    mach RXB 36 39
+    source V1 V1
+    source SX V2 B2 D2
+    source M3 M3
+
+
+# VRX
+# ---
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | X2  | B2  |        D2       | M3  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRX: MNEMONIC 
+# (VECTOR LOAD LOGICAL ELEMENT AND ZERO)
+format VRX
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach X2 12 15
+    mach B2 16 19
+    mach D2 20 31
+    mach M3 32 35
+    mach RXB 36 39
+    source V1 V1
+    source SX X2 B2 D2
+    source M3 M3
+
+
+# VRX - without M3
+# ---
+#    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | X2  | B2  |        D2       |0000 | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRX1: MNEMONIC V1,D2(X2,B2)
+# (VECTOR LOAD)
+format VRX1
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach X2 12 15
+    mach B2 16 19
+    mach D2 20 31
+    mach RXB 36 39
+    source V1 V1
+    source SX X2 B2 D2
+
+
 #     0     4     8     12   15
 #     +-----+-----+-----+-----+
 #     |     OP    | XOP | R1  |
@@ -1406,3 +2216,22 @@ format ERILC
     xopcode 8 15
     mach RELI1 16 47 signed
     source RELI1 RELI1
+
+
+# VRI-a - Extended Mnemonic for RI2
+# -----
+#  
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  |0000 |          RI2          |0000 | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# EVRIA: MNEMONIC V1
+#
+format EVRIA
+    length 6
+    xopcode 40 47
+    mach V1 8 11
+    mach RI2 16 31 signed fixed
+    mach RXB 36 39
+    source V1 V1

@@ -158,7 +158,7 @@ class icu(object):
         self.addr=addr          # Prefered address of the attached device
 
 class mfield(object):
-    rxb={8:0b1000,12:0b0100,16:0x0b0010,32:0xb0001}
+    rxb={8:0b1000,12:0b0100,16:0b0010,32:0b0001}
     # Used by functools for sorting of mfield objects by starting bit number
     # select_list=sorted(possible,key=functools.cmp_to_key(mfield.compare))
     @staticmethod
