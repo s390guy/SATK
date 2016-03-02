@@ -25,6 +25,25 @@ import time       # Access data/time formatting tools
 
 this_module="listing.py"
 
+
+# This method returns a standard identification of an error's location.
+# It is expected to be used like this:
+#
+#     cls_str=assembler.eloc(self,"method")
+# or
+#     cls_str=assembler.eloc(self,"method",module=this_module)
+#     raise Exception("%s %s" % (cls_str,"error information"))
+#
+# It results in a Exception string of:
+#     'module - class_name.method_name() - error information'
+def eloc(clso,method_name,module=None):
+    if module is None:
+        m=this_module
+    else:
+        m=module
+    return "%s - %s.%s() -" % (m,clso.__class__.__name__,method_name)
+
+
 # Base class for the definition of a column.
 #
 # The format string method parsing is broken in Python 3.3 and some later versions.
@@ -335,23 +354,20 @@ class Listing(object):
         try:
             fo=open(filename,filemode)
         except IOError:
-            cls_str="%s %s.__eor() -" % (this_module,self.__class__.__name__)
             raise ValueError("%s could not open listing file for writing: %s"\
-                % filename) from None
+                % (eloc(self,"__eor"),filename)) from None
 
         try:
             fo.write(lines)
         except IOError:
-            cls_str="%s %s.__eor() -" % (this_module,self.__class__.__name__)
             raise ValueError("%s could not completely write listing file: %s" \
-                % (cls_str,filename)) from None
+                % (eloc(self,"__eor"),filename)) from None
 
         try:
             fo.close()
         except IOError:
-            cls_str="%s %s.__eor() -" % (this_module,self.__class__.__name__)
             raise ValueError("%s could not close listing file: %s" \
-                % (cls_str,filename))
+                % (eloc(self,"__eor"),filename))
 
     # Output a single line, while performing top of form output.
     def __line(self,line):
@@ -383,8 +399,8 @@ class Listing(object):
     # Subclass must generate a detail line when requested.  Return None when the
     # listing is complete.  Return an empty string to cause the listing to space.
     def detail(self):
-        cls_str="%s - %s.init() -" % (this_module,self.__class__.__name__)
-        raise NotImplementedError("%s subclass must provide detail() method" % cls_str)
+        raise NotImplementedError(
+            "%s subclass must provide detail() method" % eloc(self,"detail"))
 
     # This will force the subclass to generate a new title line.  It must be called
     # by the subclass before the detail line is returned and will cause the returned
@@ -407,8 +423,8 @@ class Listing(object):
 
     # Subclass must generate a heading line when requested.
     def heading(self):
-        cls_str="%s - %s.init() -" % (this_module,self.__class__.__name__)
-        raise NotImplementedError("%s subclass must provide heading() method" % cls_str)
+        raise NotImplementedError(\
+            "%s subclass must provide heading() method" % eloc(self,"heading"))
 
     # Returns the number of lines remaining on the current page.
     def remaining(self):
@@ -424,24 +440,35 @@ class Listing(object):
 
     # Subclass must generate a title line when requested.
     def title(self):
-        cls_str="%s - %s.init() -" % (this_module,self.__class__.__name__)
-        raise NotImplementedError("%s subclass must provide title() method" % cls_str)
+        raise NotImplementedError(\
+            "%s subclass must provide title() method" % eloc(self,"title"))
+
+
+# This object is used by the Multiline object to simplify managing different portions
+# of the listing.
+class ListingPart(object):
+    def __init__(self,more,header=None,init=None):
+        self.init=init             # A listing part's initialization callback method
+        self.more=more             # A listing part's more callback method
+        self.header=header         # A listing part's header callback method
 
 
 # This object is used in conjunction with the Listing Manager to allow multiple lines
-# to be generated and returned individually to the manager object.
+# to be generated and returned individually to the manager object.  Additionally,
+# it provides support for different listing parts and sources of header lines and
+# detail lines.
 #
-# When the buffer is empty it will call a user supplied bound method to retrieve
-# more lines.  The method must support one argumet, this object.  When a line
-# is generated, the method should call this object's more() method to buffer the
-# data.  If no additional report lines are required, the method should simply return
-# without calling the more() method.
+# When the buffer is empty it will call a user supplied bound callback method,
+# retrieving more lines.  The method must support one argument, this object.  When a
+# line or lines are generated, the callback method must call this object's own more()
+# method to buffer the lines.  If no additional report lines are required, the method
+# should simply return without calling the more() method.
 #
-# The user supplied more method must do one of the following:
+# The user supplied more callback method must do one of the following:
 #   1. Supply one or more lines via the Multline.more() method.  The same method
 #      will be called the next time the buffer is empty.
 #   2. Supply one or more lines and terminate the listing with 
-#      Multline.more(done=True).
+#      Multiline.more(done=True).
 #   3. Change to another more method by calling Multiline.details(method).
 #   4. Return without adding lines to the listing and thereby ending the listing.
 #
@@ -449,57 +476,112 @@ class Listing(object):
 # called only once will result in a infinite loop.
 #
 # Instance Argument:
-#   more  Specifies a method for generating more detail lines when more lines are
-#         needed.  Required.
+#   report   The subclass of Listing that creates the report
+#   details  Specifies a method for generating more detail lines when more lines are
+#            needed.  Required.
+#   header   Specifies a new method to be called when a header is required.
 class Multiline(object):
-    def __init__(self, details):
-        self._more=details   # Method called when buffer needs more lines
-        self._in_more=False
-        self._done=False     # Force end when buffer empty.  DO NOT CALL more()!
+    def __init__(self, report,details=None, header=None):
+        assert isinstance(report,Listing),\
+            "%s 'report' argument must be a Listing object: %r" \
+                % (eloc(self,"__init__"),report)
+
+        self._report=report    # The Listing subclass generating the report
+        self._more=details     # Method called when buffer needs more lines
+        self._header=header    # Header method called when a header is required.
+        self._in_more=False    # Flag detecting when in the user's more callback.
+        self._done=False       # Force end when buffer empty.  DO NOT CALL more()!
+
+        # Listing Parts
+        self._parts=[]         # List of ListingPart objects
+        self._parts_done=False # List part definitions completed
+        self._parts_ndx=0      # Index of next part to be created
+        self._part_done=False  # Whether the current part is done
 
         # More than one detail line may be created.  The following list is used to 
         # buffer such details lines until requested by the detail() method.
         self._buffer=[]
 
+    # Start a new listing part
+    # Returns:
+    #   False   if listing is _not_ at the end
+    #   True    if listing _is_ at the and being terminated
+    def _part(self):
+        try:
+            pt=self._parts[self._parts_ndx]
+        except IndexError:
+            # index exceeds parts list membership - listing is done
+            self.details(None,header=None,cont=False)
+            return True
+
+        self._parts_ndx+=1    # Point to next part of the listing
+        if pt.init is not None:
+            pt.init()         # Initialize this part of the listing
+        # Reset multiline callbacks
+        self.details(pt.more,header=pt.header,cont=True)
+        if pt.header is not None:
+            # If a new header is being used, force an eject
+            self._report.eject()
+        self._part_done=False   # This new part is not done (just starting it)
+        return False
+
     # Return a detail line from the buffer.
-    # An IndexError indicates the buffer is empty
+    #
+    # Exception:
+    #   IndexError  raised when the bugger is empty.
     def _pop(self):
         det=self._buffer[0]
         del self._buffer[0]
         return det
 
     # Provide a detail line to the buffer.
+    #
+    # Method Argument:
+    #   lines   a single string or list of strings being added to the report
     def _push(self,lines,trace=False):
-        if trace:
-            cls_str="asmlist.py %s._push() -" % self.__class__.__name__
-            print("%s push(%s)" % (cls_str,lines))
+        if __debug__:
+            if trace:
+                cls_str=eloc(self,"_push")
+                print("%s push(%s)" % (cls_str,lines))
+
         if isinstance(lines,list):
             for n in lines:
                 if not isinstance(n,str):
-                    cls_str="%s %s.push() -" % (this_module,self.__class__.__name__)
-                    raise ValueError("%s detail buffer must only contain strings: %s" \
-                        % (cls_str,n.__class__.__name__))
+                    if __debug__:
+                        if trace:
+                            raise ValueError(\
+                                "%s detail buffer must only contain strings: %s" \
+                                    % (eloc(self,"_push"),n.__class__.__name__))
+
                 self._buffer.append(n)
-            if trace:
-                print("%s push list\n    %s" % (cls_str,self._buffer))
+
+            if __debug__:
+                if trace:
+                    print("%s push list\n    %s" % (cls_str,self._buffer))
         else:
             if not isinstance(lines,str):
-                cls_str="%s %s._push() -" % (this_module,self.__class__.__name__)
                 raise ValueError("%s detail buffer must only contains strings: %s" \
-                    % (cls_str,lines.__class__.__name__))
+                    % (eloc(self,"_push"),lines.__class__.__name__))
             self._buffer.append(lines)
-            if trace:
-                print("%s push string\n    %s" % (cls_str,self._buffer))
+            if __debug__:
+                if trace:
+                    print("%s push string\n    %s" % (cls_str,self._buffer))
 
     # Return a detail line from the buffer generating more lines when needed
     # This is used strictly within the user's own detail() method when responding
     # to the Listing Manager's request for a detail line.
+    #
+    # This method is used within a Lister subclass supplied detail method like this:
+    #
+    #   def detail(self):
+    #       return multiline.detail()
     def detail(self, trace=False):
         if self._in_more:
-            raise NotImplementedError("detail() method must not be called while "
-                "in 'more()' method")
-        if trace:
-            cls_str="%s - %s.detail() -" % (this_module,self.__class__.__name__)
+            raise NotImplementedError("%s detail() method must not be called while "
+                "in 'more()' method" % eloc(self,"detail"))
+        if __debug__:
+            if trace:
+                cls_str=eloc(self,"detail")
 
         # Normally, the while ends by returning a line from the buffer
         # If it does not, the self._cont is inspected to see if a new more() method
@@ -511,13 +593,21 @@ class Multiline(object):
                 if self._done:
                     break
                 else:
+                    if self._part_done:
+                        # Previous call to my more() method indicated the current
+                        # part was done.  So initialize and set callbacks for the
+                        # next part.
+                        if self._part():
+                            # When _part returns True, the listing is done
+                            return None
                     self._in_more=True
                     self._more(self)
                     self._in_more=False
             try:
                 det=self._pop()
-                if trace:
-                    print("%s detail: '%s'" % (cls_str,det))
+                if __debug__:
+                    if trace:
+                        print("%s detail: '%s'" % (cls_str,det))
                 return det
             except IndexError:
                 if self._cont:
@@ -528,23 +618,89 @@ class Multiline(object):
                 return None
         return None
 
-    # Change the more lines method
+    # Change the more lines or header callback methods.
     # Method Argument
-    #   detail   The new 'more()' method returning detail lines
+    #   detail   The new 'more()' callback method supplying detail lines.
+    #   header   An optional new header callback method.  Specify a new header method.  If
+    #            None is specified, the header method remains unchanged.  If a
+    #            report eject is required, it must be driven by the subclass of
+    #            Listing directly using this object.  Defaults to None
     #   cont     If True, retry with the new method for more lines.  Default is True.
-    def details(self, detail,cont=True):
+    #
+    # This is used in a more callback method to change the source of details lines
+    # and, optionally, the source of the report header line when the currently
+    # used more callback has determined it is at the end of its portion of a 
+    # report.
+    def details(self, detail,header=None,cont=True):
+        # Update the header callback method if provided
+        if header is not None:
+            self._header=header
+        # Update the more callback methid (required)
         self._more=detail
+        # Specify whether the report is being continued or terminated.
         self._cont=cont
+
+    # Use the supplied header method callback.
+    # Returns:
+    #    the string returned by the callback method
+    #
+    # Note a Lister subclass will normally use this method in the subclass supplied
+    # heading method, like this:
+    #   def heading(self):
+    #       return self.multiline.header()
+    def header(self):
+        return self._header()
 
     # Add one or more detail lines to the buffer for report creation.
     # Method Arguments:
     #   lines    One or more lines to be added to the listing
+    #   partdone If True, this part is done.
     #   done     If True, the user's 'more()' method is not called again, ending the
     #            listing.
-    def more(self, lines,done=False):
+    def more(self, lines=[],partdone=False,done=False):
         self._push(lines)
         self._done=done
-        
+        self._part_done=partdone
+
+    # Start the next part of the listing by changing callbacks.
+    def nextpart(self):
+        if not self._in_more:
+            raise NotImplementedError("%s nextpart() method must only be called "
+                "from within a more callback method" % eloc(self,nextpart))
+        end=self._part()
+        return end
+
+    # Define the callbacks used for the first part.  
+    def start(self):
+        if self._parts_ndx!=0:
+            raise NotImplementedError("%s start() method must only be called for "
+                "the first part, next part index: %s" \
+                    % (eloc(self,"start"),self._parts_ndx))
+        else:
+            if len(self._parts)==0:
+                raise ValueError("%s no listing parts defined")
+        if not self._parts_done:
+            # Initialize the first part. Not done with part(last=True)
+            self._part()
+
+    # Define a listing part
+    # Method Arguments:
+    #    more    Listing part detail callback method.  Required.
+    #    header  Listing part header callback method.  Defaults to None.
+    #    init    Listing part initialization callback method.  Defaults to None.
+    #    last    Indicate this is the last part.  Automatically performs start
+    def part(self, more,init=None,header=None,last=False):
+        if self._parts_done:
+            raise NotImplementedError(\
+                "%s last listing part defined, more parts may not be added" \
+                    % eloc(self,"part"))
+
+        pt=ListingPart(more,header=header,init=init)
+        self._parts.append(pt)
+        if last:
+            self._parts_done=True   # Don't allow part() method to be called again.
+            self._part()            # Initialize the callbacks for the first part
+
 
 if __name__ == "__main__":
-    raise NotImplementedError("listing.py - intended for import use only")
+    raise NotImplementedError("%s - intended for import use only" % this_module)
