@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2012,2013 Harold Grovesteen
+# Copyright (C) 2012, 2013, 2016 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -311,7 +311,7 @@ class ckd_info(object):
                 unit="K"
                 unit_metric=ckd_info.K
         units,excess=divmod(value,unit_metric)
-        tenths=excess*10 / unit_metric
+        tenths=excess*10//unit_metric
         return "%s.%s%s" % (units,tenths,unit)
     # This class gives access to the information managed by the ckdev class 
     # and devcap subclasses.  Once created, a ckd_info instance is read only.

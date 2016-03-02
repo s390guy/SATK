@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2012,2013 Harold Grovesteen
+# Copyright (C) 2012, 2013, 2016 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -242,7 +242,7 @@ class fba_info(object):
         # Return the number of blocks that can be stored on the volume
         if self.__block<=0:
             return None
-        return self.hostsize//self.__block
+        return self.host//self.__block
     @property
     def device(self):
         # Returns the device type
