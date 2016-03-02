@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2015 Harold Grovesteen
+# Copyright (C) 2015,2016 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -21,7 +21,7 @@
 this_module="%s.py" % __name__
 
 # ASMA displayed copyright information.  This must match the copyright in asma.py
-copyright="asma.py Copyright (C) %s Harold Grovesteen" % "2014, 2015"
+copyright="asma.py Copyright (C) %s Harold Grovesteen" % "2014-2016"
 
 # Python imports: None
 # ASMA/SATK imports:

@@ -232,7 +232,7 @@ class AOper(object):
                             % (mf.name,value))
                 vreg=value & 0xF
                 if value>15:
-                    rxb|=mf.rxb
+                    rxb |= mf.rxb
                 fld=Field(mfield=mf,value=vreg)
             else:
                 fld=Field(mfield=mf,value=value)

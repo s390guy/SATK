@@ -807,8 +807,8 @@ class DCDS_Operand(asmbase.AsmFSMScope):
         self.act_algn=0     # Actual alignement
         self.ds_stg=None    # asmdcds.Storage object if this is a DS operand
         self.T="U"          # Type attribute of operand
-        self.S=None         # Scale attribute of operand
-        self.I=None         # Integer attribute of operand
+        self.S=0            # Scale attribute of operand
+        self.I=0            # Integer attribute of operand
         # also updates asndcds.Nominal objects in self.values with explicit lengths 
         # if required.
 

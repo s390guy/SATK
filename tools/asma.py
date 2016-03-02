@@ -19,7 +19,7 @@
 # This module provides a command line interface to the ASMA assembler.py module.
 
 this_module="asma.py"
-copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014, 2015")
+copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014-2016")
 
 # Python imports
 import sys

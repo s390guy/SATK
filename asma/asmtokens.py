@@ -174,6 +174,11 @@ class PLitLabel(pratt3.PLit):
             #  assembler.Assembler - XREF entry is generated
         except KeyError:
             # Label not defined
+            if __debug__:
+                if debug:
+                    print("%s src line: %s" \
+                        % (assembler.eloc(self,"getSTE",module=this_module),\
+                            self.src.line))
             raise assembler.LabelError(self.label,ltok=self.src,msg="undefined label") \
                 from None
 

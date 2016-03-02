@@ -162,7 +162,7 @@ import asmtokens              # Access Pratt expression evaluators
 #   line    The assembler statement generating the error report
 #   source  The Source object identifying the macro statement detecting the error
 #   linepos The location within the detecting statement of the error
-#   invokde Whethet the error was raised during an invoked macro (True) or during a
+#   invoke  Whethet the error was raised during an invoked macro (True) or during a
 #           macro definition (False)
 #   msg     The nature of the error.
 # Note: This object expects to be created by Invoker.error() method.
@@ -788,6 +788,9 @@ class MacroOp(object):
             # Convert PParserError into a MacroError
             msg="%s: '%s'" % (pe.msg,pe.ptok.src.string)
             raise MacroError(invoke=True,msg=msg) from None
+        except assembler.LabelError as le:
+            # Convert a LabelError into a MacroError
+            raise MacroError(invoke=True,msg=le.msg) from None
 
     # All subclasses must provide an operation method that returns next.
     # Returns:
@@ -795,9 +798,9 @@ class MacroOp(object):
     #   The first element of the tuple is the next operation to be performed
     #   The second element of the tuple is the result of the operation.
     def operation(self,state,debug=False):
-        cls_str=assembler.eloc(self,"operation",module=this_module)
         raise NotImplementedError("%s subclass %s must provide operation() method" \
-            % (cls_str,self.__class__.__name__))
+            % (assembler.eloc(self,"operation",module=this_module),\
+                self.__class__.__name__))
 
     # Used to convert result of arithmetic expressions into Python integers.
     def to_integer(self,value):
@@ -1059,7 +1062,10 @@ class SETx(MacroOp):
             # Perform unsubscripted SET
             # The single value is the first and only operand
             expr=self.expr[0]
-            set_val=expr.evaluate(external=exp,debug=debug)
+            try:
+                set_val=expr.evaluate(external=exp,debug=debug)
+            except assembler.LabelError as le:
+                raise MacroError(invoke=True,msg=le.msg) from None
             if __debug__:
                 if debug:
                     print("%s set_val: %s" \
@@ -1074,11 +1080,14 @@ class SETx(MacroOp):
         ndx_expr=setsym[0]    # Fetch the subscript expression
         ndx=ndx_expr.evaluate(external=exp,debug=debug)
         if not isinstance(ndx,int):
-            raise MacroError(invold=True,\
+            raise MacroError(invoke=True,\
                 msg="symbol %s subscript 1 not an integer: %s" % (setname,ndx))
 
         for n,exp in enumerate(self.expr):
-            set_val=exp.evaluate(exp,debug=debug)
+            try:
+                set_val=exp.evaluate(exp,debug=debug)
+            except assembler.LabelError as le:
+                raise MacroError(invoke=True,msg=le.msg) from None
             symid=macsyms.SymbolID(setname,indices=[ndx,])
             # Let the subclass set the value
             self.setx(state,symid,set_val,n,debug=debug)
@@ -1161,7 +1170,7 @@ class SETB(SETx):
                 v=macsyms.B_Val(0)
         elif isinstance(value,macsyms.B_Val):
             v=value
-        elif isinstnace(value,(str,macsyms.C_Val)):
+        elif isinstance(value,(str,macsyms.C_Val)):
             raise MacroError(invoke=True,\
                 msg='SETB operand %s requires logical or arithmentic result: "%s"'\
                     % (n+1,value))
@@ -1227,6 +1236,9 @@ class SETC(SETx):
         elif isinstance(value,int):
             # Convert integer into a self-defining term string
             string="%s" % value
+            val=macsyms.C_Val(string)
+        elif isinstance(value,macsyms.A_Val):
+            string="%s" % value._value
             val=macsyms.C_Val(string)
         else:
             assert isinstance(value,macsyms.C_Val),\

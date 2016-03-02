@@ -102,7 +102,7 @@ class AsmListing(Listing):
         self.refgrp=None        # Group used to list symbol references
         self.symgrp=None        # Group for fixed columns
         self.rpl=None           # Number of references per line
-        
+
         # Part 2_5 - Macro Cross Reference groups
         self.mrefgrp=None       # Group used to list macro references
         self.macgrp=None        # Group for fixed columns
@@ -142,12 +142,12 @@ class AsmListing(Listing):
 
         # Data built for listing 
         self.stes=[]            # List of symbol table entries
-        
+
         # Data built for macro cross-reference
         self.mtes=[]            # List of macro entries.
         self.max_mac=None       # Size in characters of maximum macro name
         self.mac_first=True     # Switch for first-time
-        
+
         # Image map information
         self.part3_first=False  # Flag to inidicate first detail line
         self.entry=None         # Image entry point, if defined
@@ -601,6 +601,10 @@ class AsmListing(Listing):
 
         # Determine the content of the ADDR1 and ADDR2 columnes
         laddr=stmt.laddr    # This retrieves the list of two elements from the stmt
+
+        #print("%s [%s] addr fields: %s" \
+        #    % (assembler.eloc(self,"part1_details",module=this_module),\
+        #        stmt.lineno,len(laddr)))
 
         if stmt.asmdir:
             if trace:

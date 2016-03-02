@@ -93,17 +93,37 @@ class ASMExpr(object):
                     return tok
         return None  # Not found
         
-    def find_first_ptok(self,cls=[]):
-        assert self.pratt is not None,"%s pratt attribute is None" \
-            % assembler.eloc(self,"find_first_ptok",module=this_module)
+    def find_first_ptok(self,lineno,cls=[],debug=False):
+        assert self.pratt is not None,"%s [%s] pratt attribute is None" \
+            % (assembler.eloc(self,"find_first_ptok",module=this_module),lineno)
+        assert len(self.pratt.toks)>0,"%s [%s] pratt.toks length: zero" \
+            % (assembler.eloc(self,"find_first_ptok",module=this_module),lineno)
 
         if not isinstance(cls,list):
             for ptok in self.pratt.toks:
+                if __debug__:
+                    if debug:
+                        print("%s [%s] ptok: %s" \
+                            % (assembler.eloc(self,"find_first_ptok",\
+                                module=this_module),lineno,ptok.__class__.__name__))
+                        print("%s [%s] class: %s" \
+                                % (assembler.eloc(self,"find_first_ptok",\
+                                    module=this_module),lineno,cls))
                 if isinstance(ptok,cls):
                     return ptok
         else:
             for ptok in self.pratt.toks:
+                if __debug__:
+                    if debug:
+                        print("%s [%s] ptok: %s" \
+                            % (assembler.eloc(self,"find_first_ptok",\
+                                module=this_module),lineno,ptok.__class__.__name__))
                 for c in cls:
+                    if __debug__:
+                        if debug:
+                            print("%s [%s] class: %s" \
+                                % (assembler.eloc(self,"find_first_ptok",\
+                                    module=this_module),lineno,c))
                     if isinstance(ptok,c):
                         return ptok
         return None  # Not found
@@ -1447,14 +1467,14 @@ class StorageExt(Storage):
             return self.disp %  4096
         elif typ == "R":
             return self.length
-        elif self.isIndex and typ == "X":
+        elif self.isIndex and typ in ["X","V"]:
             return self.index
         else:
             if typ == "L":
                 return max(0,self.length-1) 
 
         raise ValueError("%s upsupported machine type requested: %s index=%s" \
-            % (eloc(self,"field"),typ,self.isIndex))
+            % (assembler.eloc(self,"field"),typ,self.isIndex))
 
     def resolve(self,asm,stmt,opn,trace=False):
         if __debug__:

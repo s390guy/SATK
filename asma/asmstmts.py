@@ -432,7 +432,7 @@ class ASMStmt(object):
             spaces=spaces
 
         logline=self.logline
-        #if self.lineno==39:
+        #if self.lineno==182:
         #    ddebug=True
         #else:
         #    ddebug=debug # or True
@@ -1053,12 +1053,12 @@ class MachineStmt(ASMStmt):
 
         # Figure out what should go into the ADDR1 and ADDR2 listing fields
         if len(laddrs)==1:
-            self.laddr.append(laddrs[0])
+            #self.laddr=[laddrs[0],None]
+            self.laddr=[laddrs[0],]
         elif len(laddrs)>=2:
-            self.laddr.append(laddrs[0])
-            self.laddr.append(laddrs[-1])
+            self.laddr=[laddrs[0],laddrs[-1]]
         else:
-            pass
+            self.laddr=[]
 
         asm.builder.build(self,trace=idebug)
 
@@ -1073,7 +1073,7 @@ class MacroProto(ParmStmt):
     parser="mproto"# Operand parser
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
-    attrs=""       # Attributes supported in expression
+    attrs=""       # Attributes supported in expression (all allowed)
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -1156,7 +1156,7 @@ class MacroStmt(ParmStmt):
     parser="mparms"# Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
-    attrs=""       # Attributes supported in expression
+    attrs=""       # Attributes supported in expression (all allowed)
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -1275,8 +1275,6 @@ class ModelStmt(ASMStmt):
 
         self.model=m
 
-        #asm.MM.indefn._model(\
-        #    self.lineno,self.model,seq=seq,syslist=self.syslist,debug=debug)
         macro.indefn._model(\
             self.lineno,self.model,seq=seq,syslist=self.syslist,debug=debug)
 
@@ -2156,7 +2154,7 @@ class DC(ASMStmt):
             if __debug__:
                 if otrace:
                     print("%s cur_sec %s _alloc=%s" \
-                        % (cls_str,self.cur_sec,self.cur_sec._alloc))
+                        % (cls_str,cur_sec,cur_sec._alloc))
 
             area.append(bin)
             value.content=bin
@@ -2193,9 +2191,9 @@ class DC(ASMStmt):
         first=values[0]
         if __debug__:
             if otrace:
-                print("%s first operand: T:%s S:%s I:%s" \
+                print("%s first operand (%s): T:%s S:%s I:%s" \
                     % (assembler.eloc(self,"Pass1",module=this_module),\
-                        first.T,first.S,first.I))
+                        first.__class__.__name__,first.T,first.S,first.I))
 
         self.label_create(asm,length=first.length(),T=first.T,S=first.S,I=first.I)
 
@@ -2512,7 +2510,7 @@ class EQU(TemplateStmt):
         # Pass 0 
         self.new_symbol=None   # New symbol being created
 
-    def find_root_symbol(self,asm):
+    def find_root_symbol(self,asm,debug=False):
         operand1=self.operands[0]
 
         val_opnd=self.bin_oprs[0]
@@ -2526,8 +2524,9 @@ class EQU(TemplateStmt):
                 % (assembler.eloc(self,"find_root_symbol",module=this_module),\
                     self.lineno,self.source,val_opnd)
 
-        tok=val_expr.find_first_ptok(\
-            cls=[asmtokens.PLitLabelAttr,asmtokens.PLitCur])
+        tok=val_expr.find_first_ptok(self.lineno,\
+            cls=[asmtokens.PLitLabel,asmtokens.PLitLabelAttr,asmtokens.PLitCur],\
+            debug=debug)
             #cls=[asmtokens.PLitLabelAttr,])
         assert tok is not None,\
             "%s [%s] %s EQU looked for root symbol token but none found" \
@@ -2564,10 +2563,9 @@ class EQU(TemplateStmt):
         if isinstance(new_value,lnkbase.Address):
             # If there is not an explicit length, the new symbol gets its length
             # from the symbol upon which the value is based.  This symbol is the
-            # one specifyed by the first 
-            # 
+            # one specified by the first symbol in the expression.
             if new_length is None:
-                ptok=self.find_root_symbol(asm)
+                ptok=self.find_root_symbol(asm,debug=etrace)
                 if isinstance(ptok,asmtokens.PLitCur):
                     new_length=1
                 else:
@@ -2862,7 +2860,12 @@ class MEXIT(ASMStmt):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        if macro.state!=0:
+        if __debug__:
+            if self.trace or trace:
+                print("%s macro: %s, macro.state: %s" \
+                    % (assembler.eloc(self,"Pass0",module=this_module),\
+                        macro,macro.state))
+        if macro.state!=2:
             raise assembler.AssemblerError(source=self.source,line=self.lineno,\
                 msg="MEXIT operation must not be used outside of a macro definition")
 
@@ -3942,7 +3945,8 @@ class SETA(SETx):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=True    # Whether operand field may have spaces outside of quoted strings
-    attrs="KNT"    # Attributes supported in expression
+    #attrs="KNT"    # Attributes supported in expression
+    attrs=""       # Attributes supported in expression (all allowed)
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -3975,7 +3979,8 @@ class SETB(SETx):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=True    # Whether operand field may have spaces outside of quoted strings
-    attrs="KNT"    # Attributes supported in expression
+    #attrs="KNT"    # Attributes supported in expression
+    attrs=""       # Attributes supported in expression (all allowed)
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -4004,7 +4009,8 @@ class SETC(SETx):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
-    attrs="KNT"    # Attributes supported in expression
+    #attrs="KNT"    # Attributes supported in expression
+    attrs=""       # Attributes supported in expression (all allowed)
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)

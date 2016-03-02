@@ -501,7 +501,7 @@ class OperMgr(asmbase.ASMOperTable):
             raise KeyError()
         
         raise ValueError("%s operation search algorithm failed to either return "\
-            "the ASMOper object or result in None: %s" \
+            "the ASMOper object or result is None: %s" \
                 % (assembler.eloc(self,"getOper",module=this_module),oper))
 
     # Return the underlying operation name for an operator synonym

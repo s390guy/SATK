@@ -487,6 +487,13 @@ class cfsm(fsm.FSM):
         self.source=self.pline.source
 
     # Parse all physical line operand fields into LOperand objects.
+    # Method Arguments:
+    #   logline    The logical line (LogLine) object whose operands are being
+    #              separated
+    #   attrs      The symbol attributes allowed for the operation.  A string
+    #              containing the allowed attributes.  The emty string implies
+    #              all attributes (see asmtokens.ATTRS).  None implies no
+    #              symbol or label attributes allowed.
     # Returns:
     #   list of LOperand objects corresponding to each logical operand
     # Exceptions:
@@ -523,8 +530,12 @@ class cfsm(fsm.FSM):
         return self.operands
 
     def start(self,logline,attrs="",spaces=False,alt=False):
-        #self.attrs=attrs
-        self.attrs=asmtokens.ATTR
+        if attrs=="":
+            self.attrs=asmtokens.ATTR
+        elif attrs is None:
+            self.attrs=""
+        else:
+            self.attrs=attrs
         self.spaces=spaces
         self.altfmt=alt
         self.logline=logline

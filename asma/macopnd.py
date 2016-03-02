@@ -1734,7 +1734,6 @@ class MacroParser(asmbase.AsmCtxParser):
         self.Aif()       # Initialize AIF statement states
         self.Aopnd()     # Initialize arithmetic operand states
         self.Arith()     # Initialize arithmetic expression call scope states
-        #self.Binary_Old() # Initialize binary (logical) expression states
         self.Binary()    # Initialize binary expression call scope states
         self.Bopnd()     # Initialize binary operand states
         self.Chr()       # Initialize character expression complex term states
@@ -3294,7 +3293,7 @@ class MacroParser(asmbase.AsmCtxParser):
         gs=self.scope()
         symref=SymbolRef()
         symref.primary(value)
-        self.token(symref)
+        gs.token(symref)
         return "initc"
 
     # Complete a symbolic variable reference without subscripts:
@@ -3530,7 +3529,7 @@ class MacroParser(asmbase.AsmCtxParser):
         gs=self.scope()
         symref=SymbolRef()
         symref.primary(value)
-        self.token(symref)
+        gs.token(symref)
         return "initr"
 
     # Complete a symbolic variable reference without sugscripts:
