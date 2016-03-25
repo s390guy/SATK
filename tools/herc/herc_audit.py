@@ -77,7 +77,7 @@ class CEntry(object):
         self.pos=pos              # Index of the entry in the Hercules table
         self.opsize=0             # Opcode size in bits
         self.level2=False         # Is this a level 1 pointor for level 2?
-        
+
         archs=gen.split("x")
         self.s370="370" in archs
         self.s37x="37X" in archs
@@ -95,6 +95,7 @@ class CEntry(object):
             # Special hndling for Assist instruction with duplicate names:
             if self.mnemonic=="Assist":
                 self.mnemonic="Assist_%s" % self.opcode
+                #print("[%s] %s" % (self.lineno,self.mnemonic))
         else:
             self.mnemonic=self.format=self.function=""
         self.s37x_func=None      # Function name referenced by s37x
@@ -154,8 +155,8 @@ class CEntry_Null(CEntry):
     def __init__(self,lineno,pos,gen,opcode):
         super().__init__(lineno,pos,gen,None,opcode)
         self.null=True
-        
-        
+
+
 # s37x.c table entry
 class CEntry_S37X(object):
     def __init__(self,lineno,function,ndx,opcode):
@@ -163,9 +164,9 @@ class CEntry_S37X(object):
         self.function=function    # Function associated with the opcdoe processing
         self.ndx=ndx              # Index into opcode.c table of the instruction
         self.opcode=opcode        # Opcode
-        
+
         self.opcode_line=None     # Line number in opcode.c
-        
+
         # Validate index and opcode values
         if len(opcode)==0:
             return
@@ -186,11 +187,12 @@ class CEntry_S37X(object):
         if ndx!=opc:
             print("[%s] opcode %s does not match index position: 0x%2X" \
                 % (self.lineno,opcode,pos))
-    
+
     def __str__(self):
         ndx="0x%02X" % self.ndx
         opc=self.opcode.ljust(4)
         return "[%s] %s %s %s" % (self.lineno,opc,ndx,self.function)
+
 
 # Object encapsulating a C source input line, preserving its source lineno.
 # Line termination characters are removed, whitespace at the end of the line is
@@ -210,7 +212,7 @@ class CLine(object):
         if self.line is None:
             raise ValueError("self.line is None")
         self.empty=len(self.line)==0
-        
+
     def __str__(self):
         return "[%s] %s" % (self.lineno,self.line)
 
@@ -222,7 +224,7 @@ class CSource(object):
         self.filename=filename
         self.srclines=0
         self.clines=[]
-        
+
     def __str__(self):
         return "%s: file: %s (lines: %s, non-empty: %s)" \
             % (self.__class__.__name__,self.filename,self.srclines,len(self.clines))   
@@ -249,7 +251,7 @@ class CSource(object):
             fo.close()
         except IOError:
             print("could not close: %s" % ie)
-            
+
     def parse(self):
         raise NotImplementedError("%s subclass %s must provide parse() method"\
             % (eloc(self,"parse"),self.__class__.__name__))
@@ -263,7 +265,7 @@ class CSource(object):
 #   entries A list of CEntry objects representing the individual entries.
 class CTable(object):
     S37X_table={}
-    
+
     # This method initializes the reverse lookup of CTable_S37X.
     @staticmethod
     def init_S37X_table():
@@ -277,10 +279,10 @@ class CTable(object):
                     % ctable)
             except KeyError:
                 newd[ctable]=key
-                
+
         # Expose the table
         CTable.S37X_table=newd
-        
+
     def __init__(self,name,begin,end,entries=[],ignored=False):
         self.name=name         # Table name
         self.begin=begin       # Table line number start
@@ -290,13 +292,13 @@ class CTable(object):
         self.vector=self.name[:2]=="v_"
         if self.ignored:
             return
-        
+
         # Determine associated s37c table name, if any
         try:
             self.other=CTable.S37X_table[name]
         except KeyError:
             self.other=None
-        
+
         # Count the number of non-empty entries
         c=0
         for e in entries:
@@ -380,13 +382,13 @@ class COpcodes(CSource):
         #  0 == Looking for start of an opcode table
         #  1 == Within an opcode table
         self.state=0
-        
+
         # Parse results
         self.tables={}       # Dictionary of CTable objects by name
         self.tbllist=[]      # List of CTable objects as found in opcode.c
         self.vtables={}      # Dictionary of vector CTable objects
         self.vtbllist=[]     # List of vector CTable objects
-        
+
         self.ignored=[]      # List of ignored tables
 
         # Accumulated data while within an optode definition
@@ -397,7 +399,7 @@ class COpcodes(CSource):
         self.opcodes=[]      # Accumulated lines of opcode definitions
 
         # Correct incorrect comment opcodes
-        self.fix_opcode={3335:"B9A4",3708:"R3A4",3729:"E3B9",4487:"EBA4",4508:"EBB9",\
+        self.fix_opcode={3335:"B9A4",3708:"E3A4",3729:"E3B9",4487:"EBA4",4508:"EBB9",\
             5026:"EDB9"}
 
     # Add a new entry destined for the table.
@@ -407,7 +409,7 @@ class COpcodes(CSource):
         assert isinstance(entry,CEntry),\
             "%s 'entry' argument must be a CEntry object: %s" \
                 % (eloc(self,"new_entry"),entry)
-        
+
         self.opcodes.append(entry)
         self.pos+=1
 
@@ -415,7 +417,7 @@ class COpcodes(CSource):
         assert isinstance(tbl,CTable),\
             "%s 'tbl' argument must be a CTable object: %s" \
                 % (eloc(self,"new_table"),tbl)
-        
+
         if tbl.vector:
             # Add vector instruction table to the module
             self.vtables[tbl.name]=tbl
@@ -496,10 +498,10 @@ class COpcodes(CSource):
         # Adjust lineno to enable debugging of a specific opcode.c line.  Line
         # numbers start at 1, so 0 disabled debug messages.
         debug = cline.lineno==0
-            
+
         if debug:
             print(cline)
-        
+
         s=cline.line.split()
         if debug:
             print("[%s]: s: %s" % (cline.lineno,s))
@@ -543,7 +545,7 @@ class COpcodes(CSource):
         debug=cline.lineno==0
         if debug:
             print(cline)
-        
+
         # A table entry has this format starting in column 2.  The final entry
         # ends with a semicolon ";" preceded by a right curly-brace "}".
         #
@@ -573,7 +575,7 @@ class COpcodes(CSource):
 
         # Separate string at whitespace. 
         s=text.split()
-        
+
         # For some unexplained (unresearched) reason when whitespace is removed
         # some of the items of seprated strings end up being empty (zero length).
         # This removes them.  Suspect tabs might be the reason.
@@ -612,7 +614,7 @@ class COpcodes(CSource):
         if gen[:4]!="GENx":
             print("[%s] warning, not a GEN line" % cline)
             return
-            
+
         # Default to a null table entry if anything goes wrong in the analysis
         entry=CEntry_Null(cline.lineno,self.pos,gen,opcode)
 
@@ -736,7 +738,7 @@ class C37x(CSource):
         self.table_name=text[slen+1:-1]
         self.start=cline.lineno
         self.state=1
-        
+
     # Detect the end of a table.
     # Returns:
     #   True  if end of table statement found
@@ -771,7 +773,7 @@ class C37x(CSource):
         # Table parse information is reset.
 
         return True
-        
+
     def table_entry(self,cline):
         if self.table_end(cline):
             return
@@ -792,7 +794,7 @@ class C37x(CSource):
             print("unrecognized opcode: %s" % cline)
             return
         opcode=opcode[2:-2]
-        
+
         function=sep[2]
         if len(function)<2:
             print("unexpected function: %s - %s" % (function,cline))
@@ -824,8 +826,8 @@ class C37x(CSource):
             return
 
         entry=CEntry_S37X(cline.lineno,func,pos,opcode)
-        #print(entry)
         self.opcodes.append(entry)
+
 
 #
 #  +-------------------------------+
@@ -870,7 +872,7 @@ class Opcode(object):
         self.name=arch      # Architecture name
         self.inst={}        # Dictionary of supported opcodes (integers) to mnemonics
         self.source=source  # Source of the operation codes: 'MSL' or 'Hercules'
-            
+
         self.build_from_source(obj)
 
     def __str__(self):
@@ -888,7 +890,7 @@ class Opcode(object):
         assert isinstance(other,Opcode),\
             "%s 'other' argument must be an Opcode object: %s" \
                 % (eloc(self,"audit"),other)
-                
+   
         oinst=other.inst
         in_other=[]
         not_in_other=[]
@@ -906,11 +908,11 @@ class Opcode(object):
         keys.sort()
         for k in keys:
             print(self.inst[k])
-            
+
   #
   # Methods that must be supplied by a subclass
   #
-  
+
     def build_from_source(self,obj):
         raise NotImplementedError(\
             "%s subclass %s must supply build_from_source() method" \
@@ -981,6 +983,8 @@ class MOpcode(Opcode):
             if inst.extended:
                 # Ignore extended instruction mnemonics
                 continue
+
+            # Convert the opcode information in the MSL database to an integer
             op1=inst.opcode[0]
             op2=inst.opcode[1]
             if op1 in [0x80,0x82,0x93,0x9C,0x9D,0x9E,0x9F] and op2==0:
@@ -988,15 +992,16 @@ class MOpcode(Opcode):
                 # one byte ops.
                 opc=op1
             else:
-                #opc=inst.opcode[0]*factors[inst.opc_len]+inst.opcode[1]
                 opc=(op1*factors[inst.opc_len])+op2
+
+            # opc is the opcode as an integer
             try:
                 mnem=self.inst[opc]
             except KeyError:
                 mnem=Op(opc,inst)
             mnem.add_mnem(inst.mnemonic)
             self.inst[opc]=mnem
-    
+
 
 # This object contains all of the information for _one_ Hercules architecture.
 # The results of the parsed modules and the MSL database for the architecture
@@ -1018,7 +1023,7 @@ class MOpcode(Opcode):
 class HArch(object):
     def __init__(self,name,mslpath,mslfile,mslcpu):
         self.name=name        # Architecture name
-        
+
         # These objects contain the consolidated results for an architecture
         # found in the parsed Hercules source modules.
         self.opcodes=[]       # CEntry list of operations defined for the arch.
@@ -1035,7 +1040,7 @@ class HArch(object):
         # These two Opcode objects form the basis of the operation code audit
         self.msl=MOpcode(self.name,self.cpu)
         self.herc=None   # See build() method
-        
+
         # Opcode Audit results for this Hercules architecture.
         # Each list contains Op objects corresponding to the list information.
         self.h_in_m=[]        # Op objects in Hercules _and_ in MSL database
@@ -1058,7 +1063,7 @@ class HArch(object):
         assert isinstance(entry,CEntry),\
             "%s 'entry' argument must be a CEntry object: %s" \
                 % (eloc(self,"add"),entry)
-               
+
         self.opcodes.append(entry)
         try:
             found=self.mnemonic[entry.mnemonic]
@@ -1083,7 +1088,7 @@ class HArch(object):
         self.herc=HOpcode(self.name,self)
         print(self.herc)
         print(self.msl)
-            
+
     # Retrieves the CPU definition from the MSL database.  It uses the MSL database
     # selection information saved when this object is instantiated to access the
     # MSL database.
@@ -1148,13 +1153,13 @@ class HTables(object):
         self.iopcs=opcode.ignored   # Ignored optimization tables by sequence found
 
         # The following attributes are built by the sanity() method
-        
+
         # CEntry objects with GENx37X but... no s37x.c table entry
         self.missing_s37x=[]       # ... no s37x.c table entry
         self.wrong_s37x=[]         # --- wrong s37x.c function in entry
         # CEntry_S37X objects referencing opcode.c entry not enabled for s37x:
         self.wrong_opcode=[]
-        
+
         # Final instruction tables by architecuture.
         self.s370=HArch("370",mslpath,"s370-insn.msl", "s370")
         self.s37x=HArch("37X",mslpath,"s380-insn.msl", "s380")
@@ -1228,17 +1233,14 @@ class HTables(object):
         if len(self.missing_s37x)>0:
             print("opcode.c GENx37X entries not enabled by s37x.c: %s" \
                 % len(self.missing_s37x))
+            for n in self.missing_s37x:
+                print("    [%s] %s %s" % (n.lineno,n.opcode,n.mnemonic))
         if len(self.wrong_s37x)>0:
             print("s37x.c entries with wrong instruction function: %s" \
                 % len(self.wrong_s37x))
 
         for a in self.alist:
             a.build()
-            
-        #print("\n370 Hercules opcodes:")
-        #self.s370.herc.dump()
-        #print("\n370 MSL opcodes:")
-        #self.s370.msl.dump()
 
         for a in self.alist:
             a.audit()
@@ -1275,7 +1277,7 @@ class Detail(object):
     # Instruction opcodes using four bits for extended opcode.  All other extended
     # opcodes use eight additional bits.
     bits12=[0xA5,0xA7,0xC0,0xC2,0xC4,0xC6,0xC8,0xCC]
-    
+
     # This method is used to compare operation codes between two Detail objects
     # when being sorted.
     #
@@ -1321,9 +1323,9 @@ class Detail(object):
         self.opc2=None     # Bits 7+ of instruction operation code
         # Hercules Architecture specific detail:
         #          370   37X   390   900
-        self.arch=[False,False,False,False]     # True when Hercules supports opcd
-        self.hnem=[None, None, None, None]      # Hercules mnemonics
-        self.mnem=[None, None, None, None]      # MSL Database mnemonics
+        self.arch=[False,False,False,False]    # True when Hercules supports opcd
+        self.hnem=[None, None, None, None]     # Hercules mnemonics (strings)
+        self.mnem=[None, None, None, None]     # MSL Database mnemonics (string list)
         # These lists are update by:
         #  self.arch - Report.h_in_m and Report.h_not_in_m (setting entry to True)
         #  self.hnem - Report.h_in_m and Report.h_not_in_m
@@ -1346,22 +1348,34 @@ class Detail(object):
     #  '           '  if not supported by either Hercules or MSL database.
     def fmt_arch(self,ndx,maxsz=None):
         arch=self.arch[ndx]
-        hnem=self.hnem[ndx]
-        mnem=self.mnem[ndx]
+        hnem=self.hnem[ndx]     # A single string
+        mnem=self.mnem[ndx]     # A list of strings
         if arch:
             if maxsz:
                 ntry=hnem.ljust(maxsz)
             else:
                 ntry=hnem
-            if mnem is None:
+            if mnem is None or len(mnem)==0:
                 flag="*"
             else:
-                if mnem!=hnem:
-                    flag="?"
-                else:
+                if hnem in mnem:
                     flag=" "
+                else:
+                    flag="?"
             ntry="%sH:%s" % (flag,ntry)
         else:
+            # Instruction not supported by Hercules for this architecture index
+            if mnem is None:
+                # Instruction is also not defined for this architecture in MSL
+                return ""
+
+            # MSL database has it defined
+            assert isinstance(mnem,list),\
+                "%s opcode %s arch index %s MSL mnemonic not a list: %s" \
+                    % (eloc(self,"fmt_arch"),self.fmt_opcode(),ndx,mnem)
+
+            # Use the first entry of the MSL list
+            mnem=mnem[0]
             if mnem:
                 if maxsz:
                     ntry=mnem.ljust(maxsz)
@@ -1396,7 +1410,7 @@ class Detail(object):
             m=maxsz[n]
             string="%s %s" % (string,self.fmt_arch(n,m))
         return string
-        
+
     # Sets the operation code and splits multibyte opcodes
     def opcode(self,opc):
         self.opc=opc
@@ -1425,6 +1439,10 @@ class Report(object):
         return "Report operation codes: %s" % len(self.detopc)
 
     def __max(self,ndx,name):
+        assert isinstance(name,str),\
+            "%s 'name' argument must be a string: %s" \
+                % (eloc(self,"__max"),name)
+
         size=self.maxsz[ndx]
         maxsz=max(size,len(name))
         self.maxsz[ndx]=maxsz
@@ -1448,25 +1466,26 @@ class Report(object):
             self.detopc[op.opc]=detail
             return detail
 
-    def getMnem(self,op):
+    # Returns the Mnemonic information
+    def getHercMnem(self,op):
         m=op.mnem
         if len(m)==0:
             return ""
         elif len(m)==1:
             return m[0]
         else:
-            print("Multiple mnemonics: %s" % op)
-            return m[-1]
+            print("Multiple Hercules mnemonics: %s" % op)
+            return m
 
     # Update the Detail object from: defined by Hercules and MSL database, saving
     # Hercules information.
     def h_in_m(self,arch,op):
         ndx=Report.ndx[arch]
-        
+
         # Update Detail object with Hercules info
         det=self.getDetail(op)
         det.arch[ndx]=True
-        m=self.getMnem(op)
+        m=self.getHercMnem(op)
         det.hnem[ndx]=m
         self.__max(ndx,m)
 
@@ -1474,7 +1493,7 @@ class Report(object):
     # saving Hercules information.
     def h_not_in_m(self,arch,op):
         self.h_in_m(arch,op)
-        
+
     # Create the report listing.  This is similar to the display() method but
     # fully formats the report with pages, headings, etc.
     def listing(self,filename=None):
@@ -1489,15 +1508,18 @@ class Report(object):
 
         # Update Detail object with MSL info
         det=self.getDetail(op)
-        m=self.getMnem(op)
-        det.mnem[ndx]=m
-        self.__max(ndx,m)
+        mnem=op.mnem
+        det.mnem[ndx]=mnem
+        for m in mnem:
+            self.__max(ndx,m)
+        if len(mnem)>1:
+            print("Multiple MSL mnemonics (%s): %s" % (arch,op))
 
     # Update the Detail object from: defined by MSL database and not supported by
     # Hercules, saving the MSL information.
     def m_not_in_h(self,arch,op):
         self.m_in_h(arch,op)
-        
+
     # Returns a list of Detail objects sorted by opcode
     def sort(self):
         ops=list(self.detopc.values())
@@ -1533,7 +1555,7 @@ class ReportListing(Listing):
         self.ttl=None        # Report title Listing.Title object
         self.header=None     # Heading - string
         self.det=None        # Detail - Listing.Group object
-        
+
         # Use different methods to supply detail lines in the report
         self.multiline=Multiline(self)
 
@@ -1558,7 +1580,7 @@ class ReportListing(Listing):
         archs=["370","37X","390","900"]
         for n,size in enumerate(self.rpt.maxsz):
             col=n+1
-            colsz=size+2
+            colsz=size+3
             arch=CharCol(colsz,just="left",sep=3,colnum=col)
             archh=CharCol(colsz,just="center",sep=3,default=archs[n],colnum=col)
             d.append(arch)
@@ -1567,7 +1589,7 @@ class ReportListing(Listing):
         header=Group(columns=h)
         self.header=header.string(values=[None,None,None,None,None])
         self.det=Group(columns=d)
-        
+
         # Create Part
         self.multiline.part(self.multiline_key,header=self.multiline_heading)
         self.multiline.part(self.multiline_detail)
@@ -1578,7 +1600,6 @@ class ReportListing(Listing):
         self.build()             # Create format objects for the report
         # Create the actual listing
         listing=self.generate(filename=listing)
-        #print(listing)
 
   #
   #  These methods are called by the super class to provide either a title
@@ -1640,17 +1661,17 @@ class Hercules_Opcodes(object):
     def __init__(self,args,mslpath):
         self.args=args         # argparse Namespace object
         self.mslpath=mslpath   # Root directory of MSL filles
-        
+
         # Locate the Hercules root source directory
         if args.Hercules is None:
             self.herc_dir=os.getcwd()
         else:
             self.herc_dir=args.Hercules
         self.listing=args.listing
-        
+
         # Determine if report is displayed
         self.verbose=args.verbose
-        
+
         # Determine location of output report
         self.listing=None
         if args.listing is not None:
@@ -1658,19 +1679,19 @@ class Hercules_Opcodes(object):
         else:
             # Otherwise force report display
             self.verbose=True
-            
+
         # Hercules source file objects:
         self.source={}   # dictionary of source input files as text strings
-        
+
         # Initialize the CTable dictionary that points a CTable to its CTable_S37X
         # table that modifies it.
         CTable.init_S37X_table()
         # Now the CTable objects can be mapped to their corresponding CTable_S37X
         # object
-        
+
         # Run-time information
         self.htables=None
-        
+
         # Report
         self.report=Report()
 
@@ -1699,11 +1720,9 @@ class Hercules_Opcodes(object):
         self.htables.report(self.report)
         print(self.report)
         # Report detail lines have beem created for output creation
-        
+
         # Create the listing
         self.report.listing(filename=self.listing)
-
-        #self.report.display()
 
 
 if __name__ == "__main__":
