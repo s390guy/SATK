@@ -520,7 +520,7 @@ class SOPath(object):
         #for source,d in self.directories:
         #    s="%s\n%s%s %s" % (s,lcl,source,d)
         lst.extend(self.cinfo(indent=lcl))
-        string=lst.join("\n")
+        s="\n".join(lst)
         if string:
             return s
         print(s)

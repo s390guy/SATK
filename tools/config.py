@@ -896,10 +896,13 @@ class Path(Option_MLMV):
             cfg_value=self._cfg   # The cfg_value() method returns a list
 
         patho=satkutil.PathMgr()
+        #print("%s %s.cwduse: %s" \
+        #    % (eloc(self,"option"),tool.__class__.__name__,tool.cwduse))
+
         # The PathMgr object will extract the environment variable and process
         # if for its directories.
         patho.path(self.env_name,config=cfg_value,cwdopt=tool.cwduse,\
-            default=self.default)
+            default=self.default,debug=False)
         self.value=patho
         self.typ="P"
     
@@ -1767,7 +1770,8 @@ class Tool(object):
         # Locate the site directory from its populated Option object
         self.site=self.find_site()  # Determine site directory location.
         # Figure out how to handle cwd in paths
-        self.cwduse=self.find_option("cwduse")
+        self.cwduse=self.find_option("cwduse",populate=True)
+        #print("%s cwduse: %s" % (eloc(self,"configure"),self.cwduse))
 
         if self.site is not None:
             # site directory found so, proceed with the rest of the configuration
@@ -1812,9 +1816,12 @@ class Tool(object):
     #
     # This method is used for access to values defined in site.cfg and needed
     # for other option value handling.
-    def find_option(self,option):
+    def find_option(self,option,populate=False):
         try:
             opt=self.spec[option]
+            if populate:
+                self.populate_option(opt)
+                #print("%s populated option: %s" % (eloc(self,"find_option"),opt))
         except KeyError:
             return None
         if opt.error:
@@ -1847,9 +1854,9 @@ class Tool(object):
             cl=True,cfg=True))
 
     def option_cwd(self,cfg,cl=False):
-        cfg.arg(Choices("cwduse",full="cwduse",default="omit",\
+        cfg.arg(Choices("cwduse",full="cwduse",default="last",\
             choices=["first","last","omit"],\
-            help="cwd_use value in SITE section. Defaults to 'omit'",\
+            help="cwd_use value in SITE section. Defaults to 'last'",\
             cl=cl,cfg=True,site=True))
 
     # Definte the standard option for locating the site directory
@@ -1938,18 +1945,23 @@ class Tool(object):
                 print("%s section: %s" % (eloc(self,"populate"),section))
 
         for arg in arg_list:
-            arg.cl(self.cli)
-            arg.env(self.env_raw)
-            arg.cfg(self.cfg_parser,section)
-            # Set the Option object's value attribute.  Pass myself for access
-            # to other configuration information.
-            arg.option(self)
+            self.populate_option(arg,section=section)
             if __debug__:
                 if dbg:
                     # Enable debugging message in option
                     if self.debug:
                         arg.debug=self.debug
                     print("%s %s" % (eloc(self,"populate"),arg))
+
+    # Populate an option with its command-line value, environment value or 
+    # config file value.  Set it based upon values found or default.
+    def populate_option(self,arg,section=None):
+        arg.cl(self.cli)
+        arg.env(self.env_raw)
+        arg.cfg(self.cfg_parser,section=section)
+        # Set the Option object's value attribute.  Pass myself for access
+        # to other configuration information.
+        arg.option(self)
 
     # Update the defaults with the tool specific option
     # By, defaults, the default for input is supplied as the command-line source
@@ -2342,7 +2354,7 @@ class config(Tool):
         # Have to manually enforce default because we have not been through 
         # populate() method
         if cwduse is None:
-            cwduse="omit"
+            cwduse="last"
 
         # config directory now exists
         lines=[]

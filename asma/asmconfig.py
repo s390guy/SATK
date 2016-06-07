@@ -214,5 +214,5 @@ class asma(config.Tool):
         cfg.arg(config.Path("maclib",cfg=True))
         cfg.arg(config.Path("mslpath",default=satkutil.satkdir("asma/msl")))
         cfg.arg(config.Path("cdpgpath",cfg=True))
-        
+
         return cfg
