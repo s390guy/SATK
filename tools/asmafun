@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (C) 2014, 2015 Harold Grovesteen
+# Copyright (C) 2014-2016 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -101,6 +101,9 @@ asma_env()
                 "cpu") asma_env reset ccw ;;
                 *) echo "invalid ccw option value: ${2}" ; return 1 ;;
             esac
+            ;;
+        "cinfo")
+            asma_cinfo=" --cinfo ${2}"
             ;;
         "cpfile")
             asma_cpfile=" --cpfile ${2}" ;;
@@ -246,6 +249,7 @@ asma_env()
                     asma_env reset builtin
                     asma_env reset case
                     asma_env reset ccw
+                    asma_env reset cinfo
                     asma_env reset cpfile
                     asma_env reset cptrans
                     asma_env reset cpu
@@ -265,6 +269,7 @@ asma_env()
                 "builtin")asma_bltin=""  ;;
                 "case")   asma_case=""   ;;
                 "ccw")    asma_ccw=""    ;;
+                "cinfo")  asma_cinfo=""  ;;
                 "cpfile") asma_cpfile="" ;;
                 "cpu")    asma_cpu=""    ;;
                 "deck")   asma_deck=""   ;;
@@ -346,7 +351,7 @@ asma()
     asma=${SATK_DIR}/tools/asma.py
     cout="${asma_image}${asma_deck}${asma_ldipl}${asma_rc}${asma_store}${asma_vmc}"
     ccp="${asma_cpfile}${asma_cptrans}"
-    cdebug="${asma_debug}${asma_oper}"
+    cdebug="${asma_cinfo}${asma_debug}${asma_oper}"
     clist="${asma_dump}${asma_list}"
     copt="${asma_arch}${asma_cpu}${asma_addr}${asma_psw}${asma_error}"
     copt="${copt}${asma_bltin}${asma_case}${asma_mcall}${asma_stats}${asma_def}"

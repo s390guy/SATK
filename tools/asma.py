@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014, 2015 Harold Grovesteen
+# Copyright (C) 2014-2016 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -65,6 +65,7 @@ class ASMA(object):
         
         self.dm=dm                # Global Debug Manager instance
         self.args=args            # Tool Config object
+        self.args.display()       # If CINFO requested, display it
         #self.clstats=args.stats   # Command-line statistics flag
         self.clstats=args["stats"]   # Command-line statistics flag
 
