@@ -1,5 +1,5 @@
-#!/usr/bin/python3.3
-# Copyright (C) 2014 Harold Grovesteen
+#!/usr/bin/python3
+# Copyright (C) 2014, 2016 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -20,7 +20,7 @@
 # module is intended strictly for experimentation of regular expressions and the
 # results of regular expressions matched against or recognized within a test string.
 #
-# The module is standalone and has no dependencies upon SATK so it useful in other
+# The module is standalone and has no dependencies upon SATK so it is useful in other
 # contexts.  Additionaly the functions print_mo(), print_re(), print_re_flags()
 # may be imported in providing debugging information for regular expression operations
 
@@ -70,6 +70,7 @@ def print_mo(mo,indent=""):
         for key,val in grpdict.items():
             print("%s%s: %s" % (local_indent,key,val.__repr__()))
 
+
 def print_re(rec,indent=""):
     local="%s    " % indent
     local_indent="%s    " % local
@@ -84,6 +85,7 @@ def print_re(rec,indent=""):
         for key,val in rec.groupindex.items():
             print("%s%s: %s" % (local_indent,key,val))
     print("%spattern: %s" % (local,rec.pattern.__repr__()))
+
 
 def print_re_flags(flags=None,indent=""):
     if flags is None:
@@ -133,34 +135,53 @@ def print_re_flags(flags=None,indent=""):
             return
     print("%sunexpected flag(s) encountered: %s" (indent,f))
 
+# Simple object that compiles and performs a match of an regular expression.
 class retest(object):
-    def __init__(self,pattern):
-        self.rec=None
+    def __init__(self,pattern,debug=False):
+        self.debug=debug       # Whether debug messages are generated
+        self.rec=None          # Compiles re object
         try:
             self.rec=re.compile(pattern)
         except Exception as ex:
-            print("regular expression pattern compilation failed: %s" % pattern)
-            print("   exception class: %s" % ex.__class__.__name__)
-            print("   exception: %s" % ex)
-        print_re(self.rec)
+            msg="regular expression pattern compilation failed: %s" % pattern
+            msg="%s\n   exception class: %s" % (msg,ex.__class__.__name__)
+            msg="%s\n   exception: %s" % (msg,ex)
+            raise ValueError(msg) from None
+
+        if __debug__:
+            if self.debug:
+                print_re(self.rec)
         
+    # Perform a match using the object's compiled regular expression object.
+    # If debugging is enabled, details of the result will be printed.
+    #
+    # Returns:
+    #   match object if match is successful
+    #   None if match failed.
     def match(self,string):
         string_msg="%s" % string.__repr__()
         self.mo=None
         try:
             mo=self.rec.match(string)
         except Exception as ex:
-            print("pattern match failed for: %s" % string_msg)
-            print("   exception class: %s" % ex.__class__.__name__)
-            print("   exception: %s" % ex)
+            msg="pattern match failed for: %s" % string_msg
+            msg="%s\n   exception class: %s" % (msg,ex.__class__.__name__)
+            msg="%s\n   exception: %s" % (msg,ex)
+            if __debug__:
+                if self.debug:
+                    print(msg)
             return
 
-        if mo is None:
-            print("no match object returned for: %s" % string_msg)
-            return
-        print_mo(mo)
+        if __debug__:
+            if self.debug:
+                if mo is None:
+                    print("no match object returned for: %s" % string_msg)
+                else:
+                    print_mo(mo)
+        return mo
 
 if __name__ == "__main__":
+    debug=True
     # Code tests here under this 'if' statement
     #print_re_flags()
     #reif=retest("(?P<A>.)?(?P<B>.)?")
@@ -186,7 +207,7 @@ if __name__ == "__main__":
     #lattr.match("K'")
     
     pattern="('[^']*')+"
-    ctest=retest(pattern)
+    ctest=retest(pattern,debug=debug)
     ctest.match("'this is a quoted string'")
     ctest.match("''")
     ctest.match("'a field''s value'other stuff")
