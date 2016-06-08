@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014,2015 Harold Grovesteen
+# Copyright (C) 2014-2016 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -602,9 +602,8 @@ class AsmListing(Listing):
         # Determine the content of the ADDR1 and ADDR2 columnes
         laddr=stmt.laddr    # This retrieves the list of two elements from the stmt
 
-        #print("%s [%s] addr fields: %s" \
-        #    % (assembler.eloc(self,"part1_details",module=this_module),\
-        #        stmt.lineno,len(laddr)))
+        if trace:
+            print("%s [%s] addr fields: %s"  % (cls_str,stmt.lineno,len(laddr)))
 
         if stmt.asmdir:
             if trace:

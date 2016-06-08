@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014, 2015 Harold Grovesteen
+# Copyright (C) 2014-2016 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -3036,13 +3036,14 @@ class STMTProcessor(asmbase.ASMProcessor):
         mb=self.MB
         while True:
             ln=self.IM.getLogical()
+            #print("%s" % ln)
             # Create the ASMStmt subclass for the operation and populate it
             # with operation definition information.
             stmtcls=ln.optn.stmtcls
             if __debug__:
                 if debug:
                     print("%s [%s] Creating ASMStmt subclass: %s" \
-                            % (eloc(self,"statement"),self.lineno,\
+                            % (eloc(self,"getStmts"),self.lineno,\
                                 stmtcls.__name__))
             # Create the asmbase.ASMStmt subclass for the operation
             asm.cur_stmt=s=stmtcls(self.lineno,ln)
@@ -3088,14 +3089,14 @@ class STMTProcessor(asmbase.ASMProcessor):
         fail=asm.fail
         mb=self.MB
         while True:
-            ln=self.IM.getLogical()
+            ln=self.IM.getLogical(debug=debug)
             # Create the ASMStmt subclass for the operation and populate it
             # with operation definition information.
             stmtcls=ln.optn.stmtcls
             if __debug__:
                 if debug:
                     print("%s [%s] Creating ASMStmt subclass: %s" \
-                            % (eloc(self,"statement"),self.lineno,\
+                            % (eloc(self,"getStmts0_1"),self.lineno,\
                                 stmtcls.__name__))
             # Create the asmbase.ASMStmt subclass for the operation
             asm.cur_stmt=s=stmtcls(self.lineno,ln)
@@ -3222,14 +3223,14 @@ class STMTProcessor(asmbase.ASMProcessor):
                     # Macro definition error handled as an assembler error of the
                     # current statement
                     asm._ae_excp(ae,self.cur_stmt,\
-                        string=eloc(self,"Pass0"),debug=debug)
+                        string=eloc(self,"Pass0_1"),debug=debug)
                 asm.cur_stmt=None
                 continue
             except AssemblerError as ae:
                 if asm.fail:
                     raise ae from None
                 asm._ae_excp(ae,asm.cur_stmt,\
-                    string=eloc(self,"Pass0"),debug=debug)
+                    string=eloc(self,"Pass0_1"),debug=debug)
                 asm.cur_stmt=None
                 continue
             except asminput.BufferEmpty:
@@ -3529,10 +3530,12 @@ class MACLIBProcessor(asmbase.ASMProcessor):
         self.macro=macname.upper()
         self.infile="%s.mac" % self.macro
         self.lineno=1
+        #print("%s opening macro library file: %s" % (eloc(self,"run"),self.infile))
         self.IM.newFile(self.infile)
 
         # Process the MACLIB file
         result=self.process()
+        #print("%s MACLIB result: %s" % (eloc(self,run),result))
         if isinstance(result,asmline.LineError):
             raise result
         return result

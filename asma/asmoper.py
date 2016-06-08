@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2015 Harold Grovesteen
+# Copyright (C) 2015, 2016 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -28,6 +28,7 @@ this_module="%s.py" % __name__
 import assembler    # Access the assembler for error reporting
 import asmbase      # Access the base operation management classes
 import asmstmts     # Access the statement classes
+import asmline      # Addess a LineError exception
 import msldb        # Access the Machine Specification Language Processor
 
 
@@ -326,7 +327,18 @@ class OperMgr(asmbase.ASMOperTable):
         # Actually reading the file so macros will be defined
         # An asmline.LineError is raised if this fails.  asmline.LineMgr.categorize()
         # method does the actual trapping of the error.
-        asm.MP.run(asm,macname)  # Run the MACROProcessor to define the macro
+        try:
+            asm.MP.run(asm,macname)  # Run the MACROProcessor to define the macro
+        except assembler.AssemblerError as ae:
+            # Fetching of the macro from the macro library failed for some reason
+            # We need to treat this as a LineError of the physical line
+
+            #oper=self.getError()
+            #oper.info=ae
+            #return oper
+            raise asmline.LineError(msg=ae.msg) from None
+            
+            
         # This time the macro should be defined.
         mte=self.macros.get(macname)
         if mte:
@@ -334,7 +346,7 @@ class OperMgr(asmbase.ASMOperTable):
         return None
 
     # Returns an ASMOper object (see def_macro() method) or None if not defined
-    def getMacro(self,macname,macread=False):
+    def getMacro(self,macname,macread=False,debug=False):
         try:
             mte=self.macros[macname]
             oper=mte.oper   # Retrieve the ASMOper object from the macro table entry
@@ -342,7 +354,7 @@ class OperMgr(asmbase.ASMOperTable):
             # Not found - need to try macro libarary paths
             oper=self.getMacLib(macname,macread=macread)
 
-        if oper:
+        if oper is not None:
             assert isinstance(oper,asmbase.ASMOper),\
                 "%s mte not an asmbase.ASMOper object: %s" \
                     % (assembler.eloc(self,"getMacro",module=this_module),oper)
@@ -477,9 +489,20 @@ class OperMgr(asmbase.ASMOperTable):
                         if debug:
                             print("%s DEBUG found directive: %s" % (cls_str,operation))
                     return oper
+                else:
+                    if __debug__:
+                        if debug:
+                            print("%s DEBUG directive not found: %s" \
+                                % (cls_str,operation))
         
         # Try to locate the macro definition
+        if __debug__:
+            if debug:
+                print("%s DEBUG looking for macro: %s" % (cls_str,opcode))
         oper=self.getMacro(opcode,macread=macread)
+        if __debug__:
+            if debug:
+                print("%s DEBUG looking for macro returned: %s" % (cls_str,oper))
         # Note: if macread is True, and the macro is not defined, the getMacro method
         # will attempt to access the macro libary path to find the macro definition.
         # If found the MACLIBProcessor will be run to define the macro.  The
@@ -497,9 +520,9 @@ class OperMgr(asmbase.ASMOperTable):
         if oper is None:
             if __debug__:
                 if debug:
-                    print("%s DEBUG directive not found: %s" % (cls_str,operation))
+                    print("%s DEBUG macro not found: %s" % (cls_str,operation))
             raise KeyError()
-        
+
         raise ValueError("%s operation search algorithm failed to either return "\
             "the ASMOper object or result is None: %s" \
                 % (assembler.eloc(self,"getOper",module=this_module),oper))

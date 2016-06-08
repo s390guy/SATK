@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014, 2015 Harold Grovesteen
+# Copyright (C) 2014-2016 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -413,7 +413,7 @@ class PhysLine(object):
             self.cont=False
 
     def __str__(self):
-        c=e=" "
+        c=e="."
         if self.cont:
             c='+'
         if self.empty:

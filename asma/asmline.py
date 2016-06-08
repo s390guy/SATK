@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2015 Harold Grovesteen
+# Copyright (C) 2015, 2016 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -850,8 +850,8 @@ class LineMgr(object):
             if __debug__:
                 if debug:
                     print("%s pline: %s" \
-                        % assembler.eloc(self,"__getLogical",module=this_module),\
-                            pline)
+                        % (assembler.eloc(self,"__getLogical",module=this_module),\
+                            pline))
 
         except asminput.SourceEmpty:
             return
@@ -901,7 +901,7 @@ class LineMgr(object):
     # Recognize the logical line's operation and update it with pertinent
     # operation processing information.  This information drives the assembler's
     # processing of statement format and operand recognition.
-    def categorize(self,logical):
+    def categorize(self,logical,debug=False):
         assert isinstance(logical,LogLine),\
             "%s 'logical' argument must be a LogLine object: %s" \
                 % (eloc(self,"categorize",module=this_module),logical)
@@ -913,12 +913,23 @@ class LineMgr(object):
             oper=OMF.getComment(quiet=logical.quiet)
         else:
             oper=logical.operu
+            if __debug__:
+                if debug:
+                    print("%s oper: %s" \
+                        % (assembler.eloc(self,"categorize",module=this_module),oper))
             try:
                 # Get the operation infomation, defining a macro from the macro
                 # library if necessary.
                 oper=OMF.getOper(oper,mbstate=self.mb.state,macread=True,\
-                    lineno=logical.source,debug=False)
+                    lineno=logical.source,debug=debug)
+                if __debug__:
+                    if debug:
+                        print("%s %s" \
+                            % (assembler.eloc(self,"categorize",module=this_module),\
+                                oper))
             except KeyError:
+                print("%s KeyError" \
+                    % assembler.eloc(self,"categorize",module=this_module))
                 # If the operation is unrecognized, categorize it as unknown
                 logical.T="U"
                 logical.ignore=True  # Unknown operations must be ignored.
@@ -927,19 +938,22 @@ class LineMgr(object):
                     msg="Unrecognized operation field: %s" % oper)
                 oper=OMF.getError()
             except LineError as le:
+                if __debug__:
+                    if debug:
+                        print("%s LineError: %s" \
+                            % (assembler.eloc(self,"categorize",module=this_module),\
+                                le))
                 # Failed library macro definitions must also be ignored
                 logical.T="U"
                 logical.ignore=True  # Unknown operations must be ignored.
                 logical.error=le
                 oper=OMF.getError()
 
-        #if __debug__:
-        #    if True:
-        #        print("%s oper: %s" \
-        #            % (assembler.eloc(self,"categorize",module=this_module),\
-        #                oper))    
-
         # Update the logical line with this operation related information
+        if __debug__:
+            if debug:
+                print("%s %s" \
+                    % (assembler.eloc(self,"categorize",module=this_module),oper))
         logical.category(oper)
 
     # The END directive has been encountered.  Only statements allowed after the
@@ -987,8 +1001,8 @@ class LineMgr(object):
                     print("%s logline.opnd_fld: %s" % (cls_str,logline.opnd_fld))
 
     # Returns a logical line to the assembler.  
-    def getLogical(self):
-        logical=self.__getLogical()
+    def getLogical(self,debug=False):
+        logical=self.__getLogical(debug=debug)
         if logical is None:
             # signal end of input (should this be an exception?)
             return
