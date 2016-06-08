@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2015 Harold Grovesteen
+# Copyright (C) 2015, 2016 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -22,7 +22,7 @@
 # z/Architecture is a registered trademark of International Business Machines 
 # Corporation.
 
-this_module="%s.py" % __name__
+this_module="asmstmts.py"
 
 # Python imports:
 import re             # Access regular expression module
@@ -2000,6 +2000,7 @@ class CSECT(ASMStmt):
         self.asmdir=True       # This is an assembler directive
         
         self.csect=None        # Name of new or continued section or None if unnamed
+        self.for_pass2=None    # Pass information to Pass2 from Pass1
     
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         self.csect=self.label_optional()
@@ -2045,11 +2046,11 @@ class CSECT(ASMStmt):
 
         # Make the found or newly created CSECT the active section
         asm._csect_activate(csect,debug=cdebug)
-        self.laddr=csect
+        self.for_pass2=csect
 
     def Pass2(self,asm,debug=False,trace=False):
         # Set up information for listing
-        csect=self.laddr
+        csect=self.for_pass2
         addr1=csect.loc
         addr2=addr1+max(len(csect)-1,0)
         self.laddr=[addr1,addr2]
@@ -3897,6 +3898,7 @@ class REGION(ASMStmt):
         
         # Pass 0
         self.region=None         # Name of region being continued
+        self.for_pass2=None      # Information passed to Pass2 from Pass1
         
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         self.region=self.label_required()
@@ -3919,11 +3921,11 @@ class REGION(ASMStmt):
 
         # Make the found region the current one.
         asm._region_activate(region,debug=rdebug)
-        self.laddr=region
+        self.for_pass2=region
         
     def Pass2(self,asm,debug=False,trace=False):
         # Prepare listing information
-        region=self.laddr
+        region=self.for_pass2
         addr1=region.loc
         addr2=addr1+(max(len(region)-1,0))
         self.laddr=[addr1,addr2]
