@@ -1506,6 +1506,35 @@ class AIF(ASMStmt):
     # Pass2 - should never be called
 
 
+# AMODE Assembler Directive
+#
+# Set a control-section's address mode
+#
+# [CSECT] AMODE 24|31|64|ANY|ANY31|ANY64
+
+class AMODE(ASMStmt):
+    # Statement processing controls
+    typ="SPP"      # Statement type identifier
+    lfld="L"       # Valid label field content
+    ofld="L"       # Valid operation field content
+    alt=False      # Whether the alternate statement format is allowed
+    parser=None    # Operand parser used by statement
+    sep=False      # Whether operands are to be separated from the logline
+    spaces=False   # Whether operand field may have spaces outside of quoted strings
+    attrs=""       # Attributes supported in expression
+
+    def __init__(self,lineno,logline=None):
+        super().__init__(lineno,logline=logline)
+        self.asmdir=True         # This is an assembler directive
+
+    def Pass0(self,asm,macro=None,debug=False,trace=False):
+        #self.pre_process(asm)
+        self.ignore=True         # Treat as a comment
+
+    def Pass1(self,asm,debug=False,trace=False): pass
+    def Pass2(self,asm,debug=False,trace=False): pass
+
+
 # ANOP Macro Directive - Oper Type: MD
 #
 # Macro no-operation
@@ -3930,6 +3959,34 @@ class REGION(ASMStmt):
         addr2=addr1+(max(len(region)-1,0))
         self.laddr=[addr1,addr2]
 
+
+# RMODE Assembler Directive
+#
+# Set a control-section's residency mode
+#
+# [CSECT] RMODE 24|31|64|ANY
+
+class RMODE(ASMStmt):
+    # Statement processing controls
+    typ="SPP"      # Statement type identifier
+    lfld="L"       # Valid label field content
+    ofld="L"       # Valid operation field content
+    alt=False      # Whether the alternate statement format is allowed
+    parser=None    # Operand parser used by statement
+    sep=False      # Whether operands are to be separated from the logline
+    spaces=False   # Whether operand field may have spaces outside of quoted strings
+    attrs=""       # Attributes supported in expression
+
+    def __init__(self,lineno,logline=None):
+        super().__init__(lineno,logline=logline)
+        self.asmdir=True         # This is an assembler directive
+
+    def Pass0(self,asm,macro=None,debug=False,trace=False):
+        #self.pre_process(asm)
+        self.ignore=True         # Treat as a comment
+
+    def Pass1(self,asm,debug=False,trace=False): pass
+    def Pass2(self,asm,debug=False,trace=False): pass
 
 
 # SETA Macro Directive - Oper Type: MS

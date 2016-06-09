@@ -185,6 +185,7 @@ class OperMgr(asmbase.ASMOperTable):
 
     # Define the assembler directives
     def def_adirs(self):
+        self.def_dir("AMODE",    asmstmts.AMODE,    O="A")
         self.def_dir("ATRACEOFF",asmstmts.ATRACEOFF,O="A")
         self.def_dir("ATRACEON", asmstmts.ATRACEON, O="A")
         self.def_dir("CCW",      asmstmts.CCW0,     O="A")
@@ -220,6 +221,7 @@ class OperMgr(asmbase.ASMOperTable):
         self.def_dir("PSWZ",     asmstmts.PSWZ,     O="A")
         self.def_dir("PUSH",     asmstmts.PUSH,     O="A")
         self.def_dir("REGION",   asmstmts.REGION,   O="A")
+        self.def_dir("RMODE",    asmstmts.RMODE,    O="A")
         self.def_dir("SPACE",    asmstmts.SPACE,    O="A")
         self.def_dir("START",    asmstmts.START,    O="A")
         self.def_dir("TITLE",    asmstmts.TITLE,    O="A")
