@@ -124,7 +124,7 @@ class ASMA(object):
             cpfile=cpfile,\
             cptrans=cptrans,\
             asmpath=args["asmpath"],\
-            maclib=None)
+            maclib=args["maclib"])
 
         #self.source=args.source[0]     # Source input file
         self.source=args["input"]       # Source input file

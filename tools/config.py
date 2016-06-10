@@ -896,11 +896,9 @@ class Path(Option_MLMV):
             cfg_value=self._cfg   # The cfg_value() method returns a list
 
         patho=satkutil.PathMgr()
-        #print("%s %s.cwduse: %s" \
-        #    % (eloc(self,"option"),tool.__class__.__name__,tool.cwduse))
 
         # The PathMgr object will extract the environment variable and process
-        # if for its directories.
+        # it for its directories.
         patho.path(self.env_name,config=cfg_value,cwdopt=tool.cwduse,\
             default=self.default,debug=False)
         self.value=patho
@@ -1052,7 +1050,14 @@ class Configuration(object):
     # Determines if a given environment variable name is part of the configuration
     # system.
     def isVar(self,name):
-        return name in self._path_list or name in self._env_list
+        for item in self._path_list:
+            if item.env_name==name:
+                return True
+        for item in self._env_list:
+            if item.name.upper()==name:
+                return True
+        return False
+        #return name in self._path_list or name in self._env_list
 
     # Returns a list of all Option objects in sorted order.
     def options(self):

@@ -201,7 +201,7 @@ class FileSource(InputSource):
             raise ValueError("%s file object already exists for file: %s" \
                 % (assembler.eloc(self,"init",module=this_module),self.fname))
         try:
-            self.fname,self.fo=pathmgr.ropen(self.rname,variable=variable)
+            self.fname,self.fo=pathmgr.ropen(self.rname,variable=variable,debug=False)
         except ValueError as ve:
             raise SourceError("%s" % ve) from None
 

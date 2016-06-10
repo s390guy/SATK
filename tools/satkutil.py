@@ -577,6 +577,9 @@ class PathMgr(object):
 
         for v in vars:
             self.path(v,default=default)
+            
+    def __str__(self):
+        return "PathMgr: %s" % self.paths
 
     # Returns configuration information about the specific path
     def cinfo(self,variable):
@@ -747,12 +750,12 @@ class PathMgr(object):
             if ldebug:
                 clsstr="satkutil.py - %s.ropen() -" % (self.__class__.__name__)
                 print("%s using path %s with directories: %s" \
-                    % (self.__class__.__name__,variable,pathlist))
+                    % (clsstr,variable,pathlist))
         if stdio:
             # Return the open file object
             for p in pathlist:
                 filepath=os.path.join(p,filename)
-            
+
                 try:
                     return (filepath,self.osopen(filepath,mode,debug=ldebug))
                 # on success, simply return the tuple (abspath,file_object)
