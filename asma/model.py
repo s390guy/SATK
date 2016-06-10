@@ -104,9 +104,10 @@ class Model(object):
     # Returns:
     #   a list of strings, one per "physical line" from the macro source
     def create(self,debug=False):
+        ddebug=self.debug or debug
         if self.loud is not None:
             if __debug__:
-                if debug:
+                if ddebug:
                     print('%s returning loud comment: "%s"' \
                         % (assembler.eloc(self,"create",module=this_module),\
                             self.loud))
@@ -115,7 +116,7 @@ class Model(object):
         # Generate the model statement fields
         label=self.rlbl.ljust(max(8,len(self.rlbl)))
         if __debug__:
-            if self.debug:
+            if ddebug:
                 cls_str=assembler.eloc(self,"create",module=this_module)
                 print("%s label: '%s'" % (cls_str,label))
 
@@ -135,7 +136,7 @@ class Model(object):
 
         line="%s %s" % (line,operands)
         if __debug__:
-            if self.debug:
+            if ddebug:
                 print("%s line: '%s'" % (cls_str,line))
                 
         # Make into continuatin lines if need be and add comment
@@ -207,17 +208,20 @@ class Model(object):
         plines.append(pline)
 
         if __debug__:
-            if debug:
+            if ddebug:
                 for n,p in enumerate(plines):
                     print('%s returning[%s]: "%s"' \
                         % (assembler.eloc(self,"create",module=this_module),n,p))
 
+        #print("%s plines: %s" \
+        #    % (assembler.eloc(self,"create",module=this_module),plines))
         return plines
 
     # Performs a symbolic replacement parse of a field or operand
     def __parse(self,asm,stmt,field,debug=False):
+        ddebug=self.debug or debug
         if __debug__:
-            if debug:
+            if ddebug:
                 print("%s [%s] field.amp: %s" \
                     % (assembler.eloc(self,"__parse",module=this_module),\
                         stmt.lineno,field.amp))
@@ -225,7 +229,7 @@ class Model(object):
             return field.text
         pm=asm.PM
         try:
-            return pm.parse_model(stmt,field,debug=debug)
+            return pm.parse_model(stmt,field,debug=ddebug)
         except assembler.AsmParserError as ape:
             raise assembler.AssemblerError(source=stmt.source,line=stmt.lineno,\
                 msg=ape.msg)
@@ -296,13 +300,14 @@ class Model(object):
             self.comments=comments
 
     def parse(self,asm,stmt,debug=False):
+        ddebug=self.debug or debug
         if self.loud is not None:
             # No parsing for loud comment model statements
             return
-        self.parse_operation(asm,stmt,debug=debug)
-        self.parse_label(asm,stmt,debug=debug)
-        self.parse_operands(asm,stmt,debug=debug)
-        self.find_comment(stmt,debug=debug)
+        self.parse_operation(asm,stmt,debug=ddebug)
+        self.parse_label(asm,stmt,debug=ddebug)
+        self.parse_operands(asm,stmt,debug=ddebug)
+        self.find_comment(stmt,debug=ddebug)
 
     # Performs a symbolic replacement parse of the label field
     def parse_label(self,asm,stmt,debug=False):
@@ -346,12 +351,13 @@ class Model(object):
 
     # Perform any required symbolic replacement
     def replace(self,exp,debug=False):
+        ddebug=self.debug or debug
         # Make sure my fields are empty
         self.rlbl=""
         self.roper=None
         self.ropnd=[]
         if __debug__:
-            if debug:
+            if ddebug:
                 print("%s [%s] logline: %s" \
                     % (assembler.eloc(self,"replace",module=this_module),\
                         self.stmt.lineno,self.stmt.logline))
@@ -364,14 +370,14 @@ class Model(object):
             return
         self.rlbl=self.__replace(self.label_fld,exp)
         if __debug__:
-            if debug:
+            if ddebug:
                 print("%s [%s] rlbl: '%s'" \
                     % (assembler.eloc(self,"replace",module=this_module),\
                         self.stmt.lineno,self.rlbl))
 
         self.roper=self.__replace(self.oper_fld,exp)
         if __debug__:
-            if debug:
+            if ddebug:
                 print("%s [%s] roper: '%s'" \
                     % (assembler.eloc(self,"replace",module=this_module),\
                         self.stmt.lineno,self.roper))
@@ -379,7 +385,7 @@ class Model(object):
         for n,opnd in enumerate(self.operands):
             res=self.__replace(opnd,exp)
             if __debug__:
-                if debug:
+                if ddebug:
                     print("%s [%s] ropnd[%s]: '%s'" \
                         % (assembler.eloc(self,"replace",module=this_module),\
                             self.stmt.lineno,n,res))

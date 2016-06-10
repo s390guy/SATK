@@ -1235,7 +1235,8 @@ class ModelStmt(ASMStmt):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
-    attrs="IKLMNOT"   # Attributes supported in expression
+    #attrs="IKLMNOT"   # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)

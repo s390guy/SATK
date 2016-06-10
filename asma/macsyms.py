@@ -341,7 +341,9 @@ class Parm_Val(Mac_Val):
         val=self.sublists[this-self.minimum]
         if depth==len(ndxs)-1:
             # Last requested index so return the retrieved sublist's C_Val object
-            return val.value
+            #print("%s val: %s" \
+            #    % (assembler.eloc(self,"fetch"),val.display(string=True)))
+            return val.value()
         # Not the last index so reach into the next level of sublist for its entry.
         return val.fetch(indices=ndxs,depth=depth+1)
 
@@ -514,6 +516,9 @@ class Parm_Val(Mac_Val):
             raise SymbolError(msg="operand %s - umbalanced parenthesis: %s" \
                 % self.onum+1)
         self.sublists.append(Parm_Val(value=sub,onum=self.onum))
+        
+    def value(self):
+        return self.cval
 
 
 # &SYSLIST subclass of generic Parm_Val object

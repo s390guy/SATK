@@ -1063,7 +1063,7 @@ class SETx(MacroOp):
             # The single value is the first and only operand
             expr=self.expr[0]
             try:
-                set_val=expr.evaluate(external=exp,debug=debug)
+                set_val=expr.evaluate(external=exp,debug=False)
             except assembler.LabelError as le:
                 raise MacroError(invoke=True,msg=le.msg) from None
             if __debug__:

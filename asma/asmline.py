@@ -840,7 +840,7 @@ class LineMgr(object):
         self.LB=asminput.LineBuffer(depth=depth,env=env,pathmgr=pathmgr)
 
         # Universal Operand Field Parser
-        self.fsm=cfsm(trace=False)
+        self.fsm=cfsm(trace=True)
 
     # Reads individual physical lines from input sources and combines continued lines
     # into a single logical line.
@@ -964,7 +964,7 @@ class LineMgr(object):
     # Parse into individual LOperand objects all of the operands across all
     # physical lines.
     def findOperands(self,logline,alt=False,attrs="",sep=False,spaces=False,\
-                     debug=True):
+                     debug=False):
         if __debug__:
             if debug:
                 cls_str=assembler.eloc(self,"findOperands",module=this_module)

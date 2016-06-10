@@ -757,7 +757,9 @@ class PChrExpr(PCTerm):
         if __debug__:
             if debug:
                 print("%s chr exp list: %s" \
-                    % (assembler.eloc(self,"value",module=this_module),self.chr_lst))
+#                    % (assembler.eloc(self,"value",module=this_module),self.chr_lst))
+                    % (assembler.eloc(self,"value",module=this_module),self.expr))
+                
         
         result=self.expr.evaluate(external,debug=debug,trace=trace)
         if __debug__:
@@ -1220,14 +1222,14 @@ class PSymRef(PCTerm):
         if __debug__:
             if debug:
                 print("%s symid: %s" \
-                    % (assembler.eloc(self,"vgetValue",module=this_module),\
+                    % (assembler.eloc(self,"getValue",module=this_module),\
                         symid.display()))
 
         value=external.lcls._reference(symid)  # Mac_Val or subclass
         if __debug__:
             if debug:
                 print("%s value: %s" \
-                    % (assembler.eloc(self,"value",module=this_module),value))
+                    % (assembler.eloc(self,"getValue",module=this_module),value))
 
         return value
 
@@ -1249,6 +1251,11 @@ class PSymRef(PCTerm):
         indexes=[]
         for n,ndx_expr in enumerate(self.indices):
             index=ndx_expr.evaluate(external=external,debug=debug,trace=trace)
+            if isinstance(index,macsyms.A_Val):
+                index=index.value()
+            #print("%s %s index[%s]: %s" \
+            #    % (assembler.eloc(self,"SymID",module=this_module),\
+            #        self.symname,n,index))
             indexes.append(index)
         return macsyms.SymbolID(self.symname,indices=indexes)
 
