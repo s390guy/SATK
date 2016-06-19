@@ -1969,6 +1969,8 @@ class MacroLanguage(object):
         self.max_sysmon=val & 0x0000FF00   # &SYSNDX value being monitored
         self.mhelp_mask=val & 0x000000FF   # MHELP action mask
         self.mhelp_sup =val & 0x00000080   # If bit set, suppressing actions
+        if self.mhelp_sup == 0 and self.mhelp_mask == 0:
+            self.mhelp_sup =  0x00000080
         if debug:
             cls_str=assembler.eloc(self,"mhelp",module=this_module)
             print("%s max_sysndx=%s" % (cls_str,self.max_sysndx))
