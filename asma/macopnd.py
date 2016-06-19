@@ -2978,10 +2978,22 @@ class MacroParser(asmbase.AsmCtxParser):
         gs=self.scope()
         
         if not gs.balanced_parens():
+            if trace:
+                print("%s parens not balanced" \
+                    % assembler.eloc(self,"Exor_RParen_R",module=this_module))
             gs.rparen(value)
             return "rparen%s" % gs.suffix
-            
-        self.ACT_Unbalaced(value,state,trace=trace)
+
+        if trace:
+            print("%s parens balanced" \
+                % assembler.eloc(self,"Exor_RParen_R",module=this_module))
+        if gs.isFollow(value):
+            if trace:
+                print("%s %s is follow" \
+                    % (assembler.eloc(self,"Exor_RParen_R",module=this_module),value))
+            return self.Expr_Return(token=value,trace=trace)
+        return "rparen%s" % gs.suffix
+        #self.ACT_Unbalaced_Primary(value,state,trace=trace)
         
 
     #
@@ -3174,8 +3186,14 @@ class MacroParser(asmbase.AsmCtxParser):
         # term )
         gs=self.scope()
         if gs.balanced_parens() and gs.isFollow(value,trace=trace):
+            if trace:
+                print("%s parans balanced an is follow" \
+                    % assembler.eloc(self,"Expr_Term_R",module=this_module))
             return self.Expr_Return(token=value,trace=trace)
 
+        if trace:
+            print("%s parans not balanced or not follow" \
+                % assembler.eloc(self,"Expr_Term_R",module=this_module))
         gs.rparen(value)
         return "rparen%s" % gs.suffix
 

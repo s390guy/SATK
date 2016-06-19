@@ -972,17 +972,17 @@ class A_Val(Mac_Val):
     # Infix Comparison Operations
     #
     def __lt__(self,other):
-        return B_Val(self.value() < self.__other(other))
+        return self.value() < self.__other(other)
     def __le__(self,other):
-        return B_Val(self.value() <= self.__other(other))
+        return self.value() <= self.__other(other)
     def __eq__(self,other):
-        return B_Val(self.value() == self.__other(other))
+        return self.value() == self.__other(other)
     def __ne__(self,other):
-        return B_Val(self.value() != self.__other(other))
+        return self.value() != self.__other(other)
     def __ge__(self,other):
-        return B_Val(self.value() >= self.__other(other))
+        return self.value() >= self.__other(other)
     def __gt__(self,other):
-        return B_Val(self.value() > self.__other(other))    
+        return self.value() > self.__other(other)  
 
     # Returns the integer value of the operand
     # Exception:
@@ -1084,17 +1084,17 @@ class B_Val(Mac_Val):
     # Infix Comparison Operations
     #
     def __lt__(self,other):
-        return B_Val(self.value() < self.__other(other))
+        return self.value() < self.__other(other)
     def __le__(self,other):
-        return B_Val(self.value() <= self.__other(other))
+        return self.value() <= self.__other(other)
     def __eq__(self,other):
-        return B_Val(self.value() == self.__other(other))
+        return self.value() == self.__other(other)
     def __ne__(self,other):
-        return B_Val(self.value() != self.__other(other))
+        return self.value() != self.__other(other)
     def __ge__(self,other):
-        return B_Val(self.value() >= self.__other(other))
+        return self.value() >= self.__other(other)
     def __gt__(self,other):
-        return B_Val(self.value() > self.__other(other))    
+        return self.value() > self.__other(other)    
 
     def __check(self,value):
         try:
@@ -1235,33 +1235,33 @@ class C_Val(Mac_Val):
     def __lt__(self,other):
         othr=self.__other_char(other)
         if isinstance(other,int):
-            return B_Val(self.sdterm < othr)
-        return B_Val(self.value() < othr)
+            return self.sdterm < othr
+        return self.value() < othr
     def __le__(self,other):
         othr=self.__other_char(other)
         if isinstance(other,int):
-            return B_Val(self.sdterm() <= othr)
-        return B_Val(self.value() <= othr)
+            return self.sdterm() <= othr
+        return self.value() <= othr
     def __eq__(self,other):
         othr=self.__other_char(other)
         if isinstance(other,int):
-            B_Val(self.sdterm() == othr)
-        return B_Val(self.value() == othr)
+            return self.sdterm() == othr
+        return self.value() == othr
     def __ne__(self,other):
         othr=self.__other_char(other)
         if isinstance(other,int):
-            return B_Val(self.sdterm() != othr)
-        return B_Val(self.value() != othr)
+            return self.sdterm() != othr
+        return self.value() != othr
     def __ge__(self,other):
         othr=self.__other_char(other)
         if isinstance(other,int):
-            return B_Val(self.sdterm() >= othr)
-        return B_Val(self.value() >= othr)
+            return self.sdterm() >= othr
+        return self.value() >= othr
     def __gt__(self,other):
         othr=self.__other_char(other)
         if isinstance(other,int):
-            return B_Val(self.sdterm() > othr) 
-        return B_Val(self.value() > othr) 
+            return self.sdterm() > othr 
+        return self.value() > othr
 
     # Returns an integer of the other operand
     # Exception:

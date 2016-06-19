@@ -784,7 +784,7 @@ class SETx(ASMStmt):
         self.macdir=True    # All subclasses are macro directives
 
     def process(self,asm,desc,dmethod,debug=False):
-        self.parse_line(asm)
+        self.parse_line(asm,debug=False)
         self.pre_process(asm)
         lineno=self.lineno
         pdebug=debug or self.trace    # TRACE if either call is TRUE or ATRACEON
@@ -1551,7 +1551,7 @@ class AIF(ASMStmt):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.parse_line(asm)
+        self.parse_line(asm,debug=False)
         self.pre_process(asm)
         lineno=self.lineno
         if len(self.operands)==0:

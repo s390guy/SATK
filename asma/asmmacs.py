@@ -894,7 +894,7 @@ class AIF(MacroOp):
         self.expr=expr        # AIF logical expression
 
     def operation(self,state,debug=False):
-        value=self.evaluate_expr(state,self.expr,debug=debug,trace=False)
+        value=self.evaluate_expr(state,self.expr,debug=False,trace=False)
 
         if isinstance(value,(macsyms.A_Val,macsyms.B_Val,int)):
             logical=self.to_logical(value)

@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2015 Harold Grovesteen
+# Copyright (C) 2015, 2016 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -718,7 +718,6 @@ class POr(Operator):
         super().__init__(src)
 
     # Infix logical operation: left or right (not a bitwise or)
-    #def calc_led(self,parser,left,right,external=None,debug=False,trace=False):
     def calc_led(self,ctx,left,right,debug=False,trace=False):
         return left!=0 or right!=0
 
@@ -826,7 +825,7 @@ class Binding(object):
 # same PParser object (and hence its bindings) is supported.  Operands that
 # themselves have expressions that require evaluation by the same PParser object
 # are supported by this separation.  This object is intended for single use and
-# should not be reused.  See the PParer.run() method.  Users of this module
+# should not be reused.  See the PParser.run() method.  Users of this module
 # should never instantiate this class, nor subclass it.  Additional expression
 # state, should be managed by the supplied external object if needed.
 class PCtx(object):
