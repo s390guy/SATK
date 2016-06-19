@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2015 Harold Grovesteen
+# Copyright (C) 2015, 2016 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -20,7 +20,7 @@
 # sequence of processing for a logical line but from the perspective of a line being
 # generated during macro invocation.
 
-this_module="%s.py" % __name__
+this_module="model.py"
 
 # Python imports: None
 # SATK imports: None
@@ -240,14 +240,21 @@ class Model(object):
 
         # Evaluate character expression
         assert isinstance(fld,macopnd.PChrExpr),\
-            "%s 'fld' argument must be an asmbase.macopnd.PChrExpr object: %s" \
+            "%s 'fld' argument must be an macopnd.PChrExpr object: %s" \
                 % (assembler.eloc(self,"__replace",module=this_module),fld)
-                
+
         v=fld.value(external=exp,debug=False,trace=False)
-        if isinstance(v,macsyms.C_Val):
+        if isinstance(v,(macsyms.C_Val,macsyms.A_Val,macsyms.B_Val)):
             return v.string()
         elif isinstance(v,str):
             return v
+
+        # Result unsupported as replacement value within a model statement
+        # Provide the logical line from within the macro that triggers the error
+        # for debugging purposes.
+        print("%s stmt[%s]:\n%s" \
+            % (assembler.eloc(self,"__replace",module=this_module),\
+                self.stmt.lineno,self.stmt.logline))
         raise ValueError("%s character expression result not C_Val or string: %s" \
             % (assembler.eloc(self,"__replace",module=this_module),v))
 

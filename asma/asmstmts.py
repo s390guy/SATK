@@ -3034,12 +3034,6 @@ class MHELP(TemplateStmt):
 
         operand=self.bin_oprs[0].getValue()
 
-        #pm=asm.PM
-        #scope=pm.parse_operands(self,"mhelp",required=True)
-        #desc="MHELP %s" % self.lineno
-        #expr=pm.L2ArithExpr(desc,self,ltoks=scope.lextoks,debug=debug)
-        #operand=expr.evaluate(None,debug=debug,trace=False)
-
         # Update the mhelp data in the macro manager (asmmacs.MacroLanguage object)
         asm.MM.mhelp(operand,debug=debug)
 
