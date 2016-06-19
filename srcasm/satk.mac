@@ -685,7 +685,7 @@ $X       OPSYN XG
          MEXIT
 .* Enter ASALOAD area
 .SETDS   ANOP
-&DIFSECT SETB  '&SYSECT' EQ '&SATKACS'
+&DIFSECT SETB  ('&SYSECT' EQ '&SATKACS')
          AIF   (NOT &DIFSECT).NOSECT
 &SECT    SETC  '&SYSECT'
 &SATKACS CSECT
@@ -1136,10 +1136,10 @@ ZABSLEN  EQU   ZABSEND-ZABSBEG        Size of absolute high area usage
          LCLC &IOSAV       Symbol where to save IO New PSW ('' means no saving)
          LCLC &IONEWL      Symbol where to locate IO New PSW
 .* Determine for which interruption classes to wait
-&EXTWAIT SETB  '&EXT' NE ''
-&EXTINLN SETB  '&EXT' EQ 'YES'
-&IOWAIT  SETB  '&IO' NE ''
-&IOINLN  SETB  '&IO' EQ 'YES'
+&EXTWAIT SETB  ('&EXT' NE '')
+&EXTINLN SETB  ('&EXT' EQ 'YES')
+&IOWAIT  SETB  ('&IO' NE '')
+&IOINLN  SETB  ('&IO' EQ 'YES')
          AIF   (&EXTWAIT OR &IOWAIT).START
          MNOTE 1,'CPUWAIT -EITHER EXT OR IO PARAMETER OR BOTH MUST BE SPECIFIED'
          MEXIT
@@ -1252,12 +1252,12 @@ CPUS&SYSNDX DS  0H
 .* Save EXT NEW PSW
          AIF   (NOT &EXTWAIT).SAVEIO
          AIF   ('&EXTSAV' EQ '').SAVEIO
-         MVC   &EXTSAV.(&PSWLEN),&EXTNADR(0)  Save External new PSW
+         MVC   &EXTSAV.(&PSWLEN),&EXTNADR.(0)  Save External new PSW
 &EXTRST  SETB  1
 .* Save I/O NEW PSW
 .SAVEIO  AIF   (NOT &IOWAIT).SETNEW
          AIF   ('&IOSAV' EQ '').SETNEW
-         MVC   &IOSAV.(&PSWLEN),&IONADR(0)    Save Input/Output new PSW
+         MVC   &IOSAV.(&PSWLEN),&IONADR.(0)    Save Input/Output new PSW
 &IORST   SETB  1
 .SETNEW  ANOP
          AIF   (NOT &EXTWAIT).SETIO
@@ -1990,42 +1990,42 @@ IOCBL    EQU   *-IOCB  Length of IOCB control block (48) without embedded struct
          MNOTE *,'IOFMT - UNRECOGNIZED DSECT - &DS'
          AGO   .NEXTDS
 .SETALL  ANOP
-&NCCW0   SETB  NOT &SATKCW0
-&NCCW1   SETB  NOT &SATKCW1
-&NCCWF   SETB  NOT &SATKCWF
-&NCSW    SETB  NOT &SATKCSW
-&NIRB    SETB  NOT &SATKIRB
-&NORB    SETB  NOT &SATKORB
-&NSCSW   SETB  NOT &SATKSSW
-&NSIB    SETB  NOT &SATKSIB
+&NCCW0   SETB  (NOT &SATKCW0)
+&NCCW1   SETB  (NOT &SATKCW1)
+&NCCWF   SETB  (NOT &SATKCWF)
+&NCSW    SETB  (NOT &SATKCSW)
+&NIRB    SETB  (NOT &SATKIRB)
+&NORB    SETB  (NOT &SATKORB)
+&NSCSW   SETB  (NOT &SATKSSW)
+&NSIB    SETB  (NOT &SATKSIB)
          AGO   .CCW0
 .SETCCW  ANOP
-&NCCW0   SETB  NOT &SATKCW0
-&NCCW1   SETB  NOT &SATKCW1
-&NCCWF   SETB  NOT &SATKCWF
+&NCCW0   SETB  (NOT &SATKCW0)
+&NCCW1   SETB  (NOT &SATKCW1)
+&NCCWF   SETB  (NOT &SATKCWF)
          AGO   .NEXTDS
 .SETCCW0 ANOP
-&NCCW0   SETB  NOT &SATKCW0
-&NCCWF   SETB  NOT &SATKCWF
+&NCCW0   SETB  (NOT &SATKCW0)
+&NCCWF   SETB  (NOT &SATKCWF)
          AGO   .NEXTDS
 .SETCCW1 ANOP
-&NCCW1   SETB  NOT &SATKCW1
-&NCCWF   SETB  NOT &SATKCWF
+&NCCW1   SETB  (NOT &SATKCW1)
+&NCCWF   SETB  (NOT &SATKCWF)
          AGO   .NEXTDS
 .SETCSW  ANOP
-&NCSW    SETB  NOT &SATKCSW
+&NCSW    SETB  (NOT &SATKCSW)
          AGO   .NEXTDS
 .SETIRB  ANOP
-&NIRB    SETB  NOT &SATKIRB
+&NIRB    SETB  (NOT &SATKIRB)
          AGO   .NEXTDS
 .SETORB  ANOP
-&NORB    SETB  NOT &SATKORB
+&NORB    SETB  (NOT &SATKORB)
          AGO   .NEXTDS
 .SETSCSW ANOP
-&NSCSW   SETB  NOT &SATKSSW
+&NSCSW   SETB  (NOT &SATKSSW)
          AGO   .NEXTDS
 .SETSIB  ANOP
-&NSIB    SETB  NOT &SATKSIB
+&NSIB    SETB  (NOT &SATKSIB)
 .NEXTDS  ANOP
 &XDS     SETA  &XDS+1
          AIF   (&XDS LE &NDS).DSLOOP
@@ -2423,7 +2423,7 @@ IOTR&SYSNDX DC H'8'
 .HAVELVL ANOP
 &ORBLEN  SETA  12
 &CANEXT  SETB  &ARCHLVL GE 8
-&DOMASK  SETB  '&MASK' EQ 'YES'
+&DOMASK  SETB  ('&MASK' EQ 'YES')
 .* Assemble an ORB or a mask
 .* Analyze flags
 .* &NFLAG   SETA  N'&FLAG
@@ -2769,7 +2769,8 @@ PSWBLEN  EQU   *-PSWB
          SPACE 1
 * Wait for I/O operation to present status via an interruption
 IOWT&SYSNDX DS 0H  Wait for I/O to complete
-         CPUWAIT IO=YES,IOSAVE=&IOSAVE,CHAN=&CHAN
+.*         CPUWAIT IO=YES,IOSAVE=&IOSAVE,CHAN=&CHAN
+         CPUWAIT IO=YES,CHAN=&CHAN
          AIF   (&ARCHLVL GE 5).CKIRB
          SPACE 1
 * Validate interruption is for the expected device
@@ -2905,7 +2906,8 @@ IOWT&SYSNDX DS 0H  Wait for I/O to complete
          SPACE 1
 * Wait for I/O operation to present status via an interruption
 IOWT&SYSNDX DS 0H  Wait for I/O to complete
-         CPUWAIT IO=YES,IOSAVE=&IOSAVE,CHAN=&CHAN
+.*         CPUWAIT IO=YES,IOSAVE=&IOSAVE,CHAN=&CHAN
+         CPUWAIT IO=YES,CHAN=&CHAN
          AIF   (&CS).CKIRB
          SPACE 1
 * Validate interruption is for the expected device
