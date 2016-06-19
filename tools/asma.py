@@ -123,6 +123,7 @@ class ASMA(object):
             otrace=args["oper"],\
             cpfile=cpfile,\
             cptrans=cptrans,\
+            mcall=args["mcall"],\
             asmpath=args["asmpath"],\
             maclib=args["maclib"])
 
