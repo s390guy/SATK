@@ -45,7 +45,7 @@
 *
 * Recommend List-Directed IPL using ASMA command-line argument -g
          SPACE 1
-         PRINT OFF
+         PRINT ON
          COPY  'satk.mac'
          PRINT ON
 *

@@ -184,8 +184,8 @@ class DCDS_Parser(asmbase.AsmCtxParser):
     def __init_constants(self):
         c=DCDS_Constant   # This is just a typing convenience.
 
-        #        nominal      len      len    nom     nom       val       val
-        #   TYPE  class       state    CTX   state    ctx      state      ctx
+        #        nominal   len      len     nom     nom       val       val
+        #   TYPE  class    state    CTX    state    ctx      state      ctx
         A= c("A", DC_A, ("lengthp","lpb"),("nomp","lpren"),("adrvals","addr"))
         AD=c("AD",DC_AD,("lengthp","lpb"),("nomp","lpren"),("adrvals","addr"))
         B= c("B", DC_B, ("lengthq","lqb"),("nomq","quote"),("binvals","dcbin"))

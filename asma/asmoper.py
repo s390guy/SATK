@@ -375,7 +375,7 @@ class OperMgr(asmbase.ASMOperTable):
             return "U"
         return oper.O
 
-    # Returns operation specification information based upon the operation name
+    # Returns operation specification information based upon the operation name.
     # Identification of the statement operation is performed in the following
     # sequence:
     #  1. OPSYN conversion
@@ -383,6 +383,9 @@ class OperMgr(asmbase.ASMOperTable):
     #  3. Machine instruction operation mnemonic
     #  4. XMODE directive setting
     #  5. Assembler directive
+    # During macro definition the sequence is different:
+    #  1. Recognize a macro statement
+    #  2. Assume a model statement otherwise.
     # Method Arguements
     #   opname  operation name (in upper case) being retrieved
     #   mbstate The state of the current MacroBuilder object

@@ -129,6 +129,93 @@ class Structure(object):
 # The type is derived very early in a statement's processing when the physical line
 # is read, even before the logical line is constructed.
 class ASMStmt(object):
+    # Statement processing controls are class attributes that aid in processing
+    # the statement(s) supported by the class.  These attributes are referenced
+    # by various modules that participate in the process.  They have no meaning
+    # for the base class which is itself never directly instantiated.  The attributes
+    # have been coded here purely for documentation purposes.
+    #
+    # Attributes alt, attrs, and spaces are only used when sep=True.
+
+    # Statement type.  Used by asmoper.getOper() method to recognize a macro
+    # directive during a macro definition.  The following values are used:
+    #   MD    Macro definitional statement: MEND, MEXIT
+    #   ML    reserved
+    #   MO    A macro operation: ACTR, AGO, AIF, ANOP, GBLx, LCLx
+    #   MS    A macro set operation: SETx
+    #
+    # This type influences statement printing in AsmStmt.pr_set() method.
+    #   M     Invoked macro definition
+    #
+    # These types are purely for documentation and consistency:
+    #   I     Machine instruction
+    #   MG    A macro model statement
+    #   MP    A macro prototype statement
+    #   SPP   Uses a special pre-processor method.  Most assembler directives.
+    #   SSP   DC assembler directive.
+    #   TPL   Template using assembler directives:  CCW[x], CNOP, DROP, ENTRY, EQU,
+    #             ORG, PSW[x], USING.
+    typ=None       # Statement type identifie
+
+    # Label Field Content.  This field defines what may appear in the statement's
+    # label field.  It is a string, each character representing a type of allowed
+    # content.  The values are examined by asmline.LField.validate() method
+    #
+    #  L   a normal label (may not contain a symbolic macro variable)
+    #  M   a macro model statement label (may contain a symbolic macro variable)
+    #  S   a symbolic macro variable.
+    #  Q   a sequence symbol
+    lfld="MLSQ"    # Valid label field content
+
+    # Operation Field Content.  Performs the same role for the operation field as
+    # does the previous attribute for the label field.  The same values are
+    # used with the same asmline.LField.validate() method.  However, the operation
+    # field will never allow a sequence symbol.  See the lfld description for
+    # details.
+    ofld="LS"      # Valid operation field content
+
+    # Whether the alternate statement format is allowed for the statement.  It is 
+    # used by the operand separation finite state machine asmline.cfsm and 
+    # used by the ACT_Comma() and ACT_Found_Comment() methods.  The value is passed
+    # to the machine via the call to asmline.LineMgr.findOperands() method in 
+    # the AsmStmt.parse_line() method.
+    alt=False      # Whether the alternate statement format is allowed
+
+    # Defines the name of the parser to be used for parsing operands separated
+    # when attribut sep=True.  This parser is used when AsmStmt.parse_sep() method
+    # is called.
+    parser="mopnd" # Operand parser used by statement
+
+    # Whether operands within the logical line should be separated or not.  Some
+    # statements expect the operands to be separated (and processed individually)
+    # and some expect to process the entire logical line doing its one operand
+    # separation.  Like the alt attribute, the sep attribute value is passed to the
+    # asmline.LineMgr.findOperands() in the AsmStmt.parse_line() method.
+    # It controls whether the operand separation finite state machine asmline.csfm
+    # is used or not.  When not used, the operand field from each physical line
+    # is concatenated in one long string for processing by the statement.
+    sep=True       # Whether operands are to be separated from the logline
+
+    # Whether spaces may occur within the operand field, for example some macro
+    # directives or not, for example machine instructions.  Like the alt and sep
+    # attributes, the spaces attribute's value is passed to
+    # asmline.LineMgr.findOperands() in the AsmStmt.parse_line() method.  The
+    # finite state machine asmline.cfsm's action method ACT_Comment is sensitive
+    # to its value.
+    spaces=False   # Whether operand field may have spaces outside of quoted strings
+
+    # Specifies which label or symbol attributes are allowed in operands.  The
+    # asmline.cfsm finite state machine must know this information so that it does
+    # not recognize a quoted string when a quoted string could be present.
+    # Like alt, sep, and spaces, the attrs attribute is passed to the finite state
+    # machine, via the call to asmline.LineMgr.findOperands() in the
+    # AsmStmt.parse_line() method.  The ACT_Attr finite state machine action method
+    # is sensitive to the value is a string.
+    #    None    Disables symbol attribute recognition.
+    #    "xx"    The specified attributes are recognized.
+    #    ""      Recognizes all valid attributes.
+    attrs=None     # Attributes supported in expression
+ 
     def __init__(self,lineno,logline=None):
         assert isinstance(logline,asmline.LogLine),\
             "%s 'logline' argument not a asmline.LogLine object: %s" \
@@ -146,7 +233,7 @@ class ASMStmt(object):
         self.source=logline.source # Source of the logical line
         self.label_fld=None        # Label Field (LField object)
         self.oper_fld=None         # Operation Field (LField object)
-        
+
         # Manages symbolic replacement
         self.amp=False             # Whether ampersands are present.
         self.amp_list=[]           # Objects that may need symbolic replacement
@@ -606,7 +693,6 @@ class ASMStmt(object):
                 % (self.instu,opn,addr))
 
     # Returns a SymbolID object of the label's symbolic reference or None
-    
     def symvar(self):
         label=self.label_fld
         if label is None or label.typ!="S":
@@ -893,7 +979,7 @@ class StmtComment(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
         self.comment=True
@@ -919,7 +1005,7 @@ class StmtError(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
         self.error=logline.error    # LineError object of the logical line error
@@ -1063,7 +1149,7 @@ class MachineStmt(ASMStmt):
         asm.builder.build(self,trace=idebug)
 
 
-# Macro Prototype Statement
+# Macro Prototype Statement - Oper Type: MP
 class MacroProto(ParmStmt):
     # Statement processing controls
     typ="MP"       # Statement type identifier
@@ -1330,7 +1416,7 @@ class ACTR(ASMStmt):
     # Pass1 - should never be called
     # Pass2 - should never be called
 
-# AGO Macro Directive
+# AGO Macro Directive - Oper Type: MO
 #
 # Unconditional pass control to a sequence symbol in a macro definition
 #
@@ -1507,7 +1593,7 @@ class AIF(ASMStmt):
     # Pass2 - should never be called
 
 
-# AMODE Assembler Directive
+# AMODE Assembler Directive - Oper Type: SPP
 #
 # Set a control-section's address mode
 #
@@ -1536,7 +1622,7 @@ class AMODE(ASMStmt):
     def Pass2(self,asm,debug=False,trace=False): pass
 
 
-# ANOP Macro Directive - Oper Type: MD
+# ANOP Macro Directive - Oper Type: MO
 #
 # Macro no-operation
 #
@@ -1582,7 +1668,7 @@ class ATRACEOFF(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -1687,7 +1773,7 @@ class ATRACEON(ASMStmt):
     def Pass2(self,asm,debug=False,trace=False): pass
 
 
-# CCW0 Assembler Directive - Oper Type TPL
+# CCW0 Assembler Directive - Oper Type: TPL
 #
 # Build a Channel Command Word Format-0
 # 
@@ -3961,7 +4047,7 @@ class REGION(ASMStmt):
         self.laddr=[addr1,addr2]
 
 
-# RMODE Assembler Directive
+# RMODE Assembler Directive - Oper Type: SPP
 #
 # Set a control-section's residency mode
 #

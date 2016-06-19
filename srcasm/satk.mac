@@ -1270,7 +1270,7 @@ CPUS&SYSNDX DS  0H
 .SETIO   ANOP
          AIF   (NOT &IOWAIT).DOWAIT
 .* Instantiate the I/O New PSW
-         MVC   &IONADR(&PSWLEN,0),&IONEWL     Establish Input/Ouput new PSW
+         MVC   &IONADR.(&PSWLEN,0),&IONEWL    Establish Input/Ouput new PSW
          AIF   ('&IO' EQ 'YES').DOWAIT
 .* IO=NEW  use the explicit I/O New PSW as a template
          NI    &IONADR.(0),255-&WAITMSK       Make sure interrupts are disabled

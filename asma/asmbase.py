@@ -805,10 +805,13 @@ class AsmFSMScope(fsmparser.PScope):
         assert source is None or isinstance(source,ASMString),\
             "%s 'source' argument must be an instance of ASMString: %s" \
                 % (assembler.eloc(self,"expr_end",module=this_module),source)
+        #print("%s %s" % (assembler.eloc(self,"expr_end",module=this_module),self))
         self._parens=0
         expr=self._lextoks
         if source:
             for tok in expr:
+                #print("%s: tok: %s" \
+                #    % (assembler.eloc(self,"expr_end",module=this_module),tok))
                 loc=source.ndx2loc(tok.linepos)
                 tok.update_loc(line,loc)
         self._lextoks=[]

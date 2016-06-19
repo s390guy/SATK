@@ -325,7 +325,7 @@ class cfsm(fsm.FSM):
         self.lines=0            # Number of phyiscal lines in logical line
         self.pndx=None          # Next pline index to be processed
         self.operands=[]        # Recognized operands in logical line
-        self.alfmt=False        # Whether alternate statement format in use
+        self.altfmt=False       # Whether alternate statement format in use
         self.attrs=""           # String of recognized attributes
 
         # Current operand attributes.  Set by state action methods.  Reset by start()

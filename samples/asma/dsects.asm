@@ -18,7 +18,7 @@
          TITLE 'dsects.asm - Stand-Alone Tool Kit DSECTs'
 * This program assembles all SATK standard DSECTs.  DSECTs are placed in alphabetical
 * order.
-         PRINT OFF,NOPRINT
+*         PRINT OFF,NOPRINT
          COPY  'satk.mac'
          COPY  'function.mac'
          COPY  'table.mac'

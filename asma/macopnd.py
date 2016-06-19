@@ -313,7 +313,7 @@ class MacroCSLexer(lexer.CSLA):
     def init_cexpr(self,ldebug=False,tdebug=False):
         c="cexpr"
         self.ctx(c,debug=ldebug)
-        types=[DBLQUOTE,QUOTE,AMP,SYMBOL,SYM,CHRS,LPAREN]
+        types=[DBLQUOTE,QUOTE,AMP,SYMBOL,SYM,LPAREN,CHRS]
         self.type(c,types,debug=tdebug)
 
     def init_default(self,ldebug=False,tdebug=False):
@@ -465,13 +465,20 @@ class MacroScope(asmbase.AsmFSMScope):
     #   True  If scope is done after primary expression (cterm=False)
     #   False If scope is not done after primary expression (cterm=True)
     def expression_end(self,result=None):
+        #print("%s called result: %s primary: %s" \
+        #    % (assembler.eloc(self,"expression_end",module=this_module),result,\
+        #        self._primary))
         if self._primary:
-            #print("scope %r expression_end completed primary" % self)
+        #    print("scope %r expression_end started primary" % self)
             self.primary(result=result)
+        #    print("scope %r expression_end completed primary" % self)
             self._primary=False
+        #    print("%s %r primary set to FALSE" \
+        #        % (assembler.eloc(self,"expression_end",module=this_module),self))
         else:
-            #print("scope %r expression_end completed, secondary" % self)
+        #    print("scope %r expression_end started, secondary" % self)
             self.secondary(result=result)
+        #    print("scope %r expression_end completed, secondary" % self)
 
     # Initializes the scope for use and instantiates the result object
     # Override this method to create a different result object
@@ -715,7 +722,7 @@ class MacroScopeExprC(MacroScopeExpr):
 
 # The Pratt token of a character expression.
 # Instance Arguments:
-#   chr_lst   List of strings and replacement symbolic references
+#   expr      Character expression object
 #   start     An optional arithmetic expression specifying the substring start.
 #             Default is None.
 #   length    An optional arithemtic expression of the substring length.  Default
@@ -757,10 +764,8 @@ class PChrExpr(PCTerm):
         if __debug__:
             if debug:
                 print("%s chr exp list: %s" \
-#                    % (assembler.eloc(self,"value",module=this_module),self.chr_lst))
                     % (assembler.eloc(self,"value",module=this_module),self.expr))
-                
-        
+
         result=self.expr.evaluate(external,debug=debug,trace=trace)
         if __debug__:
             if debug:
@@ -769,17 +774,26 @@ class PChrExpr(PCTerm):
                 print("%s string: %s" \
                     % (assembler.eloc(self,"value",module=this_module),self.string))
 
+        if isinstance(result,(macsyms.C_Val,macsyms.A_Val)):
+            chars=result.string()
+        elif isinstance(result,str):
+            chars=result
+        else:
+            raise ValueError(\
+                "%s unexpected result from character string evaluatiom: %s" \
+                    % (assembler.eloc(self,"value",module=this_module),result))
+
         # Extract substring if present
         if self.start:
             start=self.start.evaluate(external,debug=debug,trace=trace)
             length=self.length.evaluate(external,debug=debug,trace=trace)
 
             # Expression evaluated, so turn them into Python integers
-            start=to_integer(start)
-            length=to_integer(length)
+            start=self.to_integer(start)
+            length=self.to_integer(length)
 
             # Validate the starting sub-string position 
-            strlen=len(result)
+            strlen=len(chars)
             if start<1 or start>strlen:
                 raise MacroError(invoke=True,\
                     msg="substring starting position out of range (1-%s): %s" \
@@ -793,7 +807,7 @@ class PChrExpr(PCTerm):
                         msg="substring ending position out of range (1-%s): %s" \
                             % (strlen,end))
                 start-=1
-                result=result[start:end]
+                result=chars[start:end]
             elif length==0:
                 result=""
             else:
@@ -852,7 +866,7 @@ class ChrExpr(asmbase.CTerm):
         assert isinstance(expr,asmbase.ASMExprChar),\
             "%s 'expr' argument must be an ASMExprChar object: %s" \
                 % (assembler.eloc(self,"primary",module=this_module),expr)
-        self._primary=expr
+        super().primary(expr)
 
     def ptoken(self):
         assert self.prepared,"%s not prepared" \
@@ -915,22 +929,46 @@ class CharacterExpr(CTermScope):
         return ChrExpr(string=True)
 
     def primary(self,result=None):
+        #print("%s called" % assembler.eloc(self,"primary",module=this_module))
+        assert self._primary==True,\
+            "%s primary() method called, self._primary: %s" \
+                % (assembler.eloc(self,"primary",module=this_module),self._primary)
         expr=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
         #for n,item in enumerate(expr):
         #    print("%s token[%s]: %s" \
         #        % (assembler.eloc(self,"primary",module=this_module),\
         #            n,item))
-        #self.opnd.primary(expr)
+
         self.opnd.primary(asmbase.ASMExprChar(expr,string=True))
 
+    def result_returned(self,res):
+        #print("%s called res: %s" \
+        #    % (assembler.eloc(self,"result_returned",module=this_module),res))
+        if self._primary:
+            # For primary expression (the string part) we collect the tokens for
+            # ultimate creation of the ASMExprChar object
+            #print("%s calling super().result_returned, res: %s" 
+            #    % (assembler.eloc(self,"result_returned",module=this_module),res))
+            super().result_returned(res)
+        else:
+            # For secondary
+            self.secondary(result=res)
+            #self.expression_end(result=res)
+
     def secondary(self,result=None):
-        expr=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
+        #print("%s called result: %s" \
+        #    % (assembler.eloc(self,"secondary",module=this_module),result))
+        assert isinstance(result,asmbase.ASMExprArith),\
+            "%s 'result' object must be an asmbase.ASMExprArith object: %s" \
+                % (assembler.eloc(self,"secondary",module=this_module),result)
+        #print("secondary: result: %s" % result)
+        #expr=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
         #for n,item in enumerate(expr):
         #    print("%s token[%s]: %s" \
         #        % (assembler.eloc(self,"secondary",module=this_module),\
         #            n,item))
 
-        self.opnd.secondary(asmbase.ASMExprArith(expr))
+        self.opnd.secondary(result)
 
 
 #
@@ -1869,9 +1907,24 @@ class MacroParser(asmbase.AsmCtxParser):
                         self.scope()))
         # Fetch the scope to which we are returning from the scope stack
         ret=self.pop_scope(trace=trace)
+        if __debug__:
+            if trace:
+                print("%s returning to scope: %s" \
+                    % (assembler.eloc(self,"leave_scope",module=this_module),\
+                        ret))
         # Pass to it as a new token the result of the returning scope
         if result:
+            if __debug__:
+                if trace:
+                    print("%s returning result: %s" \
+                        % (assembler.eloc(self,"leave_scope",module=this_module),\
+                            result))
             ret.result_returned(result)
+        else:
+            if __debug__:
+                if trace:
+                    print("%s result not returned" \
+                        % assembler.eloc(self,"leave_scope",module=this_module))
             #ret.token(result)
         # If returning scope has a stack item, make it the next FSM input value
         if stack:
@@ -3241,10 +3294,21 @@ class MacroParser(asmbase.AsmCtxParser):
         if __debug__:
             if trace:
                 print("%s %r.expression_end(): primary:%s" \
-                    % (assembler.eloc(self,"Rep_End",module=this_module),\
+                    % (assembler.eloc(self,"Chr_End",module=this_module),\
                         gs,gs._primary))
         gs.expression_end()
         return "csym"    # See if we have a substring
+
+    def Chr_Return(self,value,state,trace=False):
+        gs=self.scope()
+        if __debug__:
+            if trace:
+                print("%s leaving scope: %s" \
+                    % (assembler.eloc(self,"Chr_Return",module=this_module),\
+                        gs))
+
+        #gs.build_expression()
+        return self.leave_scope(result=gs.result(),stack=None,trace=trace)
 
     # Sublist detected with character string
     #def Chr_Subs(self,value,state,trace=False):
@@ -3259,14 +3323,16 @@ class MacroParser(asmbase.AsmCtxParser):
         # When the RPAREN is detected at the end of the sublist, we return to 
         # these states and context via a leave_scope()
 
-    def Chr_Subs_End(value,state,trace=False):
-        return "csube"
+    def Chr_Subs_End(self,value,state,trace=False):
+        # return to caller
+        return self.Chr_Return(value,state,trace=trace)
+        #return "csube"
 
-    def Chr_Subs_Length(value,state,trace=False):
+    def Chr_Subs_Length(self,value,state,trace=False):
         ret=MPControl("csubl",pctx="cexpr")
         return self.Arith_Call(ret,token=None,follow=[RPAREN,],trace=trace)
 
-    def Chr_Subs_Start(value,state,trace=False):
+    def Chr_Subs_Start(self,value,state,trace=False):
         ret=MPControl("csubs",pctx="cexpr")
         return self.Arith_Call(ret,token=None,follow=[COMMA,],trace=trace)
 
