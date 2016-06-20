@@ -1083,9 +1083,9 @@ class SETx(MacroOp):
             raise MacroError(invoke=True,\
                 msg="symbol %s subscript 1 not an integer: %s" % (setname,ndx))
 
-        for n,exp in enumerate(self.expr):
+        for n,expr in enumerate(self.expr):
             try:
-                set_val=exp.evaluate(exp,debug=debug)
+                set_val=expr.evaluate(external=exp,debug=debug)
             except assembler.LabelError as le:
                 raise MacroError(invoke=True,msg=le.msg) from None
             symid=macsyms.SymbolID(setname,indices=[ndx,])

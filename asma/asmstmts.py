@@ -203,6 +203,11 @@ class ASMStmt(object):
     # finite state machine asmline.cfsm's action method ACT_Comment is sensitive
     # to its value.
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    
+    # For some statements, only a comma indicates the end of an operand when
+    # encountered outside of a parenthesized portion of the operand or quotes.
+    # This is spaces on steroids.
+    comma=False    # Whether only a comma indicates the end of an operand
 
     # Specifies which label or symbol attributes are allowed in operands.  The
     # asmline.cfsm finite state machine must know this information so that it does
@@ -248,6 +253,7 @@ class ASMStmt(object):
         # Statement processing controls
         cls=self.__class__         # Processing controls are class attributes
         self.spaces=cls.spaces     # Set whether spaces can be in operands
+        self.comma=cls.comma       # Set whether only comma forces an operand
         self.sep=cls.sep           # Whether operands parsed into LOperand objects
         self.alt=cls.alt           # Set whether alternate statement format supported
         self.T=cls.typ             # Operation type - some values used for T'attribute
@@ -500,7 +506,7 @@ class ASMStmt(object):
     # Parse from physical lines the logical operands in the operand field(s).
     # This is the default handling.  A subclass may override if physical lines
     # require different handling
-    def parse_line(self,asm,alt=None,sep=None,spaces=None,debug=False):
+    def parse_line(self,asm,alt=None,sep=None,spaces=None,comma=None,debug=False):
         # Parse into LOperand objects, all of the operands in the logical line
 
         # Allow method call to overide the devault object attributes for alt,
@@ -517,6 +523,10 @@ class ASMStmt(object):
             pspaces=self.spaces
         else:
             spaces=spaces
+        if comma is None:
+            pcomma=self.comma
+        else:
+            pcomma=comma
 
         logline=self.logline
         #if self.lineno==182:
@@ -531,7 +541,7 @@ class ASMStmt(object):
 
         try:
             asm.IM.findOperands(logline,alt=palt,attrs=self.attrs,sep=psep,\
-                spaces=pspaces,debug=ddebug)
+                spaces=pspaces,comma=pcomma,debug=ddebug)
         except asmline.LineError as le:
             # re-raise exception as an assembler error
             raise assembler.AssemblerError(source=le.source,line=self.lineno,\
@@ -979,6 +989,7 @@ class StmtComment(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=None     # Attributes supported in expression
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -1005,6 +1016,7 @@ class StmtError(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=None     # Attributes supported in expression
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -1035,6 +1047,7 @@ class MachineStmt(ASMStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="LMI"    # Attributes supported in expression
 
     # Source statement operand types      Evaluated results of expressions
@@ -1159,6 +1172,7 @@ class MacroProto(ParmStmt):
     parser="mproto"# Operand parser
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression (all allowed)
 
     def __init__(self,lineno,logline=None):
@@ -1242,6 +1256,7 @@ class MacroStmt(ParmStmt):
     parser="mparms"# Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression (all allowed)
 
     def __init__(self,lineno,logline=None):
@@ -1321,6 +1336,7 @@ class ModelStmt(ASMStmt):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     #attrs="IKLMNOT"   # Attributes supported in expression
     attrs=None     # Attributes supported in expression
 
@@ -1384,6 +1400,7 @@ class ACTR(ASMStmt):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=True    # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="KNT"    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -1436,6 +1453,7 @@ class AGO(ASMStmt):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=True    # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="KNT"    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -1543,6 +1561,7 @@ class AIF(ASMStmt):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=True    # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="KNT"    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -1608,6 +1627,7 @@ class AMODE(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -1637,6 +1657,7 @@ class ANOP(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=True    # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="KNT"    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -1668,6 +1689,7 @@ class ATRACEOFF(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -1730,6 +1752,7 @@ class ATRACEON(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -1788,6 +1811,7 @@ class CCW0(TemplateStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="LMI"    # Attributes supported in expression
 
     # Template structure definitions
@@ -1868,6 +1892,7 @@ class CCW1(TemplateStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="LMI"    # Attributes supported in expression
 
     # Template structure definitions
@@ -1943,6 +1968,7 @@ class CNOP(TemplateStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="LMI"    # Attributes supported in expression
 
     # Template structure definitions
@@ -2067,6 +2093,7 @@ class COPY(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     filename=re.compile(r"'[^' ]*'")
@@ -2109,6 +2136,7 @@ class CSECT(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -2187,6 +2215,7 @@ class DC(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -2356,6 +2385,7 @@ class DROP(TemplateStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="LMI"    # Attributes supported in expression
 
     # Template structure definitions
@@ -2417,6 +2447,7 @@ class DS(DC):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -2453,6 +2484,7 @@ class DSECT(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -2499,6 +2531,7 @@ class EJECT(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -2530,6 +2563,7 @@ class END(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -2573,6 +2607,7 @@ class ENTRY(TemplateStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="LMI"    # Attributes supported in expression
 
     # Template structure definitions
@@ -2616,6 +2651,7 @@ class EQU(TemplateStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="LMI"    # Attributes supported in expression
 
     # Template structure definitions
@@ -2717,6 +2753,7 @@ class GBLA(SymbolDefine):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="KNT"    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -2747,6 +2784,7 @@ class GBLB(SymbolDefine):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="KNT"    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -2777,6 +2815,7 @@ class GBLC(SymbolDefine):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="KNT"    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -2806,6 +2845,7 @@ class LCLA(SymbolDefine):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="KNT"    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -2835,6 +2875,7 @@ class LCLB(SymbolDefine):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="KNT"    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -2863,6 +2904,7 @@ class LCLC(SymbolDefine):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="KNT"    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -2892,6 +2934,7 @@ class MACRO(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -2931,6 +2974,7 @@ class MEND(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=True    # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="KNT"    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -2969,6 +3013,7 @@ class MEXIT(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=True    # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="KNT"    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -3008,6 +3053,7 @@ class MHELP(TemplateStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="ILMS"   # Attributes supported in expression
     # Note: this needs updating to use parser "mopnd" to allow symbolic variables
     # in the expression.
@@ -3056,6 +3102,7 @@ class MNOTE(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -3107,6 +3154,7 @@ class OPSYN(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -3182,6 +3230,7 @@ class ORG(TemplateStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="LMI"    # Attributes supported in expression
 
     # Template structure definitions
@@ -3248,6 +3297,7 @@ class POP(StackingStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -3280,6 +3330,7 @@ class PRINT(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -3356,6 +3407,7 @@ class PSWS(TemplateStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="LMI"    # Attributes supported in expression
 
     # Template structure definitions
@@ -3425,6 +3477,7 @@ class PSW360(TemplateStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="LMI"    # Attributes supported in expression
 
     # Template structure definitions
@@ -3498,6 +3551,7 @@ class PSW67(TemplateStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="LMI"    # Attributes supported in expression
 
     # Template structure definitions
@@ -3586,6 +3640,7 @@ class PSWBC(TemplateStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="LMI"    # Attributes supported in expression
 
     # Template structure definitions
@@ -3659,6 +3714,7 @@ class PSWEC(TemplateStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="LMI"    # Attributes supported in expression
 
     # Template structure definitions
@@ -3742,6 +3798,7 @@ class PSWBi(TemplateStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="LMI"    # Attributes supported in expression
 
     # Template structure definitions
@@ -3862,6 +3919,7 @@ class PSWZ(TemplateStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="LMI"    # Attributes supported in expression
 
     # Template structure definitions
@@ -3967,6 +4025,7 @@ class PUSH(StackingStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -4000,6 +4059,7 @@ class REGION(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -4056,6 +4116,7 @@ class RMODE(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -4085,6 +4146,7 @@ class SETA(SETx):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=True    # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     #attrs="KNT"    # Attributes supported in expression
     attrs=""       # Attributes supported in expression (all allowed)
 
@@ -4119,6 +4181,7 @@ class SETB(SETx):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=True    # Whether operand field may have spaces outside of quoted strings
+    comma=True     # Whether only a comma forces an end of an operand
     #attrs="KNT"    # Attributes supported in expression
     attrs=""       # Attributes supported in expression (all allowed)
 
@@ -4149,6 +4212,7 @@ class SETC(SETx):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     #attrs="KNT"    # Attributes supported in expression
     attrs=""       # Attributes supported in expression (all allowed)
 
@@ -4179,6 +4243,7 @@ class SPACE(TemplateStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="ILMS"   # Attributes supported in expression
 
     # Template structure definitions
@@ -4225,6 +4290,7 @@ class START(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -4332,6 +4398,7 @@ class TITLE(ASMStmt):
     parser="mopnd" # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
@@ -4367,6 +4434,7 @@ class USING(TemplateStmt):
     parser="opnd"  # Operand parser used by statement
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs="LMI"    # Attributes supported in expression
 
     # Template structure definitions
@@ -4462,6 +4530,7 @@ class XMODE(ASMStmt):
     parser=None    # Operand parser used by statement
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
     attrs=""       # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):

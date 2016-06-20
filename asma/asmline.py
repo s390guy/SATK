@@ -319,6 +319,9 @@ class cfsm(fsm.FSM):
         # Parse parameters from parse() method
         self.spaces=False       # Whether spaces may be in operands
 
+        # Whether only a comma outside quotes or parens signals the end of operand.
+        self.comman_only=False
+
         # Parse specific attributes. Reset by start() method
         self.logline=None       # Current LogLine object being processed
         self.plines=[]          # Physical lines from the logical line
@@ -498,8 +501,8 @@ class cfsm(fsm.FSM):
     #   list of LOperand objects corresponding to each logical operand
     # Exceptions:
     #   LineError  if unexpected number of single quotes or parenthesis mismatch
-    def parse(self,logline,attrs="",spaces=False,alt=False):
-        self.start(logline,attrs=attrs,spaces=spaces,alt=alt)
+    def parse(self,logline,attrs="",spaces=False,alt=False,comma=False):
+        self.start(logline,attrs=attrs,spaces=spaces,alt=alt,comma=comma)
 
         # If initial line has no operands then just exit
         isline=self.line(trace=False)
@@ -529,7 +532,7 @@ class cfsm(fsm.FSM):
             self.add_operand()
         return self.operands
 
-    def start(self,logline,attrs="",spaces=False,alt=False):
+    def start(self,logline,attrs="",spaces=False,alt=False,comma=False):
         if attrs=="":
             self.attrs=asmtokens.ATTR
         elif attrs is None:
@@ -538,6 +541,7 @@ class cfsm(fsm.FSM):
             self.attrs=attrs
         self.spaces=spaces
         self.altfmt=alt
+        self.comma_only=comma
         self.logline=logline
         self.plines=logline.plines
         self.lines=len(self.plines)
@@ -590,7 +594,7 @@ class cfsm(fsm.FSM):
             print("ACT_Comment: spaces:%s lparens:%s > rparens: %s" \
                  % (self.spaces,self.lparens,self.rparens))
 
-        if self.spaces and self.lparens>self.rparens:
+        if self.spaces and (self.lparens>self.rparens or self.comma_only):
             self.ACT_Add_Char(value,state,trace=trace)
             return "init"
         self.check_operand()
@@ -964,7 +968,7 @@ class LineMgr(object):
     # Parse into individual LOperand objects all of the operands across all
     # physical lines.
     def findOperands(self,logline,alt=False,attrs="",sep=False,spaces=False,\
-                     debug=False):
+                     comma=False,debug=False):
         if __debug__:
             if debug:
                 cls_str=assembler.eloc(self,"findOperands",module=this_module)
@@ -978,7 +982,7 @@ class LineMgr(object):
             # physical input lines
             self.fsm.trace(on=debug)
             logline.operands=self.fsm.parse(logline,\
-                attrs=attrs,spaces=spaces,alt=alt)
+                attrs=attrs,spaces=spaces,alt=alt,comma=comma)
             self.fsm.trace(on=False)
             if __debug__:
                 if debug:
