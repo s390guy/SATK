@@ -89,7 +89,7 @@ class ITBL(Listing):
         self.seq=seq
 
         # Use Multiline detail generation
-        self.buf=Multiline(self.detail_line)
+        self.buf=Multiline(self)
 
         # Built by method cpu()
         self.counts=[0,]*columns
@@ -117,6 +117,9 @@ class ITBL(Listing):
         self.seq_ndx=0      # Index of next list in self.lists
         self.insts=None
         self.lists=None
+        
+        self.buf.part(self.detail_line,header=self.heading,\
+            last=True)
 
     def by_format(self):
         return sorted(self.entries,key=functools.cmp_to_key(ITBL.sort_by_format))
