@@ -296,7 +296,7 @@
          LCLC  &D        FP constand type
          LCLC  &LBL      Generated label
          LCLC  &PFX      Label prefix
-&CANAFP  SETB  &ARCHLVL GE 7     Set whether AFP supported
+&CANAFP  SETB  &ARCHLVL GE 7,     Set whether AFP supported
          AIF   (&ARCHLVL EQ 9).BITS64
          AIF   (&SATKD32).DONE
 &REGSIZE SETA  4
@@ -610,7 +610,7 @@ FUNS&SYSNDX  DS    0D      Make sure stack frame ends on double word
          MNOTE 1,'FUNCTION - REQUIRED ARCHIND MACRO OPERATOR SYNONYMS UNDEFINED'
          MEXIT
 .GEN     ANOP
-&SATKFIF SETB  1      Function definition initiated (reset by RETURN macro)
+&SATKFIF SETB  1,      Function definition initiated (reset by RETURN macro)
 &SATKFLL SETC  '&STKEND'
 &LABEL   DS    0H     Define function entry point
          AIF   (&ARCHLVL GE 7).NOUSE1
@@ -800,7 +800,7 @@ FUNL&SYSNDX DC A(&STKEND-&PFX)
 &SATKFLL SETC  ''
 &SATKFAP SETB  0
 &SATKFFP SETB  0
-&SATKFIF SETB  0    Reset function definition state, function definition completed.
+&SATKFIF SETB  0,   Reset function definition state, function definition completed.
          MEND
 
          MACRO

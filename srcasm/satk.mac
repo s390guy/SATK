@@ -1479,14 +1479,14 @@ FALL&SYSNDX DS   0H
          AIF   ('&PRINT' EQ 'OFF').DOOFF
 .DOON    ANOP
          PUSH  PRINT
-&NEWPR   SETB  1    Remember to restore previous setting
+&NEWPR   SETB  1,    Remember to restore previous setting
          PRINT ON
          AGO   .NOPRINT
 .DOOFF   ANOP
          PUSH  PRINT,NOPRINT
-&NEWPR   SETB  1   Remember to restore previous setting
+&NEWPR   SETB  1,   Remember to restore previous setting
          PRINT OFF,NOPRINT
-&NOPR    SETB  1   Remember that we did not print PUSH/PRINT (so dont print POP/PRINT)
+&NOPR    SETB  1,   Remember that we did not print PUSH/PRINT (so dont print POP/PRINT)
 .NOPRINT ANOP
 .* Process the individual DSECTs
          AIF   (NOT &NASA).NOASA
@@ -2508,7 +2508,7 @@ IOTR&SYSNDX DC H'8'
 .NOFLAG  ANOP
          AIF   (NOT &B).GENBLK
 &BADFLGS SETB  &S OR &C OR &M OR &Y
-&BADFLGS SETB  &BADFLGS OR &F OR &P OR &IF OR &A OR &U 0R &H OR &T
+&BADFLGS SETB  &BADFLGS OR &F OR &P OR &IF OR &A OR &U OR &H OR &T
 &BADFLGS SETB  &BADFLGS OR &L
          AIF   (NOT &BADFLGS).GENBLK
          MNOTE 1,'ORB - FLAGS SET INCOMPATIBLE WITH TRANSPORT-MODE ORB'

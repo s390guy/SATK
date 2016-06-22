@@ -115,10 +115,10 @@
 &AD      SETC  'AD'
 .* Define the starting address of the table
 .BEGIN   ANOP
-&LABLE   DC    &AD(&NAME.B)    Start of the table
-         DC    &AD(&NAME.L)    Table entry length in bytes
-         DC    &AD(&NAME.E)    Byte of last table entry
-         DC    &AD(&NAME.P)    Last byte of the table
+&LABLE   DC    &AD.(&NAME.B)    Start of the table
+         DC    &AD.(&NAME.L)    Table entry length in bytes
+         DC    &AD.(&NAME.E)    Byte of last table entry
+         DC    &AD.(&NAME.P)    Last byte of the table
          DC    A(&NAME.N)      Number of entries actually in the table
          DC    A(&NAME.M)      Maximum number of entries in the table
 .DONE    MEND
