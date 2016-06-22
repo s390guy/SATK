@@ -1355,7 +1355,7 @@ class ModelStmt(ASMStmt):
             # Nothing to do for a loud comment and they can't have a sequence symbol
             seq=None
         else:
-            self.parse_line(asm)
+            self.parse_line(asm,debug=debug)
             self.pre_process(asm)
             #print("%s stmt label fld: %s" \
             #    % (assembler.eloc(self,"Pass0",module=this_module),self.label_fld))

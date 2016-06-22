@@ -320,7 +320,7 @@ class cfsm(fsm.FSM):
         self.spaces=False       # Whether spaces may be in operands
 
         # Whether only a comma outside quotes or parens signals the end of operand.
-        self.comman_only=False
+        self.comma_only=False
 
         # Parse specific attributes. Reset by start() method
         self.logline=None       # Current LogLine object being processed
@@ -584,7 +584,10 @@ class cfsm(fsm.FSM):
         # This is not a suboperand, but end of the operand
         self.add_operand()
         self.new_operand()
-        if self.altfmt and self.pline.cont and self.look_ahead(" "):
+        if self.altfmt:
+            if self.pline.cont and self.look_ahead(" "):
+                return "comment"
+        elif self.comma_only and self.look_ahead(" "):
             return "comment"
         return "init"
 
