@@ -227,7 +227,6 @@ class OperMgr(asmbase.ASMOperTable):
         self.def_dir("TITLE",    asmstmts.TITLE,    O="A")
         self.def_dir("USING",    asmstmts.USING,    O="A")
         self.def_dir("XMODE",    asmstmts.XMODE,    O="A")
-        self.def_dir("*",        asmstmts.StmtComment)  # Comment statements
         self.def_dir("?",        asmstmts.StmtError)    # Logical line error
 
     # Defines a new macro
@@ -274,7 +273,8 @@ class OperMgr(asmbase.ASMOperTable):
         if self.asm.MM.state==2 and not quiet:
             # If this is a loud comment wihin a macro body, treat it as a model stmt.
             return asmbase.ASMOper("*",asmstmts.ModelStmt)
-        return self["*"]
+        return asmbase.ASMOper("*",asmstmts.StmtComment)
+        #return self["*"]
 
     # Return operation for a logical line error
     def getError(self):

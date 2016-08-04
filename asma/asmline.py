@@ -124,9 +124,20 @@ class LField(asmbase.ASMString):
             a=" "
         return '%s%s%s "%s"' % (self.start(),self.typ,a,self.text)
 
+    # This performs a rudimentary check for invalid chars.  The actual contextual
+    # validation occurs using the validate() method driven by the Stmt subclass.
+    # 
+    # Note: This is used as a sanity check on the operation field.
+    def char_ck(self,debug=False):
+        for c in "*~`!#^_[]{}:;?\|=":
+            if c in self.text:
+                return c
+        return None
+
     def validate(self,asm,stmt,types,debug=False):
-        typ="U"
+        istyp="U"
         char=self.text[0]   # Get the first character for a quick sanity check
+
         for typ in types:
             
             if typ=="S":
@@ -136,6 +147,7 @@ class LField(asmbase.ASMString):
                     if result:
                         self.symid=result
                         self.amp=True
+                        istyp="S"
                         break
                     continue
                 else:
@@ -158,6 +170,7 @@ class LField(asmbase.ASMString):
                         print("%s %s match succeeded" \
                             % (assembler.eloc(self,"validate",module=this_module),\
                                 typ))
+                istyp=typ
                 break
 
             except lexer.LexerError:
@@ -171,9 +184,9 @@ class LField(asmbase.ASMString):
         if __debug__:
             if debug:
                 print("%s %s match succeeded" \
-                    % (assembler.eloc(self,"validate",module=this_module),typ))
+                    % (assembler.eloc(self,"validate",module=this_module),istyp))
 
-        self.typ=typ
+        self.typ=istyp
 
         if typ=="M":
             self.amp = self.token.groups()[1] is not None
@@ -799,7 +812,12 @@ class LogLine(object):
         amp= "&" in oper
         pline.oper_start=oper_start
         self.oper_fld=LField(oper,pline.source,oper_start,amp)
-        self.operu=oper.upper()
+        bad_char = self.oper_fld.char_ck()
+        if bad_char:
+            self.error=LineError(source=pline.source,\
+                msg="operation field contains an invalid char: %s" % bad_char)
+        else:
+            self.operu=oper.upper()
 
         if __debug__:
             if debug:

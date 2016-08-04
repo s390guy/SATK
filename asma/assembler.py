@@ -3095,6 +3095,7 @@ class STMTProcessor(asmbase.ASMProcessor):
             stmtcls=ln.optn.stmtcls
             if __debug__:
                 if debug:
+                    print("%s [%s] %s" % (eloc(self,"getStmts0_1"),self.lineno,ln))
                     print("%s [%s] Creating ASMStmt subclass: %s" \
                             % (eloc(self,"getStmts0_1"),self.lineno,\
                                 stmtcls.__name__))
