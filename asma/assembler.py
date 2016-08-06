@@ -471,6 +471,7 @@ opend="([ ]|$)"                     # End of operands, a space or end of string
 
 # Label pattern with special chracters
 label="[a-zA-Z%s][a-zA-Z0-9%s]*" % (char,char)
+label_re=re.compile(label)
 
 # ASMA imports (do not change the sequence)
 import lnkbase      # 0.2 - Access linkage editing base classes
@@ -583,6 +584,23 @@ class LabelError(Exception):
         self.label=label     # Label for which error is detected
         self.msg="%s: %s" % (msg,self.label)
         super().__init__(self.msg)
+
+
+#
+#  +----------------------+
+#  |                      |
+#  |   Shared Functions   |
+#  |                      | 
+#  +----------------------+
+#
+
+# Determine if a string is a valid label
+def isLabel(string):
+    mo=label_re.match(string)
+    if mo is None:
+        return False
+    # If matching substring is the same as the value, it is a label
+    return mo.group()==string
 
 
 #
@@ -2003,6 +2021,10 @@ class LocationCounter(object):
         self.section=None
         self.location=None
         self.disp=0
+        
+    def __str__(self):
+        return "LocCtr: sec:%s loc:%s disp:%s" \
+            % (self.section,self.location,self.disp)
 
     # Sets the current location counter to the starting address of the supplied
     # Binary object.  During Pass 1 this is a section relative address (SectAddr
@@ -2051,7 +2073,7 @@ class LocationCounter(object):
     def increment(self,bin,debug=False):
         if __debug__:
             if debug:
-                print("%s bin: %s" % eloc(self,"increment"),bin)
+                print("%s bin: %s" % (eloc(self,"increment"),bin))
         if bin:
             self.establish(bin.loc+len(bin),debug=debug)
 

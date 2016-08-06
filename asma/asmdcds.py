@@ -1003,7 +1003,7 @@ class DCDS_Operand(asmbase.AsmFSMScope):
                 #print('%s %s."%s"' \
                 #    % (assembler.eloc(self,"Pass1",module=this_module),\
                 #        nom.__class__.__name__,nom.T))
-                nominal_values.append(m)
+                nominal_values.append(nom)
                 assert nom.content is None or \
                   isinstance(nom.content.barray,bytearray), \
                     "%s [%s] clone nominal does not have bytearray: %s" \
@@ -1089,7 +1089,7 @@ class Nominal(object):
         # instance is unsigned.  The attribute influences the assembled value.
         self.unsigned=False
 
-        # In Pass1 an empty binary object is create with binary zeros.  If Pass2
+        # In Pass1 an empty Binary object is create with binary zeros.  If Pass2
         # does nothing, we are left with zeros.  But that should never happen here
         # We will build the actual values and replace it here during Pass2 with the
         # build method()
@@ -1131,7 +1131,7 @@ class Nominal(object):
 
     # Updates the location counter after building the final binary data
     def cur_loc(self,asm):
-        asm.cur_loc.increment(self.content)
+        asm.cur_loc.increment(self.content,debug=False)
 
     # Returns the length being assembled
     # This matches the asmfmscs.DCDS_Operand method of the same name.
@@ -1169,10 +1169,22 @@ class Address(Nominal):
         self.ivalue=ADCON(addrexpr,cls.typ)
 
     def build(self,stmt,asm,n,debug=False,trace=False):
+        if __debug__:
+            if trace:
+                print("%s cur_loc before: %s" \
+                    % (assembler.eloc(self,"build",module=this_module),asm.cur_loc))
+                print("%s content: %s" \
+                    % (assembler.eloc(self,"build",module=this_module),self.content))
+
+        asm.cur_loc.establish(self.content.loc,debug=trace)
         self.content.barray=bytearray(self._length)
-        data=self.ivalue.build(asm,asm.PM,stmt,n,self._length)
+        data=self.ivalue.build(asm,asm.PM,stmt,n,self._length,trace=trace)
         self.content.update(data,full=True,finalize=True,trace=trace)
         self.cur_loc(asm)
+        if __debug__:
+            if trace:
+                print("%s cur_loc after: %s" \
+                    % (assembler.eloc(self,"build",module=this_module),asm.cur_loc))
 
 
 class BinaryBits(Nominal):
@@ -1488,6 +1500,8 @@ class ADCON(object):
         return "%s(expr=%s)" % (self.__class__.__name__,self.expr)
 
     def build(self,asm,parsers,stmt,n,length,trace=False):
+        #print("%s trace: %s" 
+        #    % (assembler.eloc(self,"build",module=this_module),trace))
         try:
             value=parsers.evaluate_expr(asm,stmt,self.expr,debug=False,trace=trace)
         except lnkbase.AddrArithError as ae:

@@ -1236,7 +1236,7 @@ class PSymRef(PCTerm):
     #   PParserError if the label is not defined and excp=True
     def getSTE(self,label,external=None,excp=False,debug=False,trace=False):
         try:
-            return external._getSTE_Ref(label,self.src.line)
+            return external.exp._getSTE_Ref(label,self.src.line)
             # Cross-reference label entry creation depends upon the external object:
             #  asmmacs.Invoker     - XREF entry is not generated
             #  assembler.Assembler - XREF entry is generated
@@ -1346,6 +1346,7 @@ class PSymRefCAttr(PSymRef):
     def character(self,attr):
         return(ord(assembler.CPTRANS.a2e(attr)))
 
+    # Returns the character string assigned to the C_Val or 
     def getLabel(self,external,debug=False):
         # Creaty the SymbolID used to access the symbol table
         symid=self.SymID(external=external,debug=debug)
@@ -1353,7 +1354,10 @@ class PSymRefCAttr(PSymRef):
         symo=self.getSymbol(external,symid,debug=debug)
         # Retrieve the value object associated with the referenced symbol/indices
         v=self.getValObj(symo,symid)
-        if isinstance(v,(macsyms.A_Val,macsyms.B_Val)):
+
+        if isinstance(v,macsyms.Parm_Val):
+            v=v._value   # Retrieve the embedded C_Val object from Parm_Val
+        elif isinstance(v,(macsyms.A_Val,macsyms.B_Val)):
             raise pratt3.PParserError(ptok=self.src,\
                 msg="symbol %s'%s requires SETC symbol or parameter, "
                     "encountered: SET%s" \
@@ -1386,7 +1390,10 @@ class PSymRefCAttr_D(PSymRefCAttr):
         super().__init__(token,symbol,attr=attr,indices=indices)
 
     def value(self,external=None,debug=False,trace=False):
-        label=self.getLabel(external,debug=debug)
+        #label=self.getLabel(external,debug=debug)
+        label=self.getLabel(external,debug=trace)
+        #print("%s label: %s" \
+        #    % (assembler.eloc(self,"value",module=this_module),label))
         lval=self.getSTE(label,external=external,excp=False,debug=debug,trace=trace)
         if lval is None:
             return 0

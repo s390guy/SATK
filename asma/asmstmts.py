@@ -321,6 +321,29 @@ class ASMStmt(object):
         self.error=True            # Indicate this statement is now in error
         self.ignore=True           # Make sure it is further ignored.
 
+    # Checks that a macro definition is being built and returns the infefn attribute
+    # Returns:
+    #   the indefn attribute of the macro operand
+    # Excetion:
+    #   AssemblerError if not within a macro definition
+    def ck_in_macro_defn(self,macro,state,oper):
+        if macro is None or macro.indefn is None or macro.state==0:
+            raise assembler.AssemblerError(line=self.lineno,source=self.source,\
+                msg="%s statement is not valid outside of a macro definition" % oper)
+        if macro.state!=state:
+            if state==1:
+                raise assembler.AssemblerError(line=self.lineno,source=self.source,\
+                    msg="%s statement not a valid macro prototype" % oper)
+            elif state==2:
+                raise assembler.AssemblerError(line=self.lineno,source=self.source,\
+                    msg="%s statement only valid in a macro body" % oper)
+            else:
+                raise ValueError("%s invalid expected state: %s" \
+                    % (assembler.eloc(self,"ck_in_macro_defn",module=this_module),\
+                        state))
+
+        return macro.indefn
+
     def ck_min_operands(self,minimum=None):
         if minimum is None:
             return
@@ -1410,6 +1433,7 @@ class ACTR(ASMStmt):
 
     # Parse operand expression - called by MacroLanguage
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        indefn=self.ck_in_macro_defn(macro,2,"ACTR")
         self.parse_line(asm)
         self.pre_process(asm)
         if len(self.operands)!=1:
@@ -1428,7 +1452,8 @@ class ACTR(ASMStmt):
         e.prepare(self,"ACTR")
 
         # Add the operation to the macro definition
-        macro.indefn._actr(self.lineno,e,seq=self.seqsym(asm.case))
+        #macro.indefn._actr(self.lineno,e,seq=self.seqsym(asm.case))
+        ndefn._actr(self.lineno,e,seq=self.seqsym(asm.case))
 
     # Pass1 - should never be called
     # Pass2 - should never be called
@@ -1462,6 +1487,7 @@ class AGO(ASMStmt):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        indefn=self.ck_in_macro_defn(macro,2,"AGO")
         self.parse_line(asm)
         self.pre_process(asm)
         lineno=self.lineno
@@ -1470,7 +1496,6 @@ class AGO(ASMStmt):
                 msg="AGO directive requires at least one operand")
 
         pm=asm.PM
-        indefn=macro.indefn
         case=asm.case
         try:
             result=pm.parse_ago(self,self.operands[0],debug=self.trace)
@@ -1562,7 +1587,7 @@ class AIF(ASMStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=True    # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="KNT"    # Attributes supported in expression
+    attrs="KNTD"   # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -1570,6 +1595,7 @@ class AIF(ASMStmt):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        indefn=self.ck_in_macro_defn(macro,2,"AIF")
         self.parse_line(asm,debug=False)
         self.pre_process(asm)
         lineno=self.lineno
@@ -1586,7 +1612,7 @@ class AIF(ASMStmt):
 
         pm=asm.PM
         case=asm.case
-        indefn=macro.indefn
+        #indefn=macro.indefn
         for n,opnd in enumerate(self.P0_operands):
             assert isinstance(opnd,macopnd.CondBranch),\
                 "%s [%s] P0_operand[%s] must be a macopnd.CondBranch object: %r" \
@@ -1667,8 +1693,10 @@ class ANOP(ASMStmt):
         
     # Parse operand expression - called by MacroLanguage
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        indefn=self.ck_in_macro_defn(macro,2,"ANOP")
         self.pre_process(asm)
-        macro.indefn._anop(self.lineno,seq=self.seqsym(asm.case))
+        #macro.indefn._anop(self.lineno,seq=self.seqsym(asm.case))
+        indefn._anop(self.lineno,seq=self.seqsym(asm.case))
         
     # Pass1 - should never be called
     # Pass2 - should never be called
@@ -2261,7 +2289,12 @@ class DC(ASMStmt):
         # Unroll operands into a series of Nominal objects.
         values=[]
         for oprnd in self.dcds_opnds:
-            values.extend(oprnd.Pass1(self,asm,debug=debug,trace=trace))
+            if __debug__:
+                if otrace:
+                    print("%s [%s] oprnd: %s" \
+                        % (assembler.eloc(self,"Pass1",module=this_module),\
+                            self.lineno,oprnd))
+            values.extend(oprnd.Pass1(self,asm,debug=debug,trace=otrace))
         self.values=values
         # values is a list of asmdcds.Nominal objects.
 
@@ -2342,6 +2375,7 @@ class DC(ASMStmt):
                         first.__class__.__name__,first.T,first.S,first.I))
 
         self.label_create(asm,length=first.length(),T=first.T,S=first.S,I=first.I)
+        asm.cur_loc.increment(self.content)
 
     def Pass2(self,asm,debug=False,trace=False):
         edebug=etrace=False
@@ -2349,6 +2383,9 @@ class DC(ASMStmt):
             edebug=asm.dm.isdebug("exp")
             etrace=asm.dm.isdebug("tracexp") or trace or self.trace
             cls_str=assembler.eloc(self,"Pass2",module=this_module)
+            
+        # Track the assigned address
+        #asm.cur_loc.establish(self.content.loc,debug=etrace)
 
         #for n,value in enumerate(self.gscope.values):
         for n,value in enumerate(self.values):
@@ -2762,8 +2799,10 @@ class GBLA(SymbolDefine):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        indefn=self.ck_in_macro_defn(macro,2,"GBLA")
         #self.process(asm,"GBLA",asm.MM.indefn._gbla,debug=debug)
-        self.process(asm,"GBLA",macro.indefn._gbla,debug=debug)
+        #self.process(asm,"GBLA",macro.indefn._gbla,debug=debug)
+        self.process(asm,"GBLA",indefn._gbla,debug=debug)
 
     # Pass1 - should never be called
     # Pass2 - should never be called
@@ -2793,8 +2832,10 @@ class GBLB(SymbolDefine):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        indefn=self.ck_in_macro_defn(macro,2,"GBLB")
         #self.process(asm,"LCLB",asm.MM.indefn._gblb,debug=debug)
-        self.process(asm,"LCLB",macro.indefn._gblb,debug=debug)
+        #self.process(asm,"LCLB",macro.indefn._gblb,debug=debug)
+        self.process(asm,"LCLB",indefn._gblb,debug=debug)
 
     # Pass1 - should never be called
     # Pass2 - should never be called
@@ -2824,7 +2865,9 @@ class GBLC(SymbolDefine):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.process(asm,"GBLC",macro.indefn._gblc,debug=debug)
+        indefn=self.ck_in_macro_defn(macro,2,"GBLC")
+        #self.process(asm,"GBLC",macro.indefn._gblc,debug=debug)
+        self.process(asm,"GBLC",indefn._gblc,debug=debug)
 
     # Pass1 - should never be called
     # Pass2 - should never be called
@@ -2854,7 +2897,9 @@ class LCLA(SymbolDefine):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.process(asm,"LCLA",macro.indefn._lcla,debug=debug)
+        indefn=self.ck_in_macro_defn(macro,2,"LCLA")
+        #self.process(asm,"LCLA",macro.indefn._lcla,debug=debug)
+        self.process(asm,"LCLA",indefn._lcla,debug=debug)
 
     # Pass1 - should never be called
     # Pass2 - should never be called
@@ -2913,7 +2958,9 @@ class LCLC(SymbolDefine):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.process(asm,"LCLC",macro.indefn._lclc,debug=debug)
+        indefn=self.ck_in_macro_defn(macro,2,"LCLC")
+        #self.process(asm,"LCLC",macro.indefn._lclc,debug=debug)
+        self.process(asm,"LCLC",indefn._lclc,debug=debug)
 
     # Pass1 - should never be called
     # Pass2 - should never be called
@@ -2983,16 +3030,20 @@ class MEND(ASMStmt):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        if not macro:
-            raise assembler.AssemblerError(source=self.source,line=self.lineno,\
-                msg="MEND operation must not be use outside of a macro definition")
+        indefn=self.ck_in_macro_defn(macro,2,"MEND")
+        #if not macro:
+        #    raise assembler.AssemblerError(source=self.source,line=self.lineno,\
+        #        msg="MEND operation must not be use outside of a macro definition")
 
         #print("%s" % assembler.eloc(self,"Pass0",module=this_module))
         self.pre_process(asm)
+        #macro.indefn._mend(self.lineno,seq=self.seqsym(asm.case))
+        #macro.addMacro(macro.indefn,mend=True)
+        
         # Finish the macro engine definition by adding the Mend op
-        macro.indefn._mend(self.lineno,seq=self.seqsym(asm.case))
+        indefn._mend(self.lineno,seq=self.seqsym(asm.case))
         # Add the new macro to the definitions
-        macro.addMacro(macro.indefn,mend=True)
+        macro.addMacro(indefn,mend=True)
 
     # Pass1 - should never be called
     # Pass2 - should never be called
@@ -3022,6 +3073,7 @@ class MEXIT(ASMStmt):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        indefn=self.ck_in_macro_defn(macro,2,"MEXIT")
         if __debug__:
             if self.trace or trace:
                 print("%s macro: %s, macro.state: %s" \
@@ -4156,7 +4208,9 @@ class SETA(SETx):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.process(asm,"seta",macro.indefn._seta,debug=debug)
+        indefn=self.ck_in_macro_defn(macro,2,"SETA")
+        #self.process(asm,"seta",macro.indefn._seta,debug=debug)
+        self.process(asm,"seta",indefn._seta,debug=debug)
 
     # Pass1 - should never be called
     # Pass2 - should never be called
@@ -4191,7 +4245,9 @@ class SETB(SETx):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.process(asm,"setb",macro.indefn._setb,debug=debug)
+        indefn=self.ck_in_macro_defn(macro,2,"SETB")
+        #self.process(asm,"setb",macro.indefn._setb,debug=debug)
+        self.process(asm,"setb",indefn._setb,debug=debug)
 
     # Pass1 - should never be called
     # Pass2 - should never be called
@@ -4222,6 +4278,8 @@ class SETC(SETx):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        indefn=self.ck_in_macro_defn(macro,2,"SETC")
+        #self.process(asm,"setc",macro.indefn._setc,debug=self.trace)
         self.process(asm,"setc",macro.indefn._setc,debug=self.trace)
 
     # Pass1 - should never be called

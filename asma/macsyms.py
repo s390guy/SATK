@@ -279,7 +279,7 @@ class Parm_Sym(Mac_Sym):
 class Parm_Val(Mac_Val):
     attrs="KkNnTt"
     def __init__(self,value=None,onum=None,ndx=1,minimum=1,syslist=None):
-        super().__init__(None,ro=True)
+        #super().__init__(None,ro=True)
         self.syslist=syslist is not None
         self.onum=onum          # Operand number
         if value is None:
@@ -287,6 +287,7 @@ class Parm_Val(Mac_Val):
             self["T"]="O"
         else:
             self.cval=C_Val(value)
+        super().__init__(self.cval,ro=True)
 
         #print("MacroParmValue: %s" % self.value)
         self.ndx=ndx            # Index adjustment
@@ -341,8 +342,6 @@ class Parm_Val(Mac_Val):
         val=self.sublists[this-self.minimum]
         if depth==len(ndxs)-1:
             # Last requested index so return the retrieved sublist's C_Val object
-            #print("%s val: %s" \
-            #    % (assembler.eloc(self,"fetch"),val.display(string=True)))
             return val.value()
         # Not the last index so reach into the next level of sublist for its entry.
         return val.fetch(indices=ndxs,depth=depth+1)
@@ -516,9 +515,10 @@ class Parm_Val(Mac_Val):
             raise SymbolError(msg="operand %s - umbalanced parenthesis: %s" \
                 % self.onum+1)
         self.sublists.append(Parm_Val(value=sub,onum=self.onum))
-        
-    def value(self):
-        return self.cval
+
+    #def value(self):
+        #return self._value
+    #    return self.cval
 
 
 # &SYSLIST subclass of generic Parm_Val object

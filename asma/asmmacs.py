@@ -655,6 +655,13 @@ class EngineState(object):
         self.lineno=exp.lineno   # Assembler statement invoking the macro
         self._actr=4096          # Macro ACTR value
 
+    # Access the assembler symbol table (but don't create a listing cross-reference
+    # entry).
+    # WARNING: Any changes to method arguments must be matched with the arguments of
+    # the assembler.Assembler._getSTE_Ref() and Invoker._getSTE_Ref()
+    def _getSTE_Ref(self,name,line):
+        return self.exp._getSTE_Ref(name,line)
+
     def actr(self):
         if self._actr:
             self._actr-=1
