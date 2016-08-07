@@ -66,24 +66,12 @@ class ASMA(object):
         self.dm=dm                # Global Debug Manager instance
         self.args=args            # Tool Config object
         self.args.display()       # If CINFO requested, display it
-        #self.clstats=args.stats   # Command-line statistics flag
         self.clstats=args["stats"]   # Command-line statistics flag
 
         # Enable any command line debug flags
-        #for flag in self.args.debug:
-        #    self.dm.enable(flag)
         for flag in args["debug"]:
             self.dm.enable(flag)
 
-        #self.aout=assembler.AsmOut(\
-        #    deck=args.object,\
-        #    image=args.image,\
-        #    ldipl=args.gldipl,\
-        #    listing=args.listing,\
-        #    mc=args.store,\
-        #    rc=args.rc,\
-        #    vmc=args.vmc)
-        
         self.aout=assembler.AsmOut(\
             deck=args["object"],\
             image=args["image"],\
@@ -171,17 +159,20 @@ class ASMA(object):
             stats=assembler.Stats
             stats.start("assemble_p")
             stats.start("assemble_w")
-            #stats.start("pass0_p")
-            #stats.start("pass0_w")
 
         try:
-            #self.assembler.statement(filename=self.source)
-            self.assembler.assemble(filename=self.source)
+            result=self.assembler.assemble(filename=self.source)
         except Exception:
             # This attempts to give a clue where the error occurred
             print(self.assembler._error_passn())
             # Now output the exception information
             raise
+            
+        if result!=True:
+            return  # return without outputting stats or any other output
+            # Note: This is used when the initial input file can not be opened.
+            # Any error message has already been printed but an exception is not
+            # raised.
 
         self.assemble_end_w=time.time()
         self.assemble_end=time.process_time()
@@ -275,7 +266,6 @@ class ASMA(object):
 
         # Try the --target argument
         try:
-            #msl,cpu=ASMA.archs[args.target]
             msl,cpu=ASMA.archs[args["target"]]
         except KeyError:
             pass

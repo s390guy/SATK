@@ -247,7 +247,7 @@ class ASMStmt(object):
         # Extract operation management attributes for the statement
         self.optn=logline.optn     # ASMOper object
         self.instu=self.optn.oper  # The operation name in upper case
-        self.asmdir=False          # Subclass must set this if as assembler directive
+        self.asmdir=False          # Subclass must set this if an assembler directive
         self.macdir=False          # Subclass must set this if a macro directive
 
         # Statement processing controls
@@ -271,9 +271,16 @@ class ASMStmt(object):
         # Statement operands will be associated with one of these attributes
         # depending upon how the operand field in the physical lines are 
         # processed by the statement.  Which field is used is determined by self.sep
-        # derived from the ASMOperType.sep attribute of the operation
-        self.opnd_fld=None         # Operation Field (LOperands object)
-        self.operands=[]           # List of LOperand objects
+        # derived from the ASMOperType.sep attribute of the operation:
+
+        # sep=False: Entire Operand Field from all continued lines (LOperands 
+        #            object).  The statement parser must be prepared to separate
+        #            operands itself.
+        self.opnd_fld=None         # Entire Operation Field (LOperands object)
+
+        # sep=True:  List of LOperand objects.  The statment parser must be prepared
+        #            to parse the operands separately.
+        self.operands=[]
 
      # Pass 0
         self.P0_operands=[]        # Parser output list
@@ -283,7 +290,8 @@ class ASMStmt(object):
         self.bin_oprs=[]
 
      # Pass 1
-        # Binary instance created in pass 1, image data provided in pass 2
+        # Binary object of all zeros is created in pass 1.  The actual binary 
+        # content is provided in pass 2.
         self.content=None          # Binary instance for image content creation
 
      # Pass 2
@@ -526,13 +534,31 @@ class ASMStmt(object):
         # If a label is present, assign it this value and length
         self.label_create(asm,length=length,T=T)
 
-    # Parse from physical lines the logical operands in the operand field(s).
-    # This is the default handling.  A subclass may override if physical lines
-    # require different handling
+    # Pass 0 - Parse from physical lines the logical operands in the operand 
+    #          field(s).  This is the default handling.  A subclass may override
+    #          if physical lines require different handling.  The ASMStmt class
+    #          attributes control this process.
+    #
+    #          The input manager is used to perform the separation of operands.
+    #          The process is sensitive to paired left/right parenthesis nesting, 
+    #          quoted strings and attributes (which contain a single quote).
+    #          This is where macro alternate statement formats, macro parameters
+    #          and machine instruction operands are all recognized.
+    #
+    #          The master control or this process is the class attribute sep.
+    #          If sep is None or False, no action is taken by the operand separation
+    #          process.  Refer to asmline.LineMgr.findOperands() method and the
+    #          corresponding asmline.cfsm character level recognizer for details.
+    # Exception:
+    #   AssemblerError if operand recognition fails.  Usually the result of
+    #   mismatched pair of parenthesis or single quotes.
+    #
+    #   Note: This is where occasionally the presence of an attribute will generate 
+    #   an error and require some recoding to workaround the problem.
     def parse_line(self,asm,alt=None,sep=None,spaces=None,comma=None,debug=False):
         # Parse into LOperand objects, all of the operands in the logical line
 
-        # Allow method call to overide the devault object attributes for alt,
+        # Allow method call to overide the default object attributes for alt,
         # sep and spaces.  Overrides are used for macro model statement parsing
         if alt is None:
             palt=self.alt
@@ -617,6 +643,12 @@ class ASMStmt(object):
         if self.T=="M" and self.gened and self.genlvl>=1:
             self.pon=self.pon and mcall
 
+    # Pass 0 - Validae that the label field, when present, and operation field
+    #          is always valid.  Pass upward to the ASMStmt subclass whether
+    #          an ampersand appears in the field.  The presence of at least one
+    #          ampersand will trigger in a model statement symbolic replacement.
+    # Exception:
+    #   AssemblerError if either the operation or label field is invalid
     def pre_process(self,asm):
         #print("%s [%s]" \
         #    % (assembler.eloc(self,"pre_process",module=this_module),self.lineno))
@@ -626,26 +658,36 @@ class ASMStmt(object):
             print("%s [%s] setting %s self.trace <- %s" \
                 % (assembler.eloc(self,"pre_process",module=this_module),\
                     self.lineno,self.instu,self.trace))
-        self.oper_fld=oper=self.logline.oper_fld   # Get the operation from the log line
+            
+        # Bubble up the operation field from the logical line to the ASMStmt 
+        # subclass, remembering if there are any ampersands present in the field
+        self.oper_fld=oper=self.logline.oper_fld
         if oper.amp:
             self.amp=True
             self.amp_list.append(oper)
-        self.label_fld=lbl=self.logline.label_fld  # Get the label from the logical line
+            
+        # Bubble up the label field from the logical line to the ASMStmt subclass,
+        # remembering if there are any ampersands present in the field
+        self.label_fld=lbl=self.logline.label_fld
         if lbl and lbl.amp:
             self.amp=True
             self.amp_list.append(lbl)
 
+        # Validate the operation field as valid.  If after validation it has
+        # a type of U, raise an AssemblerError.
         oper.validate(asm,self,self.__class__.ofld,debug=False)
         if oper.typ=="U":
             raise assembler.AssemblerError(source=self.source,line=self.lineno,\
                 msg="operation field unrecognized or invalid: %s" % (oper.text))
+           
+        # Validate the label field if present.  If it has a type of U now, raise
+        # an AssemblerError
         if lbl:
             # Validate and set label field's type
             lbl.validate(asm,self,self.__class__.lfld,debug=False)
             if lbl.typ=="U":
                 raise assembler.AssemblerError(source=self.source,line=self.lineno,\
                     msg="label field unrecognized or invalid: %s" % (lbl.text))
-
 
     # Returns a case sensitive or insensitive sequence symbol
     # Method Argument:
@@ -665,7 +707,7 @@ class ASMStmt(object):
     # individual operands into a list of strings.
     # Returns:
     #   a list of strings.  The list may be of zero length if no operands are
-    #   present or the operands start with a comma followed by an optional space:
+    #   present or the operands start with a comma followed by an optional space.
     def spp_operands(self,debug=False):
         # Extract the operands field from the statement LOperands object
         if self.opnd_fld is None:
@@ -968,9 +1010,8 @@ class TemplateStmt(ASMStmt):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         pdebug=debug #or True
-        # Needs to be here not in Assembler.__pre_process().  But can't move it
-        # until __pre_process goes away.
-        #self.pre_process(asm)
+        self.parse_line(asm)
+        self.pre_process(asm)
 
         self.parse_sep(asm,debug=debug)     # May raise assembler.AssemblerError
         # self.PO_operands is a list of ASMOperand objects
@@ -1096,16 +1137,14 @@ class MachineStmt(ASMStmt):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         pdebug=debug #or True
-        # Needs to be here not in Assembler.__pre_process().  But can't move it
-        # until __pre_process goes away.
-        #self.pre_process(asm)
+        self.parse_line(asm)
+        self.pre_process(asm)
         if __debug__:
             if pdebug:
                 self.debug_sep()
 
-        # Create machine instruction types
-        # Note: self.insn is an MSLentry object
-        msl=self.optn.info
+        # Create machine instruction information
+        msl=self.optn.info   # Extract MSLentry object from ASMOper object
         # Number of operands supported by the instruction
         oprs=msl.src_oprs(debug=pdebug)
 
@@ -1155,6 +1194,7 @@ class MachineStmt(ASMStmt):
 
         # Define the statement's label if present
         self.label_create(asm,length,T="I")    # Use binary content length
+        asm.cur_loc.increment(self.content)
 
     def Pass2(self,asm,debug=False,trace=False):
         idebug=trace or self.trace
@@ -1453,7 +1493,7 @@ class ACTR(ASMStmt):
 
         # Add the operation to the macro definition
         #macro.indefn._actr(self.lineno,e,seq=self.seqsym(asm.case))
-        ndefn._actr(self.lineno,e,seq=self.seqsym(asm.case))
+        indefn._actr(self.lineno,e,seq=self.seqsym(asm.case))
 
     # Pass1 - should never be called
     # Pass2 - should never be called
@@ -1725,6 +1765,8 @@ class ATRACEOFF(ASMStmt):
         self.asmdir=True         # This is an assembler directive
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        self.parse_line(asm)
+        self.pre_process(asm)
         #self.parse_line(asm,debug=debug)
         operfld=self.opnd_fld    # LOperands object
         if __debug__:
@@ -1788,7 +1830,8 @@ class ATRACEON(ASMStmt):
         self.asmdir=True         # This is an assemlber directive
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        
+        self.parse_line(asm)
+        self.pre_process(asm)
         operands=self.spp_operands()
 
         # If no operands, dump the current oper trace table to sysout
@@ -2130,6 +2173,8 @@ class COPY(ASMStmt):
         self.asmdir=True         # This is an assembler directive
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        self.parse_line(asm)
+        self.pre_process(asm)
         if self.opnd_fld is None:
             raise assembler.AssemblerError(source=self.source,line=self.lineno,\
                 msg="%s operation requires a file name operand, omitted" \
@@ -2175,6 +2220,8 @@ class CSECT(ASMStmt):
         self.for_pass2=None    # Pass information to Pass2 from Pass1
     
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        self.parse_line(asm)
+        self.pre_process(asm)
         self.csect=self.label_optional()
         # This can go away when Pass 0 and Pass 1 are merged.
         if self.csect:
@@ -2189,7 +2236,7 @@ class CSECT(ASMStmt):
         if __debug__:
             if cdebug:
                 print("%s [%s] CSECT statement name: %s" \
-                    % (assembler.eloc(self,"_csect_pass1",module=this_moduel),\
+                    % (assembler.eloc(self,"_csect_pass1",module=this_module),\
                         self.lineno,csect_name))
 
         if csect_name is None:
@@ -2259,6 +2306,8 @@ class DC(ASMStmt):
         self.values=[]           # Nominal or DCDS_Operand objects
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        self.parse_line(asm)
+        self.pre_process(asm)
         # This method is shared with the DS subclass
         pm=asm.PM
         dc=self.dc
@@ -2532,6 +2581,8 @@ class DSECT(ASMStmt):
         self.dsect=None          # DSECT being started or continued
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        self.parse_line(asm)
+        self.pre_process(asm)
         self.dsect=self.label_required()
         
     def Pass1(self,asm,debug=False,trace=False):
@@ -2577,6 +2628,8 @@ class EJECT(ASMStmt):
         self.prdir=True          # This is also a print directive
         
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        #self.parse_line(asm)
+        self.pre_process(asm)
         self.prdir=True
         self.ignore=True
         
@@ -2611,6 +2664,8 @@ class END(ASMStmt):
         self.scope=None          # Scope object returned from parse
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        self.parse_line(asm)
+        self.pre_process(asm)
         self.scope=asm.PM.parse_operands(self,"addr",required=False)
 
     def Pass1(self,asm,debug=False,trace=False):
@@ -2726,9 +2781,8 @@ class EQU(TemplateStmt):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         etrace=trace or self.trace
-
-        self.new_symbol=self.label_required()
         super().Pass0(asm,debug=debug,trace=etrace)
+        self.new_symbol=self.label_required()
 
     def Pass1(self,asm,debug=False,trace=False):
         etrace=trace or self.trace
@@ -2929,7 +2983,9 @@ class LCLB(SymbolDefine):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.process(asm,"LCLB",macro.indefn._lclb,debug=debug)
+        indefn=self.ck_in_macro_defn(macro,2,"LCLC")
+        #self.process(asm,"LCLB",macro.indefn._lclb,debug=debug)
+        self.process(asm,"LCLB",indefn._lclb,debug=debug)
 
     # Pass1 - should never be called
     # Pass2 - should never be called
@@ -2989,6 +3045,8 @@ class MACRO(ASMStmt):
         self.macdir=True         # This is a macro directive
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        self.parse_line(asm)
+        self.pre_process(asm)
         if macro.state!=0:
             raise assembler.AssemblerError(source=self.source,line=self.lineno,\
                 msg="inner macro definition not allowed")
@@ -3073,6 +3131,8 @@ class MEXIT(ASMStmt):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        #self.parse_line(asm)
+        self.pre_process(asm)
         indefn=self.ck_in_macro_defn(macro,2,"MEXIT")
         if __debug__:
             if self.trace or trace:
@@ -3162,6 +3222,8 @@ class MNOTE(ASMStmt):
         self.asmdir=True         # This is an assembler directive
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        self.parse_line(asm)
+        self.pre_process(asm)
         pm=asm.PM
         scope=pm.parse_operands(self,"mnote",required=True)
         note=scope.message.convert()
@@ -3214,6 +3276,8 @@ class OPSYN(ASMStmt):
         self.asmdir=True         # This is an assembler directive
       
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        self.parse_line(asm)
+        self.pre_process(asm)
         trace=self.trace or debug
         if trace:
             print("%s [%s] label_fld: %s" \
@@ -3356,8 +3420,10 @@ class POP(StackingStmt):
         super().__init__(lineno,logline=logline)
         
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        self.parse_line(asm)
+        self.pre_process(asm)
         ptrace=self.trace or debug
-        stack_print,no_print==self.stacking_operands(asm,debug=ptrace)
+        stack_print,no_print=self.stacking_operands(asm,debug=ptrace)
         if stack_print and len(asm.pstack)!=0:
             self.pon,self.pdata,self.pgen=asm.pstack.pop()
         if no_print:
@@ -3390,6 +3456,8 @@ class PRINT(ASMStmt):
         self.asmdir=True         # This is an assembler directive
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        self.parse_line(asm)
+        self.pre_process(asm)
         #print("[%s] pline:  %s" % (self.lineno,self.logline.plines[0]))
         #print("[%s] logline:%s" % (self.lineno,self.logline))
         ptrace=self.trace or debug
@@ -4085,7 +4153,9 @@ class PUSH(StackingStmt):
         
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         trace=self.trace or debug
-        stack_print,no_print==self.stacking_operands(asm,debug=trace)
+        self.parse_line(asm)
+        self.pre_process(asm)
+        stack_print,no_print=self.stacking_operands(asm,debug=trace)
         if stack_print:
             options=(self.pon,self.pdata,self.pgen)
             asm.pstack.append(options)
@@ -4123,6 +4193,8 @@ class REGION(ASMStmt):
         self.for_pass2=None      # Information passed to Pass2 from Pass1
         
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        self.parse_line(asm)
+        self.pre_process(asm)
         self.region=self.label_required()
         
     def Pass1(self,asm,debug=False,trace=False):
@@ -4138,7 +4210,7 @@ class REGION(ASMStmt):
                     % (assembler.eloc(self,"Pass1",module=this_module),\
                         self.lineno,region_name))
 
-        region=asm._region_ref(stmt,region_name)
+        region=asm._region_ref(self,region_name)
         # If the region is not defined, an AssemblerError will have bailed us out
 
         # Make the found region the current one.
@@ -4176,6 +4248,7 @@ class RMODE(ASMStmt):
         self.asmdir=True         # This is an assembler directive
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        #self.parse_line(asm)
         #self.pre_process(asm)
         self.ignore=True         # Treat as a comment
 
@@ -4358,12 +4431,17 @@ class START(ASMStmt):
         # Pass 0
         self.gscope=None         # Pass 0 scope object returned by parser
         self.csect=None          # CSECT being initiated
+        self.region=None         # REGION being initiated
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        self.parse_line(asm)
+        self.pre_process(asm)
         pm=asm.PM
         # Either of these two methods may raise an AssemblerError
         scope=pm.parse_scope(self,"start")
         scope.Pass0(self,pm,debug=debug)    # Should this move here????
+        if scope.new_region:
+            self.region=scope.reg_name
 
         self.gscope=scope   # Remember the Pass0 processing
         self.csect=self.label_optional()
@@ -4375,6 +4453,7 @@ class START(ASMStmt):
             asm.sysect=""
 
     def Pass1(self,asm,debug=False,trace=False):
+        utrace=trace or self.trace
         csect_name=self.csect
 
         # If the CSECT can not be created an AssemblerError is raised
@@ -4402,7 +4481,7 @@ class START(ASMStmt):
 
             # Create the new region before creating the control section
             if region:
-                region=asm._region_new(self.lineno,scope.region,start,debug=False)
+                region=asm._region_new(self.lineno,scope.region,start,debug=utrace)
                 # Named region is now in the symbol table and added to the image
             else:
                 region=asm._region_unname(start,debug=debug)
@@ -4412,18 +4491,18 @@ class START(ASMStmt):
 
         # Create the new control section
         if csect_name:
-            csect=asm._csect_new(self.lineno,csect_name,debug=False)
+            csect=asm._csect_new(self.lineno,csect_name,debug=utrace)
             # Named control section is now in the symbol table and added to the 
             # current active region.
         else:
-            csect=asm._csect_unname()
+            csect=asm._csect_unname(debug=utrace)
             # The unnamed control section is now part of the current active region.
 
         # If there was no active region, a new unnamed region was automatically
         # created even if no operands defining a region were supplied.
 
         # Make the new control section the active one.
-        asm._csect_activate(csect)
+        asm._csect_activate(csect,debug=utrace)
 
         # If this is the first START directive
         if asm.load is None:
@@ -4465,6 +4544,8 @@ class TITLE(ASMStmt):
         self.prdir=True          # It is also a print directive
         
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        self.parse_line(asm)
+        self.pre_process(asm)
         self.ignore=True         # No more processing needed by assembler passes
         if len(self.operands)==0:
             self.plist=""
@@ -4596,6 +4677,8 @@ class XMODE(ASMStmt):
         self.asmdir=True         # This is an assembler directive
         
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        self.parse_line(asm)
+        self.pre_process(asm)
         operands=self.spp_operands(debug=debug)
         if len(operands)!=2:
             raise assembler.AssemblerError(line=stmt.lineno,\

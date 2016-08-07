@@ -635,7 +635,7 @@ class LineBuffer(object):
                         % (fname))
         # No recursion, safe to add as source
         self._fileno+=1
-        self.__source("F",filename,srcno=self._fileno,fixed=fixed)
+        self.__source("F",filename,stmtno=stmtno,srcno=self._fileno,fixed=fixed)
 
     # Initiate a new source of injected input statements
     def newInject(self,typ,sid,stmtno=None):

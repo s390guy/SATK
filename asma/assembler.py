@@ -1225,9 +1225,13 @@ class Assembler(object):
                 % (eloc(self,"_csect_activate"),section)
         assert not section._dummy,"%s 'section' argument must be a CSECT: %s" \
             % (eloc(self,"_csect_activate"),section)
+        assert self.cur_reg is not None,\
+            "%s current active region must not be None" \
+                % eloc(self,"_csect_activate")
 
         self.cur_reg=section.container
         self.cur_sec=section
+        self.cur_reg.cur_sec=section
         self.cur_loc.establish(section.current())
 
         if __debug__:
@@ -1554,7 +1558,8 @@ class Assembler(object):
                 msg="region symbol already defined: '%s'" & reg_name)
 
         # Symbol defines a region so return it without having raised any exceptions
-        return region.content()
+        #return region.content()
+        return ste.value()
 
     # Determines if it is safe to create a new named region
     # Raises an AssemblerError if not.
@@ -1630,10 +1635,12 @@ class Assembler(object):
   # PUBLIC METHODS
   #
 
-    # Assemble source from an input file
+    # Assemble source from an input file returning result from processor
+    # Returns:
+    #   True if a successful run
+    #   False if an unsuccessful run
     def assemble(self,filename):
-        self.SP.run(self,filename)
-        return
+        return self.SP.run(self,filename)
 
     # Returns the completed Image instance for processing
     # See asma.py for an example.
@@ -2401,8 +2408,11 @@ class Content(Binary):
     # Add an element to this content container.  Elements are unallocated and unbound
     def append(self,content):
         assert isinstance(content,self.cls),\
-            "%s 'bin' argument must be an instance of %s: %s" \
+            "%s 'content' argument must be an instance of %s: %s" \
                 % (eloc(self,"append"),content)
+        assert content.container is None,\
+            "%s 'content' argument must not already be in a container, %s in %s" \
+                % (eloc(self,"append"),content,content.container)
 
         self.elements.append(content)
         content.container=self
@@ -3146,8 +3156,6 @@ class STMTProcessor(asmbase.ASMProcessor):
                 s.ignore=True  # Intercepted, so no need to do anything more
                 continue
 
-            s.parse_line(asm)
-            s.pre_process(asm)
             s.Pass0(asm,macro=mb)
 
             if s.ignore:
@@ -3353,18 +3361,29 @@ class STMTProcessor(asmbase.ASMProcessor):
 
         if asm.stats:
             print(Stats.report())
+            
+        # Return to asma.py True to indicate successful execution
+        return True
 
+    # Runs the assembler.
+    # Returns:
+    #   True if successul run
+    #   False if unsussessful run
     def run(self,asm,filename):
         assert isinstance(filename,str),\
             "%s 'filename' argument must be a string: %s" \
                 % (eloc(self,"__init__"),filename)
 
         self.infile=filename
-        self.IM.newFile(filename)
+        try:
+            self.IM.newFile(filename)
+        except AssemblerError as ae:
+            print(ae.msg)
+            return False
         # Initialize initial file system variable symbols
         # This has to wait until the initial input file is found and opened
         asm.MM._init_gblc_file(self.IM.InputPath())
-        return self.process()
+        return self.process()   # Return the result of last phase run
 
 
 #

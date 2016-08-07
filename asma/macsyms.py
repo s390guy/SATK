@@ -279,7 +279,7 @@ class Parm_Sym(Mac_Sym):
 class Parm_Val(Mac_Val):
     attrs="KkNnTt"
     def __init__(self,value=None,onum=None,ndx=1,minimum=1,syslist=None):
-        #super().__init__(None,ro=True)
+        super().__init__(None,ro=True)
         self.syslist=syslist is not None
         self.onum=onum          # Operand number
         if value is None:
@@ -287,7 +287,8 @@ class Parm_Val(Mac_Val):
             self["T"]="O"
         else:
             self.cval=C_Val(value)
-        super().__init__(self.cval,ro=True)
+        self._value=self.cval
+        #super().__init__(self.cval,ro=True)
 
         #print("MacroParmValue: %s" % self.value)
         self.ndx=ndx            # Index adjustment
