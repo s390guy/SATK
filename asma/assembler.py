@@ -1157,7 +1157,11 @@ class Assembler(object):
         asmstmts.PSW67.structure(builder)
         asmstmts.PSWBC.structure(builder)
         asmstmts.PSWEC.structure(builder)
-        asmstmts.PSWBi.structure(builder)
+        #asmstmts.PSWBi.structure(builder)
+        asmstmts.PSW380.structure(builder)
+        asmstmts.PSWXA.structure(builder)
+        asmstmts.PSWE370.structure(builder)
+        asmstmts.PSWE390.structure(builder)
         asmstmts.PSWZ.structure(builder)
 
   #

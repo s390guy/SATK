@@ -331,14 +331,22 @@ class ASMStmt(object):
 
     # Checks that a macro definition is being built and returns the infefn attribute
     # Returns:
-    #   the indefn attribute of the macro operand
+    #   the indefn attribute of the macro operand, an asmmacs.Macro object
     # Excetion:
     #   AssemblerError if not within a macro definition
     def ck_in_macro_defn(self,macro,state,oper):
-        if macro is None or macro.indefn is None or macro.state==0:
+        assert isinstance(macro,asmmacs.MacroBuilder),\
+            "%s 'macro' argument must a asmmacs.MacroBuilder object: %s" \
+                % (eloc(self,"ck_in_macro_defn",module=this_module),macro)
+
+        if macro.indefn is None or macro.state==0:
             raise assembler.AssemblerError(line=self.lineno,source=self.source,\
                 msg="%s statement is not valid outside of a macro definition" % oper)
         if macro.state!=state:
+            #if state==0:
+            #    raise assembler.AssemblerError(line=self.lineno,source=self.source,\
+            #        msg="%s statement may only appear outside of a macro definition"\
+            #            % oper)
             if state==1:
                 raise assembler.AssemblerError(line=self.lineno,source=self.source,\
                     msg="%s statement not a valid macro prototype" % oper)
@@ -363,6 +371,18 @@ class ASMStmt(object):
             raise assembler.AssemblerError(line=self.lineno,source=self.source,\
                 msg="operation requires at least %s operand%s, encountered: %s" \
                     % (minimum,s,len(self.PO_operands)))
+
+    # Checks that a statement is outside of a macro definition
+    # Exception:
+    #   AssemblerError if statement occurs inside of a macro definition
+    def ck_out_of_macro_defn(self,macro,oper):
+        assert isinstance(macro,asmmacs.MacroBuilder),\
+            "%s 'macro' argument must a asmmacs.MacroBuilder object: %s" \
+                % (eloc(self,"ck_out_of_macro_defn",module=this_module),macro)
+        if macro.state==0:
+            return
+        raise assembler.AssemblerError(line=self.lineno,source=self.source,\
+            msg="%s statement may only appear outside of a macro definition" % oper)
 
     def debug_list(self,lst):
         cls_str=assembler.eloc(self,"debug_list",module=this_module)
@@ -1409,9 +1429,7 @@ class ModelStmt(ASMStmt):
         self.syslist=False   # Whethre &SYSLIST required.
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        #assert macro is not None,\
-        #    "%s macro required for model statement" \
-        #        % assembler.eloc(self,"Pass0",module=this_module)
+        indefn=self.ck_in_macro_defn(macro,2,"model")
         m=model.Model(asm,self,debug=debug)
 
         if m.loud:
@@ -1441,7 +1459,7 @@ class ModelStmt(ASMStmt):
 
         self.model=m
 
-        macro.indefn._model(\
+        indefn._model(\
             self.lineno,self.model,seq=seq,syslist=self.syslist,debug=debug)
 
 
@@ -1492,7 +1510,6 @@ class ACTR(ASMStmt):
         e.prepare(self,"ACTR")
 
         # Add the operation to the macro definition
-        #macro.indefn._actr(self.lineno,e,seq=self.seqsym(asm.case))
         indefn._actr(self.lineno,e,seq=self.seqsym(asm.case))
 
     # Pass1 - should never be called
@@ -1652,7 +1669,6 @@ class AIF(ASMStmt):
 
         pm=asm.PM
         case=asm.case
-        #indefn=macro.indefn
         for n,opnd in enumerate(self.P0_operands):
             assert isinstance(opnd,macopnd.CondBranch),\
                 "%s [%s] P0_operand[%s] must be a macopnd.CondBranch object: %r" \
@@ -1735,7 +1751,6 @@ class ANOP(ASMStmt):
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         indefn=self.ck_in_macro_defn(macro,2,"ANOP")
         self.pre_process(asm)
-        #macro.indefn._anop(self.lineno,seq=self.seqsym(asm.case))
         indefn._anop(self.lineno,seq=self.seqsym(asm.case))
         
     # Pass1 - should never be called
@@ -1893,13 +1908,13 @@ class CCW0(TemplateStmt):
     #  CCW and CCW0 Templates
     #
 
-    @staticmethod
-    def structure(builder):
+    @classmethod
+    def structure(cls,builder):
         fields=[insnbldr.Field(value=None,name="CCW0 command code",size=8,start=0),
             insnbldr.Field(value=None,name="CCW0 address",size=24,start=8),
             insnbldr.Field(value=None,name="CCW0 flags",size=8,start=32),
             insnbldr.Field(value=None,name="CCW0 byte count",size=16,start=48)]
-        CCW0.struct=Structure("CCW0",builder,fields)
+        cls.struct=Structure("CCW0",builder,fields)
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -1974,13 +1989,13 @@ class CCW1(TemplateStmt):
     #  CCW1 Template
     #
 
-    @staticmethod
-    def structure(builder):
+    @classmethod
+    def structure(cls,builder):
         fields=[insnbldr.Field(value=None,name="CCW1 command code",size=8,start=0),
                 insnbldr.Field(value=None,name="CCW1 flags",size=8,start=8),
                 insnbldr.Field(value=None,name="CCW1 byte count",size=16,start=16),
                 insnbldr.Field(value=None,name="CCW1 address",size=31,start=33)]
-        CCW1.struct=Structure("CCW1",builder,fields)
+        cls.struct=Structure("CCW1",builder,fields)
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -2854,8 +2869,6 @@ class GBLA(SymbolDefine):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         indefn=self.ck_in_macro_defn(macro,2,"GBLA")
-        #self.process(asm,"GBLA",asm.MM.indefn._gbla,debug=debug)
-        #self.process(asm,"GBLA",macro.indefn._gbla,debug=debug)
         self.process(asm,"GBLA",indefn._gbla,debug=debug)
 
     # Pass1 - should never be called
@@ -2887,8 +2900,6 @@ class GBLB(SymbolDefine):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         indefn=self.ck_in_macro_defn(macro,2,"GBLB")
-        #self.process(asm,"LCLB",asm.MM.indefn._gblb,debug=debug)
-        #self.process(asm,"LCLB",macro.indefn._gblb,debug=debug)
         self.process(asm,"LCLB",indefn._gblb,debug=debug)
 
     # Pass1 - should never be called
@@ -2920,7 +2931,6 @@ class GBLC(SymbolDefine):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         indefn=self.ck_in_macro_defn(macro,2,"GBLC")
-        #self.process(asm,"GBLC",macro.indefn._gblc,debug=debug)
         self.process(asm,"GBLC",indefn._gblc,debug=debug)
 
     # Pass1 - should never be called
@@ -2952,7 +2962,6 @@ class LCLA(SymbolDefine):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         indefn=self.ck_in_macro_defn(macro,2,"LCLA")
-        #self.process(asm,"LCLA",macro.indefn._lcla,debug=debug)
         self.process(asm,"LCLA",indefn._lcla,debug=debug)
 
     # Pass1 - should never be called
@@ -2984,7 +2993,6 @@ class LCLB(SymbolDefine):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         indefn=self.ck_in_macro_defn(macro,2,"LCLC")
-        #self.process(asm,"LCLB",macro.indefn._lclb,debug=debug)
         self.process(asm,"LCLB",indefn._lclb,debug=debug)
 
     # Pass1 - should never be called
@@ -3015,7 +3023,6 @@ class LCLC(SymbolDefine):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         indefn=self.ck_in_macro_defn(macro,2,"LCLC")
-        #self.process(asm,"LCLC",macro.indefn._lclc,debug=debug)
         self.process(asm,"LCLC",indefn._lclc,debug=debug)
 
     # Pass1 - should never be called
@@ -3045,11 +3052,12 @@ class MACRO(ASMStmt):
         self.macdir=True         # This is a macro directive
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        self.ck_out_of_macro_defn(macro,"MACRO")
         self.parse_line(asm)
         self.pre_process(asm)
-        if macro.state!=0:
-            raise assembler.AssemblerError(source=self.source,line=self.lineno,\
-                msg="inner macro definition not allowed")
+        #if macro.state!=0:
+        #    raise assembler.AssemblerError(source=self.source,line=self.lineno,\
+        #        msg="inner macro definition not allowed")
 
         # Determine if optional 'DEBUG' operand present and set definition debug
         ddebug=False
@@ -3057,6 +3065,7 @@ class MACRO(ASMStmt):
             opers=self.spp_remove_comments(self.opnd_fld.text)
             ddebug=opers.upper()=="DEBUG"
 
+        #macro.define(debug=ddebug)
         macro.define(debug=ddebug)
         self.ignore=True
 
@@ -3097,10 +3106,11 @@ class MEND(ASMStmt):
         self.pre_process(asm)
         #macro.indefn._mend(self.lineno,seq=self.seqsym(asm.case))
         #macro.addMacro(macro.indefn,mend=True)
-        
+
         # Finish the macro engine definition by adding the Mend op
         indefn._mend(self.lineno,seq=self.seqsym(asm.case))
         # Add the new macro to the definitions
+        #macro.addMacro(indefn,mend=True)
         macro.addMacro(indefn,mend=True)
 
     # Pass1 - should never be called
@@ -3131,20 +3141,21 @@ class MEXIT(ASMStmt):
         self.syslist=False     # Whether &SYSLIST required in macro
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        #self.parse_line(asm)
-        self.pre_process(asm)
         indefn=self.ck_in_macro_defn(macro,2,"MEXIT")
-        if __debug__:
-            if self.trace or trace:
-                print("%s macro: %s, macro.state: %s" \
-                    % (assembler.eloc(self,"Pass0",module=this_module),\
-                        macro,macro.state))
-        if macro.state!=2:
-            raise assembler.AssemblerError(source=self.source,line=self.lineno,\
-                msg="MEXIT operation must not be used outside of a macro definition")
+        #self.parse_line(asm)
+        #self.pre_process(asm)
+        #indefn=self.ck_in_macro_defn(macro,2,"MEXIT")
+        #if __debug__:
+        #    if self.trace or trace:
+        #        print("%s macro: %s, macro.state: %s" \
+        #            % (assembler.eloc(self,"Pass0",module=this_module),\
+        #                macro,macro.state))
+        #if macro.state!=2:
+        #    raise assembler.AssemblerError(source=self.source,line=self.lineno,\
+        #        msg="MEXIT operation must not be used outside of a macro definition")
 
         self.pre_process(asm)
-        macro.indefn._mexit(self.lineno,seq=self.seqsym(asm.case))
+        indefn._mexit(self.lineno,seq=self.seqsym(asm.case))
 
     # Pass1 - should never be called
     # Pass2 - should never be called
@@ -3713,7 +3724,7 @@ class PSW67(TemplateStmt):
 
         self.evaluate_operands(asm,debug=edebug,trace=etrace)
 
-        # Extract PSW360 operand values after expression evalution
+        # Extract PSW67 operand values after expression evalution
         sys=self.bin_oprs[0].getValue()
         key=self.bin_oprs[1].getValue()
         amwp=self.bin_oprs[2].getValue()
@@ -3774,14 +3785,14 @@ class PSWBC(TemplateStmt):
 
     # sys -> bits 0-7, key -> bits 8-11, mwp -> bits 13-15, prog -> bits 34-39
     # addr -> bits 40-63
-    @staticmethod
-    def structure(builder):
+    @classmethod
+    def structure(cls,builder):
         fields=[insnbldr.Field(value=None,name="PSWBC system field",size=8,start=0),
                 insnbldr.Field(value=None,name="PSWBC key field",size=4,start=8),
                 insnbldr.Field(value=None,name="PSWBC MWP field",size=3,start=13),
                 insnbldr.Field(value=None,name="PSWBC program field",size=6,start=34),
                 insnbldr.Field(value=None,name="PSWBC address field",size=24,start=40)]
-        PSWBC.struct=Structure("PSWBC",builder,fields)
+        cls.struct=Structure("PSWBC",builder,fields)
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -3848,15 +3859,15 @@ class PSWEC(TemplateStmt):
 
     # sys -> bits 0-7, key -> bits 8-12, mwp -> bits 13-15, prog -> bits 16-23
     # addr -> bits 40-63
-    @staticmethod
-    def structure(builder):
+    @classmethod
+    def structure(cls,builder):
         fields=[insnbldr.Field(value=None,name="PSWEC system field",size=8,start=0),
                 insnbldr.Field(value=None,name="PSWEC key field",size=4,start=8),
                 insnbldr.Field(value=1,   name="PSWEC mode field",size=1,start=12),
                 insnbldr.Field(value=None,name="PSWEC MWP field",size=3,start=13),
                 insnbldr.Field(value=None,name="PSWEC program field",size=8,start=16),
                 insnbldr.Field(value=None,name="PSWEC address field",size=24,start=40)]
-        PSWEC.struct=Structure("PSWEC",builder,fields)
+        cls.struct=Structure("PSWEC",builder,fields)
     
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -3936,16 +3947,34 @@ class PSWBi(TemplateStmt):
     #  PSW380, PSWXA, PSWE370 and PSWE390 Templates
     #
     
-    @staticmethod
-    def structure(builder):
-        fields=[insnbldr.Field(value=None,name="PSWBi system field",size=8,start=0),
-                insnbldr.Field(value=None,name="PSWBi key field",size=4,start=8),
-                insnbldr.Field(value=1,name="PSWBi mode field",size=1,start=12),
-                insnbldr.Field(value=None,name="PSWBi MWP field",size=3,start=13),
-                insnbldr.Field(value=None,name="PSWBi program field",size=8,start=16),
-                insnbldr.Field(value=None,name="PSWBi amode field",size=1,start=32),
-                insnbldr.Field(value=None,name="PSWBi address field",size=31,start=33)]
-        PSWBi.struct=Structure("PSWBi",builder,fields)
+    @classmethod
+    def structure(cls,builder):
+        # Copy PSWBi class attributes to the subclass
+        cls.typ=   PSWBi.typ
+        cls.lfld=  PSWBi.lfld
+        cls.ofld=  PSWBi.ofld
+        cls.alt=   PSWBi.alt
+        cls.parser=PSWBi.parser
+        cls.sep=   PSWBi.sep
+        cls.spaces=PSWBi.spaces
+        cls.comma= PSWBi.comma
+        cls.attrs= PSWBi.attrs
+        name=cls.__name__
+        fields=[insnbldr.Field(value=None,name="%s system field" % name,\
+                               size=8,start=0),
+                insnbldr.Field(value=None,name="%s key field" % name,\
+                               size=4,start=8),
+                insnbldr.Field(value=1,name="%s mode field" % name,\
+                               size=1,start=12),
+                insnbldr.Field(value=None,name="%s MWP field" % name,\
+                               size=3,start=13),
+                insnbldr.Field(value=None,name="%s program field" % name,\
+                               size=8,start=16),
+                insnbldr.Field(value=None,name="%s amode field" % name,\
+                               size=1,start=32),
+                insnbldr.Field(value=None,name="%s address field" % name,\
+                               size=31,start=33)]
+        cls.struct=Structure(name,builder,fields)
             
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -4016,14 +4045,42 @@ class PSWBi(TemplateStmt):
 
         # Build the content
         values=[sys,key,None,mwp,prog,am,pswaddr]
-        bytes=PSWBi.struct.build(self,values,trace=trace)
+        bytes=self.__class__.struct.build(self,values,trace=trace)
         # Update the statements binary content with the PSW
         self.content.update(bytes,at=0,full=True,finalize=True,trace=ptrace)
+
+#
+# The following classes are required for proper error reporting by the structure
+# build process when detecting operand errors.  The underlying process requires
+# the insnbldr.Field object name contains the statement name.  Without these
+# classes errors are reported as coming from PSWBi, a name meaningless to the
+# end user.
+#
+
+
+class PSW380(PSWBi):
+    def __init__(self,lineno,logline=None):
+        super().__init__(lineno,logline=logline)
+
+
+class PSWXA(PSWBi):
+    def __init__(self,lineno,logline=None):
+        super().__init__(lineno,logline=logline)
+
+
+class PSWE370(PSWBi):
+    def __init__(self,lineno,logline=None):
+        super().__init__(lineno,logline=logline)
+        
+
+class PSWE390(PSWBi):
+    def __init__(self,lineno,logline=None):
+        super().__init__(lineno,logline=logline)
 
 
 # PSWZ Assembler Directive - Oper Type: TPL
 #
-# Create a z/Architecture mode 128-bit PSW
+# Create a z/Architecture (RTM) mode 128-bit PSW
 #
 # sys -> bits 0-7, key -> bits 8-12, mwp -> bits 13-15, prog -> bits 16-24
 # addr -> 64-127, amode -> bits 31,32
@@ -4048,22 +4105,22 @@ class PSWZ(TemplateStmt):
               asmbase.SingleAny,asmbase.Single]
 
     amodes={0:0,1:1,3:3,24:0,31:1,64:3}
-    
+
     #
     #  PSWZ Template
     #
-        
+
     # sys -> bits 0-7, key -> bits 8-12, mwp -> bits 13-15, prog -> bits 16-24
     # addr -> 64-127, amode -> bits 31,32
-    @staticmethod
-    def structure(builder):
+    @classmethod
+    def structure(cls,builder):
         fields=[insnbldr.Field(value=None,name="PSWZ system field",size=8,start=0),
                 insnbldr.Field(value=None,name="PSWZ key field",size=4,start=8),
                 insnbldr.Field(value=None,name="PSWZ MWP field",size=3,start=13),
                 insnbldr.Field(value=None,name="PSWZ program field",size=8,start=16),
                 insnbldr.Field(value=None,name="PSWZ amode field",size=2,start=31),
                 insnbldr.Field(value=None,name="PSWZ address field",size=64,start=64)]
-        PSWZ.struct=Structure("PSWZ",builder,fields)
+        cls.struct=Structure("PSWZ",builder,fields)
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -4282,7 +4339,6 @@ class SETA(SETx):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         indefn=self.ck_in_macro_defn(macro,2,"SETA")
-        #self.process(asm,"seta",macro.indefn._seta,debug=debug)
         self.process(asm,"seta",indefn._seta,debug=debug)
 
     # Pass1 - should never be called
@@ -4319,7 +4375,6 @@ class SETB(SETx):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         indefn=self.ck_in_macro_defn(macro,2,"SETB")
-        #self.process(asm,"setb",macro.indefn._setb,debug=debug)
         self.process(asm,"setb",indefn._setb,debug=debug)
 
     # Pass1 - should never be called
@@ -4352,7 +4407,6 @@ class SETC(SETx):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         indefn=self.ck_in_macro_defn(macro,2,"SETC")
-        #self.process(asm,"setc",macro.indefn._setc,debug=self.trace)
         self.process(asm,"setc",macro.indefn._setc,debug=self.trace)
 
     # Pass1 - should never be called
