@@ -82,7 +82,7 @@ class Model(object):
         self.rlbl=''
         self.roper=None
         self.ropnd=[]
-        
+
         # Handle loud comment model statements here
         self.loud=None
         logline=stmt.logline
@@ -138,7 +138,7 @@ class Model(object):
         if __debug__:
             if ddebug:
                 print("%s line: '%s'" % (cls_str,line))
-                
+
         # Make into continuatin lines if need be and add comment
         cont=" "*15
         plines=[]
@@ -161,12 +161,12 @@ class Model(object):
             plinec=line[ndx:pline_break]
             pline="%s%s" % (cont,plinec)
             ndx+=len(plinec)
-            
+
         # pline is the last or maybe only physical line.  It gets the comment
         assert pline is not None,\
             "%s last generated physical line with operands not present" \
                 % assembler.eloc(self,"create",module=this_module)
-        
+
         if self.comment_pos is not None:
             ndx=0
             while ndx<len(self.comments):
@@ -183,7 +183,7 @@ class Model(object):
                     pline=comment  # This is now the pending line
                     ndx+=1
                     continue
-                    
+
                 # Last line of operands gets the comment
                 if self.comment_pos>len(pline):
                     # Comment fits on last physical line add it

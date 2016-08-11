@@ -44,6 +44,21 @@ import model
 
 
 #
+#  +------------------------------------+
+#  |                                    |
+#  |   Standardized Attribute Support   |
+#  |                                    | 
+#  +------------------------------------+
+#
+
+# These global symbols allow standardized support for attributes with different
+# statement types:
+
+A_OC="ILMS"
+A_MAC="DKNOT%s" % A_OC
+
+
+#
 #  +-------------------------------------+
 #  |                                     |
 #  |   Binary Structure Template Class   |
@@ -408,8 +423,12 @@ class ASMStmt(object):
     def debug_sep(self):
         cls_str=assembler.eloc(self,"debug_sep",module=this_module)
         for n,opnd in enumerate(self.operands):
-            print("%s [%s] opnd %s: '%s'" \
-                % (cls_str,self.lineno,n,opnd.text))
+            if opnd is None:
+                t="None"
+            else:
+                t="'%s'" % opnd.text
+            print("%s [%s] opnd %s: %s" \
+                % (cls_str,self.lineno,n,t))
 
     # Machine Instruction and Template operand evaluation.
     #
@@ -433,8 +452,9 @@ class ASMStmt(object):
         for n,bin_opr in enumerate(self.bin_oprs):
             if __debug__:
                 if trace:
-                    print("%s source operand %s: %s" \
-                        % (assembler.eloc(self,"evaluate_operands"),n,bin_opr))
+                    print("%s [%s] source operand %s: %s" \
+                        % (assembler.eloc(self,"evaluate_operands"),\
+                            self.lineno,n,bin_opr))
 
             # Build expression list from source operands (asmbase.ASMOperand)
             # Fetch the operand from the source statement.  Treat missing operands
@@ -446,7 +466,18 @@ class ASMStmt(object):
 
             # Use omitted values for omitted operand
             if opnd is None:
-                bin_opr.values=bin_opr.__class__.omitted
+                omitted=bin_opr.__class__.omitted
+                if __debug__:
+                    if trace:
+                        print("%s [%s] setting operand %s to omitted: %s" \
+                            % (assembler.eloc(self,"evaluate_operands"),\
+                                self.lineno,n,omitted))
+                #bin_opr.values=bin_opr.__class__.omitted
+                bin_opr.values=omitted
+                if not bin_opr.validate_expr(trace=trace):
+                    raise ValueError("%s [%s] omitted operand %s did not validate: %s"\
+                        % (assembler.eloc(self,"evaluate_operands",\
+                            module=this_module),self.lineno,n+1,omitted))
                 continue
 
             # Update Operand object with a list of arithmetic expressions
@@ -460,9 +491,12 @@ class ASMStmt(object):
 
             # Transform any secondary expressions into arith expression
             for sec,exp in enumerate(opnd._secondary):
-                desc="%s:%s-S%s" % (name,n,sec)
-                exp.prepare(self,desc)
-                expr_list.append( exp )
+                if exp is None:
+                    expr_list.append(None)
+                else:
+                    desc="%s:%s-S%s" % (name,n,sec)
+                    exp.prepare(self,desc)
+                    expr_list.append( exp )
             while len(expr_list)<3:
                 expr_list.append(None)
             # Update the Operand object with transformed ASMExpr objects
@@ -635,6 +669,9 @@ class ASMStmt(object):
 
     # Parses separated operands using the ASMOperType object's parser.  Result
     # placed in attribute PO_operands
+    # Method Arguments:
+    #   asm    The assembler.Assembler object
+    #   debug  If True, displays the results of self.parse_line() method
     # Exceptions:
     #   AssemblerError  
     def parse_sep(self,asm,debug=False):
@@ -879,10 +916,11 @@ class SETx(ASMStmt):
         self.macdir=True    # All subclasses are macro directives
 
     def process(self,asm,desc,dmethod,debug=False):
-        self.parse_line(asm,debug=False)
         self.pre_process(asm)
-        lineno=self.lineno
         pdebug=debug or self.trace    # TRACE if either call is TRUE or ATRACEON
+        self.parse_line(asm,debug=pdebug)
+        #self.pre_process(asm)
+        lineno=self.lineno
 
         setname=self.symvar()
         if __debug__:
@@ -1132,7 +1170,7 @@ class MachineStmt(ASMStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="LMI"    # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     # Source statement operand types      Evaluated results of expressions
     types={"I":  asmbase.Single,          # unsigned int
@@ -1156,22 +1194,27 @@ class MachineStmt(ASMStmt):
         self.format=None       # msldb.Format instance for instruction
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        pdebug=debug #or True
-        self.parse_line(asm)
         self.pre_process(asm)
-        if __debug__:
-            if pdebug:
-                self.debug_sep()
+        # Note: this follows self.pre_process because self.trace is set there
+        pdebug=self.trace or trace or debug
+        self.parse_line(asm,debug=pdebug)
 
         # Create machine instruction information
         msl=self.optn.info   # Extract MSLentry object from ASMOper object
-        # Number of operands supported by the instruction
+        # Operands supported by the instruction
         oprs=msl.src_oprs(debug=pdebug)
+        if __debug__:
+            if pdebug:
+                print("%s [%s] Instruction operands: %s" \
+                    % (assembler.eloc(self,"Pass0",module=this_module),\
+                        self.lineno,len(oprs)))
 
         if oprs:
             # Only parse separated operands if operands are required
-            self.parse_sep(asm,debug=debug)     # May raise assembler.AssemblerError
-            # self.PO_operands is a list of ASMOperand objects
+            self.parse_sep(asm,debug=pdebug)    # May raise assembler.AssemblerError
+            #while len(self.P0_operands)<len(oprs):
+            #    self.P0_operands.append(None)
+            # self.PO_operands is a list of None or ASMOperand objects
             if __debug__:
                 if pdebug:
                     self.debug_P0(cls=asmbase.ASMOperand)
@@ -1256,7 +1299,7 @@ class MacroProto(ParmStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression (all allowed)
+    attrs=A_OC     # Attributes supported in expression (all allowed)
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -1340,7 +1383,7 @@ class MacroStmt(ParmStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression (all allowed)
+    attrs=A_OC     # Attributes supported in expression (all allowed)
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -1482,7 +1525,7 @@ class ACTR(ASMStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=True    # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="KNT"    # Attributes supported in expression
+    attrs=A_MAC    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -1536,7 +1579,7 @@ class AGO(ASMStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=True    # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="KNT"    # Attributes supported in expression
+    attrs=A_MAC    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -1644,7 +1687,8 @@ class AIF(ASMStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=True    # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="KNTD"   # Attributes supported in expression
+    #attrs="KNTD"   # Attributes supported in expression
+    attrs=A_MAC    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -1710,7 +1754,7 @@ class AMODE(ASMStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -1740,7 +1784,7 @@ class ANOP(ASMStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=True    # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="KNT"    # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -1838,7 +1882,7 @@ class ATRACEON(ASMStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -1898,7 +1942,7 @@ class CCW0(TemplateStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="LMI"    # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
     struct=None    # Built by structure staticmethod
@@ -1979,7 +2023,7 @@ class CCW1(TemplateStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="LMI"    # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
     struct=None    # Built by structure staticmethod
@@ -2055,7 +2099,7 @@ class CNOP(TemplateStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="LMI"    # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
     template=[asmbase.Single,asmbase.Single]
@@ -2180,7 +2224,7 @@ class COPY(ASMStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     filename=re.compile(r"'[^' ]*'")
     def __init__(self,lineno,logline=None):
@@ -2225,7 +2269,7 @@ class CSECT(ASMStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -2306,7 +2350,7 @@ class DC(ASMStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -2487,7 +2531,7 @@ class DROP(TemplateStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="LMI"    # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
     template=[asmbase.Single,asmbase.Single,asmbase.Single,asmbase.Single,
@@ -2549,7 +2593,7 @@ class DS(DC):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -2586,7 +2630,7 @@ class DSECT(ASMStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -2635,7 +2679,7 @@ class EJECT(ASMStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -2669,7 +2713,7 @@ class END(ASMStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -2715,7 +2759,7 @@ class ENTRY(TemplateStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="LMI"    # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
     template=[asmbase.SingleAddress,]
@@ -2759,7 +2803,7 @@ class EQU(TemplateStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="LMI"    # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
     template=[asmbase.SingleAny,asmbase.Single]
@@ -2860,7 +2904,7 @@ class GBLA(SymbolDefine):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="KNT"    # Attributes supported in expression
+    attrs=A_MAC    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -2891,7 +2935,7 @@ class GBLB(SymbolDefine):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="KNT"    # Attributes supported in expression
+    attrs=A_MAC    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -2922,7 +2966,7 @@ class GBLC(SymbolDefine):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="KNT"    # Attributes supported in expression
+    attrs=A_MAC    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -2953,7 +2997,7 @@ class LCLA(SymbolDefine):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="KNT"    # Attributes supported in expression
+    attrs=A_MAC    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -2984,7 +3028,7 @@ class LCLB(SymbolDefine):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="KNT"    # Attributes supported in expression
+    attrs=A_MAC    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -3014,7 +3058,7 @@ class LCLC(SymbolDefine):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="KNT"    # Attributes supported in expression
+    attrs=A_MAC    # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -3045,7 +3089,7 @@ class MACRO(ASMStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -3089,7 +3133,7 @@ class MEND(ASMStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=True    # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="KNT"    # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -3133,7 +3177,7 @@ class MEXIT(ASMStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=True    # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="KNT"    # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -3177,7 +3221,7 @@ class MHELP(TemplateStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="ILMS"   # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
     # Note: this needs updating to use parser "mopnd" to allow symbolic variables
     # in the expression.
 
@@ -3226,7 +3270,7 @@ class MNOTE(ASMStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -3280,7 +3324,7 @@ class OPSYN(ASMStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -3358,7 +3402,7 @@ class ORG(TemplateStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="LMI"    # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
     template=[asmbase.SingleAny,]
@@ -3425,7 +3469,7 @@ class POP(StackingStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -3460,7 +3504,7 @@ class PRINT(ASMStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -3539,7 +3583,7 @@ class PSWS(TemplateStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="LMI"    # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
     struct=None    # Built by structure staticmethod
@@ -3609,7 +3653,7 @@ class PSW360(TemplateStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="LMI"    # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
     struct=None    # Built by structure staticmethod
@@ -3683,7 +3727,7 @@ class PSW67(TemplateStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="LMI"    # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
     struct=None    # Built by structure staticmethod
@@ -3772,7 +3816,7 @@ class PSWBC(TemplateStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="LMI"    # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
     struct=None    # Built by structure staticmethod
@@ -3846,7 +3890,7 @@ class PSWEC(TemplateStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="LMI"    # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
     struct=None    # Built by structure staticmethod
@@ -3930,7 +3974,7 @@ class PSWBi(TemplateStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="LMI"    # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
     struct=None    # Built by structure staticmethod
@@ -4097,7 +4141,7 @@ class PSWZ(TemplateStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="LMI"    # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
     struct=None    # Built by structure staticmethod
@@ -4203,7 +4247,7 @@ class PUSH(StackingStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -4239,7 +4283,7 @@ class REGION(ASMStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -4298,7 +4342,7 @@ class RMODE(ASMStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -4330,7 +4374,7 @@ class SETA(SETx):
     spaces=True    # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
     #attrs="KNT"    # Attributes supported in expression
-    attrs=""       # Attributes supported in expression (all allowed)
+    attrs=A_MAC    # Attributes supported in expression (all allowed)
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -4357,7 +4401,7 @@ class SETA(SETx):
 
 class SETB(SETx):
     # Statement processing controls
-    typ="MS"      # Statement type identifier
+    typ="MS"       # Statement type identifier
     lfld="S"       # Valid label field content
     ofld="L"       # Valid operation field content
     alt=False      # Whether the alternate statement format is allowed
@@ -4366,7 +4410,7 @@ class SETB(SETx):
     spaces=True    # Whether operand field may have spaces outside of quoted strings
     comma=True     # Whether only a comma forces an end of an operand
     #attrs="KNT"    # Attributes supported in expression
-    attrs=""       # Attributes supported in expression (all allowed)
+    attrs=A_MAC    # Attributes supported in expression (all allowed)
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -4398,7 +4442,7 @@ class SETC(SETx):
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
     #attrs="KNT"    # Attributes supported in expression
-    attrs=""       # Attributes supported in expression (all allowed)
+    attrs=A_MAC    # Attributes supported in expression (all allowed)
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -4429,7 +4473,7 @@ class SPACE(TemplateStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="ILMS"   # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
     struct=None    # Built by structure staticmethod
@@ -4476,7 +4520,7 @@ class START(ASMStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
@@ -4590,13 +4634,13 @@ class TITLE(ASMStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
         self.asmdir=True         # This is ans assembler directive
         self.prdir=True          # It is also a print directive
-        
+
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         self.parse_line(asm)
         self.pre_process(asm)
@@ -4618,6 +4662,11 @@ class TITLE(ASMStmt):
 
 
 # USING Assembler Directive - Oper Type: TPL
+
+# Set a new listing title
+#
+#         USING  base,reg[,reg]...
+
 class USING(TemplateStmt):
     # Statement processing controls
     typ="TPL"      # Statement type identifier
@@ -4628,7 +4677,7 @@ class USING(TemplateStmt):
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs="LMI"    # Attributes supported in expression
+    attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
     template=[asmbase.SingleAddress,\
@@ -4724,7 +4773,7 @@ class XMODE(ASMStmt):
     sep=False      # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    attrs=""       # Attributes supported in expression
+    attrs=None     # Attributes supported in expression
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)

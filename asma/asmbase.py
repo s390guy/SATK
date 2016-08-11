@@ -314,11 +314,11 @@ class ASMOperand(object):
         self._primary=None        # Primary portion of the operand (ASMExpr object)
         self._secondary=[]        # Optional secondary operands (ASMExpr objects)
         # At some point the self._expr list may eliminate this arbitrary separation.
-        
+
         # Expressions are added as presented via the primary() and secondary()
         # methods or the expr() method
         self._expr=[]             # Expressions as a single list
-        
+
         # Whether &SYSLIST is required (for macro statement result objects)
         self.syslist=False
 
@@ -339,8 +339,11 @@ class ASMOperand(object):
             s="%s\n%sSecondary:" % (s,indent)
             sindent="%s    " % lindent
             for n,sec in enumerate(self._secondary):
-                s="%s\n%s[%s] %r" % (s,lindent,n,sec)
-                s="%s\n%s %s" % (s,lindent,sec.display(indent=indent,string=True))
+                if sec is None:
+                    s=s="%s\n%s[%s] %s" % (s,lindent,n,sec)
+                else:
+                    s="%s\n%s[%s] %r" % (s,lindent,n,sec)
+                    s="%s\n%s %s" % (s,lindent,sec.display(indent=indent,string=True))
         if string:
             return s
         print(s)
@@ -1085,9 +1088,11 @@ class Operand(object):
     #   True   if type is valid for each expression
     #   False  if any of the expressions evaluates to an unexpected result
     def validate_expr(self,trace=False):
-        if trace:
-            cls_str="assembler.py - %s.validate_expr() -" % self.__class__.__name__
-            print("%s values: %s" % (cls_str,self.values))
+        if __debug__:
+            if trace:
+                cls_str="assembler.py - %s.validate_expr() -" \
+                    % self.__class__.__name__
+                print("%s values: %s" % (cls_str,self.values))
         state=0
         opr=0xF00
         shift=0
@@ -1103,16 +1108,19 @@ class Operand(object):
             else:
                 typ=0x300
             typ_shifted=typ>>shift
-            if trace:
-                print("%s typ: %s" % (cls_str,hex(typ_shifted)))
+            if __debug__:
+                if trace:
+                    print("%s typ: %s" % (cls_str,hex(typ_shifted)))
             state|=(typ>>shift)
-            if trace:
-                print("%s state: %s" % (cls_str,hex(state)))
+            if __debug__:
+                if trace:
+                    print("%s state: %s" % (cls_str,hex(state)))
             shift+=4
         self.fields=state
         valid=self.__class__.valid_expr
-        if trace:
-            print("%s valid_expr: %s" % (cls_str,valid))
+        if __debug__:
+            if trace:
+                print("%s valid_expr: %s" % (cls_str,valid))
         return state in valid
 
     # Returns a string for reporting a failure to pass validate_expr() method
@@ -1543,7 +1551,7 @@ class StorageExt(Storage):
             self.__setNdxLen(self.values[1])
         else:
             raise ValueError("%s unexpected self.fields: 0x%03X" \
-                % (eloc(self,"resolve"),self.fields))
+                % (assembler.eloc(self,"resolve"),self.fields))
 
         # Make sure we are good to go before leaving
         self.ck_base_disp(self.base,self.disp,stmt,opn)
@@ -1682,6 +1690,11 @@ class ASMProcessor(object):
 #
 # * If SETC symbol or macro parameter is assigned a valid label as its value
 #
+# Label attributes in open code:   I L M S T
+# Label attributes in macros:    D I L M S T
+# SET attributes:     K   N
+# SETC as label:  D I   L   M S T
+#
 # Various locations within ASMA modules actually assign the attributes
 # These comments document where they are set:
 #  T' Attributes
@@ -1719,15 +1732,15 @@ class ASMSymAttr(object):
     # Defined attributes (used by __setitem__() method):
     #      ATTR    value     valid
     #     LETTER   class     values
-    attrs={"D":   (int,      [0,1]),
-           "I":   (int,      None),
-           "K":   (int,      None),
-           "L":   (int,      None),
+    attrs={"D":   (int,      [0,1]),       # Label definition status
+           "I":   (int,      None),        # Label integer attribute
+           "K":   (int,      None),        # Count of SET symbol characters
+           "L":   (int,      None),        # Label Length
            "M":   (int,      None),        # ASMA specific
-           "N":   (int,      None),
-           "O":   (str,      "AEMOSU"),
-           "S":   (int,      None),
-           "T":   (str,      "ABCDEFGHKLPQRSVXYZ@IJMTW$ONU1234")}
+           "N":   (int,      None),        # Number of SET symbol entries
+           "O":   (str,      "AEMOSU"),    # Operation type
+           "S":   (int,      None),        # Constant Scale
+           "T":   (str,      "ABCDEFGHKLPQRSVXYZ@IJMTW$ONU1234")}   # Label Type
     def __init__(self):
         self.attr={}   # Assigned attributes
 

@@ -1157,7 +1157,6 @@ class Assembler(object):
         asmstmts.PSW67.structure(builder)
         asmstmts.PSWBC.structure(builder)
         asmstmts.PSWEC.structure(builder)
-        #asmstmts.PSWBi.structure(builder)
         asmstmts.PSW380.structure(builder)
         asmstmts.PSWXA.structure(builder)
         asmstmts.PSWE370.structure(builder)
@@ -3048,67 +3047,11 @@ class STMTProcessor(asmbase.ASMProcessor):
         
     def init(self):
         self.defPhase("pass0_1",self.Pass0_1)
-        #self.defPhase("pass0",self.Pass0)
-        #self.defPhase("pass1",self.Pass1)
         self.defPhase("pass1_post",self.Pass1_Post)
         self.defPhase("pass2_pre",self.Pass2_Pre)
         self.defPhase("pass2",self.Pass2)
         self.defPhase("pass2_post",self.Pass2_Post)
         self.defPhase("fini",self.final)
-
-    # Retrieves input until an exception occurs.
-    # Exceptions:
-    #   BufferEmpty  when all input has been consumed, signalling normal end of thie
-    #                process.  This method should not be called again in this event
-    #   MacroError   Occurs when an error in an invoked macro occurs or during
-    #                macro definition.  The MacroError indicates which.  Macro
-    #                invocation is really an input generating process.  The
-    #                caller should handle the MacroError and then call this method
-    #                resuming input.
-    #   AssemblerError  When the assembler detects an error.  There error should
-    #                be handled by the caller and input should continue.
-    def getStmts(self,asm,fail=False,debug=False):
-        fail=asm.fail
-        mb=self.MB
-        while True:
-            ln=self.IM.getLogical()
-            #print("%s" % ln)
-            # Create the ASMStmt subclass for the operation and populate it
-            # with operation definition information.
-            stmtcls=ln.optn.stmtcls
-            if __debug__:
-                if debug:
-                    print("%s [%s] Creating ASMStmt subclass: %s" \
-                            % (eloc(self,"getStmts"),self.lineno,\
-                                stmtcls.__name__))
-            # Create the asmbase.ASMStmt subclass for the operation
-            asm.cur_stmt=s=stmtcls(self.lineno,ln)
-            self.lineno+=1       # Increment global statement counter
-            # Set the print status for this statement based upon the current
-            # global settings and statement data.
-            s.pr_set(on=asm.pon,gen=asm.pgen,data=asm.pdata,mcall=asm.mcall)
-
-            # add the statement to our list of ASMStmt objects and pre-process.
-            asm.stmts.append(s)
-            # At the end of this process, the statement is queued for later 
-            # assembly via the assemble() method.
-            if isinstance(s,asmstmts.StmtError):
-                # Raises an AssemblerError
-                s.le_error()
-
-            if s.ignore:
-                # Empty lines and comments are skipped here
-                continue
-
-            macdefn=mb.defining(s,debug=False)
-            # Did the Macro Language intercept the statement as part of a definition?
-            if macdefn:
-                s.ignore=True  # Intercepted, so no need to do anything more
-                continue
-
-            s.parse_line(asm)
-            s.pre_process(asm)
-            s.Pass0(asm,macro=mb)
 
     # Retrieves input until an exception occurs.
     # Exceptions:
@@ -3167,66 +3110,6 @@ class STMTProcessor(asmbase.ASMProcessor):
                 continue
 
             s.Pass1(asm)
-
-
-    # Leave this method commented out for awhile to make sure the new 
-    # failure design works
-
-    #def pre_process(self,asm,s,fail=False,debug=False):
-    #    assert isinstance(s,asmstmts.ASMStmt),\
-    #        "%s 's' argument must be an asmstmts.ASMStmt object: %s" \
-    #            % (eloc(self,"pre_process"),s)
-
-        #sdebug=debug
-
-        # Access the Macro Language when defining macros
-        # The Macro Language will return 'True' if the statement was handled
-        #if fail:
-        #    macdefn=asm.MM.defining(s,debug=False)
-        #else:
-        #    try:
-        #        macdefn=asm.MM.defining(s,debug=False)
-        #    except asmmacs.MacroError as me:
-        #        ae=AssemblerError(source=s.source,line=s.lineno,msg=me.msg)
-        #        self._ae_excp(ae,s,string=eloc(self,"pre_process"),debug=sdebug)
-        #        return
-        #    except AssemblerError as ae:
-        #        self._ae_excp(ae,s,string=eloc(self,"pre_process"),debug=sdebug)
-        #        return
-
-        # Did the Macro Language intercept the statement as part of a definition?
-        #if macdefn:
-        #    s.ignore=True  # Intercepted, so no need to do anything more with this
-        #    return
-
-        #if s.ignore:
-        #    if __debug__:
-        #        if sdebug:
-        #            print("%s DEBUG: empty line: %s\n    %s" \
-        #                % (eloc(self,"pre_process"),s.lineno,s.stmt))
-        #    return
-
-        #if __debug__:
-        #    if sdebug:
-        #        print("%s DEBUG: classified statement\n    %s" \
-        #            % (eloc(self,"pre_process"),s))
-
-        # Parse Statement Operands
-        #if fail:
-        #    s.parse_line(asm)
-        #    s.pre_process(asm)
-        #    s.Pass0(asm)
-        #else:
-        #    try:
-        #        s.parse_line(asm)
-        #        s.pre_process(asm)
-        #        s.Pass0(asm)
-        #    except AssemblerError as ae:
-        #        asm._ae_excp(ae,s,string=eloc(self,"pre_process"),debug=sdebug)
-        #        return
-
-        #if sdebug:
-        #    print(s)
 
     def Pass0_1(self,asm,fail=False,debug=False):
         Stats.start("pass1_p")

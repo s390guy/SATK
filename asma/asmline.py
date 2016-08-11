@@ -527,7 +527,26 @@ class cfsm(fsm.FSM):
             # Test for the case of a comma followed by a space indicating
             # comments are present on a statement without operands.
             opnd=self.cndx
-            if len(self.text)>=opnd+2 and self.text[opnd:opnd+2]==", ":
+            
+            # Note: the physical line object removes trailing blanks, so we
+            # have to treat just a comma with nothing after it as if it had a space.
+            # We also have to check for the normal case where a comma followed by 
+            # a space indicates no operands.  In this case there may be a comment.
+            if len(self.text)==opnd+1 and self.text[opnd]==",":
+                if __debug__:
+                    if self._trace is not None:
+                        print("%s operand field '%s' treated as without operands, "\
+                            "returning: []"\
+                                % (assembler.eloc(self,"parse",module=this_module),\
+                                    self.text[opnd]))
+                return []
+            elif len(self.text)>=opnd+2 and self.text[opnd:opnd+2]==", ":
+                if __debug__:
+                    if self._trace is not None:
+                        print("%s operand field '%s' treated as without operands, "\
+                            "returning: []"\
+                                % (assembler.eloc(self,"parse",module=this_module),\
+                                    self.text[opnd:]))
                 return []
 
         # Use FSM to parse operands

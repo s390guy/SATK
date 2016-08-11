@@ -184,6 +184,16 @@ class OperandParser(asmbase.AsmFSMParser):
         init.error(self.ACT_Expected_LP_Term)               # E None  ?
         self.state(init)
 
+        inits=fsmparser.PState("inits")
+        inits.action(term_tokens,self.ACT_Start_T)          #   None  term   term
+        inits.action(oper_tokens,self.ACT_Start_O)          #   None  oper   unary/E
+        inits.action([LPAREN,],self.ACT_Start_L)            #   None  (      lparen
+        inits.action([COMMA,],self.ACT_Start_C)             #   None  ,      inits
+        inits.action([RPAREN,],self.ACT_Start_R)            #   None  )      end
+        inits.action([EOS,],self.ACT_Expected_LP_Term)      # E None  EOS
+        inits.error(self.ACT_Expected_LP_Term)              # E None  ?
+        self.state(inits)
+
         unary=fsmparser.PState("unary")
         unary.action(term_tokens,self.ACT_Unary_T)          #   unary term   term
         unary.action(oper_tokens,self.ACT_Expected_LP_Term) # E unary oper
@@ -252,6 +262,7 @@ class OperandParser(asmbase.AsmFSMParser):
     #   AsmParserError  when an error is recognized.
     def parse_operands(self,stmt,debug=False):
         self.operands=[]
+        self.trace(on=False)
         for n,opnd in enumerate(stmt.operands):
             # opnd is a LOperand object
             if opnd is None:
@@ -263,6 +274,7 @@ class OperandParser(asmbase.AsmFSMParser):
                     print('%s parsing opnd %s: "%s"' \
                         % (assembler.eloc(self,"parse_operands",module=this_module),\
                             n,opnd.text))
+                    self.trace(on=True)
             scope=OperandScope(opnd).init(stmt=stmt)
             scope=self.parse(opnd.text,scope=scope,fail=False)
             if __debug__:
@@ -429,6 +441,15 @@ class OperandParser(asmbase.AsmFSMParser):
   #
   #  Initial expression actions
   #
+
+    def ACT_Start_C(self,value,state,trace=False):
+        # ,
+        # Note: this is only valid when the first secondary expression is ommitted
+        gs=self.scope()
+        gs.expression_end()
+        # Start the next secondary expression
+        return "inits"
+
     def ACT_Start_L(self,value,state,trace=False):
         # (
         gs=self.scope()
@@ -453,6 +474,13 @@ class OperandParser(asmbase.AsmFSMParser):
 
         # binary
         self.ACT_Expected_LP_Term(value,state,trace=trace)
+
+    def ACT_Start_R(self,value,state,trace=False):
+        # )
+        # Note: this only occurs when the second secondary expression is ommitted
+        gs=self.scope()
+        gs.expression_end()
+        return "end"
 
     def ACT_Start_T(self,value,state,trace=False):
         # term
@@ -497,8 +525,8 @@ class OperandParser(asmbase.AsmFSMParser):
             if gs.balanced_parens():
                 # End of primary expression
                 gs.expression_end()
-                # Start of secondary expression
-                return "init"
+                # Start of first secondary expression
+                return "inits"
 
         self.ACT_Expected_RP_Oper(value,state,trace=trace)
 
@@ -607,7 +635,12 @@ class OperandScope(asmbase.AsmFSMScope):
             self.primary=False
         else:
             expr=self.expr_end(source=self.lopnd,line=self._stmt.lineno)
-            self.opnd.secondary(asmbase.ASMExprArith(expr))
+            if expr:
+                # Token list has elements, so add the arithmetic expression
+                self.opnd.secondary(asmbase.ASMExprArith(expr))
+            else:
+                # Token list is empty, so add None
+                self.opnd.secondary(None)
         self.previous=None
 
     # Initializes the scope for use and instantiates the result object
