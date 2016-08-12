@@ -28,6 +28,7 @@ import assembler
 import asmbase
 import asmtokens
 import asmline
+import asmmacs
 import macsyms
 
 
@@ -1236,7 +1237,7 @@ class PSymRef(PCTerm):
     #   PParserError if the label is not defined and excp=True
     def getSTE(self,label,external=None,excp=False,debug=False,trace=False):
         try:
-            return external.exp._getSTE_Ref(label,self.src.line)
+            return external._getSTE_Ref(label,self.src.line)
             # Cross-reference label entry creation depends upon the external object:
             #  asmmacs.Invoker     - XREF entry is not generated
             #  assembler.Assembler - XREF entry is generated
@@ -1291,9 +1292,6 @@ class PSymRef(PCTerm):
             index=ndx_expr.evaluate(external=external,debug=debug,trace=trace)
             if isinstance(index,macsyms.A_Val):
                 index=index.value()
-            #print("%s %s index[%s]: %s" \
-            #    % (assembler.eloc(self,"SymID",module=this_module),\
-            #        self.symname,n,index))
             indexes.append(index)
         return macsyms.SymbolID(self.symname,indices=indexes)
 
@@ -1390,10 +1388,7 @@ class PSymRefCAttr_D(PSymRefCAttr):
         super().__init__(token,symbol,attr=attr,indices=indices)
 
     def value(self,external=None,debug=False,trace=False):
-        #label=self.getLabel(external,debug=debug)
         label=self.getLabel(external,debug=trace)
-        #print("%s label: %s" \
-        #    % (assembler.eloc(self,"value",module=this_module),label))
         lval=self.getSTE(label,external=external,excp=False,debug=debug,trace=trace)
         if lval is None:
             return 0
@@ -1463,8 +1458,6 @@ class PSymRefCAttr_T(PSymRefCAttr):
             # label is undefined
             return "U"
         # Label is defined, now return _its_ T' attribute
-        #print("%s ste:%s" \
-        #    % (assembler.eloc(self,"value",module=this_module),ste))
         return ste["T"]
 
 
@@ -1678,7 +1671,6 @@ class SymbolicReference(CTermScope):
     def token(self,tok):
         # Bubble up to the statement whether syslist is needed in macro.
         # The statement communicates this to the macro under construction.
-        #if tok.tid in ["SYM","SYMBOL","SYM",]:
         if tok.tid in SymbolicReference.tids:
             if self._case:
                 self._stmt.syslist=tok.symname=="&SYSLIST"
@@ -1932,7 +1924,7 @@ class MacroParser(asmbase.AsmCtxParser):
                 if trace:
                     print("%s result not returned" \
                         % assembler.eloc(self,"leave_scope",module=this_module))
-            #ret.token(result)
+
         # If returning scope has a stack item, make it the next FSM input value
         if stack:
             self.stack(stack,trace=trace)

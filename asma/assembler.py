@@ -3103,12 +3103,14 @@ class STMTProcessor(asmbase.ASMProcessor):
                 s.ignore=True  # Intercepted, so no need to do anything more
                 continue
 
+            # WARNING: DO NOT set either argument debug or trace here
             s.Pass0(asm,macro=mb)
 
             if s.ignore:
                 # Errors in Pass0() method skipped here
                 continue
 
+            # WARNING: DO NOT set either argument debug or trace here
             s.Pass1(asm)
 
     def Pass0_1(self,asm,fail=False,debug=False):
@@ -3212,10 +3214,12 @@ class STMTProcessor(asmbase.ASMProcessor):
             asm._track_loc(s)
 
             if fail:
-                s.Pass2(asm,trace=debug)
+                # WARNING: DO NOT set either argument debug or trace here
+                s.Pass2(asm)
             else:
                 try:
-                    s.Pass2(asm,trace=debug)
+                    # WARNING: DO NOT set either argument debug or trace here
+                    s.Pass2(asm)
                 except AssemblerError as ae:
                     asm._ae_excp(ae,s,string=eloc(self,"Pass2"),debug=False)
 

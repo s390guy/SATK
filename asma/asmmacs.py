@@ -639,6 +639,10 @@ class MacroEngine(object):
     
 class EngineState(object):
     def __init__(self,exp):
+        assert isinstance(exp,Invoker),\
+            "%s 'exp' argument must be an Invoker: %s" \
+                % (assembler.eloc(self,"__init__",module=this_module),self.exp)
+
         # These attributes maintain the dynamic state of the MacroEngine and 
         # preserve the state between each cycle of the MacroEngine.
         #
@@ -680,7 +684,7 @@ class EngineState(object):
     #   during evaluation.
     def expr(self,expr,debug=False,trace=False):
         try:
-            return expr.evaluate(external=self,debug=debug,trace=False)
+            return expr.evaluate(external=self.exp,debug=debug,trace=False)
         except pratt3.PParserError as pe:
             # Convert PParserError into a MacroError
             msg="%s: '%s'" % (pe.msg,pe.ptok.src.string)
@@ -689,31 +693,30 @@ class EngineState(object):
     # Returns the A_Val object associated with the SymbolID object
     def geta(self,symid):
         return self.lcls.geta(symid)
+
     # Returns the B_Val object associated with the SymbolID object
     def getb(self,symid):
         return self.lcls.getb(symid)
+
     # Returns the C_Val object associated with the SymbolID object
     def getc(self,symid):
         return self.lcls.getc(symid)
+
+    # Return True if the MacroEngine is done
     def isDone(self):
         return self.next is None
-    #def model(self):
-    #    return self.result
+
     # Actually set a GBLA/LCLA variable by updating its A_Val object
     def seta(self,symid,value):
         self.lcls.seta(symid,value)
-        #old=self.geta(symid)
-        #old.update(value)
+
     # Actually set a GBLB/LCLB variable by updating its B_Val object
     def setb(self,symid,value):
         self.lcls.setb(symid,value)
-        #old=self.getb(symid)
-        #old.update(value)
+
     # Actually set a GBLB/LCLB variable by updating its C_Val object
     def setc(self,symid,value):
         self.lcls.setc(symid,value)
-        #old=self.getc(symid)
-        #old.update(value)
 
     
 # The base class for all macro operations.  Helper methods for operations are also
@@ -790,7 +793,7 @@ class MacroOp(object):
     #   MacroError generated from a pratt3.PParserError encountered
     def evaluate_expr(self,state,expr,debug=False,trace=False):
         try:
-            return expr.evaluate(external=state,debug=debug,trace=False)
+            return expr.evaluate(external=state.exp,debug=debug,trace=False)
         except pratt3.PParserError as pe:
             # Convert PParserError into a MacroError
             msg="%s: '%s'" % (pe.msg,pe.ptok.src.string)
@@ -1405,9 +1408,7 @@ class Invoker(object):
             else:
                 gl="LCL"
             
-            #print("symo: %s" % symo)
             value=symo.value
-            #print("value: %s" % value)
             
             typ=symo.__class__.__name__[0]
             h=""
@@ -1466,19 +1467,17 @@ class Invoker(object):
     # Enters the macro.
     def enter(self):
         # Remember where the macro was invoked
-        #self.macro._refs.append(self.lineno)
-        self.macro.reference(self.lineno)  # Update the macro XREF entries
-        self.mhelp_init()              # Initialize MHELP values
-        self.mhelp_01()                # Trace macro entry if requested
-        self.mhelp_10()                # Dump parameters if requested
-        self.state=self.engine.start(self)     # Start the macro engine 
+        self.macro.reference(self.lineno)   # Update the macro XREF entries
+        self.mhelp_init()                   # Initialize MHELP values
+        self.mhelp_01()                     # Trace macro entry if requested
+        self.mhelp_10()                     # Dump parameters if requested
+        self.state=self.engine.start(self)  # Start the macro engine 
     
     # Creates a MacroError object from one supplied, adding macro specific
     # information to the error and reflecting the invoking statement as the error's
     # location.
     def error(self,op,msg,linepos=None):
         msg="MACRO ERROR in %s @%s: %s" % (self.macro.name,op.lineno,msg)
-        #me=MacroError(line=self.lineno,linepos=linepos,invoke=True,msg=msg)
         # Create an AssemblerError for printing with the invoking statement in the
         # listing.
         stmt=self.stmt
@@ -1635,9 +1634,6 @@ class MacroBuilder(object):
         self.asm.OMF.def_macro(mac)       # Add the macro the OMF
         if mend:
             self.flush()
-            #self.indefn=None             # Leaving macro definition mode
-            #self.ddebug=False            # Turn off definition debug switch
-            #self.state=0                 # Change state to relfect this
 
     # Initiate a new macro definition
     def define(self,debug=False):
@@ -1647,15 +1643,16 @@ class MacroBuilder(object):
     # Hook used by the Assembler Language to process macro definition statements
     def defining(self,stmt,debug=False):
         ddebug=self.ddebug or debug #or True
-        # If not defining a macro, simply return with a value of False.
         if __debug__:
             if ddebug:
                 cls_str=assembler.eloc(self,"defining",module=this_module)
                 print("%s macro state: %s" \
                     % (cls_str,self.state))
                 print("%s stmt: %s" % (cls_str,stmt))
+
         state=self.state
         #print("[%s] defining: %s  stmt: %s %r" % (stmt.lineno,state,stmt.instu,stmt))
+        # If not defining a macro, simply return with a value of False.
         if state==0:
             return False
 
@@ -1686,7 +1683,10 @@ class MacroBuilder(object):
 
             # Prototype statement found
             try:
-                stmt.Pass0(self.asm,macro=self,debug=debug)
+                # Debugging of prototype statements requires use of the MACRO 
+                # DEBUG operand.  Neither --oper nor ATRACEON works for the 
+                # prototype statement
+                stmt.Pass0(self.asm,macro=self,debug=ddebug)
             except assembler.AssemblerError as ae:
                 self.state=3         # Ignore rest of macro definition
                 raise ae from None
@@ -1696,7 +1696,10 @@ class MacroBuilder(object):
         elif state==2:
             op=stmt.optn.oper
             try:
-                stmt.Pass0(self.asm,macro=self,debug=debug)
+                # Debuggging of macro directives may be controlled either by
+                # --oper or ATRACEON.  Model statements may only be debugged
+                # using MACRO with the DEBUG operand
+                stmt.Pass0(self.asm,macro=self,debug=ddebug)
             except assembler.AssemblerError as ae:
                 if op=="MEND":
                     self.state=0  # Macro definition ended due to an error
@@ -1731,7 +1734,7 @@ class MacroBuilder(object):
 
         # Do not recognize state, so something is messed up, bailing....
         else:
-            raise ValueError("%s MacroLanguage.state invalid: %s" \
+            raise ValueError("%s MacroBuilder.state invalid: %s" \
                 % (assembler.eloc(self,"defining",module=this_module),state))
 
         # Tell caller we processed the statement here.

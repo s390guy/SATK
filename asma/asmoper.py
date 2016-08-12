@@ -274,7 +274,6 @@ class OperMgr(asmbase.ASMOperTable):
             # If this is a loud comment wihin a macro body, treat it as a model stmt.
             return asmbase.ASMOper("*",asmstmts.ModelStmt)
         return asmbase.ASMOper("*",asmstmts.StmtComment)
-        #return self["*"]
 
     # Return operation for a logical line error
     def getError(self):
@@ -334,10 +333,6 @@ class OperMgr(asmbase.ASMOperTable):
         except assembler.AssemblerError as ae:
             # Fetching of the macro from the macro library failed for some reason
             # We need to treat this as a LineError of the physical line
-
-            #oper=self.getError()
-            #oper.info=ae
-            #return oper
             raise asmline.LineError(msg=ae.msg) from None
             
             

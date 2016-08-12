@@ -704,25 +704,28 @@ class ASMStmt(object):
     #          is always valid.  Pass upward to the ASMStmt subclass whether
     #          an ampersand appears in the field.  The presence of at least one
     #          ampersand will trigger in a model statement symbolic replacement.
+    # Returns:
+    #   Whether the statement is being traced as specified in the --oper command-line
+    #   argument or in an ACTRACEON assembler directive.  The caller can ignore the
+    #   returned value if uninterested in this state.
     # Exception:
     #   AssemblerError if either the operation or label field is invalid
     def pre_process(self,asm):
-        #print("%s [%s]" \
-        #    % (assembler.eloc(self,"pre_process",module=this_module),self.lineno))
+        trace=self.trace=asm._is_otrace(self.instu)   # Set operation based tracing
 
-        self.trace=asm._is_otrace(self.instu)      # Set operation based tracing
-        if self.trace:
-            print("%s [%s] setting %s self.trace <- %s" \
-                % (assembler.eloc(self,"pre_process",module=this_module),\
-                    self.lineno,self.instu,self.trace))
-            
+        if __debug__:
+            if self.trace:
+                print("%s [%s] setting %s self.trace <- %s" \
+                    % (assembler.eloc(self,"pre_process",module=this_module),\
+                        self.lineno,self.instu,self.trace))
+
         # Bubble up the operation field from the logical line to the ASMStmt 
         # subclass, remembering if there are any ampersands present in the field
         self.oper_fld=oper=self.logline.oper_fld
         if oper.amp:
             self.amp=True
             self.amp_list.append(oper)
-            
+
         # Bubble up the label field from the logical line to the ASMStmt subclass,
         # remembering if there are any ampersands present in the field
         self.label_fld=lbl=self.logline.label_fld
@@ -736,7 +739,7 @@ class ASMStmt(object):
         if oper.typ=="U":
             raise assembler.AssemblerError(source=self.source,line=self.lineno,\
                 msg="operation field unrecognized or invalid: %s" % (oper.text))
-           
+
         # Validate the label field if present.  If it has a type of U now, raise
         # an AssemblerError
         if lbl:
@@ -745,6 +748,9 @@ class ASMStmt(object):
             if lbl.typ=="U":
                 raise assembler.AssemblerError(source=self.source,line=self.lineno,\
                     msg="label field unrecognized or invalid: %s" % (lbl.text))
+
+        # Return the trace setting
+        return trace
 
     # Returns a case sensitive or insensitive sequence symbol
     # Method Argument:
@@ -783,7 +789,7 @@ class ASMStmt(object):
             return []
 
         opers=self.spp_remove_comments(operfld)
-            
+
         # Separate the operands wherever a comma occurs.
         opers=opers.split(",")      # separate operands
         if not isinstance(opers,list):
@@ -830,7 +836,7 @@ class ASMStmt(object):
         if label is None or label.typ!="S":
             return None
         return label.symid
-        
+
     # Validates the label field as containing a symbolic variable.  It returns
     # a unprepared macopnd.SymbolRef complex term.  This method is a call back
     # made by the asmline.LField object.
@@ -916,10 +922,9 @@ class SETx(ASMStmt):
         self.macdir=True    # All subclasses are macro directives
 
     def process(self,asm,desc,dmethod,debug=False):
-        self.pre_process(asm)
-        pdebug=debug or self.trace    # TRACE if either call is TRUE or ATRACEON
+        pdebug = self.pre_process(asm) or debug
+        #pdebug=debug or self.trace    # TRACE if either call is TRUE or ATRACEON
         self.parse_line(asm,debug=pdebug)
-        #self.pre_process(asm)
         lineno=self.lineno
 
         setname=self.symvar()
@@ -1004,17 +1009,18 @@ class SymbolDefine(ASMStmt):
         self.macdir=True     # All subclasses are macro directives
 
     def process(self,asm,typ,dmethod,debug=False):
+        pdebug = self.pre_process(asm) or debug
         if __debug__:
-            if debug:
+            if pdebug:
                 print("%s [%s]" \
                     % (assembler.eloc(self,"process",module=this_module),\
                         self.lineno))
-        self.parse_line(asm)
-        self.pre_process(asm)
+        self.parse_line(asm,debug=pdebug)
+
         lineno=self.lineno
         source=self.source
 
-        self.parse_sep(asm,debug=debug)
+        self.parse_sep(asm,debug=pdebug)
         # P0_operands contains a list of macopnd.SymbolRef objects
         if __debug__:
             if debug:
@@ -1067,11 +1073,10 @@ class TemplateStmt(ASMStmt):
         self.bin_oprs=bin_lst
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        pdebug=debug #or True
-        self.parse_line(asm)
-        self.pre_process(asm)
+        pdebug = self.pre_process(asm) or debug
+        self.parse_line(asm,debug=pdebug)
 
-        self.parse_sep(asm,debug=debug)     # May raise assembler.AssemblerError
+        self.parse_sep(asm,debug=pdebug)     # May raise assembler.AssemblerError
         # self.PO_operands is a list of ASMOperand objects
         if __debug__:
             if pdebug:
@@ -1194,9 +1199,7 @@ class MachineStmt(ASMStmt):
         self.format=None       # msldb.Format instance for instruction
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.pre_process(asm)
-        # Note: this follows self.pre_process because self.trace is set there
-        pdebug=self.trace or trace or debug
+        pdebug = self.pre_process(asm) or debug or trace
         self.parse_line(asm,debug=pdebug)
 
         # Create machine instruction information
@@ -1231,7 +1234,7 @@ class MachineStmt(ASMStmt):
             cls=MachineStmt.types[op]
 
             if __debug__:
-                if debug:
+                if pdebug:
                     print("%s DEBUG using Operand subclass: %s('%s')" \
                         % (assembler.eloc(self,"Pass0"),cls.__name__,op))
             clso=cls(op)
@@ -1305,8 +1308,8 @@ class MacroProto(ParmStmt):
         super().__init__(lineno,logline=logline)
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.parse_line(asm)
         self.pre_process(asm)
+        self.parse_line(asm)
 
         # Identify prototype label symbolic variable, if present
         lbl=self.label_fld
@@ -1368,7 +1371,6 @@ class MacroProto(ParmStmt):
                     % (assembler.eloc(self,"_prototype",module=this_module),proto))
 
         # Prototype statement successfully processed, can proceed with definition
-        #asm.MM.indefn=asmmacs.Macro(proto,asm.case,defn=self.lineno)
         macro.indefn=asmmacs.Macro(proto,asm.case,defn=self.lineno)
 
 
@@ -1398,9 +1400,8 @@ class MacroStmt(ParmStmt):
         pass
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        # Separate the comma separated macro parameters into a list, self.operands
-        self.parse_line(asm)
-        self.pre_process(asm)
+        pdebug = self.pre_process(asm) or debug
+        self.parse_line(asm,debug=pdebug)
 
         self.label=self.label_optional()
 
@@ -1411,7 +1412,7 @@ class MacroStmt(ParmStmt):
                 msg=se.msg) from None
             
         if __debug__:
-            if debug:
+            if pdebug:
                 print("%s [%s] parms:%s" \
                     % (assembler.eloc(self,"Pass0",module=this_module),\
                         self.lineno,parms))
@@ -1479,18 +1480,22 @@ class ModelStmt(ASMStmt):
             # Nothing to do for a loud comment and they can't have a sequence symbol
             seq=None
         else:
-            self.parse_line(asm,debug=debug)
             self.pre_process(asm)
-            #print("%s stmt label fld: %s" \
-            #    % (assembler.eloc(self,"Pass0",module=this_module),self.label_fld))
-            #print("%s line label fld: %s" \
-            #    % (assembler.eloc(self,"Pass0",module=this_module),\
-            #        self.logline.label_fld))
-            #print("%s stmt oper  fld: %s" \
-            #    % (assembler.eloc(self,"Pass0",module=this_module),self.oper_fld))
-            #print("%s line oper  fld: %s" \
-            #    % (assembler.eloc(self,"Pass0",module=this_module),\
-            #        self.logline.oper_fld))
+            self.parse_line(asm,debug=debug)
+            if __debug__:
+                if debug:
+                    print("%s stmt label fld: %s" \
+                        % (assembler.eloc(self,"Pass0",module=this_module),\
+                            self.label_fld))
+                    print("%s line label fld: %s" \
+                        % (assembler.eloc(self,"Pass0",module=this_module),\
+                            self.logline.label_fld))
+                    print("%s stmt oper  fld: %s" \
+                        % (assembler.eloc(self,"Pass0",module=this_module),\
+                            self.oper_fld))
+                    print("%s line oper  fld: %s" \
+                        % (assembler.eloc(self,"Pass0",module=this_module),\
+                            self.logline.oper_fld))
 
             seq=self.seqsym(asm.case)
             if __debug__:
@@ -1535,14 +1540,15 @@ class ACTR(ASMStmt):
     # Parse operand expression - called by MacroLanguage
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         indefn=self.ck_in_macro_defn(macro,2,"ACTR")
-        self.parse_line(asm)
-        self.pre_process(asm)
+        pdebug = self.pre_process(asm) or debug
+        self.parse_line(asm,debug=pdebug)
+
         if len(self.operands)!=1:
             raise assembler.AssemblerError(line=self.lineno,source=self.source,\
                 msg="ACTR directive requires one operand, found: %s" \
                     % len(self.operands))
 
-        self.parse_sep(asm,debug=self.trace)
+        self.parse_sep(asm,debug=pdebug)
         # PO_operands is a list of one asmbase.ASMOperand object
         expr=self.P0_operands[0]       # expr is an asmbase.ASMExprArith object
         assert len(expr._secondary)==0,\
@@ -1588,8 +1594,9 @@ class AGO(ASMStmt):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         indefn=self.ck_in_macro_defn(macro,2,"AGO")
-        self.parse_line(asm)
-        self.pre_process(asm)
+        pdebug = self.pre_process(asm) or debug
+        self.parse_line(asm,debug=pdebug)
+
         lineno=self.lineno
         if len(self.operands)==0:
             raise assembler.AssemblerError(line=lineno,source=self.source,\
@@ -1598,7 +1605,7 @@ class AGO(ASMStmt):
         pm=asm.PM
         case=asm.case
         try:
-            result=pm.parse_ago(self,self.operands[0],debug=self.trace)
+            result=pm.parse_ago(self,self.operands[0],debug=pdebug)
         except assembler.AsmParserError as ape:
             raise assembler.AssemblerError(source=self.source,line=lineno,\
                 msg=ape.msg) from None
@@ -1640,7 +1647,7 @@ class AGO(ASMStmt):
         # Note n is relative to the second operand
         for n,opnd in enumerate(self.operands[1:]):
             try:
-                seqsym=pm.parse_seqsym(self,opnd,debug=debug)
+                seqsym=pm.parse_seqsym(self,opnd,debug=pdebug)
             except assembler.AsmParserError as ape:
                 raise assembler.AssemblerError(source=self.source,line=lineno,\
                     msg=ape.msg) from None
@@ -1697,13 +1704,13 @@ class AIF(ASMStmt):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         indefn=self.ck_in_macro_defn(macro,2,"AIF")
-        self.parse_line(asm,debug=False)
-        self.pre_process(asm)
+        pdebug = self.pre_process(asm) or debug
+        self.parse_line(asm,debug=pdebug)
+
         lineno=self.lineno
         if len(self.operands)==0:
             raise assembler.AssemblerError(line=self.lineno,source=self.source,\
                 msg="AIF directive requires at least one operand")
-        pdebug=debug or self.trace
 
         self.parse_sep(asm,debug=pdebug)
         # P0_operands contains a list of macopnd.CondBranch objects
@@ -1761,7 +1768,6 @@ class AMODE(ASMStmt):
         self.asmdir=True         # This is an assembler directive
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        #self.pre_process(asm)
         self.ignore=True         # Treat as a comment
 
     def Pass1(self,asm,debug=False,trace=False): pass
@@ -1824,12 +1830,12 @@ class ATRACEOFF(ASMStmt):
         self.asmdir=True         # This is an assembler directive
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.parse_line(asm)
-        self.pre_process(asm)
-        #self.parse_line(asm,debug=debug)
+        mytrace = self.pre_process(asm) or debug
+        self.parse_line(asm,debug=mytrace)
+
         operfld=self.opnd_fld    # LOperands object
-        if __debug__:
-            mytrace=self.trace
+        #if __debug__:
+        #    mytrace=
 
         # Operations not already enabled for tracing are silently ignored.
         operands=self.spp_operands()
@@ -1856,7 +1862,7 @@ class ATRACEOFF(ASMStmt):
             except ValueError:
                 if __debug__:
                     if mytrace:
-                        print("%s [%s] ignoring operation not enabled for "
+                        print("%s [%s] ignoring, operation not enabled for "
                             "tracing: %s" \
                             % (assembler.eloc(self,"Pass0",module=this_module),\
                                 self.lineno,op))
@@ -1889,8 +1895,9 @@ class ATRACEON(ASMStmt):
         self.asmdir=True         # This is an assemlber directive
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.parse_line(asm)
-        self.pre_process(asm)
+        mytrace = self.pre_process(asm) or debug
+        self.parse_line(asm,debug=mytrace)
+
         operands=self.spp_operands()
 
         # If no operands, dump the current oper trace table to sysout
@@ -1900,9 +1907,6 @@ class ATRACEON(ASMStmt):
             for x in asm.otrace:
                 print("     %s" % x)
             return
-
-        if __debug__:
-            mytrace=self.trace
 
         # Operands present so set them
         otrace=asm.otrace
@@ -2232,8 +2236,9 @@ class COPY(ASMStmt):
         self.asmdir=True         # This is an assembler directive
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.parse_line(asm)
         self.pre_process(asm)
+        self.parse_line(asm,debug=debug)
+
         if self.opnd_fld is None:
             raise assembler.AssemblerError(source=self.source,line=self.lineno,\
                 msg="%s operation requires a file name operand, omitted" \
@@ -2279,8 +2284,9 @@ class CSECT(ASMStmt):
         self.for_pass2=None    # Pass information to Pass2 from Pass1
     
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.parse_line(asm)
-        self.pre_process(asm)
+        pdebug = self.pre_process(asm)
+        #self.parse_line(asm,debug=pdebug)
+
         self.csect=self.label_optional()
         # This can go away when Pass 0 and Pass 1 are merged.
         if self.csect:
@@ -2365,8 +2371,9 @@ class DC(ASMStmt):
         self.values=[]           # Nominal or DCDS_Operand objects
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.parse_line(asm)
-        self.pre_process(asm)
+        pdebug = self.pre_process(asm) or debug
+        self.parse_line(asm,debug=pdebug)
+
         # This method is shared with the DS subclass
         pm=asm.PM
         dc=self.dc
@@ -2491,11 +2498,7 @@ class DC(ASMStmt):
             edebug=asm.dm.isdebug("exp")
             etrace=asm.dm.isdebug("tracexp") or trace or self.trace
             cls_str=assembler.eloc(self,"Pass2",module=this_module)
-            
-        # Track the assigned address
-        #asm.cur_loc.establish(self.content.loc,debug=etrace)
 
-        #for n,value in enumerate(self.gscope.values):
         for n,value in enumerate(self.values):
             #assert isinstance(value.content.barray,bytearray),\
             #    "%s [%s] nominal value %s: %s does not have bytearray" \
@@ -2640,8 +2643,9 @@ class DSECT(ASMStmt):
         self.dsect=None          # DSECT being started or continued
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.parse_line(asm)
         self.pre_process(asm)
+        #self.parse_line(asm)
+
         self.dsect=self.label_required()
         
     def Pass1(self,asm,debug=False,trace=False):
@@ -2687,7 +2691,6 @@ class EJECT(ASMStmt):
         self.prdir=True          # This is also a print directive
         
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        #self.parse_line(asm)
         self.pre_process(asm)
         self.prdir=True
         self.ignore=True
@@ -2723,8 +2726,9 @@ class END(ASMStmt):
         self.scope=None          # Scope object returned from parse
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.parse_line(asm)
-        self.pre_process(asm)
+        pdebug = self.pre_process(asm) or debug
+        self.parse_line(asm,debug=pdebug)
+
         self.scope=asm.PM.parse_operands(self,"addr",required=False)
 
     def Pass1(self,asm,debug=False,trace=False):
@@ -2831,7 +2835,7 @@ class EQU(TemplateStmt):
         tok=val_expr.find_first_ptok(self.lineno,\
             cls=[asmtokens.PLitLabel,asmtokens.PLitLabelAttr,asmtokens.PLitCur],\
             debug=debug)
-            #cls=[asmtokens.PLitLabelAttr,])
+
         assert tok is not None,\
             "%s [%s] %s EQU looked for root symbol token but none found" \
                 % (assembler.eloc(self,"find_root_symbol",module=this_module),\
@@ -3097,11 +3101,8 @@ class MACRO(ASMStmt):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         self.ck_out_of_macro_defn(macro,"MACRO")
-        self.parse_line(asm)
-        self.pre_process(asm)
-        #if macro.state!=0:
-        #    raise assembler.AssemblerError(source=self.source,line=self.lineno,\
-        #        msg="inner macro definition not allowed")
+        pdebug = self.pre_process(asm) or debug
+        self.parse_line(asm,debug=pdebug)
 
         # Determine if optional 'DEBUG' operand present and set definition debug
         ddebug=False
@@ -3109,7 +3110,6 @@ class MACRO(ASMStmt):
             opers=self.spp_remove_comments(self.opnd_fld.text)
             ddebug=opers.upper()=="DEBUG"
 
-        #macro.define(debug=ddebug)
         macro.define(debug=ddebug)
         self.ignore=True
 
@@ -3142,19 +3142,11 @@ class MEND(ASMStmt):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         indefn=self.ck_in_macro_defn(macro,2,"MEND")
-        #if not macro:
-        #    raise assembler.AssemblerError(source=self.source,line=self.lineno,\
-        #        msg="MEND operation must not be use outside of a macro definition")
-
-        #print("%s" % assembler.eloc(self,"Pass0",module=this_module))
         self.pre_process(asm)
-        #macro.indefn._mend(self.lineno,seq=self.seqsym(asm.case))
-        #macro.addMacro(macro.indefn,mend=True)
 
         # Finish the macro engine definition by adding the Mend op
         indefn._mend(self.lineno,seq=self.seqsym(asm.case))
         # Add the new macro to the definitions
-        #macro.addMacro(indefn,mend=True)
         macro.addMacro(indefn,mend=True)
 
     # Pass1 - should never be called
@@ -3186,19 +3178,8 @@ class MEXIT(ASMStmt):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         indefn=self.ck_in_macro_defn(macro,2,"MEXIT")
-        #self.parse_line(asm)
-        #self.pre_process(asm)
-        #indefn=self.ck_in_macro_defn(macro,2,"MEXIT")
-        #if __debug__:
-        #    if self.trace or trace:
-        #        print("%s macro: %s, macro.state: %s" \
-        #            % (assembler.eloc(self,"Pass0",module=this_module),\
-        #                macro,macro.state))
-        #if macro.state!=2:
-        #    raise assembler.AssemblerError(source=self.source,line=self.lineno,\
-        #        msg="MEXIT operation must not be used outside of a macro definition")
-
         self.pre_process(asm)
+
         indefn._mexit(self.lineno,seq=self.seqsym(asm.case))
 
     # Pass1 - should never be called
@@ -3277,8 +3258,9 @@ class MNOTE(ASMStmt):
         self.asmdir=True         # This is an assembler directive
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.parse_line(asm)
-        self.pre_process(asm)
+        pdebug = self.pre_process(asm) or debug
+        self.parse_line(asm,debug=pdebug)
+
         pm=asm.PM
         scope=pm.parse_operands(self,"mnote",required=True)
         note=scope.message.convert()
@@ -3331,22 +3313,25 @@ class OPSYN(ASMStmt):
         self.asmdir=True         # This is an assembler directive
       
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.parse_line(asm)
-        self.pre_process(asm)
-        trace=self.trace or debug
-        if trace:
-            print("%s [%s] label_fld: %s" \
-                % (assembler.eloc(self,"Pass0",module=this_module),\
-                    self.lineno,self.label_fld))
-            print("%s [%s] opnd_fld: %s" \
-                % (assembler.eloc(self,"Pass0",module=this_module),\
-                    self.lineno,self.opnd_fld))
+        pdebug = self.pre_process(asm) or debug
+        self.parse_line(asm,debug=pdebug)
+
+        #trace=self.trace or debug
+        if __debug__:
+            if pdebug:
+                print("%s [%s] label_fld: %s" \
+                    % (assembler.eloc(self,"Pass0",module=this_module),\
+                        self.lineno,self.label_fld))
+                print("%s [%s] opnd_fld: %s" \
+                    % (assembler.eloc(self,"Pass0",module=this_module),\
+                        self.lineno,self.opnd_fld))
 
         operands=self.spp_operands()
-        if trace:
-            print("%s [%s] operands: %s" \
-                % (assembler.eloc(self,"Pass0",module=this_module),\
-                    self.lineno,operands))
+        if __debug__:
+            if pdebug:
+                print("%s [%s] operands: %s" \
+                    % (assembler.eloc(self,"Pass0",module=this_module),\
+                        self.lineno,operands))
 
         if len(operands)>1:
             raise assembler.AssemblerError(line=self.lineno,\
@@ -3369,17 +3354,19 @@ class OPSYN(ASMStmt):
 
         if not old_op:
             # Delete the operation synonym
-            if trace:
-                print("%s [%s] OPSYN deleted operation: %s" \
-                    % (assembler.eloc(self,"Pass0",module=this_module),\
-                        self.lineno,new_op))
+            if __debug__:
+                if pdebug:
+                    print("%s [%s] OPSYN deleted operation: %s" \
+                        % (assembler.eloc(self,"Pass0",module=this_module),\
+                            self.lineno,new_op))
             asm.OMF.opsyn_setting(new_op,None)
         else:
             # Define or redefine an operation
-            if trace:
-                print("%s [%s] OPSYN defining operation %s -> %s" \
-                    % (assembler.eloc(self,"Pass0",module=this_module),\
-                        self.lineno,new_op,old_op))
+            if __debug__:
+                if pdebug:
+                    print("%s [%s] OPSYN defining operation %s -> %s" \
+                        % (assembler.eloc(self,"Pass0",module=this_module),\
+                            self.lineno,new_op,old_op))
             asm.OMF.opsyn_setting(new_op,old_op)
 
     def Pass1(self,asm,debug=False,trace=False): pass
@@ -3475,15 +3462,16 @@ class POP(StackingStmt):
         super().__init__(lineno,logline=logline)
         
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.parse_line(asm)
-        self.pre_process(asm)
-        ptrace=self.trace or debug
+        ptrace = self.pre_process(asm) or debug
+        self.parse_line(asm,debug=ptrace)
+
+        #ptrace=self.trace or debug
         stack_print,no_print=self.stacking_operands(asm,debug=ptrace)
         if stack_print and len(asm.pstack)!=0:
             self.pon,self.pdata,self.pgen=asm.pstack.pop()
         if no_print:
             self.pon=False
-        
+
     def Pass1(self,asm,debug=False,trace=False): pass
     def Pass2(self,asm,debug=False,trace=False): pass
     
@@ -3511,11 +3499,14 @@ class PRINT(ASMStmt):
         self.asmdir=True         # This is an assembler directive
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.parse_line(asm)
-        self.pre_process(asm)
-        #print("[%s] pline:  %s" % (self.lineno,self.logline.plines[0]))
-        #print("[%s] logline:%s" % (self.lineno,self.logline))
-        ptrace=self.trace or debug
+        ptrace = self.pre_process(asm) or debug
+        self.parse_line(asm,debug=ptrace)
+
+        if __debug__:
+            if ptrace:
+                print("[%s] pline:  %s" % (self.lineno,self.logline.plines[0]))
+                print("[%s] logline:%s" % (self.lineno,self.logline))
+
         # Labels are prohibited
         self.label_prohibited()    # AssemblerError raised if present
 
@@ -3556,10 +3547,12 @@ class PRINT(ASMStmt):
         else:
             self.pon=True
         self.ignore=True          # No more processing for a PRINT directive
-        #print("%s [%s] asm.pon:%s asm.pgen:%s asm.pdata:%s" \
-        #    % (assembler.eloc(self,"Pass0",module=this_module),self.lineno,\
-        #        asm.pon,asm.pgen,asm.pdata))
-        
+        if __debug__:
+            if ptrace:
+                print("%s [%s] asm.pon:%s asm.pgen:%s asm.pdata:%s" \
+                    % (assembler.eloc(self,"Pass0",module=this_module),self.lineno,\
+                        asm.pon,asm.pgen,asm.pdata))
+
     def Pass1(self,asm,debug=False,trace=False): pass
     def Pass2(self,asm,debug=False,trace=False): pass
 
@@ -4253,10 +4246,10 @@ class PUSH(StackingStmt):
         super().__init__(lineno,logline=logline)
         
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        trace=self.trace or debug
-        self.parse_line(asm)
-        self.pre_process(asm)
-        stack_print,no_print=self.stacking_operands(asm,debug=trace)
+        ptrace = self.pre_process(asm) or debug
+        self.parse_line(asm,debug=ptrace)
+
+        stack_print,no_print=self.stacking_operands(asm,debug=ptrace)
         if stack_print:
             options=(self.pon,self.pdata,self.pgen)
             asm.pstack.append(options)
@@ -4294,8 +4287,9 @@ class REGION(ASMStmt):
         self.for_pass2=None      # Information passed to Pass2 from Pass1
         
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.parse_line(asm)
-        self.pre_process(asm)
+        pdebug = self.pre_process(asm)
+        self.parse_line(asm,debug=pdebug)
+
         self.region=self.label_required()
         
     def Pass1(self,asm,debug=False,trace=False):
@@ -4349,8 +4343,6 @@ class RMODE(ASMStmt):
         self.asmdir=True         # This is an assembler directive
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        #self.parse_line(asm)
-        #self.pre_process(asm)
         self.ignore=True         # Treat as a comment
 
     def Pass1(self,asm,debug=False,trace=False): pass
@@ -4532,12 +4524,13 @@ class START(ASMStmt):
         self.region=None         # REGION being initiated
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.parse_line(asm)
-        self.pre_process(asm)
+        pdebug = self.pre_process(asm) or debug
+        self.parse_line(asm,debug=pdebug)
+
         pm=asm.PM
         # Either of these two methods may raise an AssemblerError
         scope=pm.parse_scope(self,"start")
-        scope.Pass0(self,pm,debug=debug)    # Should this move here????
+        scope.Pass0(self,pm,debug=pdebug)    # Should this move here????
         if scope.new_region:
             self.region=scope.reg_name
 
@@ -4642,13 +4635,14 @@ class TITLE(ASMStmt):
         self.prdir=True          # It is also a print directive
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        pdebug = self.pre_process(asm) or debug
         self.parse_line(asm)
-        self.pre_process(asm)
+
         self.ignore=True         # No more processing needed by assembler passes
         if len(self.operands)==0:
             self.plist=""
         elif len(self.operands)==1:
-            result=asm.PM.parse_operand(self,self.operands[0],"TITLE",debug=debug)
+            result=asm.PM.parse_operand(self,self.operands[0],"TITLE",debug=pdebug)
             self.plist=result.convert(amp=True)    # New title in listing
         else:
             raise assembler.AssemblerError(line=self.lineno,\
@@ -4780,9 +4774,10 @@ class XMODE(ASMStmt):
         self.asmdir=True         # This is an assembler directive
         
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        self.parse_line(asm)
-        self.pre_process(asm)
-        operands=self.spp_operands(debug=debug)
+        pdebug = self.pre_process(asm) or debug
+        self.parse_line(asm,debug=pdebug)
+
+        operands=self.spp_operands(debug=pdebug)
         if len(operands)!=2:
             raise assembler.AssemblerError(line=stmt.lineno,\
                 msg="XMODE directive requires two operands, found: %s" \
