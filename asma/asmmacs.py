@@ -1356,21 +1356,11 @@ class Invoker(object):
         tim="%04d-%02d-%02d %02d:%02d:%02d.%06d" % (time.year,time.month,time.day,\
             time.hour,time.minute,time.second,time.microsecond)
         l._initc("&SYSCLOCK",tim)    # UTC date and time to microseconds
-
-        # NOTE: The active CSECT name is not defined until Pass 1.  All macro 
-        # processing occurs during the pre-process Pass 0.  Until Pass 0 and Pass 1
-        # are merged, these symbols must be handled with special logic in Pass 0.
-        # See Assembler.__oper_id() method
-        #
-        # Tracking sections in Pass 0 assumes that the Pass 1 processing will be
-        # successful.  It is possible to incorrectly report the section name in
-        # the SYSECT symbolic variable if the statement that would set the name
-        # fails in Pass 1.
-        l._initc("&SYSECT",self.asm.sysect,ro=True)
+        l._initc("&SYSECT",self.asm._sysect(),ro=True)
 
         # Note: update &SYSLOC when full location counter support is available
         # For now the location counter and the section name are the same.
-        l._initc("&SYSLOC",self.asm.sysect,ro=True)
+        l._initc("&SYSLOC",self.asm._sysect(),ro=True)
 
         l._initc("&SYSMAC",self.macro.name,ro=True)
 

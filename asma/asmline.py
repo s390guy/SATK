@@ -260,10 +260,11 @@ class LOperand(asmbase.ASMString):
         assert string is not None,\
             "LOperand 'string' argument must be a string: %s" % string
         assert len(string)>=1,"LOperand 'string' argument must not be empty"
+
         super().__init__(string,asmbase.ASMPLoc(source,ndx))
 
         self.onum=onum       # Operand number in the logical line
-        #self.amp=False       # Ampersand seen in operand, symbols may be present
+        self.isLiteral=string[0]=="="    # Whther this operand is a literal
 
     def __str__(self):
         if self.amp:
@@ -281,6 +282,8 @@ class LOperand(asmbase.ASMString):
 #  +----------------------------------------+
 #
 
+# NOTE: LTerm IS NOT USED!!!
+
 # This object represents a single term in an operand present in an operand field 
 # consisting of multiple operands and complex terms.  A list of these objects is 
 # constructed when a statement class has the class attribute sep=True and
@@ -293,7 +296,6 @@ class LTerm(asmbase.ASMString):
         super().__init__(string,asmbase.ASMPLoc(source,ndx))
 
         self.onum=onum       # Operand number in the logical line
-        #self.amp=False       # Ampersand seen in operand, symbols may be present
 
     def __str__(self):
         if self.amp:
@@ -422,7 +424,7 @@ class cfsm(fsm.FSM):
         # Count parentheses so that we know if they are balanced or not
         init.action("(",self.ACT_LParen)
         init.action(")",self.ACT_RParen)
-        
+
         # If an ampersand is seen, symbolic replacement may be needed
         init.action("&",self.ACT_Ampersand)
 
@@ -687,10 +689,14 @@ class cfsm(fsm.FSM):
 #  +-------------------------+
 #
 
+# The Logical Line.
+# Instance Arguments:
+#   pline    The first physical line starting the logical line.
+#   bend     Set to True if the assembler has already encountered the END statement
 class LogLine(object):
     #                       label       sp       oper             sp
     fieldre=re.compile("(?P<label>[^ ]+)?([ ]+)(?P<oper>[^ ]+)(?P<sp>[ ]*)")
-    def __init__(self,pline):
+    def __init__(self,pline,bend=False):
         assert isinstance(pline,asminput.PhysLine),\
             "LogLine object pline argument not a asminput.PhysLine object: %s" % pline
 
@@ -699,6 +705,8 @@ class LogLine(object):
         self.source=pline.source
         # Generation level for the physical line
         self.genlvl=pline.genlvl
+        # assembler.Literal being created or None
+        self.literal=pline.literal
         # Logical line error status.  None or LineError exception
         self.error=None          # If exception, should be propagated upwards
 
@@ -726,6 +734,8 @@ class LogLine(object):
         self.quiet=pline.quiet         # True if also a quiet comment
         self.empty=pline.empty         # line has no content
         self.cont=pline.cont           # is continued
+        # Input line is beyond END directive and not a generated literal
+        self.bend=bend and not self.literal
         # When True, logical line processing is complete
         self.ignore=self.comment or self.empty or self.error
         if self.ignore:
@@ -801,6 +811,9 @@ class LogLine(object):
     #   - operand parsing
     #   - operand interpretation
     def fields(self,pline,debug=False):
+        if pline.literal:
+            # No fields to check for a literal
+            return
         text=pline.text
         mo=re.match(LogLine.fieldre,text)
         if mo is None:
@@ -879,6 +892,7 @@ class LineMgr(object):
         self.asm=asm           # Assembler object
         self.mb=mb             # MacroBuilder object
         self._end=False        # Set True when assembler encounters END
+        self._bend=False       # When this is set, we cease supplying input
 
         # Physical line source manager
         self.LB=asminput.LineBuffer(depth=depth,env=env,pathmgr=pathmgr)
@@ -905,7 +919,11 @@ class LineMgr(object):
         # dictates all of the remaining processing of the statement.  Processing
         # of the label and operation field occurs during the instantiation of the
         # logical line (see the LogLine.fields() method).
-        logical=LogLine(pline)
+        logical=LogLine(pline,bend=self._end)
+        if logical.bend:
+            self._bend=True
+            logical.error=LineError(source=pline.source,\
+                msg="input beyond END directive ignored")
 
         while pline.cont:
             # Line is continued, so now add the next physical line
@@ -955,6 +973,8 @@ class LineMgr(object):
             oper=OMF.getError()
         elif logical.comment or logical.empty:
             oper=OMF.getComment(quiet=logical.quiet)
+        elif logical.literal:
+            oper=OMF.getLiteral(logical.literal)
         else:
             oper=logical.operu
             if __debug__:
@@ -1044,12 +1064,13 @@ class LineMgr(object):
                 if debug:
                     print("%s logline.opnd_fld: %s" % (cls_str,logline.opnd_fld))
 
-    # Returns a logical line to the assembler.  
+    # Returns a logical line to the assembler or None if no more input.  
     def getLogical(self,debug=False):
+        if self._bend:
+            raise asminput.BufferEmpty
         logical=self.__getLogical(debug=debug)
         if logical is None:
-            # signal end of input (should this be an exception?)
-            return
+            raise asminput.BufferEmpty
         return logical
         
     # Return input file's absolute path
@@ -1063,6 +1084,10 @@ class LineMgr(object):
     # Invoke a macro as a new statement source
     def newMacro(self,exp,stmtno=None):
         self.LB.newMacro(exp,stmtno=stmtno)
+        
+    # Insert literals from a pool for assembly
+    def newPool(self,pool,genlvl=None,debug=False):
+        self.LB.newPool(pool,genlvl=genlvl,debug=debug)
 
     
 if __name__ == "__main__":

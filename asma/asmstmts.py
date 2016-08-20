@@ -34,6 +34,7 @@ import asmtokens
 import asmline
 #import asmfsmcs
 import insnbldr
+import literal
 import lnkbase
 import macopnd
 import macsyms
@@ -296,6 +297,9 @@ class ASMStmt(object):
         # sep=True:  List of LOperand objects.  The statment parser must be prepared
         #            to parse the operands separately.
         self.operands=[]
+        
+     # Location Counter for this statement
+        self.location=None
 
      # Pass 0
         self.P0_operands=[]        # Parser output list
@@ -308,10 +312,11 @@ class ASMStmt(object):
         # Binary object of all zeros is created in pass 1.  The actual binary 
         # content is provided in pass 2.
         self.content=None          # Binary instance for image content creation
+        self.p1_loc=None           # Statement location in Pass 1 (Section relative)
 
      # Pass 2
-        # Upates self.content with actual binary data.  No new attributes are
-        # created.
+        # Upates self.content with actual binary data.
+        self.p2_loc=None           # Statement location in Pass 2 (absolute)
 
      # Listing
 
@@ -344,7 +349,21 @@ class ASMStmt(object):
         self.error=True            # Indicate this statement is now in error
         self.ignore=True           # Make sure it is further ignored.
 
-    # Checks that a macro definition is being built and returns the infefn attribute
+    # Inspect the logical operands for the presence of literals.
+    # Method Argument:
+    #   allowed   A list of operand indices where a literal is allowed.  An empty
+    #             list means a literal is not allowed for any operand,
+    # Exception:
+    #   AssemblerError if an operand is a literal but not allowed for the operand.
+    def ck_for_literals(self,allowed=[]):
+        for n,opnd in enumerate(self.operands):
+            if opnd.isLiteral and (not n in allowed):
+                raise assembler.AssemblerError(line=self.lineno,source=self.source,\
+                    msg="%s operation does not permit a literal for operand %s" \
+                        % (self.instu,n+1))
+
+    # Pass 0 - Checks that a macro definition is being built and returns the infefn
+    #          attribute
     # Returns:
     #   the indefn attribute of the macro operand, an asmmacs.Macro object
     # Excetion:
@@ -358,10 +377,6 @@ class ASMStmt(object):
             raise assembler.AssemblerError(line=self.lineno,source=self.source,\
                 msg="%s statement is not valid outside of a macro definition" % oper)
         if macro.state!=state:
-            #if state==0:
-            #    raise assembler.AssemblerError(line=self.lineno,source=self.source,\
-            #        msg="%s statement may only appear outside of a macro definition"\
-            #            % oper)
             if state==1:
                 raise assembler.AssemblerError(line=self.lineno,source=self.source,\
                     msg="%s statement not a valid macro prototype" % oper)
@@ -375,6 +390,11 @@ class ASMStmt(object):
 
         return macro.indefn
 
+    # Pass 0 - Determine if the minimum number of operands are present
+    # Method Argument:
+    #   minimum   Minimum required
+    # Exception:
+    #   AssemblerError if fewer operands are present than required.
     def ck_min_operands(self,minimum=None):
         if minimum is None:
             return
@@ -384,10 +404,10 @@ class ASMStmt(object):
             else:
                 s=""
             raise assembler.AssemblerError(line=self.lineno,source=self.source,\
-                msg="operation requires at least %s operand%s, encountered: %s" \
-                    % (minimum,s,len(self.PO_operands)))
+                msg="%s operation requires at least %s operand%s, encountered: %s" \
+                    % (self.instu,minimum,s,len(self.P0_operands)))
 
-    # Checks that a statement is outside of a macro definition
+    # Pass 0 - Checks that a statement is outside of a macro definition.
     # Exception:
     #   AssemblerError if statement occurs inside of a macro definition
     def ck_out_of_macro_defn(self,macro,oper):
@@ -399,6 +419,7 @@ class ASMStmt(object):
         raise assembler.AssemblerError(line=self.lineno,source=self.source,\
             msg="%s statement may only appear outside of a macro definition" % oper)
 
+    # Check that the supplied argument is a list and print each item in the list
     def debug_list(self,lst):
         cls_str=assembler.eloc(self,"debug_list",module=this_module)
         if not isinstance(lst,list):
@@ -430,7 +451,7 @@ class ASMStmt(object):
             print("%s [%s] opnd %s: %s" \
                 % (cls_str,self.lineno,n,t))
 
-    # Machine Instruction and Template operand evaluation.
+    # Pass 2 - Machine Instruction and Template operand evaluation.
     #
     # self.PO_operands contains the list separated operands from the operand
     # field in the source statement.
@@ -449,6 +470,7 @@ class ASMStmt(object):
 
         # Pass source statement expressions to each binary operand object and
         # evalues.
+        #expr_list=[]
         for n,bin_opr in enumerate(self.bin_oprs):
             if __debug__:
                 if trace:
@@ -479,24 +501,41 @@ class ASMStmt(object):
                         % (assembler.eloc(self,"evaluate_operands",\
                             module=this_module),self.lineno,n+1,omitted))
                 continue
+                
+            # Prepare an Literal for operand evaluation.
+            if isinstance(opnd,assembler.Literal):
+                assert opnd.state == 5,\
+                    "%s literal operand %s %r state not 5: %s" \
+                        % (assembler.eloc(self,"evaluate_operands",\
+                            module=this_module),n+1,opnd,opnd.state)
+                expr_list=[opnd,]
 
-            # Update Operand object with a list of arithmetic expressions
-            name=self.__class__.__name__
+            else:
+                # Update Operand object with a list of arithmetic expressions
+                name=self.__class__.__name__
 
-            # Transform primary lexical token expression into an arith expression
-            desc="%s:%s-P" % (name,n)
-            pexp=opnd._primary
-            pexp.prepare(self,desc)  # Need to convert to ASMExprArith objects
-            expr_list=[pexp,]
+                # Transform primary lexical token expression into an arith expression
+                desc="%s:%s-P" % (name,n)
+                pexp=opnd._primary
+                if __debug__:
+                    if trace:
+                        print("%s pexp: %s" \
+                            % (assembler.eloc(self,"evaluate_operands",\
+                                module=this_module),pexp))
 
-            # Transform any secondary expressions into arith expression
-            for sec,exp in enumerate(opnd._secondary):
-                if exp is None:
-                    expr_list.append(None)
-                else:
-                    desc="%s:%s-S%s" % (name,n,sec)
-                    exp.prepare(self,desc)
-                    expr_list.append( exp )
+                pexp.prepare(self,desc)
+                expr_list=[pexp,]
+
+                # Transform any secondary expressions into arith expression
+                for sec,exp in enumerate(opnd._secondary):
+                    if exp is None:
+                        expr_list.append(None)
+                    else:
+                        desc="%s:%s-S%s" % (name,n,sec)
+                        exp.prepare(self,desc)
+                        expr_list.append( exp )
+
+            # Pad list with None object until we have three
             while len(expr_list)<3:
                 expr_list.append(None)
             # Update the Operand object with transformed ASMExpr objects
@@ -568,7 +607,73 @@ class ASMStmt(object):
                 msg="%s operation requires a label, found: %s" % (self.instu,label))
         return label
 
-    # Pass 1 - Create the binary content for a new statement.
+    # Pass 0 - Create a Literal pool and inject it into the input stream.  
+    #          Used by LTORG and END directives.
+    #
+    # Method Arguments:
+    #   asm     the global assembler.Assembler object
+    #   new     Specify True to cause a new pool to be initiated following the
+    #           creation of this pool.
+    #   debug   Specify True to cause debug message generation
+    # Returns:
+    #   a tuple: tuple[0]  The literal.LiteralPool object of the created pool or None
+    #                      if the pool is empty
+    #            typle[1]  The alignment required for the pool.
+    def literal_pool_create(self,asm,new=False,debug=False):
+        mgr=asm.LPM
+        if mgr.isEmpty():
+            if __debug__:
+                if debug:
+                    p=mgr.current()
+                    print("%s [%s] ignoring empty literal pool %s" \
+                        % (assembler.eloc(self,"Pass0",module=this_module),\
+                            self.lineno,p.pool_id))
+
+            # This pool is empty, no need to do anything here and we can leave it
+            # in the pool manager for the next use.
+            return (None,0)
+
+        # Pool has literals so we now need to create them.
+        pool=mgr.create(self.lineno,debug=debug)
+        if __debug__:
+            if debug:
+                print("%s [%s] creating literal pool:\n%s" \
+                    % (assembler.eloc(self,"Pass0",module=this_module),\
+                        self.lineno,pool.display(indent="    ",string=True)))
+
+        align=pool._align
+        literals=pool.pool_list
+        if __debug__:
+            if debug:
+                print("%s pool %s literals: %s" \
+                    % (assembler.eloc(self,"Pass0",module=this_module),\
+                        pool.pool_id,literals))
+
+        for lit in literals:
+            if __debug__:
+                if debug:
+                    print("%s creating pool %s literal: %s" \
+                        % (assembler.eloc(self,"Pass0",module=this_module),\
+                            pool.pool_id,lit))
+
+        # Inject the literal pool into the input stream.
+        asm.IM.newPool(pool,genlvl=self.genlvl,debug=debug)
+        # Start a new pool
+        if new:
+            mgr.pool_new()
+            if __debug__:
+                if debug:
+                    assert mgr.isEmpty(),\
+                        "%s [%s] new literal pool is not empty" \
+                            % (assembler.eloc(self,"Pass0",module=this_module),\
+                                self.lineno)
+
+        return (pool,align)
+
+
+    # Pass 1 - Create the binary content for a new statement and assign a label if
+    #          present.  The minimum length of the label is one regardless of the
+    #          length of the binary content.
     #
     # Method arguments:
     #   asm        The shared assembler.Assembler instance of the run
@@ -586,7 +691,7 @@ class ASMStmt(object):
         # Current location counter is start of binary with a section relative address
 
         # If a label is present, assign it this value and length
-        self.label_create(asm,length=length,T=T)
+        self.label_create(asm,length=max(length,1),T=T)
 
     # Pass 0 - Parse from physical lines the logical operands in the operand 
     #          field(s).  This is the default handling.  A subclass may override
@@ -853,7 +958,6 @@ class ASMStmt(object):
                 print("%s P0_operands: %s" \
                     % (assembler.eloc(self,"parse_sep",module=this_module),\
                         self.P0_operands))
-            
 
   #
   # These methods required by each subclass
@@ -1054,7 +1158,8 @@ class SymbolDefine(ASMStmt):
             dmethod(lineno,refobj,seq=seq,syslist=self.syslist)
         return
 
-# CCW, CCW0, CCW1, PSWS, PSW360, PSW67, PSWBC, PSWEC, PSW380, PSWXA, PSWE370,
+
+# CCW, CCW0, CCW1, ORG, PSWS, PSW360, PSW67, PSWBC, PSWEC, PSW380, PSWXA, PSWE370,
 # PSWE390, PSWZ. SPACE assembler directive super class.
 class TemplateStmt(ASMStmt):
     def __init__(self,lineno,logline=None,minimum=None):
@@ -1062,6 +1167,11 @@ class TemplateStmt(ASMStmt):
         self.asmdir=True       # All subclasses area assembler directives
 
         self.minimum=minimum   # Minimum required operands
+        
+    def ck_literals(self):
+        raise NotImplementedError("%s subclass %s must provide ck_literals() method"\
+            % (assembler.eloc(self,"ck_literals",module=this_module),\
+                self.__class__.__name__))
 
     def create_bin_list(self,cls_list):
         bin_lst=[]
@@ -1075,6 +1185,7 @@ class TemplateStmt(ASMStmt):
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         pdebug = self.pre_process(asm) or debug
         self.parse_line(asm,debug=pdebug)
+        self.ck_literals()
 
         self.parse_sep(asm,debug=pdebug)     # May raise assembler.AssemblerError
         # self.PO_operands is a list of ASMOperand objects
@@ -1148,6 +1259,8 @@ class StmtError(ASMStmt):
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
         self.error=logline.error    # LineError object of the logical line error
+        #print("%s ERROR: %s" \
+        #    % (assembler.eloc(self,"__init__",module=this_module),self.error))
 
     # Converts logical line error into an AssemblerError and raises it
     def le_error(self):
@@ -1215,8 +1328,6 @@ class MachineStmt(ASMStmt):
         if oprs:
             # Only parse separated operands if operands are required
             self.parse_sep(asm,debug=pdebug)    # May raise assembler.AssemblerError
-            #while len(self.P0_operands)<len(oprs):
-            #    self.P0_operands.append(None)
             # self.PO_operands is a list of None or ASMOperand objects
             if __debug__:
                 if pdebug:
@@ -1967,6 +2078,9 @@ class CCW0(TemplateStmt):
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
 
+    def ck_literals(self):
+        self.ck_for_literals(allowed=[1,])
+
     #   Pass0 uses TemplateStmt.Pass0() method
 
     def Pass1(self,asm,debug=False,trace=False):
@@ -2048,6 +2162,9 @@ class CCW1(TemplateStmt):
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
 
+    def ck_literals(self):
+        self.ck_for_literals(allowed=[1,])
+
     #   Pass0 uses TemplateStmt.Pass0() method
 
     def Pass1(self,asm,debug=False,trace=False):
@@ -2087,6 +2204,7 @@ class CCW1(TemplateStmt):
         # Update the statements binary content with the CCW1
         self.content.update(bytes,at=0,full=True,finalize=True,trace=idebug)
 
+
 # CNOP Assembler Directive - Oper Type TPL
 #
 # Aligns to a halfwoed selected byte within a boundary
@@ -2119,6 +2237,9 @@ class CNOP(TemplateStmt):
         
         # Pass 1
         self.nops=0            # Number of NOP's to generate in Pass 2
+
+    def ck_literals(self):
+        self.ck_for_literals() # No literals allowed
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         etrace=trace or self.trace
@@ -2285,14 +2406,8 @@ class CSECT(ASMStmt):
     
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         pdebug = self.pre_process(asm)
-        #self.parse_line(asm,debug=pdebug)
 
         self.csect=self.label_optional()
-        # This can go away when Pass 0 and Pass 1 are merged.
-        if self.csect:
-            asm.sysect=self.csect
-        else:
-            asm.sysect=""
 
     def Pass1(self,asm,debug=False,trace=False):
         cdebug=trace or self.trace
@@ -2312,7 +2427,7 @@ class CSECT(ASMStmt):
                         % (assembler.eloc(self,"_csect_pass1",module=this_module),\
                             asm.unname_sec))
 
-            if self.unname_sec is None: 
+            if asm.unname_sec is None: 
                 # Create the unnamed CSECT if it does not exist
                 csect=asm._csect_unname(debug=cdebug)
                 asm.unname_sec=csect
@@ -2369,6 +2484,85 @@ class DC(ASMStmt):
         
         # Pass 1
         self.values=[]           # Nominal or DCDS_Operand objects
+        
+    # This method builds the binary Area object that holds the nominal values of
+    # the constant operands.  It is shared with the LiteralStmt object
+    # Method Arguments:
+    #   asm      the global assembler.Assembler object
+    #   values   a list of Nominal objects
+    # Returns:
+    #   The first Nominal object upon which label attributes are based.
+    def buildArea(self,asm,values,debug=False):
+        area=assembler.Area()
+        cur_sec=asm.cur_sec
+
+        # Assemble each nominal value or storage allocation.
+        for value in values:
+            # value is either a asmfsmcs.DCDS_Operand or asmdcds.Nominal object.
+            if __debug__:
+                if debug:
+                    print("%s operand: %s" \
+                        % (assembler.eloc(self,"buildArea",module=this_module),value))
+
+            # Note: both asmfsmcs.DCDS_Operand and asmdcds.Nominal support the
+            # align() and length() methods so that they can both be the basis
+            # of binary object.
+            if isinstance(value,asmdcds.DCDS_Operand):
+                bin=assembler.Binary(value.align(),0)
+            else:
+                bin=assembler.Binary(value.align(),value.length())
+            cur_sec.assign(bin)
+
+            if __debug__:
+                if debug:
+                    print("%s cur_sec %s _alloc=%s" \
+                        % (assembler.eloc(self,"buildArea",module=this_module),\
+                            cur_sec,cur_sec._alloc))
+
+            area.append(bin)
+            value.content=bin
+            #if __debug__:
+            #    if isinstance(value,asmdcds.Nominal):
+            #        assert isinstance(value.content.barray,bytearray),\
+            #            "%s [%s] value does not contain bytearray: %s" \
+            #                % (assembler.eloc(self,"Pass1",module=this_module),\
+            #                    self.lineno,value.content.barray)
+
+            if __debug__:
+                if debug:
+                    print("%s value.content: %s" \
+                        % (assembler.eloc(self,"buildArea",module=this_module),\
+                            value.content))
+
+        area.fini(trace=debug)
+        # Note the binary images in the area object are also linked to the Section
+        # object via its elements list.
+
+        # Update location counter alignment (Note pass processing updates for the
+        # length
+        asm.cur_loc.establish(area.loc)
+
+        if __debug__:
+            if debug:
+                print("%s [%s] area: %s" \
+                    % (assembler.eloc(self,"buildArea",module=this_module),\
+                        self.lineno,area))
+                print("%s [%s] current location counter: %s" % \
+                    (assembler.eloc(self,"buildArea",module=this_module),\
+                        self.lineno,asm.cur_loc.location))
+
+        self.content=area
+
+        # Define the statement's label, if present, using the length and location
+        # of the initial nominal value. (In this case the location of the initial
+        # nominal value is the same as the location of the Area object.)
+        first=values[0]
+        if __debug__:
+            if debug:
+                print("%s first operand (%s): T:%s S:%s I:%s" \
+                    % (assembler.eloc(self,"Pass1",module=this_module),\
+                        first.__class__.__name__,first.T,first.S,first.I))
+        return first
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         pdebug = self.pre_process(asm) or debug
@@ -2376,19 +2570,28 @@ class DC(ASMStmt):
 
         # This method is shared with the DS subclass
         pm=asm.PM
-        dc=self.dc
-        # Either of these two methods may raise an AssemblerError
-        # Create asmfsmcs.DCDS_Scope by parser
-        scope=asmdcds.DCDS_Scope()
-        scope.init(stmt=self)
-        scope=pm.parse_scope(self,"dcds",scope=scope,required=True)
+        
+        opnd=self.opnd_fld
+        if opnd is None:
+            raise assembler.AssemblerError(source=self.source,line=self.lineno,\
+                msg="required operand field missing")
+
+        try:
+            self.gscope=pm.parse_constants(self,opnd.text)
+        except assembler.AsmParserError as ape:
+            lpos=self.opnd_fld.ndx2loc(ape.token.linepos)
+            raise assembler.AssemblerError(source=self.source,line=self.lineno,\
+                linepos=lpos.pndx,msg=ape.msg) from None
+
+        operands=self.dcds_opnds=self.gscope.operands
+
         # Use scope to complete Pass 0
-        self.dcds_opnds=scope.operands
-        for n,oprnd in enumerate(scope.operands):
-            oprnd.Pass0(self,pm,n+1,dc)
-        self.gscope=scope
+        dc=self.dc
+        for n,oprnd in enumerate(operands):
+            oprnd.Pass0(self,pm,n+1,dc,update=self.opnd_fld)
 
     def Pass1(self,asm,debug=False,trace=False):
+     # Pass 1  A Begins
         # This method is shared with the DS subclass
         edebug=otrace=False
         if __debug__:
@@ -2415,8 +2618,8 @@ class DC(ASMStmt):
 
         # If the statement truly has no operands, that is an error that should
         # have been detected long before here.  This suggests a problem with
-        # the Pass0 and/or Pass1 processing in asmfsmcs.DCDS_Scope or
-        # asmfsmcs.DCDS_Operand objects.
+        # the Pass0 and/or Pass1 processing in asmdcds.DCDS_Scope or
+        # asmdcds.DCDS_Operand objects.
         assert len(values)>0,\
             "%s [%s] DC/DS statement failed to produce values" \
                 % (asembler.eloc(self,"Pass1",module=this_module),self.lineno)
@@ -2425,33 +2628,35 @@ class DC(ASMStmt):
             if otrace:
                 for item in values:
                     print("%s - %r" % (item,item))
+                    
+     # Pass 1 B Begins
 
-        area=assembler.Area()
-        cur_sec=asm.cur_sec
+        #area=assembler.Area()
+        #cur_sec=asm.cur_sec
 
         # Assemble each nominal value or storage allocation.
-        for value in values:
+        #for value in values:
             # value is either a asmfsmcs.DCDS_Operand or asmdcds.Nominal object.
-            if __debug__:
-                if otrace:
-                    print("%s operand: %s" % (cls_str,value))
+        #    if __debug__:
+        #        if otrace:
+        #            print("%s operand: %s" % (cls_str,value))
 
             # Note: both asmfsmcs.DCDS_Operand and asmdcds.Nominal support the
             # align() and length() methods so that they can both be the basis
             # of binary object.
-            if isinstance(value,asmdcds.DCDS_Operand):
-                bin=assembler.Binary(value.align(),0)
-            else:
-                bin=assembler.Binary(value.align(),value.length())
-            cur_sec.assign(bin)
+        #    if isinstance(value,asmdcds.DCDS_Operand):
+        #        bin=assembler.Binary(value.align(),0)
+        #    else:
+        #        bin=assembler.Binary(value.align(),value.length())
+        #    cur_sec.assign(bin)
 
-            if __debug__:
-                if otrace:
-                    print("%s cur_sec %s _alloc=%s" \
-                        % (cls_str,cur_sec,cur_sec._alloc))
+        #    if __debug__:
+        #        if otrace:
+        #            print("%s cur_sec %s _alloc=%s" \
+        #                % (cls_str,cur_sec,cur_sec._alloc))
 
-            area.append(bin)
-            value.content=bin
+        #    area.append(bin)
+        #    value.content=bin
             #if __debug__:
             #    if isinstance(value,asmdcds.Nominal):
             #        assert isinstance(value.content.barray,bytearray),\
@@ -2459,35 +2664,37 @@ class DC(ASMStmt):
             #                % (assembler.eloc(self,"Pass1",module=this_module),\
             #                    self.lineno,value.content.barray)
 
-            if __debug__:
-                if otrace:
-                    print("%s value.content: %s" % (cls_str,value.content))
+        #    if __debug__:
+        #        if otrace:
+        #            print("%s value.content: %s" % (cls_str,value.content))
 
-        area.fini(trace=otrace)
+        #area.fini(trace=otrace)
         # Note the binary images in the area object are also linked to the Section
         # object via its elements list.
 
         # Update location counter alignment (Note pass processing updates for the
         # length
-        asm.cur_loc.establish(area.loc)
+        #asm.cur_loc.establish(area.loc)
 
-        if __debug__:
-            if otrace:
-                print("%s [%s] area: %s" % (cls_str,self.lineno,area))
-                print("%s [%s] current location counter: %s" % \
-                    (cls_str,self.lineno,asm.cur_loc.location))
+        #if __debug__:
+        #    if otrace:
+        #        print("%s [%s] area: %s" % (cls_str,self.lineno,area))
+        #        print("%s [%s] current location counter: %s" % \
+        #            (cls_str,self.lineno,asm.cur_loc.location))
 
-        self.content=area
+        #self.content=area
 
         # Define the statement's label, if present, using the length and location
         # of the initial nominal value. (In this case the location of the initial
         # nominal value is the same as the location of the Area object.)
-        first=values[0]
-        if __debug__:
-            if otrace:
-                print("%s first operand (%s): T:%s S:%s I:%s" \
-                    % (assembler.eloc(self,"Pass1",module=this_module),\
-                        first.__class__.__name__,first.T,first.S,first.I))
+        #first=values[0]
+        #if __debug__:
+        #    if otrace:
+        #        print("%s first operand (%s): T:%s S:%s I:%s" \
+        #            % (assembler.eloc(self,"Pass1",module=this_module),\
+        #                first.__class__.__name__,first.T,first.S,first.I))
+                
+        first=self.buildArea(asm,values,debug=otrace)
 
         self.label_create(asm,length=first.length(),T=first.T,S=first.S,I=first.I)
         asm.cur_loc.increment(self.content)
@@ -2544,6 +2751,9 @@ class DROP(TemplateStmt):
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline,minimum=1)
+
+    def ck_literals(self):
+        self.ck_for_literals()      # No literals allowed
 
     #   Pass0 uses TemplateStmt.Pass0() method
 
@@ -2724,15 +2934,19 @@ class END(ASMStmt):
 
         # Pass 0
         self.scope=None          # Scope object returned from parse
+        self.pool=None           # Literal pool created after END directive
+        self.align=None          # Alignment required by the pending literal pool.
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         pdebug = self.pre_process(asm) or debug
         self.parse_line(asm,debug=pdebug)
 
         self.scope=asm.PM.parse_operands(self,"addr",required=False)
+         # Create the literal pool
+        self.pool,self.align=self.literal_pool_create(asm,debug=pdebug)
 
     def Pass1(self,asm,debug=False,trace=False):
-        self.new_content(asm,alignment=0,length=0)
+        self.new_content(asm,alignment=self.align,length=0)
         asm.IM.end()      #  Tell Line Buffer, no more input
 
     def Pass2(self,asm,debug=False,trace=False):
@@ -2772,6 +2986,9 @@ class ENTRY(TemplateStmt):
         super().__init__(lineno,logline=logline,minimum=1)
 
         self.entry_label=None
+
+    def ck_literals(self):
+        self.ck_for_literals()   # No literals allowed
 
     #   Pass0 uses TemplateStmt.Pass0() method
 
@@ -2818,6 +3035,9 @@ class EQU(TemplateStmt):
         # Pass 0 
         self.new_symbol=None   # New symbol being created
 
+    def ck_literals(self):
+        self.ck_for_literals()
+
     def find_root_symbol(self,asm,debug=False):
         operand1=self.operands[0]
 
@@ -2856,6 +3076,9 @@ class EQU(TemplateStmt):
             if etrace:
                 print("%s [%s] EQU current location counter: %s" % \
                     (assembler.eloc(self,"Pass1"),self.lineno,asm.cur_loc.location))
+                
+        # Update statement with current location information
+        self.location=self.p1_loc=asm.cur_loc.retrieve()
 
         self.evaluate_operands(asm,debug=edebug,trace=etrace)
         new_symbol=self.new_symbol
@@ -3077,6 +3300,111 @@ class LCLC(SymbolDefine):
     # Pass2 - should never be called
 
 
+class LiteralStmt(DC):
+    # Statement processing controls
+    typ="MO"       # Statement type identifier
+    lfld=None      # Valid label field content
+    ofld=None      # Valid operation field content
+    alt=False      # Whether the alternate statement format is allowed
+    parser=None    # Operand parser used by statement
+    sep=False      # Whether operands are to be separated from the logline
+    spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
+    attrs=A_OC     # Attributes supported in expression
+    def __init__(self,lineno,logline=None):
+        super().__init__(lineno,logline=logline)
+
+        self.literal=self.optn.info    # Retrieve the original assembler.Literal
+        self.trace=self.literal.trace       # Enable tracing if LTORG was traced
+        self.literal._defined=self.lineno   # Remember where its is defined.
+        
+        if __debug__:
+            if self.trace:
+                print("%s literal: %s " \
+                    % (assembler.eloc(self,"__init__",module=this_module),\
+                        self.literal))
+        
+        # Match the state of the DC object following Pass0
+        self.dcds_opnds.append(self.literal.constant)
+        # Match the state of the DC object following Pass1 A
+        self.values=self.literal.nominals
+
+    def Pass0(self,asm,macro=None,debug=False,trace=False): pass
+        # Pass 0 is completely handled by the Literal object, essentially matching
+        # what DC.Pass0 does.
+
+    def Pass1(self,asm,debug=False,trace=False):
+        # Pass 1 A is handled by the Literal object.  From this point forward we
+        # share the processing with the DC super class.
+        
+        if __debug__:
+            tracing=self.trace
+
+        # Make sure we have an active current section before doing anything more
+        asm._check_cur_sec(debug=tracing)
+        first=self.buildArea(asm,self.values,debug=tracing)
+
+        # Supply the Literal object with the literals attributes.  Currently only
+        # the L' as implied by the literal definition is supported for Storage-to-
+        # Storage type instructions
+        self.literal.attributes(self.content.loc,T=first.T,S=first.S,I=first.I)
+        asm.cur_loc.increment(self.content,debug=tracing)
+        
+        if __debug__:
+            if tracing:
+                print("%s [%s] Literal object: %r" \
+                    % (assembler.eloc(self,"Pass1",module=this_module),\
+                        self.lineno,self.literal))
+        self.literal.state=5
+        if __debug__:
+            if tracing:
+                print("%s [%s] Created Literal from: %s" \
+                    % (assembler.eloc(self,"Pass1",module=this_module),\
+                        self.lineno,self.literal))
+
+    # Pass 2 - uses DC.Pass2 to complete construction of the literal
+
+
+# LTORG Assembler Directive - Oper Type: SPP
+#
+# Initiate a macro definition
+# 
+# [label] LTORG  [comments]
+
+class LTORG(ASMStmt):
+    # Statement processing controls
+    typ="SPP"      # Statement type identifier
+    lfld="L"       # Valid label field content
+    ofld="L"       # Valid operation field content
+    alt=False      # Whether the alternate statement format is allowed
+    parser=None    # Operand parser used by statement
+    sep=False      # Whether operands are to be separated from the logline
+    spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
+    attrs=None     # Attributes supported in expression
+
+    def __init__(self,lineno,logline=None):
+        super().__init__(lineno,logline=logline)
+        self.asmdir=True         # This is an assembler directive
+        self.pool=None           # The pool being created by this LTORG
+        self.align=0             # Pool alignment
+
+    def Pass0(self,asm,macro=None,debug=False,trace=False):
+        pdebug = self.pre_process(asm) or debug
+        # Make sure we have an active current section before doing anything more
+        asm._check_cur_sec(debug=pdebug)
+
+        # Create the literal pool
+        self.pool,self.align=self.literal_pool_create(asm,debug=pdebug)
+
+    def Pass1(self,asm,debug=False,trace=False):
+        pdebug=self.trace or debug
+        # Perform alignment and define a label if present
+        self.new_content(asm,alignment=self.align,length=0,debug=pdebug)
+
+    def Pass2(self,asm,debug=False,trace=False): pass
+
+
 # MACRO Assembler Directive - Oper Type: SPP
 #
 # Initiate a macro definition
@@ -3214,6 +3542,9 @@ class MHELP(TemplateStmt):
         super().__init__(lineno,logline=logline,minimum=1)
         self.macdir=True       # This is a macro directive
         self.syslist=False     # Whether &SYSLIST required in macro
+
+    def ck_literals(self):
+        self.ck_for_literals()
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         super().Pass0(asm,macro=macro,debug=debug,trace=trace)
@@ -3397,6 +3728,9 @@ class ORG(TemplateStmt):
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline,minimum=1)
 
+    def ck_literals(self):
+        self.ck_for_literals()
+
     #   Pass0 uses TemplateStmt.Pass0() method
 
     def Pass1(self,asm,debug=False,trace=False):
@@ -3408,7 +3742,10 @@ class ORG(TemplateStmt):
 
         asm._check_cur_sec(debug=trace)  # Check that a CSECT is active
         asm.cur_sec.assign(bin)    # Assign to it its '*' value
-        addr1=bin.loc              # Save value for listing
+        
+        # Save value for listing and calculation of '*' values
+        addr1=bin.loc
+        self.location=self.p1_loc=addr1.clone()
 
         # Define the statement's label if present
         self.label_create(asm,length=1)   # Use binary content length
@@ -3598,6 +3935,9 @@ class PSWS(TemplateStmt):
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
 
+    def ck_literals(self):
+        self.ck_for_literals()
+
     #   Pass0 uses TemplateStmt.Pass0() method
 
     def Pass1(self,asm,debug=False,trace=False):
@@ -3670,6 +4010,9 @@ class PSW360(TemplateStmt):
         
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
+
+    def ck_literals(self):
+        self.ck_for_literals()
 
     #   Pass0 uses TemplateStmt.Pass0() method
 
@@ -3747,6 +4090,9 @@ class PSW67(TemplateStmt):
     
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
+
+    def ck_literals(self):
+        self.ck_for_literals()
 
     #   Pass0 uses TemplateStmt.Pass0() method
 
@@ -3834,6 +4180,9 @@ class PSWBC(TemplateStmt):
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
 
+    def ck_literals(self):
+        self.ck_for_literals()
+
     #   Pass0 uses TemplateStmt.Pass0() method
 
     def Pass1(self,asm,debug=False,trace=False):
@@ -3908,6 +4257,9 @@ class PSWEC(TemplateStmt):
     
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
+
+    def ck_literals(self):
+        self.ck_for_literals()
 
     #   Pass0 uses TemplateStmt.Pass0() method
 
@@ -4015,6 +4367,9 @@ class PSWBi(TemplateStmt):
             
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
+
+    def ck_literals(self):
+        self.ck_for_literals()
 
     # Returns the value to be used in a bimodal address mode PSW
     # raises an AssemblerError if an invalid value is supplied.
@@ -4161,6 +4516,9 @@ class PSWZ(TemplateStmt):
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
+
+    def ck_literals(self):
+        self.ck_for_literals()
 
     # Returns the value to be used in a trimodal address mode PSW
     # raises an AssemblerError if an invalid value is supplied.
@@ -4476,6 +4834,9 @@ class SPACE(TemplateStmt):
         self.asmdir=True         # This is an assembler directive
         self.prdir=True          # This ia also a print directive
 
+    def ck_literals(self):
+        self.ck_for_literals()
+
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         super().Pass0(asm,macro=macro,debug=debug,trace=trace)
 
@@ -4536,12 +4897,6 @@ class START(ASMStmt):
 
         self.gscope=scope   # Remember the Pass0 processing
         self.csect=self.label_optional()
-
-        # This can go away after Pass 0 and Pass 1 are merged.
-        if self.csect:
-            asm.sysect=self.csect
-        else:
-            asm.sysect=""
 
     def Pass1(self,asm,debug=False,trace=False):
         utrace=trace or self.trace
@@ -4684,6 +5039,9 @@ class USING(TemplateStmt):
         super().__init__(lineno,logline=logline,minimum=2)
         self.asmdir=True         # This is an assembler directive
 
+    def ck_literals(self):
+        self.ck_for_literals(allowed=[0,])
+
     #   Pass0 uses TemplateStmt.Pass0() method
 
     def Pass1(self,asm,macro=None,debug=False,trace=False):
@@ -4693,6 +5051,10 @@ class USING(TemplateStmt):
         bin=assembler.Binary(0,0) # Create a dummy Binary instance for the statement
         self.content=bin   # Establish the USING statement's "binary" content
         asm.cur_sec.assign(bin)   # Assign to it its '*' value
+
+        # Save value for listing and calculation of '*' values
+        self.location=self.p1_loc=bin.loc.clone()
+
         # Define the statement's label if present
         self.label_create(asm,1)  # Use minimum length of 1
 

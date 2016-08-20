@@ -847,7 +847,7 @@ class ParserMgr(object):
 
     # This provides direct access to the macro parser for conditional branch
     # operand recognition.  It is used to recognize the computed vs. unconditional
-    # AGO first operand.  This is simply an wrapper providing access to the
+    # AGO first operand.  This is simply a wrapper providing access to the
     # MacroParser object's parse_ago() method.
     # Exception:
     #   AsmParserError from MacroParser if parse fails
@@ -860,6 +860,22 @@ class ParserMgr(object):
 
         parser=self.__fetch_parser("mopnd")
         return parser.parse_ago(stmt,field,debug=debug)
+
+    # Parse a string of constants.
+    # Method Arguments:
+    #   stmt    Statement containing the string of constants.  This can be a
+    #           statment containing a literal
+    #   string  The string of constant operands
+    # Returns:
+    #   the asmdcds.DCDS_Scope() object from that parse
+    # Exception:
+    #   assembler.AsmParserError if the parse fails
+    def parse_constants(self,stmt,string,debug=False):
+        prsr=self.__fetch_parser("dcds")
+        scp=asmdcds.DCDS_Scope()
+        scp.init(stmt=stmt)
+        scp.statement(stmt)  # Tell the scope what statement is being parsed
+        return self.__parse(prsr,string,scope=scp)
 
     # This provides direct access to the macro parser to validate symbolic variable
     # references in the label field for various instructions.
@@ -940,13 +956,12 @@ class ParserMgr(object):
             # Returns a asmfsmbp.xxxScope object
             return self.__parse(parser,string,scope=scope)
         except assembler.AsmParserError as ape:
-            #raise assembler.AssemblerError(source=source,line=stmt.lineno,\
-            #    linepos=ape.token.linepos+flds.operpos+1,msg=ape.msg) from None
             raise assembler.AssemblerError(source=source,line=stmt.lineno,\
                 msg=ape.msg) from None
 
     # This is equivalent to parse_operands() but always returns a scope object.
     # unless an assembler.AssemblerError is raised.
+    # NOTE: This method is only used to parse a START assembler directive
     def parse_scope(self,stmt,parser,scope=None,required=False):
         prsr=self.__fetch_parser(parser)
 

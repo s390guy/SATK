@@ -18,18 +18,17 @@
 
 # This module provides base classes used in multiple places within ASMA
 
-this_module="%s.py" % __name__
+this_module="asmbase.py"
 
 # Python imports: None
-# SATK imports: None
+# SATK imports:
 import fsmparser         # Access Finite-State-Machine-based parsing technology
 import lexer             # Access some objects
 import pratt3            # Identify pratt literals
-# ASMA imports: None
+# ASMA imports:
 import assembler
 import asmtokens
 import lnkbase
-
 
 
 # This class supports expressions as lexical tokens, pratt token creation and 
@@ -137,7 +136,11 @@ class ASMExpr(object):
 class ASMExprArith(ASMExpr):
     def __init__(self,tokens):
         super().__init__(tokens)
-    
+
+        # Whether the expression references the current location counter.  See
+        # the prepare() method.
+        self.loc_ctr=False
+
     def evaluate(self,external,debug=False,trace=False):
         assert self.pratt is not None,"%s pratt attribute is None" \
             % assembler.eloc(self,"evaluate",module=this_module)
@@ -148,8 +151,7 @@ class ASMExprArith(ASMExpr):
             return self.quick.value(external,debug=debug,trace=trace)
         # Use the Pratt parser to evaluate the expression
         return self.pratt.evaluate(external,debug=debug,trace=trace)
-    
-    
+
     # Preparse the expression for execution by converting lexical tokens into
     # a list of Pratt tokens within a Pratt arithmetic expression object.
     # Method Arguments:
@@ -170,8 +172,11 @@ class ASMExprArith(ASMExpr):
         # atoken() method.
         for ltok in self.tokens:
             if isinstance(ltok,CTerm):
+                # Note currently CTerm is only used by macro directives so it is
+                # not sensitive to location counter usage.
                 ltok.prepare(stmt,desc)
-            pexpr.token(ltok.atoken())
+            ptok=ltok.atoken()
+            pexpr.token(ptok)
 
         if __debug__:
             if debug:
@@ -310,7 +315,6 @@ class ASMExprRetry(ASMExprArith):
 #   secondary  Adds the supplied object to the list of secondary expressions.
 class ASMOperand(object):
     def __init__(self):
-        #self._chrexpr=False       # Whether primary portion is a character expression
         self._primary=None        # Primary portion of the operand (ASMExpr object)
         self._secondary=[]        # Optional secondary operands (ASMExpr objects)
         # At some point the self._expr list may eliminate this arbitrary separation.
@@ -588,9 +592,8 @@ class ASMString(object):
         if n>=length or n<0:
             raise ValueError("invalid index for string of length %s: %s" \
                 % (length,ndx))
-        #print(self.new_line)
+
         for t in range(len(self.new_line)-1,-1,-1):
-            #print("t: %s" % t)
             index,loc=self.new_line[t]
             if n<index:
                 continue
@@ -786,7 +789,7 @@ class AsmFSMScope(fsmparser.PScope):
     # Initializes the scope for use.  Automatically called by super class
     def init(self,stmt=None,case=False):
         self._stmt=stmt       # Statement being parsed
-        self._case=case       # Whether symbol/lable case sensitivity in use
+        self._case=case       # Whether symbol/label case sensitivity in use
         self._string=None     # Accumulates a complex string with double single quotes
         self._lextoks=[]      # List of accumulated token on an expression
         self._parens=0        # Used to check for balanced parenthesis
@@ -980,26 +983,6 @@ class AsmCtxParser(fsmparser.FSMContext):
         
     def Lexer(self,name):
         return self.pm.lexers[name]
-
-
-# Context specifc scope
-#class AsmCtxScope(AsmFSMScope):
-#    def __init__(self):
-#        super().__init__()
-        
-#        self.stmt_inst=None    # The statement's operation field in upper case.
-#        self.stmt_lineno=None  # The statemetn's assemly line number
-
-#    def statement(self,stmt):
-        #assert isinstance(stmt,assembler.Stmt),\
-        #    "%s 'stmt' argument must be an assembler.Stmt object: %s" \
-        #        % (assembler.eloc(self,"statement",module=this_module),stmt)
-        #assert isinstance(stmt,asmstmts.ASMStmt),\
-        #    "%s 'stmt' argument must be an assembler.Stmt object: %s" \
-        #        % (assembler.eloc(self,"statement",module=this_module),stmt)
-
-#        self.stmt_inst=stmt.instu     # The statement in upper case
-#        self.stmt_lineno=stmt.lineno  # The statement's line number
 
 
 #
@@ -1944,6 +1927,54 @@ class ASMSymTable(object):
 
 
 #
+#  +---------------------------------+
+#  |                                 |
+#  |   Assembler Symbol Table Entry  |
+#  |                                 |
+#  +---------------------------------+
+#
+
+# This object is used by both the assembler symbol table and literal pools.
+class LabelSymbol(ASMSymEntry):
+    def __init__(self,name,entry,length=None,T="U",S=0,I=0):
+        super().__init__(name,entry,length=length,T=T,S=S,I=I)
+        # Assembler XREF information
+        self._defined=None       # source statement number defining the symbol
+        self._refs=[]            # source statements referencing this symbol
+
+        # Define attributes:
+        if length is None:
+            self["L"]=len(entry)
+        else:
+            self["L"]=length
+
+    # Returns the underlying value that participates in computations
+    def compute(self):
+        obj=self._value
+        if isinstance(obj,int):
+            return obj
+        if isinstance(obj,lnkbase.Address):
+            # Instruction generation needs this for implied lengths
+            obj.length=self["L"]
+            return obj
+        elif isinstance(obj,(Section,Region,Img)):
+            addr=obj.loc
+            addr.length=self["L"]  # Do we need this here???
+            return addr
+
+        raise ValueError("%s unexpected symbol table object '%s': %s" \
+            % (eloc(self,"compute"),self.symbol,obj))
+
+    # Add a reference to the symbol
+    def reference(self,line):
+        assert isinstance(line,int),\
+            "%s 'line' argument must be an integer" % eloc(self,"reference")
+
+        if not line in self._refs:
+            self._refs.append(line)
+
+
+#
 #  +-----------------------------+
 #  |                             |
 #  |   CROSS-REFERENCE MANAGER   |
@@ -1960,7 +1991,7 @@ class XREF(object):
     @staticmethod
     def sort_key(item):
         return item.line
-        
+
     # Create cross-reference database
     def __init__(self):
         self.refs=[]      # Cross-reference item objects
@@ -1968,11 +1999,11 @@ class XREF(object):
     # Enter a definition entry.  Flag defaults to an asterisk, '*'.
     def define(self,line,flag="*"):
         self.refs.append(xref(line,flag=flag))
-        
+
     # Enter a reference entry.  Flag defaults to a space, ' '.
     def ref(self,line,flag=" "):
         self.refs.append(xref(line,flag=flag))
-        
+
     # Returns a sorted list of cross-reference entries.  Sort is based upon the
     # line number of the entry.
     def sort(self):

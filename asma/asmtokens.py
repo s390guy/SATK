@@ -126,11 +126,26 @@ class PLitCTerm(pratt3.PLit):
 # in expressions where the '*' symbol is being used to reference the currne location
 # (as opposed to being the multiplication operator).
 class PLitCur(pratt3.PLit):
-    def __init__(self,token):
+    def __init__(self,token,stmt):
         super().__init__(token)
 
+        # The asmstmts.ASMStmt object whose location is the location of the
+        # current location counter.  This value gets assigned by the 
+        # asmbase.ASMExprArith.prepare() method when this object is created.
+        self.stmt=stmt     # The asmstmts.ASMStmt object to which current location
+        # The use of the Assembler.cur_loc.retrieve() method will no longer work
+        # for the current location counter in literals.
+
     def value(self,external=None,debug=False,trace=False):
-        cur=external.cur_loc.retrieve()
+        assert self.stmt is not None,\
+            "%s self.stmt must not be None" \
+                %  assembler.eloc(self,"value",module=this_module)
+        assert self.stmt.location is not None,\
+            "%s [%s] stmt.location must not be None" \
+                % (assembler.eloc(self,"value",module=this_module),self.stmt.lineno)
+
+        #cur=external.cur_loc.retrieve()
+        cur=self.stmt.location
 
         assert isinstance(cur,lnkbase.Address),\
             "%s current location of statement %s not an address: %s" \
@@ -477,10 +492,14 @@ class ArithExpr(pratt3.PExpr):
     def __init__(self,desc,lineno,tokens=[]):
         name="%s %s" % (desc,lineno)
         super().__init__(desc=name,tokens=tokens)
+        # Whether this expression is 'unique'.  Used for unique literals
+        self.unique=False
     def evaluate(self,external,debug=False,trace=False):
         return ArithExpr.evaluator.run(\
             self,external=external,debug=debug,trace=trace)
     def token(self,ptok):
+        if isinstance(ptok,PLitCur):
+            self.unique=True
         super().token(ptok)
 
 
@@ -900,11 +919,15 @@ class AOperToken(LexicalToken):
         # The parser must recognize this condition and set theis using the
         # current() method.
         self.iscur=False
+        self.stmt=None      # The statement to which current location applies
 
     # Indicate this token represents the current location counter ('*')
-    def current(self):
-        self.iscur=True
-        self.binary=self.unary=False
+    # Method Argument:
+    #   stmt   the statement whose location is "current".
+    def current(self,stmt):
+        self.iscur=True                # Need to generate PLitCur for expression
+        self.binary=self.unary=False   # This is no longer an operator
+        self.stmt=stmt                 # This is the statement whose address is '*'
 
     # Sets operator syntax settings
     def syntax(self):
@@ -914,7 +937,10 @@ class AOperToken(LexicalToken):
     # Returns a pratt3 PToken object with myself as the sourc
     def ptoken(self):
         if self.iscur:
-            return PLitCur(self)
+            assert not self.stmt is None,\
+                "%s self.stmt must not be None for PLitCur creation" \
+                    % assembler.eloc(self,"ptoken",module=this_module)
+            return PLitCur(self,self.stmt)
         # Add logic for Current location PToken
         cls=AOperToken.ptokens[self.extract()]
         return cls(src=self)
@@ -1024,21 +1050,6 @@ class DCDS_Dec_Token(LexicalToken):
         self.value=None
 
     def convert(self):
-        #groups=self.groups()
-
-        # Recognize the sign of the value
-        #sign=self.sign()
-        #if sign=="U":
-        #    self.unsigned=True
-        #try:
-        #    self._sign=sign=DCDS_Dec_Token.signs[sign]
-        #except KeyError:
-        #    raise ValueError("%s unrecognized sign matched in re pattern: %s" \
-        #        % (assembler.eloc(self,"convert",module=this_module),sign))
-
-        # Determine the digits in the value
-        #self.digits=self.dec_digits()
-
         # Concatenate the integer and fractions for creation of the nominal value
         # (which ignores the decimal point).
         self.digits="%s%s" % (self.integer,self.fraction)
@@ -1046,17 +1057,6 @@ class DCDS_Dec_Token(LexicalToken):
         # Convert to a Python value
         self.value=int(self.digits,10)*self._sign
         return self.value
-
-    #def dec_digits(self):
-        #groups=self.groups()
-        #fraction=groups[2]   # Fractional part of value with decimal point
-        #if fraction is not None:
-        #    fraction=fraction[1:]     # drop off decimal point
-        #else:
-        #    fraction=""    # No fractional part supplied
-        # Set the number of digits to the right of the decimal point    
-        #self.S=len(fraction)
-        #return "%s%s" % (groups[1],fraction)
 
     def init(self,tid,string,beg,end,line=0,linepos=0,eols=0,ignore=False,mo=None):
         # Let super classs initalize the lexical token
@@ -1089,11 +1089,6 @@ class DCDS_Dec_Token(LexicalToken):
         # Decimal digits ignoring decimal point.
         self.digits="%s%s" % (self.integer,self.fraction)
 
-    #def sign(self):
-    #    sign=self.groups()[0]
-    #    if sign:
-    #        return sign.upper()
-    #    return None
 
 class DCDS_Dec_Type(lexer.Type):
     def __init__(self,debug=False):
@@ -1304,25 +1299,11 @@ class LabelAttrToken(LexicalToken):
         if self.attr is None:
             return PLitLabel(self)
         return self.__getPLit(LabelAttrToken.a_attr)
-        #try:
-        #    cls=LabelAttrToken.a_attr[self.attr]
-        #except KeyError:
-        #    raise assembler.LabelError(self.label,ltok=self,\
-        #        msg="attribute %s unsupported in macro arithmetic expressios" \
-        #            % self.attr) from None
-        #return cls(self)
         
     def btoken(self):
         if self.attr is None:
             return PLitLabel(self)
         return self.__getPLit(LabelAttrToken.b_attr)
-        #try:
-        #    cls=LabelAttrToken.b_attr[self.attr]
-        #except KeyError:
-        #    raise assembler.LabelError(self.label,ltok=self,\
-        #        msg="attribute %s unsupported in macro logical expressios" \
-        #            % self.attr) from None
-        #return cls(self)
 
     def ctoken(self):
         # Because of how the symbolic replacement parsers work we should never
@@ -1335,25 +1316,12 @@ class LabelAttrToken(LexicalToken):
                 "%s label references unsupported in character expressions: %s" \
                     % (assembler.eloc(self,"ctoken",module=this_module),self.label))
         return self.__getPLit(LabelAttrToken.c_attr)
-        #try:
-        #    cls=LabelAttrToken.c_attr[self.attr]
-        #except KeyError:
-        #    raise assembler.LabelError(self.label,ltok=self,\
-        #        msg="unsupported attribute %s for assembler label: %s" \
-        #            % (self.attr,self.label)) from None
-        #return cls(self)
 
     def ptoken(self):
         if self.attr is None:
             return PLitLabel(self)
         return self.__getPLit(LabelAttrToken.p_attr)
-        #try:
-        #    cls=LabelAttrToken.b_attr[self.attr]
-        #except KeyError:
-        #    raise assembler.LabelError(self.label,ltok=self,\
-        #         msg="unsupported attribute %s for assembler label: %s" \
-        #            % (self.attr,self.label)) from None
-        #return cls(self)
+
 
 # This type recognizes only labels with attributes.
 class LabelAttrRefType(lexer.Type):
@@ -1635,7 +1603,6 @@ class StringToken(LexicalToken):
         data=self.string[:-1]
         if amp:
             data=data.replace("&&","&") 
-        #return self.string[:-1]
         return data
 
     # This method allows for the logical extension of a string token, allowing two
@@ -1646,7 +1613,6 @@ class StringToken(LexicalToken):
                 % (assembler.eloc(self,"extend",module=this_module),ltok)  
 
         self.string="%s%s" % (self.string,ltok.string)
-        #print('following extend: self.string="%s"' % self.string)
         self.end=ltok.end
 
     # Override the lexer.token init() method to insert additional logic at that
@@ -1782,123 +1748,6 @@ class SymbolType(lexer.Type):
         super().__init__("SYMBOL",pattern,tcls=SymbolToken,mo=True,debug=debug)
 
 
-#
-#  +-----------------------------------------+
-#  |                                         |
-#  |   Finite-Machine Parsing Base Classes   |
-#  |                                         |
-#  +-----------------------------------------+
-#
-
-
-# Base class for AsmFSMParser scopes supporting expressions and compound strings.
-# Other parsers may continue to utilize fsmparser.PScope.  It has special handling
-# for elements encountered in assembly parsing, specifically, expressions and 
-# strings with dual single quotes that must be converted to a single quote.
-class AsmFSMScope_old(fsmparser.PScope):
-    def __init__(self):
-        super().__init__()
-
-    # Raise an AsmParserError if expression parenthesis are not balanced.
-    # Must be explicitly called by the scope user or the expr() method should be
-    # used to ensure parenthesis are balanced.
-    # Method Argument:
-    #   ltok    The lexical token following the expression used by the exception
-    #           for error reporting.
-    # Exceptions
-    #   assembler.AsmParserError raised if the expression's parenthesis are not
-    #           balanced.
-    def ck_parens(self,ltok):
-        if self._parens!=0:
-            raise assembler.AsmParserError(ltok,msg="unbalanced parenthesis")
-
-    # Initializes the scope for use.  Automatically called by super class
-    def init(self):
-        self._string=None     # Accumulates a complex string with double single quotes
-        self._lextoks=[]      # List of accumulated token on an expression
-        self._parens=0        # Used to check for balanced parenthesis
-
-    # Check the expression for balanced parenthesis and return the lexical token
-    # list if balanced.
-    # Method Argument:
-    #   ltok    The lexical token following the expression used by the exception
-    #           for error reporting.
-    # Exceptions
-    #   assembler.AsmParserError raised if the expression's parenthesis are not
-    #           balanced.
-    def expr(self,ltok):
-        self.ck_parens(ltok)
-        return self.expr_end()
-
-    # Returns the list of accumulated tokens, presumably for an expression
-    def expr_end(self):
-        self._parens=0
-        expr=self._lextoks
-        self._lextoks=[]
-        return expr
-
-    # Process a left parenthesis in an expression.  Adds the parenthesis to the
-    # expression lexical token list and increments the parenthesis count
-    def lparen(self,value):
-        self._parens+=1
-        self.token(value)
-        
-    # Process a right parenthesis in an expression.  Add the parenthesis to the
-    # expression lexical token list and decrements the parenthesis count
-    def rparen(self,value):
-        self._parens-=1
-        self.token(value)
-
-    # Start accumulation of a compound string.
-    def str_begin(self,value):
-        assert isinstance(value,StringToken),\
-            "%s 'value' argument must be a StringToken object: %s"\
-                % (assembler.eloc(self,"str_begin",module=this_module),value)
-        assert self._string is None,\
-            "%s '_string' attribute is not None when starting a compound string: %s" \
-                % (assembler.eloc(self,"str_begin",module=this_module),\
-                    self._string)
-
-        self._string=value
-
-    # Adds additional string content to the compound string
-    def str_cont(self,value):
-        assert isinstance(value,StringToken),\
-            "%s 'value' argument must be a StringToken object: %s"\
-                % (assembler.eloc(self,"str_cont",module=this_module),value)
-        assert isinstance(self._string,StringToken),\
-            "%s '_string' attribute must be a StringToken object: %s" \
-                % (assembler.eloc(self,"str_cont",module=this_module),self.string)
-
-        self._string.extend(value)
-
-    # Returns the StringToken object of the accumulated string.
-    def str_end(self):
-        if self._string is None:
-            return
-        assert isinstance(self._string,StringToken),\
-            "%s '_string' attribute must be a StringToken object: %s" \
-                % (assembler.eloc(self,"str_end",module=this_module),self._string)
-
-        accum=self._string
-        self._string=None
-        return accum
-
-    # Returns whether a string is pending (True) or not (False)
-    def str_pending(self):
-        return self._string is not None
-
-    # Adds lexical tokens to the expression token list
-    def token(self,tok):
-        self._lextoks.append(tok)
-        
-    # Updates a lexical token to reflect its position in the Stmt object's source
-    # statement.
-    def update(self,stmt,token):
-        lineno=stmt.lineno
-        source=stmt.source
-        operpos=stmt.fields.operpos
-        token.update(lineno,operpos,source)
 
 
 if __name__ == "__main__":

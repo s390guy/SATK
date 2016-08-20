@@ -202,6 +202,7 @@ class OperMgr(asmbase.ASMOperTable):
         self.def_dir("END",      asmstmts.END,      O="A")
         self.def_dir("ENTRY",    asmstmts.ENTRY,    O="A")
         self.def_dir("EQU",      asmstmts.EQU,      O="A")
+        self.def_dir("LTORG",    asmstmts.LTORG,    O="A")
         self.def_dir("MACRO",    asmstmts.MACRO,    O="A")
         self.def_dir("MHELP",    asmstmts.MHELP,    O="A")
         self.def_dir("MNOTE",    asmstmts.MNOTE,    O="A")
@@ -278,6 +279,11 @@ class OperMgr(asmbase.ASMOperTable):
     # Return operation for a logical line error
     def getError(self):
         return self["?"]
+
+    # Return operation for a literal being created.  The generating assembler.Literal
+    # object is provided as the info attribute
+    def getLiteral(self,lit):
+        return asmbase.ASMOper("=",asmstmts.LiteralStmt,info=lit)
 
     # Returns an ASMOper object for an instruction statement's operation field or
     # None if not found.  No exception raised

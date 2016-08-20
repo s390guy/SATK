@@ -191,10 +191,16 @@ class AsmListing(Listing):
         max_length=0
         max_value=0
         symbols=self.ST.getList(sort=True)
+        literals=self.asm.LPM.getList(sort=True)
+        symbols.extend(literals)
         for sym in symbols:
             # Build symbol table listing entry object list
-            ste=self.ST[sym]
-            name=sym
+            if isinstance(sym,assembler.Literal):
+                ste=sym
+                name=ste.name
+            else:
+                ste=self.ST[sym]
+                name=sym
             value=ste.value()
             value=lnkbase.Address.extract(value)
             max_value=max(max_value,value)
@@ -211,7 +217,7 @@ class AsmListing(Listing):
                 m=Map(name,typ,image,value,length)
                 imginfo[name]=m
         self.max_length=max_length
-        self.mac_value=max_value
+        self.max_value=max_value
 
         # Build the macro cross-reference list
         macs=self.asm.OMF.macros    # The dictionary of defined macros
@@ -242,10 +248,6 @@ class AsmListing(Listing):
             if name=="":
                 # Unnamed region
                 rinfo=Map("","2",r.img_loc,r.value().address,len(r))
-                #print("pos: %s" % rinfo.pos)
-                #print("bound: %s" % rinfo.bound)
-                #print("length: %s" % rinfo.length)
-                #print(rinfo)
             else:
                 rinfo=imginfo[name]
             max_name=max(max_name,len(name))
@@ -257,7 +259,7 @@ class AsmListing(Listing):
                 name=c.name
                 if name=="":
                     # Unnamed section
-                    cinfo=Map("","J",r.img_loc,r.value().address,len(r))
+                    cinfo=Map("","J",c.img_loc,c.value().address,len(c))
                 else:
                     cinfo=imginfo[name]
                 max_name=max(max_name,len(name))

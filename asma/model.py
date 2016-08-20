@@ -340,19 +340,15 @@ class Model(object):
 
     # Returns the pratt token for evaluation
     def prepare_result(self,stmt,result,desc,debug=False):
-        if isinstance(result,str):
-            if __debug__:
-                if debug:
-                    print("%s [%s] %s: '%s'" \
-                        % (assembler.eloc(self,"prepare_result",\
-                            module=this_module),stmt.lineno,desc,result))
-            return result
-
         if __debug__:
             if debug:
                 print("%s [%s] %s: %s" \
                     % (assembler.eloc(self,"prepare_result",\
                         module=this_module),stmt.lineno,desc,result))
+
+        if isinstance(result,str):
+            return result
+
         result.prepare(stmt,"[%s] model-%s" % (stmt.lineno,desc))
         return result.ctoken()   
 

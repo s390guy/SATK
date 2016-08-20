@@ -474,12 +474,14 @@ class DCDS_Parser(asmbase.AsmCtxParser):
     # have a flag set causing the pratt token for the current location counter to be
     # generated rather than the normal pratt token that performs multiplication.
     def ACT_Addr_Unary(self,value,state,trace=False):
-        cs=self.cscope()
+        #cs=self.cscope()
+        gs,cs=self.scopes()
         if value.string in "+-":
             cs.token(value)
             return "adrvals"      # Found the unary operator now seek its right hand
         elif value.string=="*":
-            value.iscur=True       # Make sure the correct pratt token is generated
+            #value.iscur=True       # Make sure the correct pratt token is generated
+            value.current(gs._stmt) # Make sure the correct pratt token is generated
             cs.token(value)
             # Found the right hand (current address) seek an infix operator now
             return "adrinfix"
@@ -800,6 +802,7 @@ class DCDS_Operand(asmbase.AsmFSMScope):
         self._len=None      # Explicit length expression object
         self.values=[]      # asmdcds.Nominal objects, one per each value
         self.opnum=None     # Operand number of this operand in the statement
+        self.unique=False   # Whether this constand operand is unique
 
         # Pass1 results
         self.dup=1          # The duplication factor
@@ -877,8 +880,8 @@ class DCDS_Operand(asmbase.AsmFSMScope):
     #   A list of a mixture of  DCDS_Operand objects (an operand with zero duplication
     #   factor) and subclasses of asmdcds.Nominal for constant nominal values or
     #   storage allocations.
-    def Pass0(self,stmt,parsers,n,dc):
-        parsers.ltoken_update(stmt,self._typ_tok,asmstr=stmt.opnd_fld)
+    def Pass0(self,stmt,parsers,n,dc,update=None):
+        parsers.ltoken_update(stmt,self._typ_tok,asmstr=update)
 
         self.dc=dc                 # Remember whether DC (True) or DS (False)
         self.opnum=n               # Remember the operand number within the directive.
@@ -898,8 +901,11 @@ class DCDS_Operand(asmbase.AsmFSMScope):
                 # each nominal value rather than a lexical token.
                 val=parsers.L2ArithExpr("oprnd %s val %s expr" % (n,vn+1),\
                     stmt,ltoks=val)
+                self.unique=self.unique or val.unique
             else:
-                parsers.ltoken_update(stmt,val,asmstr=stmt.opnd_fld)
+                parsers.ltoken_update(stmt,val,asmstr=update)
+                if isinstance(val,asmtokens.PLitCur):
+                    self.unique=True
             nom=self.nomcls(val)
             self.values.append(nom)
 
@@ -1000,9 +1006,6 @@ class DCDS_Operand(asmbase.AsmFSMScope):
                             self.lineno,nom.content.barray)
                 nom=m.clone()
                 nom.T=self.T
-                #print('%s %s."%s"' \
-                #    % (assembler.eloc(self,"Pass1",module=this_module),\
-                #        nom.__class__.__name__,nom.T))
                 nominal_values.append(nom)
                 assert nom.content is None or \
                   isinstance(nom.content.barray,bytearray), \

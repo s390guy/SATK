@@ -86,20 +86,6 @@ class ASMA(object):
         cptrans,cpfile=self.code_page("94C")
         defn=self.defines()
 
-        #self.assembler=assembler.Assembler(cpu,msl,self.aout,\
-        #    msldft=satkutil.satkdir("asma/msl"),\
-        #    addr=args.addr,\
-        #    case=args.case,\
-        #    debug=dm,\
-        #    defines=defn,\
-        #    dump=args.dump,\
-        #    error=args.error,\
-        #    nest=self.args.nest,\
-        #    ptrace=args.pas,\
-        #    otrace=args.oper,\
-        #    cpfile=cpfile,\
-        #    cptrans=cptrans)
-
         self.assembler=assembler.Assembler(cpu,msl,mslpath,self.aout,\
             addr=args["addr"],\
             case=args["case"],\
@@ -115,7 +101,6 @@ class ASMA(object):
             asmpath=args["asmpath"],\
             maclib=args["maclib"])
 
-        #self.source=args.source[0]     # Source input file
         self.source=args["input"]       # Source input file
 
         # Gather together time related data saved outside this object.
@@ -138,7 +123,6 @@ class ASMA(object):
 
     # Process --cp command-line argument
     def code_page(self,default):
-        #cp=self.args.cp
         cp=self.args["cp"]
         if cp is None:
             return (default,None)
@@ -147,7 +131,6 @@ class ASMA(object):
     # Process -D command-line arguments
     def defines(self):
         lst=[]
-        #for d in self.args.D:
         for d in self.args["symbol"]:
             dtuple=self.sep(d,"-D",optional=2)
             lst.append(dtuple)
@@ -179,6 +162,7 @@ class ASMA(object):
 
         self.out_start=time.process_time()
         self.out_start_w=time.time()
+        # Retrieve the assembler.Image object containing the generated output
         img=self.assembler.image()
 
         # Output the requested output format(s)

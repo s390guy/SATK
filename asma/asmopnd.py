@@ -18,7 +18,7 @@
 
 # This module tests a new ASMA instruction operand input parsing stategy.
 
-this_module="%s.py" % __name__
+this_module="asmopnd.py"
 
 # This module performs general operand parsing for:
 #   - machine instructions
@@ -55,7 +55,8 @@ this_module="%s.py" % __name__
 # Specialized parsers are available for most of these cases.  Eventually this module
 # will supplant the specialized operand parser where it makes sense.  Currently
 # this module is used to parse:
-#   - machine instructions.
+#   - machine instructions
+#   - template based assembler directives (CCW's, PSW's, EQU and others)
 
 # Python imports: none
 # SATK imports:
@@ -67,6 +68,7 @@ import pratt3               # Access the generalized operator precedence evaluat
 import assembler            # Access the assembler language module
 import asmbase              # Access the assembler base classes
 import asmtokens            # Need a variety of lexical analyzer tokens
+import literal              # Access support for literals
 
 
 AOPER=asmtokens.AOperType()
@@ -121,13 +123,16 @@ class OperandLexer(lexer.Lexer):
 # The operand takes the form:
 #   primary_expression[(secondary_expression[,secondary_expression]...)]
 #
-# Register and immediate instructin operands are composed of:
+# Register and immediate instruction operands are composed of:
 #   primary_expression only
 # Storage operands are composed of:
-#   primary_expression,
+#   primary_expression
+#   primary_expression()
 #   primary_expression(secondary_expression)
+#   primary_expression(,)
 #   primary_expression(,secondary_expression)
-#   primary_expression(secondaryd_expression,secondary_expression)
+#   primary_expression(secondary_expression,secondary_expression)
+#   literal
 #
 # The parser is not limited to two secondary expressions.  The user of the parsed
 # results must validate the number of secondary expressions.
@@ -147,8 +152,8 @@ class OperandLexer(lexer.Lexer):
 # the expression.
 class OperandParser(asmbase.AsmFSMParser):
     def __init__(self,dm,pm,trace=False):
-        #super().__init__(dm,pm,scope=OperandScope,trace=False)
         super().__init__(dm,pm,trace=False)
+        self.asm=pm.asm      # The global assembler.Assembler object
 
     # Define operand parser states and action methods.
     #
@@ -254,43 +259,132 @@ class OperandParser(asmbase.AsmFSMParser):
     def Lexer(self,lexer):
         return super().Lexer("opnd")
 
-    # Parses a list of operands, each operance either None when omitted or an
+    # Parses a single literal operand
+    # Method Arguments:
+    #   stmt      The ASMStmt object accessing the literal
+    #   opnd      The ASMOperand object containing the literal string
+    #   n         The operand index of thos operand
+    #   debug     Specify True to print debugging information.  Defaults to False.
+    # Returns:
+    #   The literal.Literal object of the literal
+    def parse_literal(self,stmt,opnd,n,debug=False):
+        assert isinstance(opnd,asmbase.ASMString),\
+            "%s 'opne' argument must be an instance of asmbase.ASMString: %s" \
+                 % (assembler.eloc(self,"parse_literal",module=this_module),asmstr)
+
+        lit=opnd.text
+        if __debug__:
+            if debug:
+                print('%s [%s] parsing literal opnd %s: "%s"' \
+                    % (assembler.eloc(self,"parse_literal",module=this_module),\
+                        stmt.lineno,n,lit))
+
+        mgr=self.asm.LPM     # The literal pool manager
+        try:
+            return mgr.fetch(lit,stmt.lineno,debug=debug)
+        except KeyError:
+            lit=assembler.Literal(self.asm,stmt,opnd,n)
+
+        # Parse the literal
+        lit.parse(debug=debug)
+
+        # Complete "Pass0" processing
+        lit.Pass0(debug=debug)
+
+        # Complete "Pass1" processing
+        lit.Pass1(debug=debug)
+        # Now we know the actual length of the literal.
+
+        if __debug__:
+            if debug:
+                print("%s Literal object: %r" \
+                    % (assembler.eloc(self,"parse_literal",module=this_module),lit))
+        mgr.literal_new(lit,stmt.lineno,debug=debug)
+        if __debug__:
+            if debug:
+                print("%s [%s] %s" \
+                    % (assembler.eloc(self,"parse_literal",module=this_module),
+                        stmt.lineno,lit))
+        return lit
+
+    # Parses a SINGLE arithmetic expression operand with primary and possible
+    # secondary expressions.
+    # Method Arguments:
+    #   stmt    The asmstmts.ASMStmt whose operands are being parsed
+    #   opnd    The asmline.LOperand object being parsed
+    #   n       The operand number of the operand being parsed
+    #   debug   Specify True to enable debugging of the parse process
+    # Returns:
+    #   the asmbase.ASMOperand object resulting from the parse
+    # Exception:
+    #   AsmParserError if operand fails to be recognized
+    def parse_operand(self,stmt,opnd,n,debug=False):
+        if __debug__:
+            if debug:
+                print('%s [%s] parsing opnd %s: "%s"' \
+                    % (assembler.eloc(self,"parse_operand",module=this_module),\
+                        stmt.lineno,n,opnd.text))
+                self.trace(on=True)
+        scope=OperandScope(opnd).init(stmt=stmt)
+        scope=self.parse(opnd.text,scope=scope,fail=False)
+        if __debug__:
+            if debug:
+                print("%s [%s] opnd %s: scope: %s" \
+                    % (assembler.eloc(self,"parse_operand",module=this_module),\
+                        stmt.lineno,n,scope))
+        opnd=scope.result()
+        if isinstance(opnd,asmbase.ASMOperand):
+            return opnd
+
+        raise ValueError("%s operand %s not returned from parse: %s" \
+            % (assembler.eloc(self,"parse_operands",module=this_module),\
+                n,opnd.text))
+        
+
+    # Parses a list of operands, each operand is either None when omitted or an
     # instance of asmline.LOperand
     # Returns:
-    #   A list of asmbase.ASMOperand objects, or a None for imitted operands
+    #   A list of asmbase.ASMOperand objects, or a None for omitted operands
     # Exceptions:
     #   AsmParserError  when an error is recognized.
     def parse_operands(self,stmt,debug=False):
         self.operands=[]
         self.trace(on=False)
         for n,opnd in enumerate(stmt.operands):
-            # opnd is a LOperand object
+            # opnd is a LOperand or Literal object
             if opnd is None:
                 self.operands.append(None)
                 continue
 
-            if __debug__:
-                if debug:
-                    print('%s parsing opnd %s: "%s"' \
-                        % (assembler.eloc(self,"parse_operands",module=this_module),\
-                            n,opnd.text))
-                    self.trace(on=True)
-            scope=OperandScope(opnd).init(stmt=stmt)
-            scope=self.parse(opnd.text,scope=scope,fail=False)
-            if __debug__:
-                if debug:
-                    print("%s opnd %s: scope: %s" \
-                        % (assembler.eloc(self,"parse_operands",module=this_module),\
-                            n,scope))
+            #if __debug__:
+            #    if debug:
+            #        print('%s parsing opnd %s: "%s"' \
+            #            % (assembler.eloc(self,"parse_operands",module=this_module),\
+            #                n,opnd.text))
+            #        self.trace(on=True)
+            #scope=OperandScope(opnd).init(stmt=stmt)
+            #scope=self.parse(opnd.text,scope=scope,fail=False)
+            #if __debug__:
+            #    if debug:
+            #        print("%s opnd %s: scope: %s" \
+            #            % (assembler.eloc(self,"parse_operands",module=this_module),\
+            #                n,scope))
 
-            opnd=scope.result()
-            if isinstance(opnd,asmbase.ASMOperand):
-                #self.operands.append(opnd.result())
-                self.operands.append(opnd)
+            #opnd=scope.result()
+            #if isinstance(opnd,asmbase.ASMOperand):
+            #    #self.operands.append(opnd.result())
+            #    self.operands.append(opnd)
+            #else:
+            #    raise ValueError("%s operand %s not returned from parse: %s" \
+            #        % (assembler.eloc(self,"parse_operands",module=this_module),\
+            #            n,opnd.text))
+
+            if opnd.isLiteral:
+                opnd=self.parse_literal(stmt,opnd,n,debug=debug)
             else:
-                raise ValueError("%s operand %s not returned from parse: %s" \
-                    % (assembler.eloc(self,"parse_operands",module=this_module),\
-                        n,opnd.text))
+                opnd=self.parse_operand(stmt,opnd,n,debug=debug)
+
+            self.operands.append(opnd)
 
         return self.operands   # List of POperand objects or None if omitted
 
@@ -324,7 +418,7 @@ class OperandParser(asmbase.AsmFSMParser):
         # binary loc
         elif value.string == "*":
             # Check for token string of "*" to detect current location counter
-            value.current()     # Update token to reflect location counter symbol
+            value.current(gs._stmt)  # Update token to reflect location counter symbol
             gs.token(value)
             return "term"       # Treat the location counter as a term
 
@@ -345,16 +439,18 @@ class OperandParser(asmbase.AsmFSMParser):
         return "lparen"
 
     def ACT_LParen_O(self,value,state,trace=False):
+        gs=self.scope()
         value.syntax()     # Set operator syntax flags
+
         if value.unary:
             # ( unary
-            gs=self.scope()
+            #gs=self.scope()
             gs.token(value)
             return "unary"
         
         elif value.string=="*":
             # ( current-location-counter
-            value.current()
+            value.current(gs._stmt)
             gs.token(value)
             return "term"
 
@@ -468,7 +564,7 @@ class OperandParser(asmbase.AsmFSMParser):
         # Check for current location counter at start of expression
         elif value.string=="*":
             # Check for token string of "*" to detect current location counter
-            value.current()     # Update token to reflect location counter symbol
+            value.current(gs._stmt)  # Update token to reflect location counter symbol
             gs.token(value)
             return "term"       # Treat the location counter as a term
 

@@ -488,6 +488,7 @@ import asmoper      #       Access the operation management framework
 import asmopnd      # 0.2 - Assembler operand processing
 import parsers      # 0.2 - Consolidates parser management module
 import insnbldr     #       Access the machine instruction construction machinery
+import literal      # 0.2 - Access the literal pool support.  See late imports
 import msldb        #       Access the Format class for type checking
 
 Stats.stop("import_w")
@@ -505,7 +506,6 @@ Stats.stop("import_p")
 # This exception is used by parsers to indicate a problem encountered in Parsing
 # See modules asmfsmbp.py and asmfsmcs.py for usage
 
-# CAN WE DELETE THIS NOW???
 class AsmParserError(Exception):
     def __init__(self,token,msg=""):
         self.msg=msg         # Text associated with the error
@@ -611,201 +611,9 @@ def isLabel(string):
 #  +---------------------------------+
 #
 
-# This class implements a small mainframe assembler consisting of a subset of 
-# mainframe assembler functions.  Its output is a binary image of the assembled
-# statements.  
 
-# The Assembler is designed to be a backend supporting some front end process that 
-# presents source statements to the assembler for assembly.  The asma.py module
-# provides a command line interface to this assembler.
-#
-# The following instance methods are used by the front end process:
-#
-#   statement    Does initial statement parsing and queues statements for assembly
-#   assemble     Assembles queued statements and creates the output Image instance
-#   image        Retrieves the output object used to generate output.  Output
-#                generation is the responsibility for the front end process.
-#
-
-# Presently local configurations are not yet supported.  The future of the AsmConfigs
-# and AsmConfig classes are yet to be determined.  When supported they may move
-# to the asma.py module and be transparent to this module.
-#
-# These two classes form the foundation for local configurations
-class AsmConfigs(object):
-    def __init__(self):
-        self.configs={}
-
-    def config(self,name=None,addr=None,ccw=None,cpfile=None,cptrans=None,\
-            dump=None,error=None,msldb=None,nest=None,psw=None,stats=None,\
-            *args,**kwds):
-
-        assert len(args)==0,\
-            "%s position parameters are not allowed: %s" \
-                % (eloc(self,"config"),args)
-
-        if __debug__:
-            if len(kwds):
-                string=""
-                for kwd,val in kwds.items():
-                    string="%s,%s=%s" % (string,kwd,val)
-                string=string[1:]
-                assert False,\
-                    "%s unrecognized keyword parameter(s): %s" \
-                        % (eloc(self,"config"),string)
-
-        assert isinstance(name,str),\
-            "%s 'name' argument must be a string: %s" % (eloc(self,"config"),name)
-
-        config=AsmConfig(name,\
-            addr=addr,
-            ccw=ccw,
-            cpfile=cpfile,
-            cptrans=cptrans,
-            dump=dump,
-            error=error,
-            msldb=msldb,
-            nest=nest,
-            psw=psw,
-            stats=stats)
-
-        n=config._name
-        try:
-            self.configs[n]
-            cls_str="%s %s.config() -" % (this_module,self.__class__.__name__)
-            raise ValueError("%s configuration alread defined: %s" % (cls_str,n))
-        except KeyError:
-            self.configs[n]=config
-
-    # This method defines all local configurations
-    def local(self):
-        self.config(name="default")
-        # Add additional calls to the config method here for your local configuration
-        # definitions, specifying a unique name and a keyword argument for each
-        # argument you wish to specify for the configuration.
-
-    def retrieve(self,name):
-        try:
-            return self.configs[name]
-        except KeyError:
-            raise ValueError("%s undefined local configuration: %s" \
-                % (eloc(self,"retrieve"),name))
-
-class AsmConfig(object):
-    psw_formats=["S","360","67","BC","EC","380","XA","E370","E390","Z","none"]
-    def __init__(self,name,addr=None,case=None,ccw=None,cpfile=None,cptrans=None,
-                 dump=None,error=None,msldb=None,nest=None,psw=None,stats=None):
-        assert isinstance(name,str),\
-            "%s 'name' argument must be a string: %s" \
-                % (eloc(self,"__init__"),name)
-
-        self._name=name
-        self.addr(addr)
-        self.case(case)
-        self.ccw(ccw)
-        self.cpfile(cpfile)
-        self.cptrans(cptrans)
-        self.dump(dump)
-        self.error(error)
-        self.msldb(msldb)
-        self.nest(nest)
-        self.psw(psw)
-        self.stats(stats)
-
-    def addr(self,addr=None):
-        assert addr is None or addr in [16,24,31,64],\
-            "%s 'addr' argument must be either 16, 24, 31 or 64: %s" \
-                % (eloc(self,"addr"),addr)
-
-        self._addr=addr
-
-    def case(self,case=None):
-        assert case is None or case in [True,False],\
-            "%s 'case' argument must be either True or False: %s" \
-                % (eloc(self,"addr"),addr)
-
-        self._case=case
-
-    def ccw(self,ccw=None):
-        assert ccw is None or ccw in [0,1,"none"],\
-            "%s 'ccw' argument must be either 0, 1 or 'none': %s" \
-                % (eloc(self,"ccw"),ccw)
-
-        self._ccw=ccw
-
-    def cpfile(self,cpfile=None):
-        assert cpfile is None or isinstance(cpfile,str),\
-            "%s 'cpfile' argument must be a string: %s" \
-                % (eloc(self,"cpfile"),cpfile)
-
-        self._cpfile=cpfile
-
-    def cptrans(self,cptrans=None):
-        assert cptrans is None or isinstance(cptrans,str),\
-            "%s 'cptrans' argument must be a string: %s" \
-                % (eloc(self,"cptrans"),cptrans)
-
-        self._cptrans=cptrans
-
-    def dump(self,dump=None):
-        assert dump is None or dump in [True,False],\
-            "%s 'dump' argument must be either True or False: %s" \
-                % (eloc(self,"dump"),dump)
-
-        self._dump=dump
-
-    def error(self,error=None):
-        assert error is None or error in [0,1,2,3],\
-            "%s 'error' argument must be 0, 1, 2 or 3: %s" \
-                % (eloc(self,"error"),error)
-
-        self._error=error
-
-    def msldb(self,msldb=None):
-        assert msldb is None or isinstance(msldb,str),\
-            "%s 'msldb' argument must be a string: %s" \
-                % (eloc(self,"msldb"),msldb)
-
-        self._msldb=msldb
-
-    def nest(self,nest=None):
-        assert nest is None or (isinstance(nest,int) and nest>=1),\
-            "%s 'nest' argument must be an integer >=1: %s" \
-                % (eloc(self,nest),nest)
-
-        self._nest=nest
-
-    def psw(self,psw=None):
-        assert psw is None or psw in AsmConfig.psw_formats,\
-            "%s 'psw' argument not a recognized format: %s" \
-                % (eloc(self,"psw"),psw)
-
-        self._psw=psw
-
-    def stats(self,stats=None):
-        assert stats is None or stats in [True,False],\
-            "%s 'stats' argument must be either True or False: %s" \
-                % (eloc(self,"stats"),stats)
-
-        self._stats=stats
-
-#local=AsmConfigs()
-# Establish the documented default command-line options
-#local.config(\
-#    name="default",
-#    addr=None,
-#    ccw=None,
-#    cptrans="94C",
-#    dump=False,
-#    error=2,
-#    msldb="msl.txt",
-#    nest=20,
-#    stats=False)
-#import asmlocal   # This will add the local configurations.
-
-
-# This class manages output options directed to the assembler.  None implies the output
-# is not written the file system (although it might be created internally).
+# This class manages output options directed to the assembler.  None implies the 
+# output is not written to the file system (although it might be created internally).
 class AsmOut(object):
     def __init__(self,deck=None,image=None,ldipl=None,listing=None,mc=None,rc=None,\
                  vmc=None):
@@ -881,6 +689,22 @@ class AsmOut(object):
     def write_vmc(self,module,vmcfile,silent=False):
         self.write_file(module,self.vmc,"wt",vmcfile,"STORE command",silent=silent)
 
+
+# This class implements a small mainframe assembler consisting of a subset of 
+# mainframe assembler functions.  Its output is a binary image of the assembled
+# statements.
+#
+# The Assembler is designed to be a backend supporting some front end process that 
+# presents source statements to the assembler for assembly.  The asma.py module
+# provides a command line interface to this assembler.
+#
+# The following instance methods are used by the front end process:
+#
+#   assemble     Assembles queued statements and creates the output Image instance
+#                AsmOut object containing the various supported output.
+#   image        Retrieves the AsmOut object used to generate output.  Output
+#                generation is the responsibility for the front end process.
+#
 
 # This is the base class for the assembler.  It assembles individiual assembler
 # statements presented to it.  Final output is returned in the form of an Image
@@ -1017,7 +841,7 @@ class Assembler(object):
         # Statement processor drives processing
         self.SP=STMTProcessor(self,depth=nest)
         # Input manager used by processor (access provided for new input sources)
-        self.IM=self.SP.IM
+        self.IM=self.SP.IM     # An asmline.LineMgr object
         
         # MACLIB processor for macro library definitions
         self.MP=MACLIBProcessor(self)
@@ -1044,6 +868,9 @@ class Assembler(object):
         self.trans=self.__init_codepage()
         # The Translater object is available now via this object attribute and
         # in modules that import assembler via assembler.CPTRANS
+        
+        # Literal Pool Management
+        self.LPM=literal.LiteralPoolMgr(self)
 
         # Macro Language processing manager
         self.MM=asmmacs.MacroLanguage(self)
@@ -1087,7 +914,6 @@ class Assembler(object):
 
         self.cur_reg=None     # Current active Region into which Sections are added
         self.cur_sec=None     # Current active Section into which Content is added
-        self.sysect=""        # Tracks sections during Pass 0 - See Stmt.oper_id
 
         # Unnamed REGION and CSECT if created.  
         # These objects are maintained here not via the symbol table.
@@ -1596,7 +1422,7 @@ class Assembler(object):
     def _region_unname_safe(self,stmt):
         if self.unname_reg:
             raise AssemblerError(line=stmt.lineno,\
-                msg="unnamed region already existst")
+                msg="unnamed region already exists")
 
     # Attempt to resolve an address into its base/displacement pair of values.
     # Raises an AssemblerError exception if resolution fails.
@@ -1606,7 +1432,7 @@ class Assembler(object):
         except KeyError:
             raise AssemblerError(line=lineno,\
                 msg="operand %s could not resolve implied base register for "
-                    "location: %s" % (opn,address)) from None
+                    "location: %s" % (opn+1,address)) from None
 
     # Define a unique symbol in the symbol table.
     def _symbol_define(self,sym,line):
@@ -1618,6 +1444,18 @@ class Assembler(object):
     def _symbol_ref(self,sym):
         return self.ST.get(sym)
 
+    # Retrieve the name of the current active constrol section.  If no active
+    # section exists, the empty string (indicating the unnamed control section)
+    # it returned
+    def _sysect(self):
+        if self.cur_sec is None:
+            return ""
+        return self.cur_sec.name
+
+    # Pass 2 - track the statement location in the location counter and the statement
+    #
+    # Note: During Pass 1 this tracking is handled by the individual statements that
+    # need it: EQU, ORG, USING
     def _track_loc(self,stmt):
         new_con=stmt.content
         if new_con:
@@ -1627,6 +1465,7 @@ class Assembler(object):
                     print("%s [%s] statements binary location: %s" 
                         % (eloc(self,"_track_loc"),stmt.lineno,new_loc))
             if new_loc:
+                stmt.location=stmt.p2_loc=new_loc
                 self.cur_loc.establish(new_loc,debug=stmt.trace)
                 if __debug__:
                     if stmt.trace:
@@ -2887,6 +2726,8 @@ class Img(Content):
 #  +---------------------------------+
 #
 
+# Note: This object is defined here because of its dependence upon Section,
+# Region and Img object definitions.
 class LabelSymbol(asmbase.ASMSymEntry):
     def __init__(self,name,entry,length=None,T="U",S=0,I=0):
         super().__init__(name,entry,length=length,T=T,S=S,I=I)
@@ -2924,6 +2765,152 @@ class LabelSymbol(asmbase.ASMSymEntry):
 
         if not line in self._refs:
             self._refs.append(line)
+            
+            
+#
+#  +---------------+
+#  |               |
+#  |   A LITERAL   |
+#  |               | 
+#  +---------------+
+#
+
+# This class defines a single occurence of a literal within a pool
+# Instance Argument:
+#   asm    the global assembler.Assembler object
+#   stmt   the ASMStmt object initially referencing the statement.
+#   opnd   An asmline.LOperand object
+#   ndx    The operand index of the literal in the initially referencing statement
+# Note: this object is defined here because of its dependence upon the LabelSymbol
+# object.
+class Literal(LabelSymbol):
+    def __init__(self,asm,stmt,opnd,ndx):
+        assert isinstance(opnd,asmline.LOperand),\
+            "%s 'opnd' argument must be an asmline.LOperand object: %s" \
+                % (assembler.eloc(self,"__init__",module=this_module),opnd)
+
+        self.length=0          # Actual constant length for group selection
+
+        super().__init__(opnd.text,self,length=None,T="U",S=0,I=0)
+
+        self.asm=asm           # The global assembler.Assembler object
+        self.stmt=stmt         # Defining or referencing statment
+        self.operand=opnd      # The logical operand on which this object is based
+        self.stmt=stmt         # initial referencing statment
+        self.ndx=ndx           # Operand index number in statement
+
+        # The trace setting of the originating LTORG statement
+        # Used to enable tracing of a asmstmts.LiteralStmt object
+        self.trace=False       # See literal.LiteralPool.create() method
+
+        self.reference(stmt.lineno)  # Remember the first reference
+
+        # Professing state
+        #   0 - instantiated
+        #   1 - parsed            See parse() method
+        #   2 - Pass 0            See Pass0() method
+        #   3 - Pass 1            See Pass1() method
+        #   4 - Placed in group   See literal.LiteralPool.create() method
+        #   5 - Created
+        self.state=0           # Sequential processing steps
+
+        # See parse() method
+        self.constant=None     # asmdcds.DCDS_Operand object
+
+        # See Pass0() method
+        self.unique=False      # Whether this literal is unique.
+
+        # See Pass1() method
+        self.length=None       # Actual constant length for group selection
+        self.nominals=[]       # asmdcds.Nominal objects
+
+        def __str__(self):
+            return "[%s] LITERAL: operand %s: %s length=%s\n    constant: %s"\
+                "\n    nominals: %s\n    loc: %s length: %s" \
+                    % (self.stmt.lineno,self.ndx,self.operand,self.name,\
+                        self.constant,self.nominals,self._value,self.length)
+
+    def __len__(self):
+        return self.length
+
+    # Set the attributes.
+    def attributes(self,loc,T="U",S=0,I=0):
+        self._value=loc
+        self["T"]=T
+        self["S"]=S
+        self["I"]=I
+
+    # Make this object look like an expression for operand evaluation in Pass 2
+    def evaluate(self,asm,debug=False,trace=False):
+        val=self.compute()
+        if __debug__:
+            if debug:
+                print("%s literal operand evalutates to: %s" \
+                    % (eloc(self,"evaluate"),val))
+        return val
+
+    # Parse the literal constant
+    def parse(self,debug=False):
+        assert self.state==0,\
+            "%s Literal.state not 0: %s" \
+                % (assembler.eloc(self,"parse",module=this_module),self.state)
+
+        try:
+            scope=self.asm.PM.parse_constants(self.stmt,self.name[1:])
+        except AsmParserError as ape:
+            raise AssemblerError(line=self.stmt.lineno,\
+                msg="literal operand %s invalid: %s" % (self.ndx+1,ape.msg)) from None
+
+        operands=scope.operands
+        if len(operands)>1:
+            raise AssemblerError(line=self.stmt.lineno,\
+                msg="literal operand %s has more than one constant type, found: %s"\
+                    % (self.ndx+1,len(operands)))
+
+        self.constant=operands[0]
+        if __debug__:
+            if debug:
+                print("%s parsed constant: %s" \
+                    % (eloc(self,"parse",module=this_module),self.constant))
+        self.state=1
+
+    def Pass0(self,debug=False):
+        assert self.state==1,\
+            "%s Literal.state not 1: %s" \
+                % (eloc(self,"parse",module=this_module),self.state)
+        assert isinstance(self.operand,asmbase.ASMString),\
+            "%s Literal.operand not an asmbase.ASMSTring object: %s" \
+                % (eloc(self,"parse",module=this_module),self.operand)
+
+        self.constant.Pass0(\
+            self.stmt,self.asm.PM,self.ndx+1,True,update=self.operand)
+        self.unique=self.constant.unique   # Whether this is a unique literal
+        if __debug__:
+            if debug:
+                print("%s parsed constant unique: %s" \
+                    % (eloc(self,"Pass0",module=this_module),self.unique))
+        self.state=2
+
+    def Pass1(self,debug=False):
+        assert self.state==2,\
+            "%s Literal.state not 2: %s" \
+                % (eloc(self,"parse",module=this_module),self.state)
+
+        self.nominals=self.constant.Pass1(self.stmt,self.asm,debug=debug)
+        if self.constant.dup == 0:
+            raise AssemblerError(line=self.stmt.lineno,\
+                msg="literal operand %s duplication factor must not be zero" \
+                    % self.ndx+1)
+
+        # Set the literal's actual length
+        self.length=self.constant.act_len   # This selects the literal pool group
+        self["L"]=self.length               # This is used for instruction length
+        self.state=3
+
+    def __str__(self):
+        return "[%s] LITERAL: %s operand: %s" \
+            % (self.stmt.lineno,self.name,self.operand)
+
 
 
 #
@@ -3074,6 +3061,7 @@ class STMTProcessor(asmbase.ASMProcessor):
             stmtcls=ln.optn.stmtcls
             if __debug__:
                 if debug:
+                #if True:
                     print("%s [%s] %s" % (eloc(self,"getStmts0_1"),self.lineno,ln))
                     print("%s [%s] Creating ASMStmt subclass: %s" \
                             % (eloc(self,"getStmts0_1"),self.lineno,\
