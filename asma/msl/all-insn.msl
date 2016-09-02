@@ -275,8 +275,8 @@ inst CER    39   RR             # COMPARE (SH)
 inst CFC    B21A S0             # COMPARE AND FORM CODEWORD
 inst CFDBR  B399 RRFG           # CONVERT TO FIXED (32<LB)
 inst CFDR   B3B9 RRFG           # CONVERT TO FIXED (32<LH)
-inst CFEBR  B398 RRE            # CONVERT TO FIXED (32<SB)
-inst CFER   B3B8 RRE            # CONVERT TO FIXED (32<SH)
+inst CFEBR  B398 RRFG           # CONVERT TO FIXED (32<SB)
+inst CFER   B3B8 RRFG           # CONVERT TO FIXED (32<SH)
 inst CFXBR  B39A RRFG           # CONVERT TO FIXED (32<EB)
 inst CFXR   B3BA RRFG           # CONVERT TO FIXED (32<EH)
 inst CH     49   RXA            # COMPARE HALFWORD
