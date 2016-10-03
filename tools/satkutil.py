@@ -855,8 +855,8 @@ class Text_Print(object):
         print(s)          # string=False so print the string here
 
 
-# Convert a list of integers, bytes or bytesarray into a string independent of encoding
-# If the integer value is greater
+# Convert a list of integers, bytes or bytesarray into a string independent of 
+# encoding.
 def byte2str(blist):
     if isinstance(blist,str):
         return blist
@@ -882,8 +882,31 @@ def method_name(method):
 
 
 # Add a relative directory dynamically to the PYTHONPATH search path
-def pythonpath(dir,debug=False):
-    path=[satkdir(dir,debug=debug),]
+# Method Arguments:
+#   dir    directory relative to SATK root
+#   nodup  Whehter a duplicate directory may be added (False) or not (True).
+#          Defaults to False.
+#   debug  Whether debugging messages are to be generated
+def pythonpath(dir,nodup=False,debug=False):
+    new_dir=satkdir(dir,debug=debug)
+    if nodup:
+        for d in sys.path:
+            if __debug__:
+                if debug:
+                    print("satkutil.py - pythonpath() - PYTHONPATH dir checked "\
+                        "for being duplicate of '%s': '%s'" % (new_dir,d))
+            # sys.path strings and strings generated here are not the same string
+            # so have to use string comparison
+            if d == new_dir:
+                # Not a duplicate, check next directory
+                if __debug__:
+                   if debug:
+                       print("satkutil.py - pythonpath() - directory alreaedy in "
+                           "PYTHONPATH, ignoring: %s" % new_dir)
+                return
+
+    # Add the new directory to PYTHONPATH
+    path=[new_dir,]
     if __debug__:
         if debug:
             print("satkutil.py - pythonpath() - adding path: '%s'" % path[0])
