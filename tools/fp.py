@@ -188,6 +188,11 @@ class TestError(Exception):
 # +-------------------------------------+
 #
 
+# Floating Point String recognition regular expression pattern:
+String_Pattern=\
+        "(?P<sign>[+-])?(?P<int>[0-9]+)?(?P<frac>\.[0-9]*)?"\
+        "(?P<exp>[eE][+-]?[0-9]+)?(?P<rmode>[rR][0-9]+)?\Z"
+
 # Use the BFP function to create a binary floating point datum
 # Use the DFP function to create a decimal floating point datum
 # Use the HFP function to create a hexadecimal floating point datum
@@ -214,7 +219,7 @@ class TestError(Exception):
 # arguments:
 #   string    A parsable string defining the binary floating point datum.  The 
 #             string may contain an embedded rounding mode following the floating
-#             point constant value.
+#             point constant value.  The match object alternative is supported.
 #   length    The length of the binary floating point constant in bytes.  Defaults
 #             to 8.
 #   rmode     The rounding mode to be used when creating the binary floating
@@ -222,27 +227,32 @@ class TestError(Exception):
 #             to use the radix format default rounding mode.  Defaults to None.
 #   debug     Specify True to enable debugging messages.  Defaults to False.
 
-def BFP(string,length=8,rmode=None,debug=False):
+def BFP(string,length=8,rmode=None,mo=None,debug=False):
     if bfp_gmpy2.use_gmpy2:
         # Using gmpy2 instead of float
-        return bfp_gmpy2.BFP(string,length=length,rmode=rmode,debug=debug)
+        return bfp_gmpy2.BFP(string,length=length,rmode=rmode,mo=mo,debug=debug)
 
     # Using default Python float object
-    return bfp_float.BFP(string,length=length,rmode=rmode,debug=debug)
+    return bfp_float.BFP(string,length=length,rmode=rmode,mo=mo,debug=debug)
 
 
 # Returns the decimal floating point subclass instantiated with the supplied
 # arguments:
 #   string    A parsable string defining the decimal floating point datum.  The 
 #             string may contain an embedded rounding mode following the floating
-#             point constant value.
+#             point constant value.    The match object alternative is supported.
 #   length    The length of the decimal floating point constant in bytes.  Defaults
 #             to 8.
 #   rmode     The rounding mode to be used when creating the decimal floating
 #             point value if not embedded in the constant string.  Defaults to None.
+#   mo        A regular expression match object that recognized a floating point
+#             string using the pattern fp.String_Pattern.  The string argument
+#             must be specified as True for the match object to be used.  This
+#             argument is used by the ASMA assembler for floating point constant
+#             creation.
 #   debug     Specify True to enable debugging messages.  Defaults to False.
 
-def DFP(string,length=8,rmode=None,debug=False):
+def DFP(string,length=8,rmode=None,mo=None,debug=False):
     return dfp.DFP(string,length=length,rmode=rmode,debug=debug)
 
 
@@ -250,7 +260,8 @@ def DFP(string,length=8,rmode=None,debug=False):
 # arguments:
 #   string    A parsable string defining the hexadecimal floating point datum.  
 #             The string may contain an embedded rounding mode following the
-#             floating point constant value.
+#             floating point constant value.  The match object alternative is 
+#             supported.
 #   length    The length of the hexadecimal floating point constant in bytes.
 #             Defaults to 8.
 #   rmode     The rounding mode to be used when creating the hexadecimal floating
@@ -258,7 +269,7 @@ def DFP(string,length=8,rmode=None,debug=False):
 #             legacy guard digit rounding.  Defaults to None.
 #   debug     Specify True to enable debugging messages.  Defaults to False.
 
-def HFP(string,length=8,rmode=None,debug=False):
+def HFP(string,length=8,rmode=None,mo=None,debug=False):
     raise NotImplementedError("hexadecimal floating point not yes supported")
 
 
@@ -353,7 +364,7 @@ class FPAttr(object):
 
     # Returns the special value hexadecimal string corresponing to the supplied name
     # Exceptions:
-    #   KeyError if string is not a valid speical value name
+    #   KeyError if string is not a valid special value name
     def special_value(self,string):
         return self.special.hexadecimal(string,self.length)
 
@@ -1212,17 +1223,20 @@ class FP_Special(object):
 #               e [+-] digits - is the optional base 10 exponent
 #               r digits      - is a numeric rounding mode
 #            While the above description has spaces, the string may not
+#
+#            Alternatively, a match object produced by matching against the
+#            fp.String_Pattern module attribute may be supplied.  This is
+#            used when integrating the floating point tools with the ASMA assembler.
 #   length   The length of the floating point object to be created.
 #   rmode    The rounding mode to be used.  When rmode is specified the string
 #            argument may not contain the rounding mode.  Use the Python value
 #            for the appropriate underlying values.
 class FP(object):
-    parse=re.compile("(?P<sign>[+-])?(?P<int>[0-9]+)?(?P<frac>\.[0-9]*)?"\
-        "(?P<exp>[eE][+-]?[0-9]+)?(?P<rmode>[rR][0-9]+)?\Z")
-    sign_str={"+":0,"-":1,"":0}
+    parse=re.compile(String_Pattern)   # Parse a floating point string
+    sign_str={"+":0,"-":1,"":0}        # Convert string sign to value
 
     Special=None   # FP_Special object for the subclass generating special values
-    # Each subclass will provide this object used by this superclass to_bytes() 
+    # Each subclass will provide this object used by this super class to_bytes() 
     # method
 
     # This method turns a sequence of bytes into a string of hex digits with each
@@ -1277,8 +1291,16 @@ class FP(object):
             % cls.__name__)
 
     def __init__(self,string,length=8,rmode=None,debug=False):
+        if __debug__:
+            if debug:
+                cls_str=eloc(self,"__init__")
+                print("%s string:%s length=%s rmode=%s debug=%s" \
+                    % (cls_str,string,length,rmode,debug))
+        assert string is not None,\
+            "%s 'string' argument must not be None" % eloc(self,"__init__")
+
         # Instantiating arguments:
-        self.con_str=string     # The input constant string
+        self.con_str=None       # The input constant string is set below
         self.length=length      # Length of the floating point object
         self.rmode=rmode        # Rounding mode supplied outside of the string
         self.debug=debug        # Remember debug status
@@ -1314,12 +1336,20 @@ class FP(object):
         self.number=None
 
       # Analyze the floating point constant 'string' argument.
-        if __debug__:
-            if self.debug:
-                cls_str=eloc(self,"__init__")
 
-        # Use the regular expression module to parse the constant string
-        self.mo=FP.parse.match(string)
+        # Use the regular expression module to parse the constant string or use
+        # the externally supplied match object
+        if isinstance(string,str):
+            self.con_str=string
+            self.mo=FP.parse.match(string)
+        else:
+            # No mechanism exists for detecting a regular expression match object.
+            # We must assume the 'string' argument when not a string is a match
+            # object.  The assumption is also made that the match object matched
+            # the pattern defined above in the String_Pattern module
+            self.mo=string
+            self.con_str=string.string
+
         if self.mo is not None:
             if __debug__:
                 if debug:
@@ -1328,9 +1358,10 @@ class FP(object):
             self.mod=mod=self.mo.groupdict()
 
         if self.mo is None or ( self.mod["int"] is None and self.mod["frac"] is None ):
-            # match did not occur, so try for a special value
+            # match did not occur or match does not contain a required component
             try:
-                self.is_special=self.__class__.Special.hexadecimal(string,self.length)
+                self.is_special=self.__class__.Special.hexadecimal(\
+                    self.con_str,self.length)
             except KeyError:
                 raise FPError(\
                     msg="unrecognized floating point constant: %s" % self.con_str)\
@@ -1650,7 +1681,7 @@ class Test(object):
         elif self.special:
             s="%s%s" % (indent,FP.bytes2str(self.blist,space=False))
         else:
-            s="%s%s" % (indent,self.dpd)
+            s="%s%s  %s" % (indent,FP.bytes2str(self.blist,space=False),self.dpd)
         if string:
             return s
         print(s)
@@ -1780,6 +1811,14 @@ if __name__ == "__main__":
 
     # Perform the requested tests
     class TestRun(object):
+        prompt_intro="\n"\
+            "Welcome to the floating point test tool: %s\n"\
+            "At the %sprompt enter a floating point string followed by an\n"\
+            "optional interchange format length.  The length must be 4, 8, or\n"\
+            "16.  If a length is not entered, the default, %s, set by the command\n"\
+             "line -l or --length argument, is used."\
+            "\n\nTo terminate, enter either 'end' or 'quit' (without quotation "\
+            "marks) or Cntrl-C."
         def __init__(self,args):
             typ=args.t
             self.test_cls=None # Test class used by the requested -t option.
@@ -1804,14 +1843,16 @@ if __name__ == "__main__":
             return "-%s" % value
 
         def query(self):
-            print("\n"
-                "Welcome to the floating point test tool: %s\n"
-                "At the %sprompt enter a floating point string followed by an\n"
-                "optional interchange format length.  The length must be 4, 8, or\n"
-                "16.  If a length is not entered, the default, %s, set by the command\n"\
-                "line -l or --length argument, is used."\
-                "\n\nTo terminate, enter either 'end' or 'quit' (without quotation "
-                "marks) or Cntrl-C." % (self.prompt,self.prompt,self.length))
+            if not self.args.quiet:
+                print(TestRun % (self.prompt,self.prompt,self.length))
+            #print("\n"
+            #    "Welcome to the floating point test tool: %s\n"
+            #    "At the %sprompt enter a floating point string followed by an\n"
+            #    "optional interchange format length.  The length must be 4, 8, or\n"
+            #    "16.  If a length is not entered, the default, %s, set by the command\n"\
+            #    "line -l or --length argument, is used."\
+            #    "\n\nTo terminate, enter either 'end' or 'quit' (without quotation "
+            #    "marks) or Cntrl-C." % (self.prompt,self.prompt,self.length))
             while True:
                 string=input(self.prompt)
                 if not string.isprintable():
