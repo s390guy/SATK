@@ -1684,11 +1684,14 @@ class ASMProcessor(object):
 #     A  asmdcds.DC_A  asmdcds.AD
 #     B  asmdcds.DC_B
 #     C  asmdcds.DC_C  asmdcds.CA  asmdcds.CE
-#     D  asmdcds.DC_D
+#     D  asmdcds.DC_D  asmdcds.DC_DD
+#     E  asmdcds.DC_ED
 #     F  asmdcds.DC_F
 #     H  asmdcds.DC_H
 #     I  asmstmts.MachineStmt.Pass1()
 #     J  assembler.Assembler._csect_new()
+#     K  asmdcds.DC_DD  asmdcds.DC_ED  asmdcds.DC_LD
+#     L  asmdcds.DC_LD
 #     N  macsyms.A_Val.__init__()
 #        macsyms.B_Val.__init__()
 #        macopnd.PSymRefCAttr_T.value()

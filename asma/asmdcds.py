@@ -26,9 +26,10 @@ import pratt3     # Access for some object type checks
 import fsmparser  # Access Finite-State machine parser technology
 
 # ASMA imports:
-import assembler
+import assembler  # Access assembler classes
 import asmbase    # Access assembler base classes
 import asmtokens  # Access lexical token types
+import fp         # Access the floating point tools
 import lnkbase    # Access address objects
 
 # Defined lexical analyzer token types
@@ -36,6 +37,8 @@ AOPER=asmtokens.AOperType()
 COMMA=asmtokens.CommaType()
 DCBIN=asmtokens.DCDS_Bin_Type()
 DCDPT=asmtokens.DCDS_Dec_Type()
+DCFLOAT=asmtokens.DCDS_Float_Type()
+DCFLSPL=asmtokens.DCDS_Float_Special_Type()
 DCHEX=asmtokens.DCDS_Hex_Type()
 DCLEN=asmtokens.DCDS_Length_Type()
 DCNUM=asmtokens.DCDS_Number_Type()
@@ -132,10 +135,11 @@ class DCDS_Constant(object):
 
 class DCDS_Parser(asmbase.AsmCtxParser):
     def __init__(self,dm,pm):
-        #super().__init__(dm,pm,"cslex",scope=DCDS_Scope,\
         super().__init__(dm,pm,"cslex",scope=None,\
             context="dup",init="dup",trace=False)
         # Note: "cslex" is used by both the START_Parser and the DCDS_Parser
+        # See the parsers.py module for its definition.  Set trace=True to cause
+        # parser to trace the finite machine actions.
 
         # Dictionary of supported constant types
         self.types={}
@@ -193,9 +197,12 @@ class DCDS_Parser(asmbase.AsmCtxParser):
         CA=c("CA",DC_CA,("lengthq","lqb"),("nomq","quote"),("chrvals","dcchr1"))
         CE=c("CE",DC_CE,("lengthq","lqb"),("nomq","quote"),("chrvals","dcchr1"))
         D= c("D", DC_D, ("lengthq","lqb"),("nomq","quote"),("numvals","dcnum"))
+        DD=c("DD",DC_DD,("lengthq","lqb"),("nomq","quote"),("fltvals","dcflt"))
+        ED=c("ED",DC_ED,("lengthq","lqb"),("nomq","quote"),("fltvals","dcflt"))
         F= c("F", DC_F, ("lengthq","lqb"),("nomq","quote"),("numvals","dcnum"))
         FD=c("FD",DC_FD,("lengthq","lqb"),("nomq","quote"),("numvals","dcnum"))
         H= c("H", DC_H, ("lengthq","lqb"),("nomq","quote"),("numvals","dcnum"))
+        LD=c("LD",DC_LD,("lengthq","lqb"),("nomq","quote"),("fltvals","dcflt"))
         P= c("P", DC_P, ("lengthq","lqb"),("nomq","quote"),("dpvals", "dcdpt"))
         S= c("S", DC_S, ("lengthp","lpb"),("nomp","lpren"),("adrvals","addr"))
         SY=c("SY",DC_SY,("lengthp","lpb"),("nomp","lpren"),("adrvals","addr"))
@@ -209,15 +216,46 @@ class DCDS_Parser(asmbase.AsmCtxParser):
         self.__constant(CA)
         self.__constant(CE)
         self.__constant(D)
+        self.__constant(DD)
+        self.__constant(ED)
         self.__constant(F)
         self.__constant(FD)
         self.__constant(H)
+        self.__constant(LD)
         self.__constant(P)
         self.__constant(S)
         self.__constant(SY)
         self.__constant(X)
         self.__constant(Y)
         self.__constant(Z)
+
+    # Check a DCFLOAT lexical token for recognition of a valid finite floating
+    # point number.
+    # Method Arguments:
+    #   gs    the current parser blobal state
+    #   ltok  The lexical token (tid='DCFLOAT') being examined.
+    # Returns:
+    #   None if the lexical token contains a valid finite floating point number
+    # Exception:
+    #   assembler.AsmParserError  terminates the operand parsing process for the
+    #   statement by raisnng the exception.
+    # Note: This check is required because the regular expression used by the
+    # DCFLOAT lexical token generates a match object with all unmatched groups set
+    # to None.  DCFLOAT will match invalid strings as well as valid strings.
+    def ck_DCFLOAT(self,gs,ltok):
+        assert isinstance(ltok,asmtokens.DCDS_Float_Token),\
+            "%s 'ltok' argument must be an instance of DCFLOAT: %s" \
+                % (assembler.eloc(self,"ck_DCFLOAT",module=this_module),ltok)
+
+        mo=ltok.mo
+        grps=mo.groupdict()
+        if grps["int"]==None and grps["frac"]==None:
+            nom=len(gs.operand.values)+1
+            opnd=len(gs.operands)+1
+            raise assembler.AsmParserError(ltok,msg="operand %s invalid floating "\
+                "point number in nominal value %s: %s"\
+                % (opnd,nom,mo.string[mo.pos:min(mo.endpos,mo.pos+10)]))
+        return
 
     # Initialize the lexical contexts used by the parser.
     def init_context(self):
@@ -231,6 +269,7 @@ class DCDS_Parser(asmbase.AsmCtxParser):
         self.ctx("dcchr2", lexctx="dcchr2",  ccls=asmbase.AsmFSMScope)
         self.ctx("dcdpt",  lexctx="dcdpt",   ccls=asmbase.AsmFSMScope)
         self.ctx("dchex",  lexctx="dchex",   ccls=asmbase.AsmFSMScope)
+        self.ctx("dcflt",  lexctx="dcflt",   ccls=asmbase.AsmFSMScope)
         self.ctx("type",   lexctx="dctypes", ccls=asmbase.AsmFSMScope)
         self.ctx("lpb",    lexctx="lenpbeg", ccls=asmbase.AsmFSMScope)
         self.ctx("lqb",    lexctx="lenqbeg", ccls=asmbase.AsmFSMScope)
@@ -368,6 +407,21 @@ class DCDS_Parser(asmbase.AsmCtxParser):
         chrvals2.error(self.ACT_Expected_More_String)
         self.state(chrvals2)
 
+        # Types DD, ED, LD - Floating point values
+        fltvals=fsmparser.PState("fltvals")
+        fltvals.action([DCFLOAT,],self.ACT_Floating_Point_Value)
+        fltvals.action([DCFLSPL,],self.ACT_Floating_Point_Special)
+        fltvals.error(self.ACT_Expected_FloatingPt_Value)
+        self.state(fltvals)
+
+        # Types DD, ED, LD - 
+        # Recognizes whether another floating point nominal or operand is done
+        fltnext=fsmparser.PState("fltnext")
+        fltnext.action([DCQUOTE,],self.ACT_Operand_Done)      # changes context
+        fltnext.action([COMMA,],self.ACT_FloatingPt_Another)
+        fltnext.error(self.ACT_Expected_More_Values)
+        self.state(fltnext)
+
         # Types P,Z - Recognizes decimal pointed nominal values
         dpvals=fsmparser.PState("dpvals")
         dpvals.action([DCDPT,],self.ACT_DecimalPt_Value)
@@ -376,7 +430,7 @@ class DCDS_Parser(asmbase.AsmCtxParser):
 
         # Types P,Z - Recognizes whether another nominal value or the operand is done
         dpnext=fsmparser.PState("dpnext")
-        dpnext.action([DCQUOTE,],self.ACT_Operand_Done)      # changes conext
+        dpnext.action([DCQUOTE,],self.ACT_Operand_Done)      # changes context
         dpnext.action([COMMA,],self.ACT_DecimalPt_Another)
         dpnext.error(self.ACT_Expected_More_Values)
         self.state(dpnext)
@@ -446,7 +500,6 @@ class DCDS_Parser(asmbase.AsmCtxParser):
         if gs.stmt_inst=="DS":
             return self.ACT_Operand_Done(value,state,trace=trace)
         self.ACT_Expected_Address_Values(value,state,trace=trace)
-
 
     # Right-Hand expression operand found
     def ACT_Addr_RHand(self,value,state,trace=False):
@@ -591,6 +644,9 @@ class DCDS_Parser(asmbase.AsmCtxParser):
     def ACT_Expected_Fixed_Point_Value(self,value,state,trace=False):
         self.ACT_Expected("fixed point nominal value",value)
 
+    def ACT_Expected_FloatingPt_Value(self,value,state,trace=False):
+        self.ACT_Expected("floating point nominal value",value)
+
     def ACT_Expected_Hexadecimal_Value(self,value,state,trace=False):
         self.ACT_Expected("hexadecimal nominal value",value)
 
@@ -636,6 +692,21 @@ class DCDS_Parser(asmbase.AsmCtxParser):
         gs=self.scope()
         gs.operand.nominal(value)
         return "numnext"
+
+    def ACT_FloatingPt_Another(self,value,state,trace=False):
+        return "fltvals"
+
+    def ACT_Floating_Point_Special(self,value,state,trace=False):
+        gs=self.scope()
+        #self.ck_DCFLOAT(gs,value)
+        gs.operand.nominal(value)
+        return "fltnext"
+
+    def ACT_Floating_Point_Value(self,value,state,trace=False):
+        gs=self.scope()
+        self.ck_DCFLOAT(gs,value)
+        gs.operand.nominal(value)
+        return "fltnext"
 
     def ACT_Hexadecimal_Another(self,value,state,trace=False):
         return "hexvals"
@@ -947,6 +1018,13 @@ class DCDS_Operand(asmbase.AsmFSMScope):
                 raise assembler.AssemblerError(line=stmt.lineno,\
                     msg="operand %s length modifier exceeds allowed maximum of "
                     "%s: %s" % (self.opnum,max_len,self.act_len))
+            
+            # Perform nominal value explicit length check.  Because the length
+            # applies to all nominal values, the first value is used to perform
+            # the check.  An AssemblerError is raised if the check fails
+            self.values[0].ck_length(exp_len,self.opnum)
+
+            # Explicit length is value.
             self.act_algn=0
             self.T=self.nomcls.utyp
         else:
@@ -1116,6 +1194,20 @@ class Nominal(object):
             % (assembler.eloc(self,"build",module=this_module),\
                 self.__class__.__name__))
 
+    # This methd allows nominal specific checks for explicit lengths.  Most cases
+    # the maximum length check using the class attribute max_len is sufficient.
+    # Nominal values requiring additional checks must override this method.
+    #
+    # Method Arguments:
+    #   act_len  The calculated explicit length
+    #   n        The operand number of the nominal value.
+    # Returns:
+    #   None when nominal value length check succeeds
+    # Exception:
+    #   AssemblerError if nominal value length check fails.
+    def ck_length(self,act_len,n):
+        pass
+
     # This method returns an instance of the Nominal subclass suitable for generating 
     # binary data.  All subclasses share this method.
     def clone(self):
@@ -1265,6 +1357,51 @@ class DecimalPointed(Nominal):
         #    % (assembler.eloc(self,"Pass1",module=this_module),self.T,self.S,self.I))
 
 
+class Float(Nominal):
+    def __init__(self,ltok,dcls):
+        if __debug__:
+            if ltok.tid not in ["DCFLOAT","DCFLSPL"]:
+                raise ValueError("%s unexpected lexical token: %s"\
+                    % (assembler.eloc(self,"__init__",module=this_module),ltok))
+        length,align=self.__class__.attr
+        super().__init__(ltok,length=length,alignment=align,signed=False)
+        self.ivalue=None    # See build() method
+        self.dcls=dcls      # The nominal value builder class
+
+    def build(self,stmt,asm,n,debug=False,trace=False):
+        # This method may raise an fp.FPError that must be caught by the caller
+        if self.ltok.tid=="DCFLOAT":
+            self.ivalue=self.dcls(self.ltok.mo,self._length,debug=trace)
+        else:  # Assume it is a special value token
+            self.ivalue=self.dcls(None,self._length,special=self.ltok.string,\
+                debug=trace)
+            
+        #if self.ivalue.has_overflow():
+        #    ae=assembler.AssemblerError(line=stmt.lineno,\
+        #        msg="nominal value %s - overflow to infinity" % n+1,info=True)
+        #    asm._ae_excp(ae,stmt,string="asmdcds.Float.build()",debug=debug)
+        #elif self.ivalue.has_underflow():
+        #    ae=assembler.AssemblerError(line=stmt.lineno,\
+        #        msg="nominal value %s - underflow to zero" % n+1,info=True)
+        #    asm._ae_excp(ae,stmt,string="acmdcds.Float.build()",debug=debug)
+
+        self.content.barray=bytearray(self._length)
+        data=self.ivalue.build()
+
+        # Report any overflow or underflow
+        if self.ivalue.has_overflow():
+            msg="WARNING: nominal value %s - overflow to infinity" % int(n+1)
+            ae=assembler.AssemblerError(line=stmt.lineno,msg=msg,info=True)
+            asm._ae_excp(ae,stmt,string="asmdcds.Float.build()",debug=debug)
+        elif self.ivalue.has_underflow():
+            msg="WARNING: nominal value %s - underflow to zero" % int(n+1)
+            ae=assembler.AssemblerError(line=stmt.lineno,msg=msg,info=True)
+            asm._ae_excp(ae,stmt,string="acmdcds.Float.build()",debug=debug)
+
+        self.content.update(data,full=True,finalize=True,trace=trace)
+        self.cur_loc(asm)
+
+
 class SConstant(Nominal):
     def __init__(self,addrexpr,size):
         assert isinstance(addrexpr,pratt3.PExpr),\
@@ -1409,6 +1546,36 @@ class DC_D(TwosCompBin):
         super().__init__(ltok)
 
 
+class DC_DD(Float):
+    attr=(8,8)       # implied length, alignment
+    max_len=8        # maximum explicit length
+    atyp="D"
+    utyp="K"
+    def __init__(self,ltok):
+        super().__init__(ltok,DFP)
+
+    def ck_length(self,exp_len,n):
+        if exp_len not in [4,8]:
+            raise assembler.AssemblerError(line=stmt.lineno,\
+                msg="operand %s explicit length invalid, must be 4, or 8: %s" \
+                    % (n+1,exp_len))
+
+
+class DC_ED(Float):
+    attr=(4,4)       # implied length, alignment
+    max_len=8        # maximum explicit length
+    atyp="E"
+    utyp="K"
+    def __init__(self,ltok):
+        super().__init__(ltok,DFP)
+
+    def ck_length(self,exp_len,n):
+        if exp_len not in [4,8]:
+            raise assembler.AssemblerError(line=stmt.lineno,\
+                msg="operand %s explicit length invalid, must be 4, or 8: %s" \
+                    % (n+1,exp_len))
+
+
 class DC_F(TwosCompBin):
     attr=(4,4)       # implied length, alignment
     max_len=8        # maximum explicit length
@@ -1434,6 +1601,21 @@ class DC_H(TwosCompBin):
     utyp="U"
     def __init__(self,ltok):
         super().__init__(ltok)
+
+
+class DC_LD(Float):
+    attr=(16,16)     # implied length, alignment
+    max_len=16       # maximum explicit length
+    atyp="L"
+    utyp="K"
+    def __init__(self,ltok):
+        super().__init__(ltok,DFP)
+
+    def ck_length(self,exp_len,n):
+        if exp_len not in [4,8,16]:
+            raise assembler.AssemblerError(line=stmt.lineno,\
+                msg="operand %s explicit length invalid, must be 4, 8, or 16: %s" \
+                    % (n+1,exp_len))
 
 
 class DC_P(DecimalPointed):
@@ -1714,6 +1896,34 @@ class FixedPoint(object):
     # Returns assembled bytes conforming the external interface
     def build(self,length,trace=False):
         return self.__build(length,signed=self.sign!="U",trace=trace)
+
+
+# This object provides generic support for floating point constants.  Each
+# subclass tailors the actions for each type of floating point constant.
+class FloatingPoint(object):
+    def __init__(self,mo,length,debug=False):
+        self.mo=mo           # Lexical token match object
+        self.length=length   # Length of the floating point constant in bytes
+        self.debug=debug     # Remember whether we are debugging or not
+        self.fp=None         # The fp.FP subclass associated with the FP datum
+
+    def build(self,trace=False):
+        return self.fp.to_bytes()
+
+    def has_overflow(self):
+        return self.fp.has_overflow()
+
+    def has_underflow(self):
+        return self.fp.has_underflow()
+
+
+class DFP(FloatingPoint):
+    def __init__(self,mo,length,special=None,debug=False):
+        super().__init__(mo,length)
+        if special:
+            self.fp=fp.DFP(None,length=self.length,special=special,debug=debug)
+        else:
+            self.fp=fp.DFP(self.mo,length=self.length,debug=debug)
 
 
 # This object builds S-type constants.  It is very similar to ADCON.

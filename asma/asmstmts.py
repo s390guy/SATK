@@ -26,7 +26,8 @@ this_module="asmstmts.py"
 
 # Python imports:
 import re             # Access regular expression module
-# SATK imports: None
+# SATK imports:
+import fp             # Access the FPError exception
 # ASMA imports:
 import assembler
 import asmbase
@@ -345,9 +346,16 @@ class ASMStmt(object):
     # Add an AssemblerError to this statement.  Macro errors may be added even after
     # the macro statement has been successfully invoked.
     def ae_error(self,ae):
-        self.aes.append(ae)        # Add the AssemblerError to my error list
-        self.error=True            # Indicate this statement is now in error
-        self.ignore=True           # Make sure it is further ignored.
+        if ae.info and not ae.nostmt:
+            # Treat the AssemblerError object as an optional warning message
+            self.aes.append(ae)  # Add the AssemblerError object to my error list
+            return
+
+        # Treat AssemblerError object as an error
+        self.error=True        # Indicate this statement is now in error
+        self.ignore=True       # Make sure it is further ignored.
+        self.aes.append(ae)    # Add the AssemblerError to my error list
+
 
     # Inspect the logical operands for the presence of literals.
     # Method Argument:
@@ -2581,7 +2589,7 @@ class DC(ASMStmt):
         except assembler.AsmParserError as ape:
             lpos=self.opnd_fld.ndx2loc(ape.token.linepos)
             raise assembler.AssemblerError(source=self.source,line=self.lineno,\
-                linepos=lpos.pndx,msg=ape.msg) from None
+                linepos=lpos.pndx+1,msg=ape.msg) from None
 
         operands=self.dcds_opnds=self.gscope.operands
 
@@ -2591,7 +2599,6 @@ class DC(ASMStmt):
             oprnd.Pass0(self,pm,n+1,dc,update=self.opnd_fld)
 
     def Pass1(self,asm,debug=False,trace=False):
-     # Pass 1  A Begins
         # This method is shared with the DS subclass
         edebug=otrace=False
         if __debug__:
@@ -2628,72 +2635,7 @@ class DC(ASMStmt):
             if otrace:
                 for item in values:
                     print("%s - %r" % (item,item))
-                    
-     # Pass 1 B Begins
 
-        #area=assembler.Area()
-        #cur_sec=asm.cur_sec
-
-        # Assemble each nominal value or storage allocation.
-        #for value in values:
-            # value is either a asmfsmcs.DCDS_Operand or asmdcds.Nominal object.
-        #    if __debug__:
-        #        if otrace:
-        #            print("%s operand: %s" % (cls_str,value))
-
-            # Note: both asmfsmcs.DCDS_Operand and asmdcds.Nominal support the
-            # align() and length() methods so that they can both be the basis
-            # of binary object.
-        #    if isinstance(value,asmdcds.DCDS_Operand):
-        #        bin=assembler.Binary(value.align(),0)
-        #    else:
-        #        bin=assembler.Binary(value.align(),value.length())
-        #    cur_sec.assign(bin)
-
-        #    if __debug__:
-        #        if otrace:
-        #            print("%s cur_sec %s _alloc=%s" \
-        #                % (cls_str,cur_sec,cur_sec._alloc))
-
-        #    area.append(bin)
-        #    value.content=bin
-            #if __debug__:
-            #    if isinstance(value,asmdcds.Nominal):
-            #        assert isinstance(value.content.barray,bytearray),\
-            #            "%s [%s] value does not contain bytearray: %s" \
-            #                % (assembler.eloc(self,"Pass1",module=this_module),\
-            #                    self.lineno,value.content.barray)
-
-        #    if __debug__:
-        #        if otrace:
-        #            print("%s value.content: %s" % (cls_str,value.content))
-
-        #area.fini(trace=otrace)
-        # Note the binary images in the area object are also linked to the Section
-        # object via its elements list.
-
-        # Update location counter alignment (Note pass processing updates for the
-        # length
-        #asm.cur_loc.establish(area.loc)
-
-        #if __debug__:
-        #    if otrace:
-        #        print("%s [%s] area: %s" % (cls_str,self.lineno,area))
-        #        print("%s [%s] current location counter: %s" % \
-        #            (cls_str,self.lineno,asm.cur_loc.location))
-
-        #self.content=area
-
-        # Define the statement's label, if present, using the length and location
-        # of the initial nominal value. (In this case the location of the initial
-        # nominal value is the same as the location of the Area object.)
-        #first=values[0]
-        #if __debug__:
-        #    if otrace:
-        #        print("%s first operand (%s): T:%s S:%s I:%s" \
-        #            % (assembler.eloc(self,"Pass1",module=this_module),\
-        #                first.__class__.__name__,first.T,first.S,first.I))
-                
         first=self.buildArea(asm,values,debug=otrace)
 
         self.label_create(asm,length=first.length(),T=first.T,S=first.S,I=first.I)
@@ -2707,16 +2649,18 @@ class DC(ASMStmt):
             cls_str=assembler.eloc(self,"Pass2",module=this_module)
 
         for n,value in enumerate(self.values):
-            #assert isinstance(value.content.barray,bytearray),\
-            #    "%s [%s] nominal value %s: %s does not have bytearray" \
-            #        % (assembler.eloc(self,"Pass2",module=this_module),\
-            #            self.lineno,n,value.content.barray)
             if __debug__:
                 if etrace:
                     print("%s [%s] %s" % (cls_str,self.lineno,value))
 
             # Build and store image content in Binary
-            value.build(self,asm,n,debug=edebug,trace=etrace)
+            try:
+                value.build(self,asm,n,debug=edebug,trace=etrace)
+            except fp.FPError as fe:
+                # Floating point tools may raise a FPError.  
+                # Convert it into an AssemblerError.
+                raise assembler.AssemblerError(line=self.lineno,\
+                    msg="nominal value %s %s" % (n+1,fe.msg)) from None
 
         if __debug__:
             if trace:

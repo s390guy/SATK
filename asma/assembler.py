@@ -460,7 +460,7 @@ import hexdump       # Useful ad hoc dumping of binary data
 
 # These definitions provide consistency between different modules definitions
 # Note: These module attributes must be defined before other imported ASMA modules 
-# access them when imported below. These should move to asmfsmbp.py module
+# access them when imported below.
 char="\$@_"                         # Special characters used in names
 multiline="(?m)"                    # Turns on multiline for start/end match
 cmt="\*|\.\*"                       # An asterisk or a period followed by an asterisk
@@ -514,7 +514,8 @@ class AsmParserError(Exception):
         string=""
         if len(self.msg)>0:
             string="%s: " % self.msg
-        string="%s%s" % (string,self.token)
+        if token is not None:
+            string="%s%s" % (string,self.token)
         super().__init__(string)
 
 #
@@ -536,7 +537,9 @@ class AssemblerError(Exception):
         if item.line is None:
             return 0
         return item.line
-    def __init__(self,source=None,line=None,linepos=None,msg="",info=False):
+
+    def __init__(self,source=None,line=None,linepos=None,msg="",info=False,\
+                 nostmt=False):
         assert line is None or isinstance(line,int),\
             "%s 'line' argument must be None or integer:\n    line: %s\n    msg='%s'"\
                 % (eloc(self,"__init__"),line,msg)
@@ -548,6 +551,8 @@ class AssemblerError(Exception):
         self.source=source   # source statement source information generating the error
         self.line=line       # Global statement number of Line where the error occurred
         self.info=info       # If True, not an error, an informational message
+        # If True, error not reported with statment only in the summary
+        self.nostmt=nostmt
 
         # This results in the following location strings
         # [line] @[line:pos]-fileno  source is present
@@ -995,10 +1000,8 @@ class Assembler(object):
 
     # Performs generic AssemblerError exception handling
     def _ae_excp(self,ae,stmt,string="",debug=False):
-        if (not ae.info) and stmt is not None:
-            stmt.ignore=True
-            stmt.error=True
-            stmt.aes.append(ae)
+        if stmt is not None:
+            stmt.ae_error(ae)
         self.img._error(ae)
 
         if __debug__:

@@ -31,6 +31,7 @@ import pratt3               # Access the generalized operator precedence evaluat
 
 # ASMA imports:
 import assembler            # Access the assembler module
+import fp                   # Access the floating point string recognition pattern
 import macsyms              # Access SymbolID object
 import lnkbase              # Access address objects
 
@@ -1096,6 +1097,30 @@ class DCDS_Dec_Type(lexer.Type):
         super().__init__("DCDPT",pattern,tcls=DCDS_Dec_Token,mo=True,debug=debug)
 
 
+# DC,DS - E, EB, ED, EH, D, DB, DD, DH, L, LB, LD, LH - floating point nominal recog.
+class DCDS_Float_Token(LexicalToken):
+    def __init__(self):
+        super().__init__()
+
+# Recognizes a floating point finite number
+class DCDS_Float_Type(lexer.Type):
+    def __init__(self,debug=False):
+        pattern=fp.String_Pattern(eos=False)
+        super().__init__("DCFLOAT",pattern,tcls=DCDS_Float_Token,mo=True,debug=debug)
+
+
+class DCDS_Float_Special_Token(LexicalToken):
+    def __init__(self):
+        super().__init__()
+
+# Recognizes a floating point special value
+class DCDS_Float_Special_Type(lexer.Type):
+    def __init__(self,debug=False):
+        pattern="[+-]?\(([Ii][Nn][Ff]|[QqSs]?[Nn][Aa][Nn]|[Mm][Aa][Xx]"\
+                 "|[Dd]?[Mm][Ii][Nn])\)"
+        super().__init__("DCFLSPL",pattern,tcls=DCDS_Float_Special_Token,debug=debug)
+
+
 # DC,DS - X - Hex nominal value recognizer
 class DCDS_Hex_Token(LexicalToken):
     def __init__(self):
@@ -1174,8 +1199,10 @@ class DCDS_Type_Token(LexicalToken):
 
 class DCDS_Types_Type(lexer.Type):
     def __init__(self,debug=False):
-        pattern="[Aa][Dd]?|[Bb]|[Cc][AaEe]?|[Dd]|[Ff][Dd]?|[Hh]|[Pp]"
+        # Note D needs to migrate to floating point
+        pattern="[Aa][Dd]?|[Bb]|[Cc][AaEe]?|[Dd][Dd]?|[Ff][Dd]?|[Hh]|[Pp]"
         pattern="%s|%s" % (pattern,"[Ss][Yy]?|[Xx]|[Yy]|[Zz]")
+        pattern="%s|%s" % (pattern,"[EeLl][Dd]|")
         super().__init__("DCTYPE",pattern,tcls=DCDS_Type_Token,debug=debug)
 
 

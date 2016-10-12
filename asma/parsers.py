@@ -41,6 +41,8 @@ AOPER=asmtokens.AOperType()
 COMMA=asmtokens.CommaType()
 DCBIN=asmtokens.DCDS_Bin_Type()
 DCDPT=asmtokens.DCDS_Dec_Type()
+DCFLOAT=asmtokens.DCDS_Float_Type()
+DCFLSPL=asmtokens.DCDS_Float_Special_Type()
 DCHEX=asmtokens.DCDS_Hex_Type()
 DCLEN=asmtokens.DCDS_Length_Type()
 DCNUM=asmtokens.DCDS_Number_Type()
@@ -97,6 +99,7 @@ class CSLA(lexer.CSLA):
         self.init_dc_types()
         self.init_dup_beg()
         self.init_hex_value()
+        self.init_float_value()
         self.init_len_beg()
         self.init_lenp_beg()
         self.init_lenq_beg()
@@ -176,6 +179,17 @@ class CSLA(lexer.CSLA):
         c="dupbeg"
         self.ctx(c,debug=ldebug)
         types=[SDDEC,LPAREN,DCTYPE]
+        self.type(c,types,debug=tdebug)
+
+    # DC/DS Floationg Point Value
+    def init_float_value(self,ldebug=False,tdebug=False):
+        c="dcflt"
+        self.ctx(c,debug=ldebug)
+        types=[DCQUOTE,COMMA,DCFLSPL,DCFLOAT]
+        # Note: the regular expression pattern used to recognize a floating point
+        # finite number (token id DCFLOAT) will result in a match object with 
+        # all groups set to None if no match occurs.  For this reason, all other
+        # types of the context must precede the DCFLOAT type.
         self.type(c,types,debug=tdebug)
 
     # DC/DS Hexadecimal Value
@@ -991,7 +1005,7 @@ class ParserMgr(object):
         except assembler.AsmParserError as ape:
             lpos=stmt.opnd_fld.ndx2loc(ape.token.linepos)
             raise assembler.AssemblerError(source=stmt.source,line=stmt.lineno,\
-                linepos=lpos.pndx,msg=ape.msg) from None
+                linepos=lpos.pndx+1,msg=ape.msg) from None
 
 
     # Parses a string for a self-defining term.  Used when treating a macro

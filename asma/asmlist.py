@@ -687,11 +687,11 @@ class AsmListing(Listing):
             details.append(detail)
 
         # Add error(s) following the line in error
-        if stmt.error:
-            for ae in stmt.aes:
-                spaces=" " * self.addrlen
-                error_line="%s  ** %s" % (spaces,ae)
-                details.append(error_line)
+        #if stmt.error:
+        for ae in stmt.aes:
+            spaces=" " * self.addrlen
+            error_line="%s  ** %s" % (spaces,ae)
+            details.append(error_line)
 
         return details
 
