@@ -1604,7 +1604,7 @@ class DC_H(TwosCompBin):
 
 
 class DC_LD(Float):
-    attr=(16,16)     # implied length, alignment
+    attr=(16,8)      # implied length, alignment
     max_len=16       # maximum explicit length
     atyp="L"
     utyp="K"
