@@ -188,14 +188,25 @@ class TestError(Exception):
 # +-------------------------------------+
 #
 
-# Floating Point String recognition regular expression pattern:
-String_Pattern=\
-        "(?P<sign>[+-])?(?P<int>[0-9]+)?(?P<frac>\.[0-9]*)?"\
-        "(?P<exp>[eE][+-]?[0-9]+)?(?P<rmode>[rR][0-9]+)?\Z"
+# Floating Point String recognition regular expression pattern generator.
+# Function Argument:
+#   eos   Specify True to cause pattern to match to end of string.  Specify False
+#         to match all recognized groups.  Defaults to True.
+def String_Pattern(eos=True):
+        pattern="(?P<sign>[+-])?(?P<int>[0-9]+)?(?P<frac>\.[0-9]*)?"\
+                "(?P<exp>[eE][+-]?[0-9]+)?(?P<rmode>[rR][0-9]+)?%s"
+        if eos:
+            s="\Z"
+        else:
+            s=""
+        return pattern % s
 
 # Use the BFP function to create a binary floating point datum
+# Use the BFPS function to create a binary floating point special value
 # Use the DFP function to create a decimal floating point datum
+# Use the DFPS function to create a decimal floating point special value
 # Use the HFP function to create a hexadecimal floating point datum
+# Use the HFPS function to create a hexadecimal floating point special value
 #
 # Each function accepts a string defining the floating point datum being encoded.
 #
@@ -236,6 +247,8 @@ def BFP(string,length=8,rmode=None,mo=None,debug=False):
     return bfp_float.BFP(string,length=length,rmode=rmode,mo=mo,debug=debug)
 
 
+
+
 # Returns the decimal floating point subclass instantiated with the supplied
 # arguments:
 #   string    A parsable string defining the decimal floating point datum.  The 
@@ -252,8 +265,8 @@ def BFP(string,length=8,rmode=None,mo=None,debug=False):
 #             creation.
 #   debug     Specify True to enable debugging messages.  Defaults to False.
 
-def DFP(string,length=8,rmode=None,mo=None,debug=False):
-    return dfp.DFP(string,length=length,rmode=rmode,debug=debug)
+def DFP(string,length=8,rmode=None,mo=None,special=None,debug=False):
+    return dfp.DFP(string,length=length,rmode=rmode,special=special,debug=debug)
 
 
 # Returns the hexadecimal floating point subclass instantiated with the supplied
@@ -1231,8 +1244,14 @@ class FP_Special(object):
 #   rmode    The rounding mode to be used.  When rmode is specified the string
 #            argument may not contain the rounding mode.  Use the Python value
 #            for the appropriate underlying values.
+#   special  The special value of this datum.  If supplied, the string argument
+#            is ignored and this optional keyword argument is used to define the
+#            datum.  This argument is provided to facilitate floating point
+#            constant creation by the ASMA assembler.  Normally it is not needed.
+#   debug    Whether debugging messages are enabled.  Specify True to enamble the
+#            messages.  Specify False to disable them.  Defaults to False.
 class FP(object):
-    parse=re.compile(String_Pattern)   # Parse a floating point string
+    parse=re.compile(String_Pattern(eos=True))  # Parse a floating point string
     sign_str={"+":0,"-":1,"":0}        # Convert string sign to value
 
     Special=None   # FP_Special object for the subclass generating special values
@@ -1290,13 +1309,14 @@ class FP(object):
         raise NotImplementedError("class %s must provide from_bytes() class method"\
             % cls.__name__)
 
-    def __init__(self,string,length=8,rmode=None,debug=False):
+    def __init__(self,string,length=8,rmode=None,special=None,debug=False):
         if __debug__:
             if debug:
                 cls_str=eloc(self,"__init__")
-                print("%s string:%s length=%s rmode=%s debug=%s" \
-                    % (cls_str,string,length,rmode,debug))
-        assert string is not None,\
+                print("%s string:%s length=%s rmode=%s special=%s debug=%s" \
+                    % (cls_str,string,length,rmode,special,debug))
+        assert (string is not None and special is None) or \
+               (string is None and special is not None),\
             "%s 'string' argument must not be None" % eloc(self,"__init__")
 
         # Instantiating arguments:
@@ -1339,7 +1359,9 @@ class FP(object):
 
         # Use the regular expression module to parse the constant string or use
         # the externally supplied match object
-        if isinstance(string,str):
+        if special is not None:
+            self.con_str=special
+        elif isinstance(string,str):
             self.con_str=string
             self.mo=FP.parse.match(string)
         else:

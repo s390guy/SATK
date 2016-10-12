@@ -3128,9 +3128,7 @@ class DFP_Number(fp.FP_Number):
         if isinstance(rounding,int) and rounding >= 8 and rounding <= 15:
             self.rounding=rounding
             return
-        raise ValueError(\
-            "%s 'roudning' argument must be an integer between 8 and 15: %s" \
-                % (eloc(self,"_ck_rounding"),rounding))
+        raise fp.FPError(msg="rounding mode must be between 8 and 15: %s" % rounding)
 
     # Check the sign
     def _ck_sign(self,sign):
@@ -3397,7 +3395,7 @@ class DFP_Special(fp.FP_Special):
         self.define("(min)",  min)
         self.define("+(qnan)",qnan)
         self.define("+(snan)",snan)
-        self.define( "+(nan)",nan)
+        self.define("+(nan)", nan)
         self.define("+(inf)", inf)
         self.define("+(max)", max)
         self.define("+(min)", min)
@@ -3485,7 +3483,7 @@ class DFP(fp.FP):
     def from_bytes(cls,byts,byteorder="little",debug=False):
         return dpd.from_bytes(byts,byteorder=byteorder,debug=debug)
 
-    def __init__(self,string,length=8,rmode=None,luv=False,debug=False):
+    def __init__(self,string,length=8,rmode=None,luv=False,special=None,debug=False):
         # Whether integer view (False) or scientific view (True) in use
         self.luv=luv          # Whether integer view or integer view in use
         if luv:
@@ -3493,7 +3491,7 @@ class DFP(fp.FP):
         else:
             self.attr=DFP.attri[length]     # Get the integer view attributes
 
-        super().__init__(string,length=length,rmode=rmode,debug=debug)
+        super().__init__(string,length=length,rmode=rmode,special=special,debug=debug)
 
     def create(self):
         if self.exponent is None:
@@ -3513,10 +3511,14 @@ class DFP(fp.FP):
         return (fp.DFP_DEFAULT,fp.DFP_DEFAULT)
 
     def has_overflow(self):
-        return self.fpo.overflow
+        if self.is_special:
+            return False
+        return self.number.overflow
         
     def has_underflow(self):
-        return self.fpo.underflow
+        if self.is_special:
+            return False
+        return self.number.underflow
 
     def i_fmt(self,byteorder="big"):
         if self.is_special:
