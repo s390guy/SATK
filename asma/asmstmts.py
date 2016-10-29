@@ -4919,7 +4919,7 @@ class START(ASMStmt):
 class TITLE(ASMStmt):
     # Statement processing controls
     typ="SPP"      # Statement type identifier
-    lfld="Q"       # Valid label field content
+    lfld="LMSQ"    # Valid label field content
     ofld="L"       # Valid operation field content
     alt=False      # Whether the alternate statement format is allowed
     parser="mopnd" # Operand parser used by statement
