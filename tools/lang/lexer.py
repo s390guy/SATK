@@ -170,6 +170,9 @@ class Token(object):
         self.mo=None      # Match object that identified the token
         # All of the above attributes are established via the init() method.
         
+        # Token type mo state.  See Type.match() method
+        self.tmo=None     # Detect failure to set mo when token method needs it.
+        
         # This attribute is established by the _newline method()
         self.eolpos=None  # Position in the original string of the last eol
         
@@ -194,6 +197,7 @@ class Token(object):
         if self.info is not None:
             string="%s,info=%s" % (string,self.info)
         string="%s)" % string
+        string="%s tmo:%s" % (string,self.tmo)
         if self.mo is not None:
             string="%s\n    mo groups=%s" % (string,self.groups())
             string="%s\n    mo dict=%s" % (string,self.dict())
@@ -237,6 +241,8 @@ class Token(object):
     # __init__() method.  The match object is not available until the Token.init()
     # method is called.
     def dict(self,default=None):
+        if self.tmo is False:
+            raise ValueError("%s Type does not return match object" % self.tid)
         if self.mo is None:
             raise LexerError(msg="%s.dict() - match object not available (yet?)" \
                 % self.__class__.__name__)
@@ -253,6 +259,8 @@ class Token(object):
     # __init__() method.  The match object is not available until the Token.init()
     # method is called.
     def groups(self,default=None):
+        if self.tmo is False:
+            raise ValueError("%s Type does not return match object" % self.tid)
         if self.mo is None:
             raise LexerError(msg="%s.groups() - match object not available (yet?)" \
                 % self.__class__.__name__)
@@ -398,9 +406,10 @@ class Type(object):
             print("lexer.py - %s.match() - Failed to create token object: %s\n"
                 "%s%s" % (self.__class__.__name__,self.tcls,ecls,e.args))
             raise e
+        tok.tmo=self.mo
 
         if self.debug:
-            print("created token: %s.()" % tok.__class__.__name__)
+            print("created token: %s()" % tok.__class__.__name__)
 
         relpos=pos-eolpos
         tok.init(self.tid,string,mo.start(),mo.end(),\
@@ -770,7 +779,7 @@ class Recognizer(object):
     #    fail    Specify True if a LexerError should be raised.  Defaults to an
     #            UnrecognizedToken object.
     # Exception:
-    #    LexerError if not match is found and fail is True
+    #    LexerError if no match is found and fail is True
     def recognize(self,string,pos=0,line=0,linepos=0,fail=False):
         for typ in self.typs:
             # Recognition of the EOS (end-of-string) condition occurs before entry
@@ -779,6 +788,7 @@ class Recognizer(object):
                 return typ.match(string,pos,line,linepos)
             except LexerError:
                 continue
+
         # None of the token types associated with this context matches the string
         if fail:
             raise LexerError(pos=pos,line=line,linepos=linepos)
@@ -951,7 +961,7 @@ class CSLA(object):
     #   debug   Specify True to only print token types for recognizers with debug set
     #           Defaults to printing all contexts
     def types(self,debug=False):
-        for rec in self.ctxs:
+        for rec in self.ctxs.values():
             if debug and not rec.debug:
                 continue
             rec.types()

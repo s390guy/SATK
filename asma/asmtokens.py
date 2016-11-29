@@ -64,6 +64,11 @@ xoruc="[Xx][Oo][Rr]"                # Mixed case "XOR"
 ATTR="DdIiKkLlMmNnOoSsT"            # Mixed case label and symbol attributes
 
 
+# Function for the removal of spaces in a string
+def remove_spaces(string):
+    return "".join(string.split())
+
+
 #
 #  +----------------------------------------+
 #  |                                        |
@@ -942,7 +947,8 @@ class AOperToken(LexicalToken):
                 "%s self.stmt must not be None for PLitCur creation" \
                     % assembler.eloc(self,"ptoken",module=this_module)
             return PLitCur(self,self.stmt)
-        # Add logic for Current location PToken
+
+        # Treat the lexical token as an arithmetic operation
         cls=AOperToken.ptokens[self.extract()]
         return cls(src=self)
 
@@ -1026,10 +1032,26 @@ class DblQuoteType(lexer.Type):
 class DCDS_Bin_Token(LexicalToken):
     def __init__(self):
         super().__init__()
+        self.digs=None     # Hexadecimal digits with spaces removed
+
+    def extract(self):
+        if len(self.digs)==0:
+            raise assembler.AsmParserError(self,\
+                msg="must contain at least one binary digit")
+        return self.digs
+
+    # Initialize the instance attributes even when subclassed.
+    # WARNING: This method does not return self as does __init__.  It returns None.
+    def init(self,tid,string,beg,end,line=0,linepos=0,eols=0,ignore=False,mo=None):
+        super().init(tid,string,beg,end,line=line,linepos=linepos,eols=eols,\
+            ignore=ignore,mo=mo)
+        
+        self.digs=remove_spaces(self.string)
+
 
 class DCDS_Bin_Type(lexer.Type):
     def __init__(self,debug=False):
-        pattern="[01]+"
+        pattern="[ 01]+"
         super().__init__("DCBIN",pattern,tcls=DCDS_Bin_Token,debug=debug)
 
 
@@ -1039,61 +1061,79 @@ class DCDS_Dec_Token(LexicalToken):
     def __init__(self):
         super().__init__()
         # Set by init() method
-        self.S=None         # S' attribute (digits to the right of the decimal point)
-        self.fraction=None  # Fractional part of the number as a string
-        self.integer=None   # Integer part of the number as a string
-        self.sign=None      # Sign as a string or None
-        #self.unsigned=None  # Whether the value is explicitly unsigned
-        self._sign=None     # Sign factor if implicitly or explicitly signed
-        self.digits=None    # Integer and fraction digits as a single string
-        
+        self.S=None        # S' attribute (digits to the right of the decimal point)
+        self.fraction=None     # Fractional part of the number as a string
+        self.integer=None      # Integer part of the number as a string
+        self.sgn=None          # Sign as a string with possible spaces or None
+        self.sgn_nospace=None  # Sign without any spaces
+
         # Set by convert() method
         self.value=None
 
-    def convert(self):
-        # Concatenate the integer and fractions for creation of the nominal value
-        # (which ignores the decimal point).
-        self.digits="%s%s" % (self.integer,self.fraction)
-
-        # Convert to a Python value
-        self.value=int(self.digits,10)*self._sign
-        return self.value
+    # During Pass 0 validates removed spaces from the digits
+    # Returns:
+    #   the valid digits as a string without spaces
+    # Exception:
+    #   assembler.AsmParserError if only spaces were present in the string
+    def digits(self):
+        digits="%s%s" % (self.integer,self.fraction)
+        if len(digits)==0:
+            raise assembler.AsmParserError(self,\
+                msg="must contain at least one decimal digit")
+        return digits
 
     def init(self,tid,string,beg,end,line=0,linepos=0,eols=0,ignore=False,mo=None):
-        # Let super classs initalize the lexical token
+        # Let super classs initalize the lexical token attributes
         super().init(tid,string,beg,end,line=line,linepos=linepos,eols=eols,\
                      ignore=ignore,mo=mo)
         groups=self.groups()
 
-        # Recognize the sign of the value
+        # Initialize the sign information
         sign=groups[0]
-        if sign:
-            self.sign=sign=sign.upper()
-        try:
-            self._sign=sign=DCDS_Dec_Token.signs[sign]
-        except KeyError:
-            raise ValueError(\
-                "%s unrecognized sign matched in re pattern: %s" \
-                    % (assembler.eloc(self,"convert",module=this_module),sign))
+        if sign is not None:
+            self.sgn_nospace=sgn=remove_spaces(sign)
+            if len(sgn)==0:
+                self.sgn=None
+            else:
+               self.sgn=sgn.upper()
 
         # Extract the integer part of the number
-        self.integer=groups[1]
-        
+        integer=groups[1]
+        if integer is not None:
+            self.integer=remove_spaces(groups[1])
+        else:
+            self.integer=""
+
         # Extract the fractional part of the number
         fraction=groups[2]   # Fractional part of value with decimal point
         if fraction is not None:
-            self.fraction=fraction[1:]     # drop off decimal point
+            self.fraction=remove_spaces(fraction[1:])     # drop off decimal point
         else:
             self.fraction=""       # No fractional part supplied
         self.S=len(self.fraction)  # Set the number's Scale attribute
-        
+
+        #print("%s token: %s" \
+        #    % (assembler.eloc(self,"init",module=this_module),self))
         # Decimal digits ignoring decimal point.
-        self.digits="%s%s" % (self.integer,self.fraction)
+        #self.digits="%s%s" % (self.integer,self.fraction)
+
+    # During Pass 0 validates the sign.
+    # Returns:
+    #   the single sign character as a string
+    # Exception:
+    #   assembler.AsmParserError if more than one sign or unsigned indicator
+    #   recognized.
+    def sign(self):
+        if self.sgn is not None and len(self.sgn)>1:
+             raise assembler.AsmParserError(self,\
+                 msg="must contain only one sign or unsigned indicator: %s"\
+                     % self.sgn_nospace)
+        return self.sgn
 
 
 class DCDS_Dec_Type(lexer.Type):
     def __init__(self,debug=False):
-        pattern=r'([Uu+-])?([0-9]+)(\.[0-9]*)?'
+        pattern=r'([ Uu+-]+)?([ 0-9]+)(\.[ 0-9]*)?'
         super().__init__("DCDPT",pattern,tcls=DCDS_Dec_Token,mo=True,debug=debug)
 
 
@@ -1102,10 +1142,85 @@ class DCDS_Float_Token(LexicalToken):
     def __init__(self):
         super().__init__()
 
+        # These attributes are assigned by the init() method and analyzed by the
+        # dct() method.
+        self.sgn=None          # Sign as a string without spaces or None
+        self.intgr=None        # Integer without spaces or None
+        self.frac=None         # Fraction without spaces or None
+        self.exp=None          # Exponent without spaces or None
+        self.rmode=None        # Rounding mode without spaces or None
+
+    # Returns a dictionary like a match object but with spaces removed
+    # Exception:
+    #   AsmParserError if too more than one non space character exists in the sign
+    def dct(self):
+        if self.sgn is not None and len(self.sgn)>1:
+             raise fp.FPError(self,msg="must contain only one sign: %s" % self.sgn)
+             
+        # Reconstruct the constant without any spaces
+        string=""
+        if self.sgn:
+            string="%s%s" % (string,self.sgn)
+        if self.intgr:
+            string="%s%s" % (string,self.intgr)
+        if self.frac:
+            string="%s%s" % (string,self.frac)
+        if self.exp:
+            string="%s%s" % (string,self.exp)
+        if self.rmode:
+            string="%s%s" % (string,self.rmode)
+
+        return {"sign":self.sgn,
+                "int": self.intgr,
+                "frac":self.frac,
+                "exp" :self.exp,
+                "rmode":self.rmode,
+                "string":string}
+
+    # Initialize the instance attributes even when subclassed.
+    # WARNING: This method does not return self as does __init__.  It returns None.
+    def init(self,tid,string,beg,end,line=0,linepos=0,eols=0,ignore=False,mo=None):
+        super().init(tid,string,beg,end,line=line,linepos=linepos,eols=eols,\
+            ignore=ignore,mo=mo)
+
+        groups=self.dict()
+        
+        # Initialize the sign information
+        sign=groups["sign"]
+        if sign is not None:
+            sgn=remove_spaces(sign)
+            if len(sgn)==0:
+                # This happens if the sign is all spaces
+                self.sgn=None
+            else:
+                self.sgn=sgn
+
+        # Initialize the integer information
+        integer=groups["int"]
+        if integer is not None:
+            intgr=remove_spaces(integer)
+            if len(intgr)==0:
+                # This happens if the sign is all spaces
+                self.intgr=None
+            else:
+                self.intgr=intgr
+
+        # Initialize the fraction, exponent and rounding mode information
+        frac=groups["frac"]
+        if frac:
+            self.frac=remove_spaces(frac)
+        exp=groups["exp"]
+        if exp:
+            self.exp=remove_spaces(exp)
+        rmode=groups["rmode"]
+        if rmode:
+            self.rmode=remove_spaces(rmode)
+        
+
 # Recognizes a floating point finite number
 class DCDS_Float_Type(lexer.Type):
     def __init__(self,debug=False):
-        pattern=fp.String_Pattern(eos=False)
+        pattern=fp.String_Pattern(spaces=True,eos=False)
         super().__init__("DCFLOAT",pattern,tcls=DCDS_Float_Token,mo=True,debug=debug)
 
 
@@ -1113,22 +1228,91 @@ class DCDS_Float_Special_Token(LexicalToken):
     def __init__(self):
         super().__init__()
 
+        # These attributes are assigned by the init() method and analyzed by the
+        # extract() method.
+        self.sgn=None          # Sign as a string or None
+        self.spec=None         # Special as a string with possible spaces or None
+
+    # Return the special value string expected by the assembler
+    def extract(self):
+        if self.sgn is not None and len(self.sgn)>1:
+             raise fp.FPError(msg="must contain only one sign: %s" % self.sgn)
+        if self.sgn is None:
+            return self.spec
+        return "%s%s" % (self.sgn,self.spec)
+
+    # Initialize the instance attributes even when subclassed.
+    # WARNING: This method does not return self as does __init__.  It returns None.
+    def init(self,tid,string,beg,end,line=0,linepos=0,eols=0,ignore=False,mo=None):
+        super().init(tid,string,beg,end,line=line,linepos=linepos,eols=eols,\
+            ignore=ignore,mo=mo)
+        groups=self.dict()
+        
+        # Initialize the sign information
+        sign=groups["sign"]
+        if sign is not None:
+            sgn=remove_spaces(sign)
+            if len(sgn)==0:
+                # This happens if the sign is all spaces
+                self.sgn=None
+            else:
+                self.sgn=sgn
+
+        # Initialize the special value information
+        spec=groups["spec"]
+        if spec is not None:
+            spc=remove_spaces(spec)
+            if len(spc)==0:
+                raise ValueError("%s token type %s recognized a special value of "
+                    "all spaces" % (assembler.eloc(self,"init",module=this_module),\
+                        self.tid))
+            else:
+                self.spec=spc.upper()
+
+
 # Recognizes a floating point special value
 class DCDS_Float_Special_Type(lexer.Type):
     def __init__(self,debug=False):
-        pattern="[+-]?\(([Ii][Nn][Ff]|[QqSs]?[Nn][Aa][Nn]|[Mm][Aa][Xx]"\
-                 "|[Dd]?[Mm][Ii][Nn])\)"
-        super().__init__("DCFLSPL",pattern,tcls=DCDS_Float_Special_Token,debug=debug)
+        # Define group 0 match pattern
+        sign_pat="(?P<sign>[ +-]+)?"
+
+        # Define group 1 match pattern
+        inf_pat="[Ii] *[Nn] *[Ff] *"
+        nan_pat="[QqSs]? *[Nn] *[Aa] *[Nn] *"
+        max_pat="[Mm] *[Aa] *[Xx] *"
+        min_pat="[Dd]? *[Mm] *[Ii] *[Nn] *"
+        spec_pat="(?P<spec>\( *(%s|%s|%s|%s)\) *)" \
+            % (inf_pat,nan_pat,max_pat,min_pat)
+
+        pattern="%s%s" % (sign_pat,spec_pat)
+        super().__init__("DCFLSPL",pattern,tcls=DCDS_Float_Special_Token,mo=True,\
+            debug=debug)
 
 
 # DC,DS - X - Hex nominal value recognizer
 class DCDS_Hex_Token(LexicalToken):
     def __init__(self):
         super().__init__()
+        self.digs=None     # Hexadecimal digits with spaces removed
+        
+    def extract(self):
+        if len(self.digs)==0:
+            raise assembler.AsmParserError(self,\
+                msg="must contain at least one hexadecimal digit")
+        return self.digs
+
+    # Initialize the instance attributes even when subclassed.
+    # WARNING: This method does not return self as does __init__.  It returns None.
+    def init(self,tid,string,beg,end,line=0,linepos=0,eols=0,ignore=False,mo=None):
+        super().init(tid,string,beg,end,line=line,linepos=linepos,eols=eols,\
+            ignore=ignore,mo=mo)
+
+        self.digs=remove_spaces(self.string)
+
 
 class DCDS_Hex_Type(lexer.Type):
     def __init__(self,debug=False):
-        pattern="[0-9A-Fa-f]+"
+        pattern="[ 0-9A-Fa-f]+"
         super().__init__("DCHEX",pattern,tcls=DCDS_Hex_Token,debug=debug)
 
 
@@ -1147,37 +1331,79 @@ class DCDS_Number_Token(LexicalToken):
     signs={"U":1,"+":1,"-":-1,None:1}
     def __init__(self):
         super().__init__()
-        # Set by convert() method
-        #self.unsigned=None
-        self._sign=None
-        self.value=None
+        self.sgn=None           # Nominal sign
+        self.sgn_nospace=None   # Sign area with spaces removed
+        self.digs=None          # Nominal decimal digits
 
+    # During Pass 0 validates removed spaces from the digits
+    # Returns:
+    #   the valid digits as a string without spaces
+    # Exception:
+    #   assembler.AsmParserError if only spaces were present in the string
     def digits(self):
-        grps=self.mo.groups()
-        return grps[1]
+        if len(self.digs)==0:
+            raise assembler.AsmParserError(self,\
+                msg="must contain at least one decimal digit")
+        return self.digs
 
+    # Initialize the instance attributes even when subclassed.
+    # WARNING: This method does not return self as does __init__.  It returns None.
+    def init(self,tid,string,beg,end,line=0,linepos=0,eols=0,ignore=False,mo=None):
+        super().init(tid,string,beg,end,line=line,linepos=linepos,eols=eols,\
+            ignore=ignore,mo=mo)
+        # Now that the match object is available, it can be processed
+        grps=self.mo.groups()
+
+        # Initialize sign information
+        sign=grps[0]
+        if sign is not None:
+            self.sgn_nospace=sgn=remove_spaces(sign)
+            if len(sgn)==0:
+                self.sgn=None
+            else:
+                self.sgn=sgn.upper()
+
+        # Initialize decimal digits information
+        digits=grps[1]
+        if digits is not None:
+            self.digs=remove_spaces(digits)
+
+    # During Pass 0 validates the sign.
+    # Returns:
+    #   the single sign character as a string
+    # Exception:
+    #   assembler.AsmParserError if more than one sign or unsigned indicator
+    #   recognized.
     def sign(self):
-        grps=self.mo.groups()
-        return grps[0]
+        if self.sgn is not None and len(self.sgn)>1:
+            raise assembler.AsmParserError(self,\
+                msg="must contain only one sign or unsigned indicator: %s"\
+                    % self.sgn_nospace)
+        return self.sgn
 
-    def convert(self):
-        mo=self.mo
-        groups=self.mo.groups()
-        sign=groups[0].upper()
-        if sign=="U":
-            self.unsigned=True
-        try:
-            self.sign=sign=DCDS_Number_Token.signs[sign]
-        except KeyError:
-            raise ValueError("%s unrecognized sign matched in re pattern: %s" \
-                % (assembler.eloc(self,"convert",module=this_module),sign))
-        value=groups[1]
-        self.value=int(value,10)*sign
-        return self.value
+    #def convert(self):
+    #    print("%s method called" % assembler.eloc(self,"convert",module=this_module))
+    #    mo=self.mo
+    #    groups=self.mo.groups()
+    #    sign=groups[0].upper()
+    #    if sign=="U":
+    #        self.unsigned=True
+    #    try:
+    #        self.sign=sign=DCDS_Number_Token.signs[sign]
+    #    except KeyError:
+    #        raise ValueError("%s unrecognized sign matched in re pattern: %s" \
+    #            % (assembler.eloc(self,"convert",module=this_module),sign))
+    #    value=groups[1]
+    #    #value=remove_spaces(value)
+    #    #if len(value)==0:
+    #    #    raise 
+    #    self.value=int(value,10)*sign
+    #    return self.value
 
 class DCDS_Number_Type(lexer.Type):
     def __init__(self,debug=False):
-        pattern="([Uu+-])?([0-9]+)"
+        #pattern="([Uu+-])?([0-9 ]+)"
+        pattern="([ Uu+-]+)?([0-9 ]+)"
         super().__init__("DCNUM",pattern,tcls=DCDS_Number_Token,mo=True,debug=debug)
 
 
@@ -1198,11 +1424,11 @@ class DCDS_Type_Token(LexicalToken):
         super().__init__()
 
 class DCDS_Types_Type(lexer.Type):
-    def __init__(self,debug=False):
+    def __init__(self,debug=True):
         # Note D needs to migrate to floating point
         pattern="[Aa][Dd]?|[Bb]|[Cc][AaEe]?|[Dd][Dd]?|[Ff][Dd]?|[Hh]|[Pp]"
         pattern="%s|%s" % (pattern,"[Ss][Yy]?|[Xx]|[Yy]|[Zz]")
-        pattern="%s|%s" % (pattern,"[EeLl][Dd]|")
+        pattern="%s|%s" % (pattern,"[EeLl][Dd]")
         super().__init__("DCTYPE",pattern,tcls=DCDS_Type_Token,debug=debug)
 
 

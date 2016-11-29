@@ -178,7 +178,7 @@ class CSLA(lexer.CSLA):
     def init_dup_beg(self,ldebug=False,tdebug=False):
         c="dupbeg"
         self.ctx(c,debug=ldebug)
-        types=[SDDEC,LPAREN,DCTYPE]
+        types=[SDDEC,LPAREN,COMMA,DCTYPE]
         self.type(c,types,debug=tdebug)
 
     # DC/DS Floationg Point Value

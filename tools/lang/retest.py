@@ -182,7 +182,7 @@ class retest(object):
 
 if __name__ == "__main__":
     debug=True
-    # Code tests here under this 'if' statement
+
     #print_re_flags()
     #reif=retest("(?P<A>.)?(?P<B>.)?")
     #reif.match("")
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     #sdchr=retest("([Cc][EeAa]?)(''''|'[^']')")
     #sdchr.match("C'a'")
     #sdchr.match("C''''")
-    
+
     #pattern="([%s]')?([%s][%s0-9]*)" % ("KkNn","A-Za-z","A-Za-z")
     #lattr=retest(pattern)
     #lattr.match("Alabel")
@@ -205,12 +205,26 @@ if __name__ == "__main__":
     #lattr.match("N'Alable")
     #lattr.match("A'Alable")
     #lattr.match("K'")
-    
-    pattern="('[^']*')+"
-    ctest=retest(pattern,debug=debug)
-    ctest.match("'this is a quoted string'")
-    ctest.match("''")
-    ctest.match("'a field''s value'other stuff")
-    
+
+    #pattern="('[^']*')+"
+    #ctest=retest(pattern,debug=debug)
+    #ctest.match("'this is a quoted string'")
+    #ctest.match("''")
+    #ctest.match("'a field''s value'other stuff")
+
+    inf="[Ii] *[Nn] *[Ff] *"
+    nan="[QqSs]? *[Nn] *[Aa] *[Nn] *"
+    mx="[Mm] *[Aa] *[Xx] *"
+    mn="[Dd]? *[Mm] *[Ii] *[Nn] *"
+    pattern="(?P<sign>[ +-]+)?(?P<spec>\( *(%s|%s|%s|%s)\) *)" % (inf,nan,mx,mn)
+    ftest=retest(pattern,debug=debug)
+    ftest.match("- + ( i n f )'")
+    ftest.match("(nan)")
+    ftest.match("-(max)")
+    ftest.match(" ( d m i n )'")
+
+    #'(?P<sign>[ +-]+)?(?P<spec>\\( *([Ii] *[Nn] *[Ff] *|[QqSs]? *[Nn] *[Aa] *[Nn] *|[Mm] *[Aa] *[Xx] *|[Dd]? *[Mm] *[Ii] *[Nn] *)\\) *)'
+    # ASMA
+    #'(?P<sign>[ +-]+)?(?P<spec>\\( *([Ii] *[Nn] *[Ff] *|[QqSs]? *[Nn] *[Aa] *[Nn] *|[Mm] *[Aa] *[Xx] *|[Dd]? *[Mm] *[Ii] *[Nn] *)\\) *)'
 
     

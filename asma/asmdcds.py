@@ -232,7 +232,7 @@ class DCDS_Parser(asmbase.AsmCtxParser):
     # Check a DCFLOAT lexical token for recognition of a valid finite floating
     # point number.
     # Method Arguments:
-    #   gs    the current parser blobal state
+    #   gs    the current parser global state
     #   ltok  The lexical token (tid='DCFLOAT') being examined.
     # Returns:
     #   None if the lexical token contains a valid finite floating point number
@@ -286,6 +286,7 @@ class DCDS_Parser(asmbase.AsmCtxParser):
         dup.action([SDDEC,],self.ACT_Dup_SD_found)
         dup.action([LPAREN,],self.ACT_Dup_Expr_Start)
         dup.action([DCTYPE,],self.ACT_DC_Type)    # No duplication.
+        dup.action([COMMA,],self.ACT_Expected_Constant)
         dup.error(self.ACT_Expected_Dup)
         self.state(dup)
 
@@ -384,7 +385,7 @@ class DCDS_Parser(asmbase.AsmCtxParser):
         # Type B - Recognizes binary nominal values
         binvals=fsmparser.PState("binvals")
         binvals.action([DCBIN,],self.ACT_Binary_Value)
-        binvals.error(self.ACT_Expected_Hexadecimal_Value)
+        binvals.error(self.ACT_Expected_Binary_Value)
         self.state(binvals)
 
         # Type B - Recognizes whether another nominal value or the operand is done
@@ -566,8 +567,12 @@ class DCDS_Parser(asmbase.AsmCtxParser):
         try:
             t=self.types[value.string.upper()]
         except KeyError:
-            raise ValueError("%s undefined constant type recognized by lexer: %s" \
-                % (assembler.eloc(self,"ACT_DC_Type",module=this_module),value))
+            # Note: This condition should not occur.  If it does, there is a
+            # problem with pattern used by class asmtokens.DCDS_Types_Type or
+            # the constants defined in __init_constants() method.
+            # By raising the AsmParserError the assembly continues.
+            raise assembler.AsmParserError(value,\
+                msg="invalid constant type: '%s'" % value.string) from None
         if __debug__:
             if trace:
                 print("ACT_DC_Type constant: %s" % t)
@@ -627,6 +632,9 @@ class DCDS_Parser(asmbase.AsmCtxParser):
 
     def ACT_Expected_Binary_Value(self,value,state,trace=False):
         self.ACT_Expected("binary nominal value",value)
+
+    def ACT_Expected_Constant(self,value,state,trace=False):
+        self.ACT_Expected("start of constant",value)
 
     def ACT_Expected_DCDS_Done(self,value,state,trace=False):
         self.ACT_Expected("end of DC or DS directive",value)
@@ -951,6 +959,9 @@ class DCDS_Operand(asmbase.AsmFSMScope):
     #   A list of a mixture of  DCDS_Operand objects (an operand with zero duplication
     #   factor) and subclasses of asmdcds.Nominal for constant nominal values or
     #   storage allocations.
+    # Exception:
+    #   assembler.AssemblerError if a problem arises during nominal value class
+    #   instantiation.
     def Pass0(self,stmt,parsers,n,dc,update=None):
         parsers.ltoken_update(stmt,self._typ_tok,asmstr=update)
 
@@ -977,7 +988,11 @@ class DCDS_Operand(asmbase.AsmFSMScope):
                 parsers.ltoken_update(stmt,val,asmstr=update)
                 if isinstance(val,asmtokens.PLitCur):
                     self.unique=True
-            nom=self.nomcls(val)
+            try:
+                nom=self.nomcls(val)
+            except assembler.AsmParserError as ape:
+                raise assembler.AssemblerError(line=stmt.lineno,\
+                    msg="operand %s nominal %s %s" % (n,vn+1,ape.msg)) from None
             self.values.append(nom)
 
         # For a DS operand without a nominal value, create the pseudo nomimal value
@@ -1286,6 +1301,7 @@ class BinaryBits(Nominal):
     def __init__(self,ltok):
         length,align,cpb,base=self.__class__.attr
         super().__init__(ltok,length=length,alignment=align,signed=False)
+
         # Create the underlying data abstraction from the lexical token
         self.ivalue=Bits(ltok.extract(),(cpb,base),ltok.linepos)
         # Set the length implied by the nominal value itself
@@ -1335,7 +1351,8 @@ class DecimalPointed(Nominal):
 
         # This attribute represents an intermediate form between a lexical token
         # and the assembled value.
-        self.ivalue=dcls(ltok.sign,ltok.digits,ltok.linepos,S=self.S)
+        self.ivalue=dcls(ltok.sign(),ltok.digits(),ltok.linepos,S=self.S)
+
         # Set the length implied by the nominal value itself
         self._length=self.ivalue.infer_length()
 
@@ -1359,10 +1376,10 @@ class DecimalPointed(Nominal):
 
 class Float(Nominal):
     def __init__(self,ltok,dcls):
-        if __debug__:
-            if ltok.tid not in ["DCFLOAT","DCFLSPL"]:
-                raise ValueError("%s unexpected lexical token: %s"\
-                    % (assembler.eloc(self,"__init__",module=this_module),ltok))
+        assert ltok.tid in ["DCFLOAT","DCFLSPL"],\
+            "%s unexpected lexical token: %s"\
+                 % (assembler.eloc(self,"__init__",module=this_module),ltok)
+
         length,align=self.__class__.attr
         super().__init__(ltok,length=length,alignment=align,signed=False)
         self.ivalue=None    # See build() method
@@ -1370,20 +1387,15 @@ class Float(Nominal):
 
     def build(self,stmt,asm,n,debug=False,trace=False):
         # This method may raise an fp.FPError that must be caught by the caller
+
         if self.ltok.tid=="DCFLOAT":
-            self.ivalue=self.dcls(self.ltok.mo,self._length,debug=trace)
+            self.ivalue=self.dcls(self.ltok.dct(),self._length,debug=trace)
         else:  # Assume it is a special value token
-            self.ivalue=self.dcls(None,self._length,special=self.ltok.string,\
+            self.ivalue=self.dcls(None,self._length,special=self.ltok.extract(),\
                 debug=trace)
-            
-        #if self.ivalue.has_overflow():
-        #    ae=assembler.AssemblerError(line=stmt.lineno,\
-        #        msg="nominal value %s - overflow to infinity" % n+1,info=True)
-        #    asm._ae_excp(ae,stmt,string="asmdcds.Float.build()",debug=debug)
-        #elif self.ivalue.has_underflow():
-        #    ae=assembler.AssemblerError(line=stmt.lineno,\
-        #        msg="nominal value %s - underflow to zero" % n+1,info=True)
-        #    asm._ae_excp(ae,stmt,string="acmdcds.Float.build()",debug=debug)
+        #except assembler.AsmParserError as ape:
+        #    raise assembler.AssemblerError(line=stmt.lineno,\
+        #        msg="operand %s %s" % (n,ape.msg)) from None
 
         self.content.barray=bytearray(self._length)
         data=self.ivalue.build()
@@ -1863,7 +1875,7 @@ class FixedPoint(object):
     def __init__(self,sign,digits,linepos):
         self.linepos=linepos
         self.sign=sign           # Sign of the constant '+', '-', 'U' or None
-        self.digits=digits       # String of decimal digits
+        self.digits=digits       # String of decimal digits with possible spaces
 
     def __str__(self):
         return "%s(sign='%s',digits='%s',pos=%s)" \

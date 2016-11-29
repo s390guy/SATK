@@ -2596,6 +2596,7 @@ class DC(ASMStmt):
         # Use scope to complete Pass 0
         dc=self.dc
         for n,oprnd in enumerate(operands):
+            # This call may raise an assembler.AssemblerError
             oprnd.Pass0(self,pm,n+1,dc,update=self.opnd_fld)
 
     def Pass1(self,asm,debug=False,trace=False):
