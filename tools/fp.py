@@ -190,16 +190,26 @@ class TestError(Exception):
 
 # Floating Point String recognition regular expression pattern generator.
 # Function Argument:
-#   eos   Specify True to cause pattern to match to end of string.  Specify False
-#         to match all recognized groups.  Defaults to True.
-def String_Pattern(eos=True):
+#   spaces  Specify True to allow embedded spaces within the constant.  Defaults to
+#           False
+#   eos     Specify True to cause pattern to match to end of string.  Specify False
+#           to match all recognized groups.  Defaults to True.
+def String_Pattern(spaces=False,eos=True):
+    if eos:
+        s="\Z"
+    else:
+        s=""
+    if spaces:
+        sgn=  "(?P<sign>[ +-]+)?"
+        intgr="(?P<int>[ 0-9]+)?"
+        frac= "(?P<frac> *\.[ 0-9]*)?"
+        exp=  "(?P<exp> *[eE] *[+-]?[ 0-9]+)?"
+        rmd=  "(?P<rmode> *[rR][ 0-9]+)?%s" % s
+        pattern="%s%s%s%s%s" % (sgn,intgr,frac,exp,rmd)
+    else:
         pattern="(?P<sign>[+-])?(?P<int>[0-9]+)?(?P<frac>\.[0-9]*)?"\
-                "(?P<exp>[eE][+-]?[0-9]+)?(?P<rmode>[rR][0-9]+)?%s"
-        if eos:
-            s="\Z"
-        else:
-            s=""
-        return pattern % s
+                "(?P<exp>[eE][+-]?[0-9]+)?(?P<rmode>[rR][0-9]+)?%s" % s
+    return pattern
 
 # Use the BFP function to create a binary floating point datum
 # Use the BFPS function to create a binary floating point special value
@@ -512,10 +522,10 @@ class FP_Number(object):
             "%s 'sign' argument must be 0, or 1: %s" \
                  % (eloc(self,"__init__"),sign)
         assert isinstance(exp,int),\
-            "%s 'exp' argument must an integer: %s" \
+            "%s 'exp' argument must be an integer: %s" \
                  % (eloc(self,"__init__"),exp)
         assert isinstance(coef,list),\
-            "%s 'coef' argument must a list: %s" \
+            "%s 'coef' argument must be a list: %s" \
                  % (eloc(self,"__init__"),coef)
         assert isinstance(attr,FPAttr),\
             "%s 'attr' argument must a FPAttr object: %s" \
@@ -1327,7 +1337,7 @@ class FP(object):
 
         # This object is created for floating point numbers (not special values).
         self.mo=None            # Regular expression match object
-        self.mod=None           # The regular expression matcho object dictionary
+        self.mod=None           # The match dictionary
 
         # These attributes are used by the subclass to create the underlying Python
         # object supporting the floating point base (binary, decimal, or 
@@ -1350,9 +1360,16 @@ class FP(object):
       # Subclass created objects
 
         # Python floating point object.  See subclass create() method
+        # This object is the intermediate step between a floating point string and
+        # the FP_Number object.
+        #   For BFP (float): the bfp.FLOAT_Data object
+        #   For BFP (gmpy2): the bfp.MPFR_Data object
+        #   For DFP: this is the dfp.DFP_Number object itself
         self.fpo=None
 
         # FP_Number object.  See subclass to_number() method
+        #   For BFP: bfp.BFP_Number object
+        #   For DFP: dfp.DFP_Number object
         self.number=None
 
       # Analyze the floating point constant 'string' argument.
@@ -1364,13 +1381,14 @@ class FP(object):
         elif isinstance(string,str):
             self.con_str=string
             self.mo=FP.parse.match(string)
+        elif isinstance(string,dict):
+            # A dictionary is provided by the ASMA assembler that has already
+            # parsed the constant
+            self.mod=mod=string
+            self.con_str=string["string"]
         else:
-            # No mechanism exists for detecting a regular expression match object.
-            # We must assume the 'string' argument when not a string is a match
-            # object.  The assumption is also made that the match object matched
-            # the pattern defined above in the String_Pattern module
-            self.mo=string
-            self.con_str=string.string
+            raise ValueError("%s unrecognized 'string' argument: %s"
+                % (eloc(self,"__init__"),string))
 
         if self.mo is not None:
             if __debug__:
@@ -1379,7 +1397,9 @@ class FP(object):
                     retest.print_mo(self.mo,indent="    ")
             self.mod=mod=self.mo.groupdict()
 
-        if self.mo is None or ( self.mod["int"] is None and self.mod["frac"] is None ):
+        if self.mod is None \
+           or ( self.mod["int"] is None \
+           and ( self.mod["frac"] is None or len(self.mod["frac"]) == 1 ) ):
             # match did not occur or match does not contain a required component
             try:
                 self.is_special=self.__class__.Special.hexadecimal(\
@@ -1483,11 +1503,19 @@ class FP(object):
     # Return the bytes from converting the floating point object.
     def to_bytes(self,byteorder="big"):
         if self.is_special:
+            # Creating a special value
             bin=int(self.is_special,16)
-            return bin.to_bytes(self.length,byteorder=byteorder,signed=False)
+            byts=bin.to_bytes(self.length,byteorder=byteorder,signed=False)
 
-        # Must be a regular number.  Use subclass to help
-        return self.i_fmt(byteorder=byteorder)
+        else:
+            # Must be a regular number.  Use subclass to help
+            byts=self.i_fmt(byteorder=byteorder)
+
+        if __debug__:
+            if self.debug:
+                print("%s bytes: %s" % (eloc(self,"to_bytes"),\
+                    FP.bytes2str(byts)))
+        return byts
 
   #
   # These methods must be supplied by the base (binary, decimal, or hexadecimal)
