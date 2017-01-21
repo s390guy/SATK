@@ -212,19 +212,25 @@ if __name__ == "__main__":
     #ctest.match("''")
     #ctest.match("'a field''s value'other stuff")
 
-    inf="[Ii] *[Nn] *[Ff] *"
-    nan="[QqSs]? *[Nn] *[Aa] *[Nn] *"
-    mx="[Mm] *[Aa] *[Xx] *"
-    mn="[Dd]? *[Mm] *[Ii] *[Nn] *"
-    pattern="(?P<sign>[ +-]+)?(?P<spec>\( *(%s|%s|%s|%s)\) *)" % (inf,nan,mx,mn)
-    ftest=retest(pattern,debug=debug)
-    ftest.match("- + ( i n f )'")
-    ftest.match("(nan)")
-    ftest.match("-(max)")
-    ftest.match(" ( d m i n )'")
+    #inf="[Ii] *[Nn] *[Ff] *"
+    #nan="[QqSs]? *[Nn] *[Aa] *[Nn] *"
+    #mx="[Mm] *[Aa] *[Xx] *"
+    #mn="[Dd]? *[Mm] *[Ii] *[Nn] *"
+    #pattern="(?P<sign>[ +-]+)?(?P<spec>\( *(%s|%s|%s|%s)\) *)" % (inf,nan,mx,mn)
+    #ftest=retest(pattern,debug=debug)
+    #ftest.match("- + ( i n f )'")
+    #ftest.match("(nan)")
+    #ftest.match("-(max)")
+    #ftest.match(" ( d m i n )'")
 
     #'(?P<sign>[ +-]+)?(?P<spec>\\( *([Ii] *[Nn] *[Ff] *|[QqSs]? *[Nn] *[Aa] *[Nn] *|[Mm] *[Aa] *[Xx] *|[Dd]? *[Mm] *[Ii] *[Nn] *)\\) *)'
     # ASMA
     #'(?P<sign>[ +-]+)?(?P<spec>\\( *([Ii] *[Nn] *[Ff] *|[QqSs]? *[Nn] *[Aa] *[Nn] *|[Mm] *[Aa] *[Xx] *|[Dd]? *[Mm] *[Ii] *[Nn] *)\\) *)'
+    
+    char="\$@\#_"
+    pattern="[a-zA-Z%s][a-zA-Z0-9%s]*" % (char,char)
+    test=retest(pattern,debug=debug)
+    test.match("svc#old")
+
 
     

@@ -129,7 +129,7 @@ class LField(asmbase.ASMString):
     # 
     # Note: This is used as a sanity check on the operation field.
     def char_ck(self,debug=False):
-        for c in "*~`!#^_[]{}:;?\|=":
+        for c in "*~`!^_[]{}:;?\|=":
             if c in self.text:
                 return c
         return None

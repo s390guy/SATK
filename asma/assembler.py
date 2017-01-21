@@ -461,7 +461,7 @@ import hexdump       # Useful ad hoc dumping of binary data
 # These definitions provide consistency between different modules definitions
 # Note: These module attributes must be defined before other imported ASMA modules 
 # access them when imported below.
-char="\$@_"                         # Special characters used in names
+char="\$@\#_"                        # Special characters used in names
 multiline="(?m)"                    # Turns on multiline for start/end match
 cmt="\*|\.\*"                       # An asterisk or a period followed by an asterisk
 inst="[a-zA-Z]+[0-9]*"              # An instruction pattern
@@ -1689,7 +1689,6 @@ class BaseMgr(object):
     # This method selects a base register from a list of possible candidates.
     # All of the bases supplied to this method ARE eligible for use in resolving
     # a symbol to a base/displacement combination.
-
     def __select(self,addr,possible,trace=False):
         if len(possible)==0:
             raise KeyError           # No possibilies exist, quit now.
