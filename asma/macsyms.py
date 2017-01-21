@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2015, 2016 Harold Grovesteen
+# Copyright (C) 2015-2017 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -288,7 +288,6 @@ class Parm_Val(Mac_Val):
         else:
             self.cval=C_Val(value)
         self._value=self.cval
-        #super().__init__(self.cval,ro=True)
 
         #print("MacroParmValue: %s" % self.value)
         self.ndx=ndx            # Index adjustment
@@ -517,8 +516,8 @@ class Parm_Val(Mac_Val):
                 % self.onum+1)
         self.sublists.append(Parm_Val(value=sub,onum=self.onum))
 
-    #def value(self):
-        #return self._value
+    def value(self):
+        return self._value
     #    return self.cval
 
 
