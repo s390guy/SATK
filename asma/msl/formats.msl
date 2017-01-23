@@ -857,8 +857,8 @@ format RSLB
 # RSYA: MNEMONIC R1,R3,D2(B2)
 #
 #  Note: D2 contributes to DL2 and DH2 fields. 
-#        DH2 contains the high-order 8 bits of the 20-bit D2 displacement
-#        DL2 contains the low-order 12 bits of the 20-bit D2 displacement
+#        DH2 contains the high-order 8 bits of the 20-bit signed D2 displacement
+#        DL2 contains the low-order 12 bits of the 20-bit signed D2 displacement
 #
 format RSYA
     length 6
@@ -881,8 +881,8 @@ format RSYA
 # RSYB: MNEMONIC R1,M3,D2(B2)
 #
 #  Note: D2 contributes to DL2 and DH2 fields. 
-#        DH2 contains the high-order 8 bits of the 20-bit D2 displacement
-#        DL2 contains the low-order 12 bits of the 20-bit D2 displacement
+#        DH2 contains the high-order 8 bits of the 20-bit signed D2 displacement
+#        DL2 contains the low-order 12 bits of the 20-bit signed D2 displacement
 #
 format RSYB
      length 6
@@ -905,8 +905,8 @@ format RSYB
 # RSYB1: MNEMONIC R1,D2(B2),M3
 #
 #  Note: D2 contributes to DL2 and DH2 fields. 
-#        DH2 contains the high-order 8 bits of the 20-bit D2 displacement
-#        DL2 contains the low-order 12 bits of the 20-bit D2 displacement
+#        DH2 contains the high-order 8 bits of the 20-bit signed D2 displacement
+#        DL2 contains the low-order 12 bits of the 20-bit signed D2 displacement
 #
 format RSYB1
      length 6
@@ -1027,8 +1027,8 @@ format RXFE
 # RXYA: MNEMONIC R1,D2(X2,B2)
 #
 #  Note: D2 contributes to DL2 and DH2 fields. 
-#        DH2 contains the high-order 8 bits of the 20-bit D2 displacement
-#        DL2 contains the low-order 12 bits of the 20-bit D2 displacement
+#        DH2 contains the high-order 8 bits of the 20-bit signed D2 displacement
+#        DL2 contains the low-order 12 bits of the 20-bit signed D2 displacement
 #
 format RXYA
     length 6
@@ -1050,8 +1050,8 @@ format RXYA
 # RXYB: MNEMONIC M1,D2(X2,B2)
 #
 #  Note: D2 contributes to DL2 and DH2 fields. 
-#        DH2 contains the high-order 8 bits of the 20-bit D2 displacement
-#        DL2 contains the low-order 12 bits of the 20-bit D2 displacement
+#        DH2 contains the high-order 8 bits of the 20-bit signed D2 displacement
+#        DL2 contains the low-order 12 bits of the 20-bit signed D2 displacement
 #
 format RXYB
     length 6
@@ -1138,8 +1138,8 @@ format SIL1
 # SIY: MNEMONIC B1(D1),I2
 #
 #  Note: D1 contributes to DL1 and DH1 fields. 
-#        DH1 contains the high-order 8 bits of the 20-bit D1 displacement
-#        DL1 contains the low-order 12 bits of the 20-bit D1 displacement
+#        DH1 contains the high-order 8 bits of the 20-bit signed D1 displacement
+#        DL1 contains the low-order 12 bits of the 20-bit signed D1 displacement
 #
 format SIY
     length 6
@@ -1160,8 +1160,8 @@ format SIY
 # SIY1: MNEMONIC B1(D1),I2
 #
 #  Note: D1 contributes to DL1 and DH1 fields. 
-#        DH1 contains the high-order 8 bits of the 20-bit D1 displacement
-#        DL1 contains the low-order 12 bits of the 20-bit D1 displacement
+#        DH1 contains the high-order 8 bits of the 20-bit D1 signed displacement
+#        DL1 contains the low-order 12 bits of the 20-bit D1 signed displacement
 #
 format SIY1
     length 6

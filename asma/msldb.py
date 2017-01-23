@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014-2016 Harold Grovesteen
+# Copyright (C) 2014-2017 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -197,10 +197,12 @@ class mfield(object):
         return self.rxb!=0
 
 class soper(object):
+    signed=["SY","SYX"]
     def __init__(self,name,typ,mfields=[]):
         self.name=name        # Name of the source operand type
         self.typ=typ          # source operand type
         self.mfields=mfields  # Machine fields populated by this source operand
+        self.signed = typ in soper.signed  # Whether the value is signed
     def __str__(self):
         return "soper('%s',type='%s',mfields=%s)" % (self.name,self.typ,self.mfields)  
 
