@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2015, 2016 Harold Grovesteen
+# Copyright (C) 2015-2017 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -393,21 +393,22 @@ class OperMgr(asmbase.ASMOperTable):
     #   macread Specify True to read a definition from the MACLIB path.  Specify
     #           False to only open (for search purposes) the MACLIB file.  Defaults
     #           to False.
+    #   opsyn   Specify True for opsyn search or False to disable opsyn searches.
+    #           Defaults to True.
     #   lineno  The location of the line.  For logical lines this is its source
     #   debug   Specify True to enable various process messages
     # Returns:
     #   ASMOper object of the operation
     # Exception:
     #   KeyError  if the operation is unrecognized
-    def getOper(self,opname,mbstate=0,macread=False,lineno=None,debug=False):
+    def getOper(self,opname,mbstate=0,macread=False,opsyn=True,lineno=None,\
+                debug=False):
         # Locate the instruction or statement data
-        opcode=None     # The effective opcode after OPSYN translation
-
         if __debug__:
             if debug:
-                print("%s opname:%s mbstate:%s macread:%s lineno:%s debug:%s" \
+                print("%s opname:%s mbstate:%s macread:%s opsyn:%s lineno:%s debug:%s" \
                     % (assembler.eloc(self,"getOper",module=this_module),\
-                        opname,mbstate,macread,lineno,debug))
+                        opname,mbstate,macread,opsyn,lineno,debug))
 
     # Handle operation identification during macro definition
 
@@ -442,70 +443,37 @@ class OperMgr(asmbase.ASMOperTable):
 
         # Perform OPSYN replacement.  A deleted operation may be restored by another
         # OPSYN directive that defines the operation to its original value.
+        opcode=opname
         if __debug__:
             cls_str=assembler.eloc(self,"getOper",module=this_module)
-            if debug:
-                print("%s DEBUG OPSYN Table:\n%s" % (cls_str,self.opsyn))
-
-        # Translate an operation synonym to its underlying definition or use
-        # the name unaltered.
-        opcode=self.getOPSYN(opname)
-        if __debug__:
-            if debug:
-                if opcode!=opname:
-                    print("%s DEBUG OPSYN redefined operation from %s to: %s" \
-                         % (cls_str,opname,opcode))
-                else:
-                    print("%s DEBUG OPSYN using original operation: %s" \
-                         % (cls_str,opcode))
-
-        # Try to locate the operation synonym
-        if opcode is None:
-            # Operation deleted by OPSYN directive.  Could still be a macro, though
+        if opsyn:
             if __debug__:
                 if debug:
-                    print("%s DEBUG operation deleted: %s" \
-                        % (cls_str,opname))
-            pass
-        else:
-            # Operation exists.  Try to identify the machine instruction
-            oper=self.getInsn(opcode)
-            if oper is not None:
-                if __debug__:
-                    if debug:
-                        print("%s DEBUG found instruction: %s" \
-                            % (cls_str,oper.info.mnemonic))
-                return oper
-            else:
-                # Instruction mnemonic not found, try to find assmebler directive:
-                # first by locating an XMODE setting, then by finding the actual
-                # directive.
-                # Note: XMODE settings translate a generic directive into a specific
-                # machine sensitive one.
-                operation=self.getXMODE(opcode)
-                if __debug__:
-                    if debug:
-                        print("%s DEBUG XMODE %s returned: %s" \
-                            % (cls_str,opcode,operation))
+                    print("%s DEBUG OPSYN Table:\n%s" % (cls_str,self.opsyn))
 
-                # Now get the directive
-                oper=self.getDir(operation)
-                if oper is not None:
-                    if __debug__:
-                        if debug:
-                            print("%s DEBUG found directive: %s" % (cls_str,operation))
-                    return oper
-                else:
-                    if __debug__:
-                        if debug:
-                            print("%s DEBUG directive not found: %s" \
-                                % (cls_str,operation))
-        
-        # Try to locate the macro definition
+            # Translate an operation synonym
+            try:
+                opcode=self.getOPSYN(opname,debug=debug)
+                if __debug__:
+                    if debug:
+                        print("%s DEBUG opsyn translation returned: %s" \
+                            % (cls_str,opcode))
+                if isinstance(opcode,asmbase.ASMOper):
+                    return opcode
+            except KeyError:
+                pass
+            if opcode is None:
+                if __debug__:
+                    if debug:
+                        print("%s DEBUG opsyn translation raising KeyError or %s" \
+                            % (cls_str,opname))
+                raise KeyError()
+
+        # Try to locate the existing macro definition
         if __debug__:
             if debug:
                 print("%s DEBUG looking for macro: %s" % (cls_str,opcode))
-        oper=self.getMacro(opcode,macread=macread)
+        oper=self.getMacro(opcode,macread=False)
         if __debug__:
             if debug:
                 print("%s DEBUG looking for macro returned: %s" % (cls_str,oper))
@@ -517,36 +485,91 @@ class OperMgr(asmbase.ASMOperTable):
         if oper is not None:
             if __debug__:
                 if debug:
-                    print("%s DEBUG found macro: %s" % (cls_str,opcode))
+                    print("%s DEBUG found existing macro: %s" % (cls_str,opcode))
             assert isinstance(oper,asmbase.ASMOper),\
-                "%s getMacro did not return an asmbase.ASMOper instance: %s" \
-                    % (assembler.eloc(self,"getOper",module=this_module),oper)
+                "%s getMarco returned unexpected value: %s" % (cls_str,oper)
             return oper
-
-        if oper is None:
+        else:
             if __debug__:
                 if debug:
-                    print("%s DEBUG macro not found: %s" % (cls_str,operation))
-            raise KeyError()
+                    print("%s DEBUG macro not found: %s" % (cls_str,opcode))
 
-        raise ValueError("%s operation search algorithm failed to either return "\
-            "the ASMOper object or result is None: %s" \
-                % (assembler.eloc(self,"getOper",module=this_module),oper))
+        # Try to identify the machine instruction
+        oper=self.getInsn(opcode)
+        if oper is not None:
+            if __debug__:
+                if debug:
+                    print("%s DEBUG found instruction: %s" \
+                        % (cls_str,oper.info.mnemonic))
+            return oper
+
+        # Instruction mnemonic not found, try to find assmebler directive:
+        # first by locating an XMODE setting, then by finding the actual
+        # directive.
+        # Note: XMODE settings translate a generic directive into a specific
+        # machine sensitive one.
+        operation=self.getXMODE(opcode)
+        if __debug__:
+            if debug:
+                print("%s DEBUG XMODE %s returned: %s"  % (cls_str,opcode,operation))
+
+        # Now get the directive
+        oper=self.getDir(operation)
+        if oper is not None:
+            if __debug__:
+                if debug:
+                    print("%s DEBUG found directive: %s" % (cls_str,operation))
+            return oper
+        else:
+            if __debug__:
+                if debug:
+                    print("%s DEBUG directive not found: %s" % (cls_str,operation))
+            pass
+
+        if opsyn:
+        # Try to locate the macro definition
+            if __debug__:
+                if debug:
+                    print("%s DEBUG looking for macro: %s" % (cls_str,opcode))
+            oper=self.getMacro(opcode,macread=macread)
+            if __debug__:
+                if debug:
+                    print("%s DEBUG looking for macro returned: %s" % (cls_str,oper))
+            # Note: if macread is True, and the macro is not defined, the getMacro 
+            # method will attempt to access the macro libary path to find the macro
+            # definition.  If found the MACLIBProcessor will be run to define the
+            # macro.  The ASMOper object of the newly defined macro is returned, as 
+            # if it was already defined.
+            if oper is not None:
+                if __debug__:
+                    if debug:
+                        print("%s DEBUG found macro: %s" % (cls_str,opcode))
+                assert isinstance(oper,asmbase.ASMOper),\
+                    "%s getMacro did not return an asmbase.ASMOper instance: %s" \
+                        % (assembler.eloc(self,"getOper",module=this_module),oper)
+                return oper
+
+        if __debug__:
+            if debug:
+                print("%s DEBUG macro not found: %s" % (cls_str,operation))
+                print("%s DEBUG failed to find operation %s - raising KeyError" \
+                    % (cls_str,opname))
+        raise KeyError()
 
     # Return the underlying operation name for an operator synonym
     # Returns:
-    #   the underlying operation name, if defined
+    #   the asmbase.ASMOper object of the real operation
     #   None, if the operation was deleted
-    #   the unchanged synonym, if a synonym is not defined.  No exception is raised
-    def getOPSYN(self,syn):
-        return self.opsyn.get(syn,syn)
+    # Exception:
+    #   KeyError if the synonym is not defined
+    def getOPSYN(self,syn,debug=False):
+        return self.opsyn[syn]
 
     # Returns the current XMODE setting.  No exceptions raised
     # Returns:
     #   The XMODE setting, if defined or or the orignal name
     #   The original name, if not defined or the XMODE was disabled 
     def getXMODE(self,xmode):
-        #return self.xmode[xmode]
         setting=self.xmode.get(xmode,xmode)
         if setting is None:
             return xmode
@@ -602,9 +625,25 @@ class OperMgr(asmbase.ASMOperTable):
                 val="deleted"
             print("    %s: %s" % (op,val))
 
-    # Assing an operator synonym.  Assigning None 'deletes' the synonym
-    def opsyn_setting(self,syn,oper):
-        self.opsyn[syn]=oper
+    # Assigning an operator synonym.  Assigning None 'deletes' the synonym
+    # Returns:
+    #   None if the synonym was deleted
+    #   an ASMOper object of the old operation
+    # Exception:
+    #   KeyError if the operation, instruction, or macro does not already exist.
+    def opsyn_setting(self,syn,oper,lineno,debug=False):
+        if oper is None:
+            self.opsyn[syn]=oper
+            return
+        try:
+            op=self.getOPSYN(oper)
+        except KeyError:
+            try:
+                # This may raise a KeyError
+                op=self.getOper(oper,opsyn=False,lineno=lineno,debug=False)
+            except KeyError:
+                raise KeyError() from None
+        self.opsyn[syn]=op
 
     # Assign an XMODE from the assembler directive
     def xmode_setting(self,stmt,mode,setting):

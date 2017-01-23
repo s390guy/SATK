@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2015, 2016 Harold Grovesteen
+# Copyright (C) 2015-2017 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -1293,7 +1293,11 @@ class PSymRef(PCTerm):
             if isinstance(index,macsyms.A_Val):
                 index=index.value()
             indexes.append(index)
-        return macsyms.SymbolID(self.symname,indices=indexes)
+        if not external.case:
+            sname=self.symname.upper()
+        else:
+            sname=self.symname
+        return macsyms.SymbolID(sname,indices=indexes)
 
     # Provides the symbolic variable or parameter value or its attribute during
     # expression evaluation.

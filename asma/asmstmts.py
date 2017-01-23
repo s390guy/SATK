@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2015, 2016 Harold Grovesteen
+# Copyright (C) 2015-2017 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -3635,15 +3635,22 @@ class OPSYN(ASMStmt):
                     print("%s [%s] OPSYN deleted operation: %s" \
                         % (assembler.eloc(self,"Pass0",module=this_module),\
                             self.lineno,new_op))
-            asm.OMF.opsyn_setting(new_op,None)
+            asm.OMF.opsyn_setting(new_op,None,self.lineno,debug=pdebug)
         else:
+            # Define or redefine an operation
+            try:
+                asm.OMF.opsyn_setting(new_op,old_op,self.lineno,debug=pdebug)
+            except KeyError:
+                raise assembler.AssemblerError(line=self.lineno,\
+                    msg="instruction, directive, or macro does not exist: %s"\
+                        % old_op)
+
             # Define or redefine an operation
             if __debug__:
                 if pdebug:
-                    print("%s [%s] OPSYN defining operation %s -> %s" \
+                    print("%s [%s] OPSYN defined operation %s -> %s" \
                         % (assembler.eloc(self,"Pass0",module=this_module),\
                             self.lineno,new_op,old_op))
-            asm.OMF.opsyn_setting(new_op,old_op)
 
     def Pass1(self,asm,debug=False,trace=False): pass
     def Pass2(self,asm,debug=False,trace=False): pass

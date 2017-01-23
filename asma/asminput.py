@@ -508,12 +508,13 @@ class StreamLine(PhysLine):
         #print("content: '%s'" % self.content)
         if self.content[-1]=="\\":
             self.cont=True
-            text=self.content[:-1]
+            self.text=self.content[:-1]
             #print("text: '%s'" % text)
         else:
             self.cont=False
             text=self.content
-        self.text=text.rstrip()
+            self.text=text.rstrip()
+       # self.text=text.rstrip()
 
 
 # This class buffers input lines in a LIFO stack of input sources.
@@ -598,7 +599,7 @@ class LineBuffer(object):
     def __source(self,typ,sid,stmtno=None,srcno=0,fixed=False):
         if len(self._sources)>=self._depth:
             raise assembler.AssemblerError(line=stmtno,\
-                msg="nested input source depth reached: %s" % self.depth)
+                msg="nested input source depth reached: %s" % self._depth)
         src_cls=LineBuffer.source_type[typ]
         srco=src_cls(typ,sid,srcno=srcno,fixed=fixed)
         try:

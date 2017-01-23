@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2015, 2016 Harold Grovesteen
+# Copyright (C) 2015-2017 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -65,6 +65,10 @@ import macsyms
 # operation responsible for generating model statements, asmmacs.Model.  During
 # macro invocation the Model object uses this object to actually create the
 # physcal input line images passed back to the assembler for assembly.
+
+# Note: Only the create() method is called during macro execution for the creation
+# of the assembled statement from the model statement.  All other methods are called
+# during macro definition when the statement is identified as a model statement.
 class Model(object):
     def __init__(self,asm,stmt,debug=False):
         self.asm=asm
@@ -99,6 +103,47 @@ class Model(object):
                 print("%s [%s] loud: %s" \
                     % (assembler.eloc(self,"__init__",module=this_module),\
                         stmt.lineno,self.loud))
+
+    # Performs a symbolic replacement parse of a field or operand
+    def __parse(self,asm,stmt,field,debug=False):
+        ddebug=self.debug or debug
+        if __debug__:
+            if ddebug:
+                print("%s [%s] field.amp: %s" \
+                    % (assembler.eloc(self,"__parse",module=this_module),\
+                        stmt.lineno,field.amp))
+        if not field.amp:
+            return field.text
+        pm=asm.PM
+        try:
+            return pm.parse_model(stmt,field,debug=ddebug)
+        except assembler.AsmParserError as ape:
+            raise assembler.AssemblerError(source=stmt.source,line=stmt.lineno,\
+                msg=ape.msg)
+
+    def __replace(self,fld,exp):
+        if isinstance(fld,str):
+            return fld
+
+        # Evaluate character expression
+        assert isinstance(fld,macopnd.PChrExpr),\
+            "%s 'fld' argument must be an macopnd.PChrExpr object: %s" \
+                % (assembler.eloc(self,"__replace",module=this_module),fld)
+
+        v=fld.value(external=exp,debug=False,trace=False)
+        if isinstance(v,(macsyms.C_Val,macsyms.A_Val,macsyms.B_Val)):
+            return v.string()
+        elif isinstance(v,str):
+            return v
+
+        # Result unsupported as replacement value within a model statement
+        # Provide the logical line from within the macro that triggers the error
+        # for debugging purposes.
+        print("%s stmt[%s]:\n%s" \
+            % (assembler.eloc(self,"__replace",module=this_module),\
+                self.stmt.lineno,self.stmt.logline))
+        raise ValueError("%s character expression result not C_Val or string: %s" \
+            % (assembler.eloc(self,"__replace",module=this_module),v))
 
     # Generate one or more physical lines for macro source object
     # Returns:
@@ -147,7 +192,7 @@ class Model(object):
         end=len(line)
         while ndx<end:
             if pline is not None:
-                pline="%s\\" % pline  # Add stream file format continuation
+                pline="%s \\" % pline  # Add stream file format continuation
                 plines.append(pline)
                 pline=None
             if len(plines)==0:
@@ -175,7 +220,7 @@ class Model(object):
                 comment=comment.rstrip()    # Leave off any trailing spaces
                 if ndx!=0:
                     # Add the pending line
-                    pline="%s\\" % pline
+                    pline="%s \\" % pline
                     plines.append(pline)
                     pline=None
                     comment=self.comments[ndx].text
@@ -194,7 +239,7 @@ class Model(object):
                     # Need to put the comment on the next physical line because it
                     # overlaps with the generated operand field
                     # Continue the operand field line of the statement
-                    pline="%s\\" % pline
+                    pline="%s \\" % pline
                     plines.append(pline)
                     pline=" " * self.comment_pos
                     pline="%s%s" % (pline,comment)
@@ -216,47 +261,6 @@ class Model(object):
         #print("%s plines: %s" \
         #    % (assembler.eloc(self,"create",module=this_module),plines))
         return plines
-
-    # Performs a symbolic replacement parse of a field or operand
-    def __parse(self,asm,stmt,field,debug=False):
-        ddebug=self.debug or debug
-        if __debug__:
-            if ddebug:
-                print("%s [%s] field.amp: %s" \
-                    % (assembler.eloc(self,"__parse",module=this_module),\
-                        stmt.lineno,field.amp))
-        if not field.amp:
-            return field.text
-        pm=asm.PM
-        try:
-            return pm.parse_model(stmt,field,debug=ddebug)
-        except assembler.AsmParserError as ape:
-            raise assembler.AssemblerError(source=stmt.source,line=stmt.lineno,\
-                msg=ape.msg)
-
-    def __replace(self,fld,exp):
-        if isinstance(fld,str):
-            return fld
-
-        # Evaluate character expression
-        assert isinstance(fld,macopnd.PChrExpr),\
-            "%s 'fld' argument must be an macopnd.PChrExpr object: %s" \
-                % (assembler.eloc(self,"__replace",module=this_module),fld)
-
-        v=fld.value(external=exp,debug=False,trace=False)
-        if isinstance(v,(macsyms.C_Val,macsyms.A_Val,macsyms.B_Val)):
-            return v.string()
-        elif isinstance(v,str):
-            return v
-
-        # Result unsupported as replacement value within a model statement
-        # Provide the logical line from within the macro that triggers the error
-        # for debugging purposes.
-        print("%s stmt[%s]:\n%s" \
-            % (assembler.eloc(self,"__replace",module=this_module),\
-                self.stmt.lineno,self.stmt.logline))
-        raise ValueError("%s character expression result not C_Val or string: %s" \
-            % (assembler.eloc(self,"__replace",module=this_module),v))
 
     # Returns a list of the normal statement format lines with comments
     # If alternate statement format lines are present, comments are ignored
