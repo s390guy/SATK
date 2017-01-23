@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014 Harold Grovesteen
+# Copyright (C) 2014, 2017 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -21,7 +21,7 @@
 # module msldb.py.
 
 this_module="mslrpt.py"
-copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014")
+copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014, 2017")
 
 # Python imports:
 import sys               # Access the exit method
@@ -33,8 +33,8 @@ import functools         # Access complex sorting sequences
 
 # Setup PYTHONPATH
 import satkutil          # Access utility functions
-satkutil.pythonpath("asma")        # Provides path to msldb
-satkutil.pythonpath("tools/lang")  # Provides path to sopl
+satkutil.pythonpath("asma")        # Provides path to msldb.py
+satkutil.pythonpath("tools/lang")  # Provides path to sopl.py needed by msldb
 
 # ASMA imports
 import msldb             # Access the database
@@ -46,56 +46,133 @@ from listing import *    # Access the formatted report tools
 # This wraps a msldb.CPUX object with report information
 class CPU(object):
     def __init__(self,col,filename,cpux):
+        # The column ndx into which this CPU instruction's flags are placed
         self.col=col
-        self.filename=filename
-        self.cpux=cpux
-        self.count=0
+        self.filename=filename   # The MSL filename upon which this cpu is based 
+        self.cpux=cpux           # msldb.CPUX object constructed from the MSL file
+        #self.count=0
     def __str__(self):
+        # Note cpux.ID is the CPU name from the MSL file.
         return "[%s] %s %s" % (self.col, self.filename, self.cpux.ID)   
 
+
+# This object is an intermediate representation of the information for an instruction
+# with a specific format.  Some instructions have more than one format dependuing
+# upon the supporting CPU.  This object captures the information needed for the
+# ultimate creation of the instruction report line object: ITLBE
+class inst_format(object):
+    def __init__(self,inst,columns):
+        self.format=inst.format      # The instruction format
+        self.inst=inst               # The msldb.Inst object of the instruction
+
+        # Create a list of unused slots.
+        slots=[]
+        not_used="-   "
+        for n in range(columns):
+            slots.append(not_used)
+        self.slots=slots
+
+    def __setitem__(self,ndx,value):
+        self.slots[ndx]=value
+
+
+# This object creates the instruction table report.
+# Instance Arguments:
+#   columns   the number of CPU's in the report.
+#   seq       The list of requested instruction reports from --seq command line.
+#   extend    whether extended mnemonics included (True) or not (False).  Defaults to
+#             False.
+#   seq       The list of requested instruction reports from --seq command line.
+#   msl       An MSL database from which all format types are extracted for format
+#             statistics.
+#   linesize  Maximum length of the report line.  Defaults to 132
 class ITBL(Listing):
+    
+    # Used to sort ITLBE objects into format order:
+    #   Sorted by format then by instruction opcode
     @staticmethod
     def sort_by_format(this,that):
         # This method requies the use of functools.cmp_to_key() function
         if this.format<that.format:
             return -1
-        elif this.format>that.format:
+        if this.format>that.format:
             return 1
-        else:
-            if ITBL.sort_by_op(this)<ITBL.sort_by_op(that):
-                return -1
-            elif ITBL.sort_by_op(this)>ITBL.sort_by_op(that):
-                return 1
-            else:
-                return 0
 
+        if this.mnem<that.mnem:
+            return -1
+        if this.mnem>that.mnem:
+            return 1
+
+        return 0
+
+    # Used to sort ITLBE objects into mnemoic order:
+    #   Sorted by mnemonic then by format
     @staticmethod
-    def sort_by_name(item):
-        return item.mnem
+    def sort_by_name(this,that):
+        # This method requies the use of functools.cmp_to_key() function
+        if this.mnem<that.mnem:
+            return -1
+        if this.mnem>that.mnem:
+            return 1
+        
+        if this.format<that.format:
+            return -1
+        if this.format>that.format:
+            return 1
 
+        return 0
+
+    # Used to sort ITLBE objects into mnemoic order:
+    #   Sorted by operation code then by format
     @staticmethod
-    def sort_by_op(item):
-        if item.opc_len==2:
-            return item.opcode[0]*256
-        elif item.opc_len==3:
-            return item.opcode[0]*256+item.opcode[1]*16
-        else:
-            return item.opcode[0]*256+item.opcode[1]
+    def sort_by_op(this,that):
+        # This method requies the use of functools.cmp_to_key() function
+        if this.op_sort < that.op_sort:
+            return -1
+        if this.op_sort > that.op_sort:
+            return 1
+            
+        if this.format < that.format:
+            return -1
+        if this.format > that.format:
+            return 1
+            
+        return 0
 
-    def __init__(self, columns, seq, extend=False, linesize=132):
+    def __init__(self, columns, seq, msl=None, extend=False, linesize=132):
         super().__init__(linesize=linesize)
-        self.columns=columns
+        self.columns=columns     # Number of CPU columns in the report
         self.extend=extend
         self.seq=seq
 
         # Use Multiline detail generation
         self.buf=Multiline(self)
 
-        # Built by method cpu()
-        self.counts=[0,]*columns
-        self.cpus=[None,]*columns
-        self._inst={}
-        self._formats={}
+    # Built by method cpu() - MSL CPU instruction data extracted for presentation 
+    # in the listing.
+    
+        # The cpu object which is the source of information for each column.
+        self.cpus=[None,]*columns    # Populated by method cpu()
+
+        # This list is the total mumber instructions by CPU, each element
+        # corresponding to a CPU's column
+        self.counts=[0,]*columns     # Populated by method inst()
+
+        # Dictionary by instruction mnemonic of all instructions in the report.
+        # The value of the entry is a list of all of the msldb.Inst objects placed
+        # in their respective columns for which the instruction mnemonic is defined,
+        # each column associated with a cpu in the report.  The entry is None if the
+        # instruction is not defined by the cpu associated with the column.
+        self._inst={}                # Populated by method inst()
+
+        # Disctionary by instruction formats used by all instructions.  Similar to
+        # the previous dictionary it is a list, each element corresponding to a 
+        # column of the report, each column being associated with a cpu of the
+        # instruction report.  The values in the list are counts, by format of the
+        # number of instructions defined for the CPU using the format.  For formats
+        # not used by a cpu the value is 0.
+        self._formats={}             # Populated by method format() with stats
+        self.build_format_stats(msl) # Builds the dictionary for stats
 
         # Calculated in validate() method
         self.mnem_size=0
@@ -103,7 +180,7 @@ class ITBL(Listing):
         self.opcode_size=0
 
         # Basis of 'inst' and 'PoO' reports
-        self.entries=None   # List of ITLBE objects.  See validate() method.
+        self.entries=[]    # List of ITLBE objects.  See validate() method.
 
         # Listing formats. See prepare() method
         self.hedgrp=None
@@ -116,8 +193,8 @@ class ITBL(Listing):
         self.ndx=0          # Index of next instruction in self.insts
         self.seq_ndx=0      # Index of next list in self.lists
         self.insts=None
-        self.lists=None
-        
+        self.lists=None     # The title of the lists being generated
+
         self.buf.part(self.detail_line,header=self.heading,\
             last=True)
 
@@ -125,15 +202,47 @@ class ITBL(Listing):
         return sorted(self.entries,key=functools.cmp_to_key(ITBL.sort_by_format))
 
     def by_name(self):
-        return sorted(self.entries,key=ITBL.sort_by_name)
+        return sorted(self.entries,key=functools.cmp_to_key(ITBL.sort_by_name))
 
     def by_op(self):
-        return sorted(self.entries,key=ITBL.sort_by_op)
+        return sorted(self.entries,key=functools.cmp_to_key(ITBL.sort_by_op))
 
+  #
+  # These methods extract information from the MSL database files for structuring
+  # the report.
+  #
+
+    def build_format_stats(self,msl):
+        if not msl:
+            return
+        for entry in msl.iter_entries():
+            if not isinstance(entry,msldb.Format):
+                continue
+            # entry is a format
+            try:
+                self._formats[entry.ID]
+                print("Duplicate insruction format found: %s" % entry.ID)
+            except KeyError:
+                self._formats[entry.ID]=[0,]*self.columns
+
+    # Compare the instruction formats of two different msldb.Inst objects for
+    # equality.
+    # Returns:
+    #   True   if the two formats are equal
+    #   False  if the two formats are not equal
+    def check_format(self,this,that):
+        if this.format != that.format:
+            return False
+        return True
+
+    # Compare the attributes of two different msldb.Inst objects for equality
+    # Returns:
+    #   True   if the two objects are equal
+    #   False  if the two objects are not equal
     def check_inst(self, this, that):
-        if this.ID in ["IPTE",]:   # Known exceptions
-            return True
-        if this.ID != that.ID:
+        #if this.ID in ["IPTE",]:   # Known exceptions
+        #    return True
+        if this.mnemonic != that.mnemonic:
             return False
         if this.format != that.format:
             return False
@@ -145,37 +254,20 @@ class ITBL(Listing):
             return False
         return True
 
+    # Extracts instruction information from a cpu's MSL database definition.  If
+    # extended mnemonics are not being included, they are ignored.
+    # Method Argument:
+    #   cpu    A cpu object wrapping the msldb.CPUX object with report information.
     def cpu(self, cpu):
         col=cpu.col
         self.cpus[col]=cpu
         cpux=cpu.cpux
         for inst in cpux.inst.values():
+            # inst is a msldb.Inst object
             if inst.extended and not self.extend:
                 continue
             self.inst(inst, col)
             self.format(inst, col)
-
-    # Return a detail line to the list manager (or None ends the report)
-    def detail(self):
-        return self.buf.detail(trace=False)
-
-    # Multiline 'more()' method
-    # Method Arbument:
-    #   mlbuf   The Multiline object providing the buffer to the Listing Manager
-    def detail_line(self,mlbuf):
-        if self.seq>=len(self.insts):
-            if self.seq_init():
-                # Done with instruction part of listing (seq_init() returned True)
-                # Change the 'more()' method to generate stats and try again
-                mlbuf.details(self.stats,cont=True)
-                return
-            self.eject()
-        inst=self.insts[self.seq]
-        self.seq+=1
-        values=[self.mnemonic(inst),self.format_det(inst), self.opcode(inst)]
-        values.extend(inst.columns) 
-        detail=self.detgrp.string(values=values)
-        mlbuf.more(detail)
 
     # Convert flags into their text format for printing
     def flags(self, inst):
@@ -199,16 +291,177 @@ class ITBL(Listing):
             string="%s " % string
         return string
 
+    # Accumulates the number of instructions using a specific MSL database instruction
+    # format by column, the column associated with a cpu of the report.
+    # Method Arbuments:
+    #   inst   A msldb.Inst object defining an instruction for a CPU.
+    #   col    The column index into which this instruction format's counts are 
+    #          placed for the CPU associated with the column.
     def format(self, inst, col):
         try:
             fmtlist=self._formats[inst.format]
         except KeyError:
-            fmtlist=[0,]*self.columns
+            raise ValueError("%s unrecognized instruction %s format encountered: %s" \
+                % (self.cpus[col].cpux.ID,inst.ID,inst.format))
+
         n=fmtlist[col]
         n+=1
         fmtlist[col]=n
         self._formats[inst.format]=fmtlist
 
+    # Build by instruction mnemonic, the msldb.Inst object associated with the 
+    # CPU's column
+    # Method Arbuments:
+    #   inst   A msldb.Inst object defining an instruction for a CPU.
+    #   col    The column index into which this instruction's flags are placed for
+    #          the CPU associated with the column.
+    def inst(self, inst, col):
+        try:
+            instlist=self._inst[inst.ID]
+        except KeyError:
+            instlist=[None,]*self.columns
+        instlist[col]=inst
+        self._inst[inst.ID]=instlist
+        self.counts[col]=self.counts[col]+1
+
+    # Print the mismatch of an instruction compare
+    def mismatch(self,i1,n1,i2,n2):
+        c1=self.cpus[n1].cpux.ID
+        c2=self.cpus[n2].cpux.ID
+
+        print("Instruction mismatch")
+        v1=i1.mnemonic
+        v2=i2.mnemonic
+        if v1 == v2:
+            s="=="
+        else:
+            s="!="
+        print("mnemonic: [%s] %s %s [%s] %s" % (c1, v1, s, c2, v2))
+
+        v1=i1.opcode
+        v2=i2.opcode
+        if v1 == v2:
+            s="=="
+        else:
+            s="!="
+        print("opcode:   [%s] %s %s [%s] %s" % (c1, v1, s, c2, v2))
+
+        v1=i1.opc_len
+        v2=i2.opc_len
+        if v1 == v2:
+            s="=="
+        else:
+            s="!="
+        print("opc_len:  [%s] %s %s [%s] %s" % (c1, v1 ,s, c2, v2))
+
+        v1=i1.format
+        v2=i2.format
+        if v1 == v2:
+            s="=="
+        else:
+            s="!="
+        print("format:   [%s] %s %s [%s] %s" % (c1, v1 ,s, c2, v2))
+
+    # Create a new entry in the instruction list and update column lengths
+    def new_entry(self,inst,elist):
+        entry=ITBLE(inst,elist)
+        self.mnem_size=max(self.mnem_size,len(entry.mnem))
+        self.format_size=max(self.format_size,len(entry.format))
+        self.opcode_size=max(self.opcode_size,entry.opc_len)
+        self.entries.append(entry)
+
+    # From a list of msldb.Inst objects for a single instruction mnemonic 
+    # create one or more ITLBE objects for the report.  Multiple ITLBE objects
+    # result if there are differences in the instruction definition of the mnemonic
+    def validate(self):
+        not_used="-   "
+        entries=[]
+        for mnem,instlist in self._inst.items():
+            inst=None
+            col=None
+            elist=[]
+
+            formats=self.validate_formats(instlist)
+
+            for n,x in enumerate(instlist):
+                if x is None:
+                    continue
+                fmt=formats[x.format]
+                fmt[n]=self.flags(x)
+
+            for format,ifmt in formats.items():
+                self.new_entry(ifmt.inst,ifmt.slots)
+
+        return
+
+    # Compare all of the formats of a list of supported instructions for
+    # Returns:
+    #   a dictionary of identified formats with not used flags set for each format
+    def validate_formats(self,instlist):
+        # This is a list of all instructions known to use different formats
+        known = ["ALC","DL","IPTE","ML","SLB"]
+        #known = []
+
+        inst=None    # Current msldb.Inst object against which others are compared
+        col=None     # The column of the current msldb.Inst object
+
+        formats={}
+        for n,x in enumerate(instlist):
+            # n is the index of the current column
+            # x is the msldb.Inst object (when supported) or None (when not supported)
+
+            if x is None:
+                # This CPU does not support the instruction
+                continue
+
+            if inst is None:
+                # This is the first cpu that supports the instruction
+                inst=x
+                col=n
+
+            if not self.check_inst(inst,x):
+                if inst.mnemonic not in known:
+                    self.mismatch(inst,col,x,n)   # Report the failure
+                inst=x
+                col=n
+
+            # This CPU does support the instruction
+            slots=len(instlist)
+            try:
+                formats[x.format]
+            except KeyError:
+                fmt=inst_format(x,slots)
+                formats[fmt.format]=fmt
+
+        return formats
+
+  #
+  # Listing generator callback methods
+  #
+
+    # Return a detail line to the list manager (or None ends the report)
+    def detail(self):
+        return self.buf.detail(trace=False)
+
+    # Multiline 'more()' method
+    # Method Arbument:
+    #   mlbuf   The Multiline object providing the buffer to the Listing Manager
+    def detail_line(self,mlbuf):
+        if self.seq>=len(self.insts):
+            if self.seq_init():
+                # Done with instruction part of listing (seq_init() returned True)
+                # Change the 'more()' method to generate stats and try again
+                mlbuf.details(self.stats,cont=True)
+                return
+            self.eject()
+        inst=self.insts[self.seq]
+        self.seq+=1
+        values=[self.mnemonic(inst),self.format_det(inst), self.opcode(inst)]
+        values.extend(inst.columns) 
+        detail=self.detgrp.string(values=values)
+        mlbuf.more(detail)
+
+    # Format the detail line from an ITLBE object
     def format_det(self, entry):
         if isinstance(entry,ITBLE):
             fmt=entry.format
@@ -219,36 +472,24 @@ class ITBL(Listing):
         string="%s%s" % (fmt,pad)
         return string[:self.format_size]
 
+    # Return the report heading when requested by the listing generator
     def heading(self):
         return self.hedgrp
 
-    def inst(self, inst, col):
-        try:
-            instlist=self._inst[inst.ID]
-        except KeyError:
-            instlist=[None,]*self.columns
-        instlist[col]=inst
-        self._inst[inst.ID]=instlist
-        self.counts[col]=self.counts[col]+1
-
-    def mismatch(self,i1,n1,i2,n2):
-        print("Instruction mismatch")
-        print("mnemonic: [%s] %s <> [%s] %s" % (n1,i1.ID,n2,i2.ID))
-        print("opcode:   [%s] %s <> [%s] %s" % (n1,i1.opcode,n2,i2.opcode))
-        print("opc_len:  [%s] %s <> [%s] %s" % (n1,i1.opc_len,n2,i2.opc_len))
-        print("format:   [%s] %s <> [%s] %s" % (n1,i1.format,n2,i2.format))
-
+    # Format for the report the instruction mnemonic from the ITBLE object
     def mnemonic(self,entry):
         # entry is an ITLBE object
         pad=" " * self.mnem_size
         string="%s%s" % (entry.mnem,pad)
         return string[:self.mnem_size]
 
+    # Format for the report the instruction from the ITBLE object
     def opcode(self,entry):
         # entry is an ITBLE object
-        string="%s    " % entry.op()
+        string="%s    " % entry.op_hex
         return string[:4]
 
+    # Prepare the formating of the report using listing Group objects
     def prepare(self):
         hed=[]
         det=[]
@@ -306,6 +547,10 @@ class ITBL(Listing):
         if self.seq_init():
             return
 
+    # Initialize the instruction report sequence controls
+    # Returns:
+    #   False if not at the end of the requested instruction sequence lists
+    #   True if at the end of the sequence.
     def seq_init(self):
         if self.seq_ndx>=len(self.lists):
             return True   # AT EOF
@@ -315,11 +560,20 @@ class ITBL(Listing):
         self.seq=0
         return False
 
+    # Create format related statistics
     def stats(self,mlbuf):
         self.cur_title="MSL DATABASE REPORT - Statistics"
         self.eject()
         lines=[]
+        is_poo= self.columns>1
+        unused=[]
         for format,stats in sorted(self._formats.items()):
+            if is_poo:
+                usage = 0
+                for x in stats:
+                    usage+=x
+                if usage == 0:
+                    unused.append(format)
             values=[None,self.format_det(format),None]
             values.extend(stats)
             line=self.statgrp.string(values=values)
@@ -330,48 +584,44 @@ class ITBL(Listing):
         line=self.statgrp.string(values=values)
         lines.append(line)
         mlbuf.more(lines,done=True)
+        if not is_poo or len(unused)==0:
+            return
 
+        # Report unused formats
+        s="Unused instruction formats:"
+        for f in unused:
+            s="%s %s," % (s,f)
+        print(s[:-1])
+
+    # Return the current title when requested by the listing generator
     def title(self):
         return self.cur_title
 
-    def validate(self):
-        entries=[]
-        for mnem,instlist in self._inst.items():
-            inst=None
-            col=None
-            elist=[]
-            for n,x in enumerate(instlist):
-                if x is None:
-                    # This CPU does not support the instruction
-                    elist.append("-   ")
-                    continue
-                if inst is None:
-                    # This CPU is the first in the list to support the instruction
-                    col=n
-                    inst=x
-                    elist.append(self.flags(inst))
-                    continue
-                # Additional CPUs support the instruction
-                # This checks the basic definition for consistency between the CPU's
-                if not self.check_inst(inst,x):
-                    self.mismatch(inst,col,x,n)
-                    elist.append("?")
-                else:
-                    elist.append(self.flags(inst))
-            entry=ITBLE(inst,elist)
-            self.mnem_size=max(self.mnem_size,len(entry.mnem))
-            self.format_size=max(self.format_size,len(entry.format))
-            self.opcode_size=max(self.opcode_size,entry.opc_len)
-            entries.append(entry)
-        self.entries=entries
 
-
+# Instruction table detail line information
+# Instance Arguments:
+#   inst     The msldb.Inst instance defining this an instruction
 class ITBLE(object):
     def __init__(self,inst,instlist):
-        self.mnem=inst.ID
-        self.opcode=inst.opcode
-        self.opc_len=inst.opc_len
-        self.format=inst.format
+        self.mnem=inst.ID           # The instruction mnemonic
+        self.format=inst.format     # MSL format name of the instruction
+        
+        opc=self.opcode=inst.opcode # The operation code as a list of two elements
+        length=self.opc_len=inst.opc_len   # The operation code length in hex digits
+
+        # Calculate the value used to sort by operation code and its hex digits
+        if length==2:
+            self.op_hex="%02X" % opc[0]
+            self.op_sort=opc[0]*256
+        elif length==3:
+            self.op_hex="%02X%X" % (opc[0],opc[1])
+            self.op_sort=opc[0]*256+opc[1]*16
+        else:
+            self.op_hex="%02X%02X" % (opc[0],opc[1])
+            self.op_sort=opc[0]*256+opc[1]
+
+        # Formated flags as a list of strings, one for each column in the 
+        # instruction report.
         self.columns=instlist
 
     def __str__(self):
@@ -379,7 +629,7 @@ class ITBLE(object):
         mnem=mnem[:5]
         format="%s     " % self.format
         format=format[:5]
-        op="%s    " % self.op()
+        op="%s    " % self.op_hex
         op=op[:4]
         cols=""
         for c in self.columns:
@@ -388,15 +638,6 @@ class ITBLE(object):
             else:
                 cols="%s %s" % (cols,c)
         return "%s %s %s  %s" % (mnem,format,op,cols)
-
-    def op(self):
-        length=self.opc_len
-        if length==2:
-            return "%02X" % self.opcode[0]
-        elif length==3:
-            return "%02X%X" % (self.opcode[0],self.opcode[1])
-        else:
-            return "%02X%02X" % (self.opcode[0],self.opcode[1])
 
 
 #
@@ -407,14 +648,19 @@ class ITBLE(object):
 #  +----------------------------+
 #
 
+# Perform requested reports from the command line.
+# Instance Arbument:
+#   args    The namespace object from the command-line parser
 class MSLRPT(object):
     PATHVAR="MSLPATH"
     DEFAULT=satkutil.satkdir("asma/msl",debug=False)
     def __init__(self,args):
+        
+        # Process the --report argument
         self.report=args.report        # Report requested.  See run() method
-        self.cpus=[]
 
         # Process the --cpu argument(s)
+        self.cpus=[]
         for c in args.cpu:
             seps=c.count("=")
             if seps!=1:
@@ -438,12 +684,17 @@ class MSLRPT(object):
 
         # Remeber line length
         self.line=args.line
+        
+        # A MSL DB is captured so the INTBL object can create format statistics
+        # for all defined formats, not just the ones in the selected cpu(s).
+        self.msldb=None   # A MSL DB is captured so the INTBL object can create
 
     def __find_files(self):
         msl=msldb.MSL(default=MSLRPT.DEFAULT)
         path=msl.opath # Reach in and get the path manager
         return path.files(MSLRPT.PATHVAR,ext=".msl")
 
+    # Process command line --report cpu
     def cpu_report(self):
         files=self.__find_files()
         mslf={}
@@ -468,18 +719,24 @@ class MSLRPT(object):
             strcpus=strcpus[2:]
             print("    %s: %s" % (f,strcpus))
 
+    # Process command line --report files
     def files_report(self):
         files=self.__find_files()
         print("MSL Files in MSLPATH:")
         for f in files:
             print("    %s" % f)
 
+    # Process command line --report PoO and --report inst
     def inst_report(self):
+        # A MSL DB is captured so the INTBL object can create format statistics
+        # for all defined formats, not just the ones in the selected cpu(s).
+        mslfmt=None
+
         if len(self.cpus)==0:
             print("inst report requires one or more --cpu arguments")
             return
         files={}
-        # Create a dictionary by file of a list the its requested cpu(s)
+        # Create a dictionary by filename of a list the the requested cpu(s)
         for filename,cpu in self.cpus:
             fn=files.setdefault(filename,[])
             if cpu not in fn:
@@ -493,7 +750,10 @@ class MSLRPT(object):
                 print("MSL errors encountered in file: %s" % filename)
                 continue
             # No errors to extract the database for the file and create dictionary
-            dbs[filename]=msl.DB()
+            db=msl.DB()
+            if not mslfmt:
+                mslfmt=db
+            dbs[filename]=db
 
         # Create a list of the expanded CPU definitions requested
         cpux=[]   # This is a list of tupples: (filename,msldb.CPUX)
@@ -509,7 +769,7 @@ class MSLRPT(object):
             col+=1
 
         # Build the Instruction Table
-        itbl=ITBL(len(cpux),self.seq,\
+        itbl=ITBL(len(cpux),self.seq,msl=mslfmt,\
             extend=self.extend,linesize=self.line)
         for c in cpux:
             itbl.cpu(c)
@@ -540,6 +800,8 @@ class MSLRPT(object):
             self.cpus.append( ("s390x-insn.msl","s390") )
             self.cpus.append( ("s390x-insn.msl","s390x") )
             self.cpus.append( ("all-insn.msl","24") )
+            self.cpus.append( ("all-insn.msl","31") )
+            self.cpus.append( ("all-insn.msl","64") )
             self.inst_report()
         else:
             raise ValueError("unexpected --report argument: %s" % self.report)
