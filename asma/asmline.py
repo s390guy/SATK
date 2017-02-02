@@ -966,7 +966,8 @@ class LineMgr(object):
     def categorize(self,logical,debug=False):
         assert isinstance(logical,LogLine),\
             "%s 'logical' argument must be a LogLine object: %s" \
-                % (eloc(self,"categorize",module=this_module),logical)
+                % (assembler.eloc(self,"categorize",module=this_module),logical)
+        #print("%s %s" % (assembler.eloc(self,"categorize",module=this_module),logical))
 
         OMF=self.asm.OMF
         if logical.error:

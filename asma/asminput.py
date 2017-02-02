@@ -398,6 +398,7 @@ class PhysLine(object):
             "%s 'content' argumenet must be a string: %s" \
                 % (assembler.eloc(self,"__init__",module=this_module),content)
 
+        self.typ="?"            # Set by subclass init() method
         self.source=source      # Location of source content
         # This attribute is the basis for the Statement column in the assembly
         # listing.
@@ -439,7 +440,6 @@ class PhysLine(object):
             self.empty=True
             self.cont=False
             return
-
         # Complete base class initialization
         # Continuation of comment lines is never recognized so no continuation forced
         if self.text[0]=="*":
@@ -450,16 +450,18 @@ class PhysLine(object):
             self.cont=False
 
     def __str__(self):
-        c=e="."
+        com=c=e="."
         if self.cont:
             c='+'
         if self.empty:
             e=" "
+        if self.comment:
+            com="*"
         if self.literal:
             lit="LIT"
         else:
             lit=""
-        return '%s %s%s %s %s %s "%s" %s' % (self.source,c,e,\
+        return '%s %s%s%s%s %s %s %s "%s" %s' % (self.source,self.typ,c,e,com,\
             self.oper_start,self.operand_start,self.comment_start,self.text,lit)
 
     # Performs generic initialization, called by subclass
@@ -492,6 +494,7 @@ class FixedLine(PhysLine):
     #    71 columns
     # 4. Remove trailing trailing blanks from parsable text
     def init(self):
+        self.typ="F"
         self.cont=len(self.content)>=72 and self.content[71]!=" "
         text=self.content[:min(len(self.content),72)]
         self.text=text.rstrip()
@@ -505,6 +508,7 @@ class StreamLine(PhysLine):
     # 2. Set parsable text, right hand spaces removed, not including an optional
     #    line continuation.
     def init(self):
+        self.typ="S"
         #print("content: '%s'" % self.content)
         if self.content[-1]=="\\":
             self.cont=True

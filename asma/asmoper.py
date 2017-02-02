@@ -239,7 +239,6 @@ class OperMgr(asmbase.ASMOperTable):
     def def_macro(self,macro):
         oper=asmbase.ASMOper(macro.name,asmstmts.MacroStmt,O="M",info=macro)
         self.macros.define(oper)
-        #self.macros[macro.name]=oper
 
     # Define the macro directives and other miscelaneous statement types
     def def_mdirs(self):
@@ -344,6 +343,8 @@ class OperMgr(asmbase.ASMOperTable):
             
         # This time the macro should be defined.
         mte=self.macros.get(macname)
+        print("%s mte post definition: %s" \
+            % (assembler.eloc(self,"getMacLib",module=this_module),mte))
         if mte:
             return mte.oper
         return None
@@ -355,7 +356,10 @@ class OperMgr(asmbase.ASMOperTable):
             oper=mte.oper   # Retrieve the ASMOper object from the macro table entry
         except KeyError:
             # Not found - need to try macro libarary paths
-            oper=self.getMacLib(macname,macread=macread)
+            if macread:
+                oper=self.getMacLib(macname,macread=macread)
+            else:
+                oper=None
 
         if oper is not None:
             assert isinstance(oper,asmbase.ASMOper),\
@@ -485,7 +489,8 @@ class OperMgr(asmbase.ASMOperTable):
         if oper is not None:
             if __debug__:
                 if debug:
-                    print("%s DEBUG found existing macro: %s" % (cls_str,opcode))
+                    print("%s DEBUG found existing macro: %s, %s" \
+                        % (cls_str,opcode,oper))
             assert isinstance(oper,asmbase.ASMOper),\
                 "%s getMarco returned unexpected value: %s" % (cls_str,oper)
             return oper
@@ -533,7 +538,7 @@ class OperMgr(asmbase.ASMOperTable):
                     print("%s DEBUG looking for macro: %s" % (cls_str,opcode))
             oper=self.getMacro(opcode,macread=macread)
             if __debug__:
-                if debug:
+                if debug or True:
                     print("%s DEBUG looking for macro returned: %s" % (cls_str,oper))
             # Note: if macread is True, and the macro is not defined, the getMacro 
             # method will attempt to access the macro libary path to find the macro

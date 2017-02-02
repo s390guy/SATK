@@ -625,6 +625,9 @@ class ASMString(object):
 
 class ASMOper(object):
     def __init__(self,oper,stmtcls,O="U",info=None):
+        assert stmtcls is not None,\
+            "%s 'stmtcls' argument must not be None" \
+                % (assembler.eloc(self,"__init__",module=this_module))
         self.oper=oper        # Operation name
         self.stmtcls=stmtcls  # ASMStmt subclass used to process operation
         # Object with optional operation informattion (for example instruction data,
