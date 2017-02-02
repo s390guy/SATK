@@ -180,7 +180,7 @@ class OperMgr(asmbase.ASMOperTable):
 
     # Define an individual directive
     def def_dir(self,oper,stmtcls,O="U",info=None):
-        d=asmbase.ASMOper(oper,stmtcls,info=info)
+        d=asmbase.ASMOper(oper,stmtcls,O=O,info=info)
         self[d.oper]=d
 
     # Define the assembler directives
@@ -236,8 +236,10 @@ class OperMgr(asmbase.ASMOperTable):
     #   O       The O' attribute to be assigned to the macro
     #              M - is a macro definition from within the assembly
     #              S - is a macro definition from a macro library
-    def def_macro(self,macro):
-        oper=asmbase.ASMOper(macro.name,asmstmts.MacroStmt,O="M",info=macro)
+    #           The value is specified in the asmmacs.MacroBuilder instance
+    #           'O_source' argument.
+    def def_macro(self,macro,O="U"):
+        oper=asmbase.ASMOper(macro.name,asmstmts.MacroStmt,O=O,info=macro)
         self.macros.define(oper)
 
     # Define the macro directives and other miscelaneous statement types
@@ -265,10 +267,9 @@ class OperMgr(asmbase.ASMOperTable):
     # Exception:
     #   KeyError if the directive is not defined
     def getDir(self,directive):
-        #return self[directive]
         return self.get(directive)
 
-    # Return operation a type for ignored logical lines
+    # Return operationfor an ignored logical line
     def getComment(self,quiet=False):
         if self.asm.MM.state==2 and not quiet:
             # If this is a loud comment wihin a macro body, treat it as a model stmt.
@@ -314,21 +315,14 @@ class OperMgr(asmbase.ASMOperTable):
     # MACLIB file.  Returns the associated ASMOper object of the defined macro.
     # Method Arguments:
     #   macname  MACLIB macro file being sought from the search path.
-    #   macread  Specify False to simply search for the file in the search path.
-    #            Specify True to define the macro(s) contained in the file.  Defaults
-    #            to False.
     # Returns:
     #   - ASMOper object of newly defined macro or an ASMOper object representing the
     #     macro definition file found in the file; or
     #   - None if the the maclib file was not found or the macro definition failed.
     # Exception:
     #   LineError if the library macro definition fails.
-    def getMacLib(self,macname,macread=False):
+    def getMacLib(self,macname):
         asm=self.asm
-        if not macread:
-            # Not reading the file so just looking for it (O' attribute operation)
-            # in the MACLIB directories.  Use the MacroProcessor to do this.
-            return asm.MP.getAttr_O(macname)
 
         # Actually reading the file so macros will be defined
         # An asmline.LineError is raised if this fails.  asmline.LineMgr.categorize()
@@ -339,12 +333,9 @@ class OperMgr(asmbase.ASMOperTable):
             # Fetching of the macro from the macro library failed for some reason
             # We need to treat this as a LineError of the physical line
             raise asmline.LineError(msg=ae.msg) from None
-            
-            
+
         # This time the macro should be defined.
         mte=self.macros.get(macname)
-        print("%s mte post definition: %s" \
-            % (assembler.eloc(self,"getMacLib",module=this_module),mte))
         if mte:
             return mte.oper
         return None
@@ -355,24 +346,28 @@ class OperMgr(asmbase.ASMOperTable):
             mte=self.macros[macname]
             oper=mte.oper   # Retrieve the ASMOper object from the macro table entry
         except KeyError:
-            # Not found - need to try macro libarary paths
+            # Not found - need to try macro libarary paths if actually reading
             if macread:
-                oper=self.getMacLib(macname,macread=macread)
+                # Try the MACLIB path and definine the macro if found
+                oper=self.getMacLib(macname)
+                # If the definition failed oper is None
             else:
                 oper=None
 
-        if oper is not None:
-            assert isinstance(oper,asmbase.ASMOper),\
-                "%s mte not an asmbase.ASMOper object: %s" \
-                    % (assembler.eloc(self,"getMacro",module=this_module),oper)
-            return oper
-        return None
+        # This ensures the operation is valid for both an existing macro and a
+        # newly defined macro.
+        if __debug__:
+            if oper is not None:
+                assert isinstance(oper,asmbase.ASMOper),\
+                    "%s mte not an asmbase.ASMOper object: %s" \
+                        % (assembler.eloc(self,"getMacro",module=this_module),oper)
+        return oper
 
     # Returns the operation attribute, O', of a name
     # Uses the same search as normal operation recognition.
     def get_O_attr(self,name):
         try:
-            oper=self.getOper(name,macread=False)
+            oper=self.getOper(name,macread=False,debug=False)
             assert isinstance(oper,asmbase.ASMOper),\
                 "%s getOper did not return an asmbase.ASMOper instance: %s" \
                     % (assembler.eloc(self,"oper",module=this_module),oper)
@@ -538,7 +533,7 @@ class OperMgr(asmbase.ASMOperTable):
                     print("%s DEBUG looking for macro: %s" % (cls_str,opcode))
             oper=self.getMacro(opcode,macread=macread)
             if __debug__:
-                if debug or True:
+                if debug:
                     print("%s DEBUG looking for macro returned: %s" % (cls_str,oper))
             # Note: if macread is True, and the macro is not defined, the getMacro 
             # method will attempt to access the macro libary path to find the macro
@@ -645,7 +640,7 @@ class OperMgr(asmbase.ASMOperTable):
         except KeyError:
             try:
                 # This may raise a KeyError
-                op=self.getOper(oper,opsyn=False,lineno=lineno,debug=False)
+                op=self.getOper(oper,opsyn=False,lineno=lineno,debug=debug)
             except KeyError:
                 raise KeyError() from None
         self.opsyn[syn]=op

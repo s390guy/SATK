@@ -3021,7 +3021,7 @@ class STMTProcessor(asmbase.ASMProcessor):
         self.eprint=asm.eprint  # Immediately prints errors (--error 1)
 
         # Macro Builder
-        self.MB=asmmacs.MacroBuilder(asm)
+        self.MB=asmmacs.MacroBuilder(asm,"M")
 
         # Manage input:
         self.IM=asmline.LineMgr(asm,self.MB,depth=depth,env="ASMPATH",\
@@ -3289,7 +3289,7 @@ class STMTProcessor(asmbase.ASMProcessor):
 # STMTProcessor.run().  While this is highly unlikely generally, one exception
 # in particular can have an interesting side effect, namely the BufferEmpty
 # exception.  If it ends up not being caught by MACLIBProcessor, it will get caught
-# by STMTProcessor and be interpreted as then end of the input processing for the
+# by STMTProcessor and be interpreted as the end of the input processing for the
 # entire assembly rather than just the end of input for the macro library file.
 # The listing mysteriously quits.  For this reason the  closeSource() method is
 # used to prematurely close the input source file when prematurely terminating
@@ -3303,7 +3303,7 @@ class MACLIBProcessor(asmbase.ASMProcessor):
         self.eprint=asm.eprint  # Immediately prints errors (--error 1)
 
         # Macro Builder
-        self.MB=asmmacs.MacroBuilder(asm)
+        self.MB=asmmacs.MacroBuilder(asm,"S")
 
         # Manage input:
         self.IM=asmline.LineMgr(asm,self.MB,depth=depth,env="MACLIB",\
@@ -3317,23 +3317,6 @@ class MACLIBProcessor(asmbase.ASMProcessor):
     # for a macro definition to define to the operation management framework.
     def init(self):
         self.defPhase("MACLIB",self.MacLib)
-
-    # This method uses the directory list in the MACLIB environment variable to
-    # determine if a macro definition (in reality a file of the same name) exists.
-    # Note: Python requires the file to be opened, but because we are not actually
-    # reading the definition, the file is immediately closed.
-    def getAttr_O(self,macname):
-        macnm=macname.upper()
-        filename="%s.mac" % macnm
-        try:
-            path,fo=self.IM.LB._opath.ropen(filename,variable="MACLIB",debug=False)
-        except ValueError:
-            # File not found in search path or could not be opened.  Either way it
-            # does not exist.
-            return None
-
-        fo.close()  # Just close the file, we don't actually read it
-        return asmbase.ASMOper(macnm,None,O="S")
 
     # Retrieves input until an exception occurs.
     # Exceptions:

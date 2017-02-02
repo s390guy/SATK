@@ -1594,9 +1594,16 @@ class Invoker(object):
 
 # This object interacts with the processor (statement or maclib) to facilitate
 # macro definition.
+#
+# Instance Arguments:
+#   asm        The global assembler.Assembler object
+#   O_source   The O' attribute to be used for macros defined by this instance
+#              of the object.  Two values are possible: 'S' for a macro from a
+#              library or 'M' for an in-line macro definition
 class MacroBuilder(object):
-    def __init__(self,asm):
+    def __init__(self,asm,O_source):
         self.asm=asm           # The assembler
+        self.O_source=O_source # O' attribute for macros built by this instance
 
         # Macro processing state:
         #  0 ==> not processing a macro definition
@@ -1615,13 +1622,11 @@ class MacroBuilder(object):
     # Add a defined macro the the operation management framework
     # Change state if triggered by an MEND directive
     def addMacro(self,mac,mend=False):
-        #print("%s mend:%s" \
-        #    % (assembler.eloc(self,"addMacro",module=this_module),mend))
         assert isinstance(mac,Macro),\
             "%s 'mac' argument must be a Macro object: %s" \
                 % (assembler.eloc(self,"addMacro",module=this_module),mac)
 
-        self.asm.OMF.def_macro(mac)       # Add the macro the OMF
+        self.asm.OMF.def_macro(mac,O=self.O_source)    # Add the macro the OMF
         if mend:
             self.flush()
 
