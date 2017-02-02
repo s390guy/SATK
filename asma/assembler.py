@@ -3302,6 +3302,11 @@ class MACLIBProcessor(asmbase.ASMProcessor):
         self.infile=None        # Supplied by the run() method
         self.eprint=asm.eprint  # Immediately prints errors (--error 1)
 
+        # Whether this is a Windows platform (True) or another, for example, Linux
+        # (False).  This is needed to handle case insensitive (Windows) vs. case
+        # sensitive file systems when the assembler is operating in case i
+        self.isWindows=sys.platform.startswith("win")  
+
         # Macro Builder
         self.MB=asmmacs.MacroBuilder(asm,"S")
 
@@ -3425,6 +3430,55 @@ class MACLIBProcessor(asmbase.ASMProcessor):
                 break
 
         return result
+        
+    # Open the macro file with the name as coded in the source statement.
+    # This is used for all platforms when the assembler is operating in case
+    # sensitive mode or the platform's file system is case insensitive (for example
+    # Windows).
+    #
+    # Exception:
+    #   AssemblerError if the macro is not found
+    # Note: This method is not used.  There is no way to supply the actual coded
+    # value for the operation field.  The operation field is always treated as
+    # case insensitive which internally means as an upper case string.  The
+    # method and this description are left as comments for informational purposes
+    # only.
+    #def open_asis(self,macname):
+    #    self.macro=macname
+    #    self.infile="%s.mac" % macname
+    #    self.IM.newFile(self.infile)
+
+    # Open the macro file with all upper or all lower case.  This is used when
+    # the assembler is operating in case insensitive mode, but the platform file
+    # system is case sensitive.  It will try to open 'MACNAME.mac' first and then
+    # it will try 'macname.mac'.
+    #
+    # Exception:
+    #   AssemblerError is raised if neither macro name succeeds.
+    # Note: The AssemblerError is caught by asmoper.getMacLib() and is
+    # converted into a LineError for proper handling by the STMTProcessor
+    def open_same_case(self,macname):
+        self.macro=macname       # macname is already upper case
+        upper=self.infile="%s.mac" % self.macro
+        try:
+            self.IM.newFile(self.infile)
+        except AssemblerError as ae:
+            if self.isWindows:
+                # No need to try the lower case name because the Windows file
+                # system is case insensitive.
+                msg="macro definition for %s not found in MACLIB path as %s"\
+                    % (macname,upper)
+                raise AssemblerError(msg=msg) from None
+
+            # On case sensitive platforms also try lower case file name
+            self.macro=macname.lower()
+            lower=self.infile="%s.mac" % self.macro
+            try:
+                self.IM.newFile(self.infile)
+            except AssemblerError as ae:
+                msg="macro definition for %s not found in MACLIB path as either "\
+                    "%s or %s" % (macname,upper,lower)
+                raise AssemblerError(msg=msg) from None
 
     # Define the macro or macros in a macro library file
     # Exception:
@@ -3433,15 +3487,13 @@ class MACLIBProcessor(asmbase.ASMProcessor):
         assert isinstance(macname,str),\
             "%s 'filename' argument must be a string: %s" \
                 % (eloc(self,"__init__"),filename)
-        self.macro=macname.upper()
-        self.infile="%s.mac" % self.macro
         self.lineno=1
-        #print("%s opening macro library file: %s" % (eloc(self,"run"),self.infile))
-        self.IM.newFile(self.infile)
+
+        # Open the macro definition from the MACLIB path
+        self.open_same_case(macname)
 
         # Process the MACLIB file
         result=self.process()
-        #print("%s MACLIB result: %s" % (eloc(self,run),result))
         if isinstance(result,asmline.LineError):
             raise result
         return result

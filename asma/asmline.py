@@ -829,7 +829,7 @@ class LogLine(object):
                 print("%s match groups: %s" \
                     % (assembler.eloc(self,"fields",module=this_module),groups))
         end=mo.end()
-        
+
         label=groups["label"]
         if label:
             amp= "&" in label
@@ -983,7 +983,7 @@ class LineMgr(object):
                     print("%s oper: %s" \
                         % (assembler.eloc(self,"categorize",module=this_module),oper))
             try:
-                # Get the operation infomation, defining a macro from the macro
+                # Get the operation information, defining a macro from the macro
                 # library if necessary.
                 oper=OMF.getOper(oper,mbstate=self.mb.state,macread=True,\
                     lineno=logical.source,debug=debug)
@@ -1037,7 +1037,6 @@ class LineMgr(object):
                 print("%s spaces:%s" % (cls_str,spaces))
                 print("%s alt:   %s" % (cls_str,alt))
 
-        #if logline.sep:
         if sep:
             # Separate the individual operands from the operand field in all
             # physical input lines

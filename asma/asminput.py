@@ -197,6 +197,8 @@ class FileSource(InputSource):
 
     # Perform file input source initialization
     # Locate the file based upon ASMPATH environment variable and open it
+    #
+    # 
     def init(self,pathmgr=None,variable="ASMPATH"):
         if self.fo is not None:
             raise ValueError("%s file object already exists for file: %s" \
