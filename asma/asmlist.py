@@ -1425,6 +1425,7 @@ class AsmListing(Listing):
             self.push(self.heading())
             self.push("")
             self.part7_hdr=False
+            self.headers[7]=None
         try:
             ae=self.fetch_error()
         except IndexError:
