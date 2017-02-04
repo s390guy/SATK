@@ -270,8 +270,9 @@ class OperMgr(asmbase.ASMOperTable):
         return self.get(directive)
 
     # Return operationfor an ignored logical line
-    def getComment(self,quiet=False):
-        if self.asm.MM.state==2 and not quiet:
+    def getComment(self,mbstate=0,quiet=False):
+        #if self.asm.MM.state==2 and not quiet:
+        if mbstate==2 and not quiet:
             # If this is a loud comment wihin a macro body, treat it as a model stmt.
             return asmbase.ASMOper("*",asmstmts.ModelStmt)
         return asmbase.ASMOper("*",asmstmts.StmtComment)
@@ -433,7 +434,7 @@ class OperMgr(asmbase.ASMOperTable):
                 if opname=="MEND":
                     return self[opname]
                 # Suppressing statement in bad macro. Treat as a comment
-                return self.getComment()
+                return self.getComment(mbstate=mbstate)
             else:
                 raise ValueError("%s unexpected MacroBuilder state: %s" \
                     % (assembler.eloc(self,"getOper",module=this_module),mbstate))

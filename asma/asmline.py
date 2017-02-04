@@ -968,13 +968,17 @@ class LineMgr(object):
         assert isinstance(logical,LogLine),\
             "%s 'logical' argument must be a LogLine object: %s" \
                 % (assembler.eloc(self,"categorize",module=this_module),logical)
-        #print("%s %s" % (assembler.eloc(self,"categorize",module=this_module),logical))
+        if __debug__:
+            if debug:
+                print("%s %s" \
+                    % (assembler.eloc(self,"categorize",module=this_module),logical))
 
         OMF=self.asm.OMF
+        mbstate=self.mb.state
         if logical.error:
             oper=OMF.getError()
         elif logical.comment or logical.empty:
-            oper=OMF.getComment(quiet=logical.quiet)
+            oper=OMF.getComment(mbstate=mbstate,quiet=logical.quiet)
         elif logical.literal:
             oper=OMF.getLiteral(logical.literal)
         else:
@@ -986,7 +990,7 @@ class LineMgr(object):
             try:
                 # Get the operation information, defining a macro from the macro
                 # library if necessary.
-                oper=OMF.getOper(oper,mbstate=self.mb.state,macread=True,\
+                oper=OMF.getOper(oper,mbstate=mbstate,macread=True,\
                     lineno=logical.source,debug=debug)
                 if __debug__:
                     if debug:
@@ -994,8 +998,11 @@ class LineMgr(object):
                             % (assembler.eloc(self,"categorize",module=this_module),\
                                 oper))
             except KeyError:
-                print("%s KeyError" \
-                    % assembler.eloc(self,"categorize",module=this_module))
+                if __debug__:
+                    if debug:
+                        print("%s KeyError" \
+                            % assembler.eloc(self,"categorize",module=this_module))
+
                 # If the operation is unrecognized, categorize it as unknown
                 logical.T="U"
                 logical.ignore=True  # Unknown operations must be ignored.
@@ -1003,6 +1010,7 @@ class LineMgr(object):
                 logical.error=LineError(source=source,\
                     msg="Unrecognized operation field: %s" % oper)
                 oper=OMF.getError()
+
             except LineError as le:
                 if __debug__:
                     if debug:

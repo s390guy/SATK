@@ -153,9 +153,8 @@ import asmtokens              # Access Pratt expression evaluators
 # AIF) the respective MacroLanguage method handles the case sensitivity.
 
 
-
 # This excpetion is used when a user error occurs during the invocation of a
-# macro.  assembler.AssemblerError is raised during user errors during macro
+# macro.  assembler.AssemblerError is raised for user errors during macro
 # definition.
 #
 # Instance Arguments:  All are optional and default to None if not supplied
@@ -476,19 +475,6 @@ class Macro(object):
                 else:
                     pval=Parm_Val()
                 self.__initparm(proto_pos[ndx].positional,pval,lcls)
-
-            # Otherwise we only need to process the prototype positional parameters
-            # and we ignore any additional positional parameters in the statement
-            #for ndx in range(poss):
-            #    possym=proto_pos[ndx].positional
-            #print("positional name: %s" % possym)
-            #print("ndx:poss - %s:%s" % (ndx,poss))
-            #if ndx<poss:
-            #    val=stmt_pos[ndx].value
-            #    print("statement value: %s" % val)
-            #else:
-            #    val=None
-            #self.__initparm(possym,val,lcls)
 
         if self.syslist:
             syslist=macsyms.SYSLIST(label=lbl,posparms=sysl)
@@ -856,10 +842,12 @@ class ACTR(MacroOp):
 class AGO(MacroOp):
     def __init__(self,lineno,dest):
         super().__init__(lineno,dest=dest)
+
     def operation(self,state,debug=False):
         state.actr()    # decrement ACTR and abort if already zero
         state.exp.mhelp_02(self.lineno,self.next)
         return (self.next,None)
+
     def post_resolve(self):
         self.next=self.dest[0]
 
@@ -868,6 +856,7 @@ class AGOC(MacroOp):
     def __init__(self,lineno,dest,expr):
         super().__init__(lineno,dest=dest)
         self.expr=expr        # Computed AGO arithmetic expression
+
     def operation(self,state,debug=False):
         #value=self.evaluate(state,self.expr,Macro.Arith,debug=debug,trace=False)
         value=self.evaluate_expr(state,self.expr,debug=debug,trace=False)
@@ -932,6 +921,7 @@ class AIF(MacroOp):
 class ANOP(MacroOp):
     def __init__(self,lineno):
         super().__init__(lineno)
+
     def operation(self,state,debug=False):
         return (self.next,None)
 
@@ -944,6 +934,7 @@ class GBLA(MacroOp):
 
         super().__init__(lineno)
         self.symid=symref
+
     def operation(self,state,debug=False):
         symid=self.symid.SymID(state,debug=debug)
         sym=state.exp.gbls.defa(symid)
@@ -959,6 +950,7 @@ class GBLB(MacroOp):
 
         super().__init__(lineno)
         self.symid=symref
+
     def operation(self,state,debug=False):
         symid=self.symid.SymID(state,debug=debug)
         sym=state.exp.gbls.defb(symid)
@@ -974,6 +966,7 @@ class GBLC(MacroOp):
 
         super().__init__(lineno)
         self.symid=symref
+
     def operation(self,state,debug=False):
         symid=self.symid.SymID(state,debug=debug)
         sym=state.exp.gbls.defc(symid)
@@ -989,6 +982,7 @@ class LCLA(MacroOp):
 
         super().__init__(lineno)
         self.symid=symref
+
     def operation(self,state,debug=False):
         symid=self.symid.SymID(state,debug=debug)
         state.exp.lcls.defa(symid)
@@ -1003,6 +997,7 @@ class LCLB(MacroOp):
 
         super().__init__(lineno)
         self.symid=symref
+
     def operation(self,state,debug=False):
         symid=self.symid.SymID(state,debug=debug)
         state.exp.lcls.defb(symid)
@@ -1017,6 +1012,7 @@ class LCLC(MacroOp):
 
         super().__init__(lineno)
         self.symid=symref
+
     def operation(self,state,debug=False):
         symid=self.symid.SymID(state,debug=debug)
         state.exp.lcls.defc(symid)
@@ -1026,9 +1022,11 @@ class LCLC(MacroOp):
 class MEND(MacroOp):
     def __init__(self,lineno):
         super().__init__(lineno)
+
     def location(self,loc):
         self.loc=loc
-        # Do not set next sequential instruction
+
+    # Do not set next sequential instruction
     def operation(self,state,debug=False):
         state.exp.mhelp_08()
         return (None,None)
@@ -1037,9 +1035,11 @@ class MEND(MacroOp):
 class MEXIT(MacroOp):
     def __init__(self,lineno):
         super().__init__(lineno)
+
     def location(self,loc):
         self.loc=loc
-        # Do not set next sequential instruction
+
+    # Do not set next sequential instruction
     def operation(self,state,debug=False):
         state.exp.mhelp_08()
         return (None,None)
@@ -1049,10 +1049,9 @@ class Model(MacroOp):
     def __init__(self,lineno,model,debug=False):
         self.model=model
         super().__init__(lineno)
+
     def operation(self,state,debug=False):
         self.model.replace(state.exp)  # Perform any symbolic replacements
-        #line=state.exp.symbol_replace(self.model,debug=debug)
-        #return (self.next,line)
         plines=self.model.create()     # Create physical lines for macro source
         return (self.next,plines)
 
@@ -1199,24 +1198,13 @@ class SETC(SETx):
             "%s 'expr' argument must be a list: %s" \
                 % (assembler.eloc(self,"__init__",module=this_module),expr)
         if __debug__:
-            for n,item in enumerate(expr):
-                assert isinstance(item,asmbase.ASMExprChar),\
-                    "%s [%s] expr item[%s] must be an asmbase.ASMExprChar object: %s" \
-                        % (assembler.eloc(self,"__init__",module=this_module),\
-                            lineno,n,item)
-                # Look into the ASMExprChar object to make sure it has a pratt
-                # character expression object.
-                #assert isinstance(item.pratt,asmtokens.CharacterExpr),\
-                #    "%s [%s] item[%s].pratt must be a asmtokens.CharacterExpr "\
-                #        "object: %s" \
-                #            % (assembler.eloc(self,"__init__",module=this_module),\
-                #                lineno,n,item.pratt)
-                # The first pratt token of the pratt expression should be the
-                # pratt complex term for character expressions.
-                #assert isinstance(item.pratt.toks[0],macopnd.PChrExpr),\
-                #    "%s [%s] item[%s] pratt token not a macopnd.PChrExpr object: %s" \
-                #        % (assembler.eloc(self,"__init__",module=this_module),\
-                #            lineno,n,item.pratt.toks[0])
+            if debug:
+                for n,item in enumerate(expr):
+                    assert isinstance(item,asmbase.ASMExprChar),\
+                        "%s [%s] expr item[%s] must be an asmbase.ASMExprChar "\
+                            "object: %s" \
+                                % (assembler.eloc(self,"__init__",\
+                                    module=this_module),lineno,n,item)
 
         self.setsym=setsym  
         self.expr=expr
@@ -1636,6 +1624,16 @@ class MacroBuilder(object):
         self.state=1         # We now expect a prototype statement
 
     # Hook used by the Assembler Language to process macro definition statements
+    # Method Arguments:
+    #   stmt   A ASMStmt object of the statement that may or may not be part of
+    #          a macro definition.
+    #   debug  Enable debugging messages (True).  Disable debugging messages (False).
+    #          Defaults to False.
+    # Returns:
+    #   True if the ASMStmt object is part of a macro definition and nothing further
+    #        needs to be done by the Assembler object for it.
+    #   False if the ASMStmt object is not part of a macro definition and the
+    #        Assembler object must process it in full.
     def defining(self,stmt,debug=False):
         ddebug=self.ddebug or debug #or True
         if __debug__:
