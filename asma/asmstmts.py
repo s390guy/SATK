@@ -1414,7 +1414,7 @@ class MachineStmt(ASMStmt):
 class MacroProto(ParmStmt):
     # Statement processing controls
     typ="MP"       # Statement type identifier
-    lfld="S"       # Valid label field content
+    lfld="B"       # Valid label field content
     ofld="L"       # Valid operation field content
     alt=True       # Whether the alternate statement format is allowed
     parser="mproto"# Operand parser
@@ -1433,10 +1433,10 @@ class MacroProto(ParmStmt):
         # Identify prototype label symbolic variable, if present
         lbl=self.label_fld
         if lbl:
-            if lbl.typ=="S":
+            if lbl.typ=="B":
                 var=lbl.text
             else:
-                raise assembler.AssemblerError(line=stmt.lineno,\
+                raise assembler.AssemblerError(line=self.lineno,\
                     msg="invalid prototype label parameter: '%s'" % lbl.text)
         else:
             var=None

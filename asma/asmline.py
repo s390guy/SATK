@@ -89,13 +89,13 @@ class LineError(Exception):
 #  +-------------------------------------------+
 #
 
-LABEL=asmtokens.LabelType()               # Normal label     - LABEL
-MACLABEL=asmtokens.MacLabelType()         # Macro label      - LABEL&SYM
-SEQSYM=asmtokens.SeqType()                # Sequence symbol  - .LABEL
+LABEL=asmtokens.LabelType()               # Normal label      - LABEL
+MACLABEL=asmtokens.MacLabelType()         # Macro label       - LABEL&SYM
+SEQSYM=asmtokens.SeqType()                # Sequence symbol   - .LABEL
+SYMBOL=asmtokens.SymType()                # Symbolic variable - &SYMBOL
 
 class LField(asmbase.ASMString):
-    #types={"L":LABEL, "M":MACLABEL,"Q":SEQSYM,"S":SYMREF}
-    types={"L":LABEL, "M":MACLABEL,"Q":SEQSYM}
+    types={"B":SYMBOL,"L":LABEL, "M":MACLABEL,"Q":SEQSYM}
     def __init__(self,string,source,ndx,amp):
         assert string is not None,\
             "LField 'string' argument must be a string: %s" % string
@@ -107,9 +107,10 @@ class LField(asmbase.ASMString):
         self.symid=None      # macopnd.SymbolRef object for the field
 
         # Field content type
+        #  'B' -> A single sysmbolic variable without a subscript or an attribute
         #  'L' -> A normal label
         #  'M' -> A macro model statement label
-        #  'S' -> A symbolic variable
+        #  'S' -> A symbolic variable with 
         #  'Q' -> A sequence symbol
         #  'U' -> unrecognized
         self.typ="U"         # Unrecognized type
@@ -932,8 +933,8 @@ class LineMgr(object):
                 if __debug__:
                     if debug:
                         print("%s pline: %s" \
-                            % assembler.eloc(self,"__getLogical",module=this_module),\
-                                pline)
+                            % (assembler.eloc(self,"__getLogical",\
+                                module=this_module),pline))
             except asminput.SourceEmpty:
                 logical.error=LineError(source=pline.source,\
                     msg="continuation line missing at end of file")

@@ -1904,7 +1904,6 @@ class DCDS_String_Type(lexer.Type):
 
 
 # &SYMBOL  - Recgonizes a macro symbolic variable in the replacement context
-#            or symbolic variable declaration
 #
 # Note: This differs from SymAttrType in that attributes are not recognized.
 # This also differs from SymbolType in that the concatenation character, a period,
@@ -2001,6 +2000,36 @@ class SymbolType(lexer.Type):
         super().__init__("SYMBOL",pattern,tcls=SymbolToken,mo=True,debug=debug)
 
 
+# [&]SYMBOL  - Recgonizes a macro symbolic variable in a symbolic variable
+#              declaration
+# &SYMBOL  - Recgonizes a macro symbolic variable in the replacement context
+#            or symbolic variable declaration
+#
+# Note: This differs from SymAttrType in that attributes are not recognized.
+# This also differs from SymbolType in that the concatenation character, a period,
+# is not recognized.  However SymToken and SymbolToken occur in the same contexts,
+# namely model statement and quoted string symbolic replacements.
+class SymDeclToken(LexicalToken):
+    def __init__(self):
+        super().__init__()
+        # Symbolic variable name being referenced.  See init() method.
+        self.symname=None
+        
+    def init(self,tid,string,beg,end,line=0,linepos=0,eols=0,ignore=False,mo=None):
+        # Let super classs initalize the lexical token
+        super().init(tid,string,beg,end,line=line,linepos=linepos,eols=eols,\
+                     ignore=ignore,mo=mo)
+
+        # Extract results from matched string
+        if self.string[0] == "&":
+            self.symname=self.string
+        else:
+            self.symname="&%s" % self.string
+
+class SymDeclType(lexer.Type):
+    def __init__(self,debug=False):
+        pattern="&?%s" % (label)
+        super().__init__("SYMD",pattern,tcls=SymDeclToken,mo=False,debug=debug)
 
 
 if __name__ == "__main__":
