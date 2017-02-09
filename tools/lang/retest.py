@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014, 2016 Harold Grovesteen
+# Copyright (C) 2014, 2016, 2017 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -229,8 +229,12 @@ if __name__ == "__main__":
     
     char="\$@\#_"
     pattern="[a-zA-Z%s][a-zA-Z0-9%s]*" % (char,char)
-    test=retest(pattern,debug=debug)
-    test.match("svc#old")
+    #test=retest(pattern,debug=debug)
+    #test.match("svc#old")
+    
+    pat="&?%s" % pattern
+    test=retest(pat,debug=debug)
+    test.match("&GA")
 
 
     

@@ -2365,7 +2365,6 @@ class COPY(ASMStmt):
         self.asmdir=True         # This is an assembler directive
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
-        print("%s COPY.Pass0")
         self.pre_process(asm)
         self.parse_line(asm,debug=debug)
 
