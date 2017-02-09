@@ -1,5 +1,5 @@
-#!/usr/bin/python3.3
-# Copyright (C) 2015 Harold Grovesteen
+#!/usr/bin/python3
+# Copyright (C) 2015, 2017 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -16,11 +16,15 @@
 #     You should have received a copy of the GNU General Public License
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
-# This module creates IPL media from list-directed IPL directories assembled by 
-# asma.py option --gldipl or and object deck created by the asma.py option --object.
+# This module creates IPL media from ASMA generated output:
+#
+#  - a list-directed IPL directory (created using ASMA option --gldipl)
+#  - an image file (using ASMA option (created using ASMA option --image), or
+#  - an absolute loader deck (created using ASMA option --object).
+
 
 this_module="iplasma.py"
-copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2015")
+copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2015, 2017")
 
 # Python imports
 import sys
@@ -160,6 +164,91 @@ class bootstrap(object):
         except KeyError:
             self.devices=dtype
 
+#
+# +------------------------------+
+# |                              |
+# |   Image File Encapsulation   |
+# |                              |
+# +------------------------------+
+#
+
+class Loadable(object):
+    def __init__(self):
+        self.load_lst=[]       # List of regions for loading onto medium
+
+        # Establshed by loadable() method.  Each contains REGION objects
+        self.bcmode=False   # Whether a manufactured PSW is to be in BC-mode.
+        self.psw=None       # PSW REGION object if available
+        self.asa=None       # ASA REGION object if available
+        self.load_list=[]   # List of program REGION objects
+
+    # Returns the high-water mark if the load-list regions.  Returns None if the
+    # load list is empty.
+    def hwm(self):
+        hwm=None
+        for region in self.load_list:
+            if hwm is None:
+                hwm=region.address+len(region)-1
+            else:
+                hwm=max(hwm,region.address+len(region)-1)
+        return hwm
+
+    # Returns the low-water mark if the load-list regions.  Returns None if the load
+    # list is empty.
+    def lwm(self):
+        lwm=None
+        for region in self.load_list:
+            if lwm is None:
+                lwm=region.address
+            else:
+                lwm=min(lwm,region.address)
+        return lwm
+
+    def loadable(self,psw=None,asa=None,bcmode=False,exc=[]):
+        raise NotImplementedError("%s subclass %s must provide loadable method"\
+            % (this_module,self.__class__.__name__))
+
+
+class IMAGE(Loadable):
+    def __init__(self,imgfile,load=0):
+        super().__init__()
+
+        # Set the absolute path to the LDIPL control file
+        if os.path.isabs(imgfile):
+            self.ifile=imgfile
+        else:
+            self.ifile=os.path.abspath(imgfile)
+
+        # Make sure the image file actually exists
+        if not os.path.exists(self.ifile):
+            raise ValueError("%s - image file does not exist: %s"\
+                % (this_module,self.ifile))
+
+        self.image=self.__binary_read()
+        self.load=load
+
+    def __binary_read(self):
+        try:
+            fo=open(self.ifile,"rb")
+        except IOError:
+            raise ValueError("%s - could not open image file: %s" \
+                % (this_module,filepath)) from None
+
+        try:
+            bindata=fo.read()
+        except IOError:
+            raise ValueError("%s - could not read image file: %s" \
+                % (this_module,filepath)) from None
+        finally:
+            fo.close()
+
+        return bindata
+
+    def loadable(self,psw=None,asa=None,bcmode=False,exc=[]):
+        if len(self.image)<10:
+            return
+        self.load_list=[REGION("IMAGE",self.load,self.image),]
+        self.psw=REGION("PSW",0,self.image[0:8])
 
 
 #
@@ -170,8 +259,10 @@ class bootstrap(object):
 # +-----------------------------------------------+
 #
 
-class LDIPL(object):
+class LDIPL(Loadable):
     def __init__(self,ctlfile):
+        super().__init__()
+
         # Set the absolute path to the LDIPL control file
         if os.path.isabs(ctlfile):
             self.cfile=ctlfile
@@ -192,12 +283,12 @@ class LDIPL(object):
         self.__cfile_read()
         # Encapsulate REGIONS read from the LDIPL directory
         self.regions=self.__binary_read()  # Dictionary of REGION objects
-        
+
         # Establshed by loadable() method.  Each contains REGION objects
-        self.bcmode=False   # Whether a manufactured PSW is to be in BC-mode.
-        self.psw=None       # PSW REGION object if available
-        self.asa=None       # ASA REGION object if available
-        self.load_list=[]   # List of program REGION objects
+        #self.bcmode=False   # Whether a manufactured PSW is to be in BC-mode.
+        #self.psw=None       # PSW REGION object if available
+        #self.asa=None       # ASA REGION object if available
+        #self.load_list=[]   # List of program REGION objects
 
     # Read the LDIPL directory binary files identified in the control file
     def __binary_read(self):
@@ -289,34 +380,12 @@ class LDIPL(object):
         self.names=names
         self.sequence=seq
 
-    # Returns the high-water mark if the load-list regions.  Returns None if the
-    # load list is empty.
-    def hwm(self):
-        hwm=None
-        for region in self.load_list:
-            if hwm is None:
-                hwm=region.address+len(region)-1
-            else:
-                hwm=max(hwm,region.address+len(region)-1)
-        return hwm
-
-    # Returns the low-water mark if the load-list regions.  Returns None if the load
-    # list is empty.
-    def lwm(self):
-        lwm=None
-        for region in self.load_list:
-            if lwm is None:
-                lwm=region.address
-            else:
-                lwm=min(lwm,region.address)
-        return lwm
-
     # Returns a list of REGION objects that require loading, excludes PSW and ASA
     # CCW or explicitly supplied IPL Record 1 regions or command-line list if 
     # specified.
     # Method Argumets:
     #   psw    IPL PSW region name
-    #   asa    Assigned Storage Area initialization regtion name
+    #   asa    Assigned Storage Area initialization region name
     #   bcmode If a Basic-control mode PSW is to be generate, if needed
     #   exc    List of region names to be excluded, if present in the directory
     def loadable(self,psw=None,asa=None,bcmode=False,exc=[]):
@@ -420,7 +489,7 @@ class BOOTREC(object):
 
     def __len__(self):
         return len(self.bdata)
-        
+
     # Returns the binary boot record
     def record(self,length=False):
         bytes=fullword(self.address)
@@ -456,7 +525,7 @@ class IPLTOOL(object):
             "CKD":"3330",
             "FBA":"3310",
             "TAPE":"3420"}
-            
+
     @staticmethod
     def load_list_names(llist):
         regions=""
@@ -469,13 +538,8 @@ class IPLTOOL(object):
         self.verbose=args.verbose    # Whether to generate verbose messages
 
         # Perform general sanity check on input options
-        if self.args.gldipl is None and self.args.object is None:
-            self.error("neither option --gldipl nor option --object supplied")
-        if self.args.gldipl and self.args.object:
-            self.error("options --gldipl and --object are incompatible with each "
-                "other")
-        if self.args.object and not self.args.bldipl:
-            self.error("option --object requires option --bldipl")
+        self.fmt=args.format         # Source format string: 'image' or 'ld'
+        self.source=args.source[0]   # Input file/path string
 
         self.__check_for_boot_options()  # when no bootstrap loader identified
 
@@ -486,7 +550,7 @@ class IPLTOOL(object):
         self.seq=False                   # True if sequential device type
         self.volcls=None                 # IPLVOL subclass for output generation
         self.__set_dtype_info()
-        
+
         # Size DASD volumes (ignored for other device types)
         sizing=self.args.size
         if sizing=="std":
@@ -520,9 +584,10 @@ class IPLTOOL(object):
             else:
                 self.pswreg=self.args.psw
 
-        if self.args.gldipl:
-            self.program=LDIPL(self.args.gldipl)
-            
+        if self.fmt == "ld":
+            # --fornat=ld
+            self.program=LDIPL(self.source)
+
             # Baremetal program uses either the command line or default CCW
             # and IPL Record 1 region names, if used at all
             self.program.loadable(psw=self.pswreg,asa=self.args.asa,\
@@ -530,8 +595,27 @@ class IPLTOOL(object):
             if len(self.program.load_list)==0:
                 self.error("IPL program contains no loadable regions")
 
-        if self.args.bldipl:
-            self.boostrap=LOADER(self.args.bldipl)
+        elif self.fmt == "image":
+            # --fornat=image (the default)
+            try:
+                load=int(self.args.load,16)
+            except ValueError:
+                raise ValueError("--load argument not hexadecimal: '%s'" \
+                    % self.args.load) from None
+
+            self.program=IMAGE(self.source,load=load)
+            self.program.loadable()
+            if len(self.program.load_list)==0:
+                self.error("IPL image contain no loadable content")
+
+        else:
+            # Note: this should not occur, the argparser will recognize the
+            # incorrent --format choice, but it also doesn't hurt.
+            raise ValueError("%s unexpected --format option: %s" \
+                % (this_module,self.fmt))
+
+        if self.args.boot:
+            self.boostrap=LOADER(self.args.boot)
             if not self.bootstrap.bootcap:
                 self.error("bootstrap loader capabilities unknown, __boot__.py "
                     "module not found")
@@ -551,7 +635,7 @@ class IPLTOOL(object):
                 self.error("bootstrap loader PSW must be 64-bit PSW: %s" \
                     % len(self.bootstrap.psw)*8)
 
-        if self.args.object:
+        if self.fmt == "object":
             if not self.seq:
                 self.error("option --object requires sequential device "
                     "type, --dtype not sequential: %s" % self.dtype)
@@ -561,7 +645,7 @@ class IPLTOOL(object):
             self.objdeck=self.__read_deck()
 
         if len(self.program.load_list)!=1 and self.bootstrap is None:
-            self.error("option --bldipl required for multiple loadable program "
+            self.error("option --boot required for multiple loadable program "
                 "regions: %s" % IPLTOOL.load_list_names(self.program.load_list))
 
         self.ipl=None                    # Content participating in IPL function
@@ -569,7 +653,7 @@ class IPLTOOL(object):
 
         # Establish what content will participate in the IPL function and
         # what will be brought into memory by means of a bootstrap loader.
-        # If a bootstrap loader (option --bldipl) is supplied it is always used.
+        # If a bootstrap loader (option --boot), is supplied it is always used.
         if self.bootstrap:
             self.ipl=self.bootstrap
             if self.objdeck:
@@ -581,17 +665,20 @@ class IPLTOOL(object):
 
     def __check_for_boot_options(self):
         args=self.args
-        if args.bldipl:
+        if args.boot:
             return
         if args.recl:
-            print("%s - option --recl ignored, option --bldipl missing" % this_module)
+            print(\
+                "%s - option --recl ignored, option --bldipl missing" % this_module)
         if args.arch:
-            print("%s - option --arch ignored, option --bldipl missing" % this_module)
+            print(\
+                "%s - option --arch ignored, option --bldipl missing" % this_module)
         if args.traps:
-            print("%s - option --arch ignored, option --bldipl missing" % this_module)
+            print(\
+                "%s - option --traps ignored, option --bldipl missing" % this_module)
 
     def __read_deck(self):
-        filepath=self.args.object
+        filepath=self.source
         try:
             fo=open(filepath,"rb")
         except IOError:
@@ -618,7 +705,7 @@ class IPLTOOL(object):
 
         dtype=self.dtype
         types=bootstrap.dtypes
-        
+
         # Validate hardware device types and prepare for volume creation
         if dtype in types["CARD"]:
             self.seq=True
@@ -644,7 +731,7 @@ class IPLTOOL(object):
     def run(self):
         ipl_load=self.ipl.load_list
         if len(ipl_load)==0:
-            raise MediumError(msg="IPL LDIPL contains no loadable program regions")
+            raise MediumError(msg="no loadable program content available")
         self.ipl_lwm=self.ipl.lwm()
         self.ipl_hwm=self.ipl.hwm()
         if self.ipl_hwm>0xFFFFFF and self.boot is None:
@@ -659,7 +746,7 @@ class IPLTOOL(object):
         volume=self.volcls(self.ipl,self.boot,self.dtype,verbose=self.verbose)
         if self.verbose:
             print(volume)
-        volume.build()  # Convert LDIPL/LOADER objects into medium content
+        volume.build()  # Convert LDIPL/LOADER/IMAGE objects into medium content
 
         # Create the emulated volume
         volume.create(self.args.medium,\
@@ -667,12 +754,11 @@ class IPLTOOL(object):
             comp=self.compress,\
             progress=True,debug=False)
         # At this point the emulated medium has been written and closed
-        
+
         # Output success message
         filesize=os.stat(self.args.medium).st_size
         print("%s - emulated medium %s created with file size: %s" \
             % (this_module,self.args.medium,filesize))
-        
 
         # If requested dump the volume records
         if self.args.records:
@@ -687,8 +773,8 @@ class IPLTOOL(object):
 # +--------------------------------+
 #
 
-# These classes form the basis for a generic allocation system managing and allocating
-# resource slots, for example:
+# These classes form the basis for a generic allocation system managing and
+# allocating resource slots, for example:
 #   -  Memory management
 #   -  FBA DASD sector management
 #   -  CKD DASD track management
@@ -1344,7 +1430,7 @@ class IPLVOL(object):
     def __init__(self,program,boot,dtype,bc=False,verbose=False):
         self.verbose=verbose     # Whether verbose messages enabled
         self.dtype=dtype         # Physical volume device type
-        self.program=program     # LDIPL or LOADER object of IPL'd program
+        self.program=program     # LDIPL or LOADER or IMAGE object of IPL'd program
         self.psw=program.psw     # PSW region of IPL'd program
         self.asa=program.asa     # ASA initialization image region
         self.boot=boot           # LDIPL of booted program or objdeck
@@ -1906,14 +1992,37 @@ class FBAMAP(Alloc):
 def parse_args():
     parser=argparse.ArgumentParser(prog=this_module,
         epilog=copyright, 
-        description="create a IPL capable medium in Hercule device emulation format")
+        description="create a IPL capable medium in Hercules device emulation format")
 
   # Input arguments:
+
+    # Source input file (Note: attribute source in the parser namespace will be a list)
+    parser.add_argument("source",nargs=1,metavar="FILEPATH",\
+        help="input source path for --in argument")
+
+    parser.add_argument("-f","--format",choices=["image","ld","object"],\
+        default="image",\
+        help="format of input source: "\
+             "'image' for ASMA --image output file, "\
+             "'ld' for ASMA --gldipl output control file "\
+             "'object' for ASMA --object absolute load deck. "\
+             "Defaults to 'image'. 'object' also requires --boot option.")
+
     # Input generic list directed IPL control file
-    parser.add_argument("-g","--gldipl",metavar="FILEPATH",
-        help="identifies the location of the input bare-metal program list directed "
-             "IPL file converted to an IPL capable medium.  Incompatible with "
-             "option --object.")
+    #parser.add_argument("-g","--gldipl",metavar="FILEPATH",
+    #    help="identifies the location of the input bare-metal program list directed "
+    #         "IPL file converted to an IPL capable medium.  Incompatible with "
+    #         "option --object.")
+
+    # Input image information
+    #parser.add_argument("-i","--image",metavar="FILEPATH",\
+    #    help="identifies the location of the input image file.  Incompatible with "\
+    #         "option --gldipl")
+
+    # Input image load address
+    parser.add_argument("--load",metavar="ADDRESS",default="0",\
+        help="the hexadacimal memory address at which the image file is loaded. "
+             "Defaults to 0")
 
     # List directed IPL directory's region whose first eight bytes contains the 
     # IPL PSW
@@ -1929,9 +2038,9 @@ def parse_args():
              "not exist")
 
     # Input object deck file name
-    parser.add_argument("-o","--object",metavar="FILEPATH",
-        help="input loadable object deck converted into IPL an IPL capable medium. "
-             "Incompatible with option --gldipl")
+    #parser.add_argument("-o","--object",metavar="FILEPATH",
+    #    help="input loadable object deck converted into IPL an IPL capable medium. "
+    #         "Incompatible with option --gldipl")
 
   # Output IPL medium arguments
     # Output emulated IPL medium device type
@@ -1960,15 +2069,15 @@ def parse_args():
 
     # Option causes the IPL records to be dumped.
     parser.add_argument("--records",default=False,action="store_true",\
-        help="Dumps volume record contentin hex.")
+        help="Dumps volume record content in hex.")
 
   # Bootstrap loader arguments
     # Bootstrap loader list directed IPL control file
     # The regions and capabilites of the bootstrap loader are defined in its 
     # __boot__.capabilities object created in its __boot__.py file, an instance of 
     # class bootstrap defined above.
-    parser.add_argument("-b","--bldipl",metavar="FILEPATH",
-        help="input bootstrap loader list-directed IPL file")
+    parser.add_argument("-b","--boot",metavar="FILEPATH",
+        help="bootstrap loader list-directed IPL control file path")
 
     # Bootstrap loader record length
     parser.add_argument("-r","--recl",metavar="SIZE",type=int,
