@@ -32,7 +32,7 @@ cpu 24              # All instructions with a 24-bit influence
     addrmax 24
     ccw CCW0
     psw PSWEC
-    base all-base s390x-base all-extended s390-new-extended s390-rel-extended 
+    base all-base s390x-base all-extended s390-new-extended s390-rel-extended
     base all-io
     base all-legacy
     features s390x-translate-2        # December, 2000
@@ -65,6 +65,8 @@ cpu 24              # All instructions with a 24-bit influence
     # SA22-7832-07, February, 2009, of PoO only instroduced the Fiber Channel
     # Extensions.  No new instructions were introduced with this version.  The major
     # change was to input/output control blocks and the new TCW support.
+    features s390x-cpu-counter        # August, 2010         STFLE:67
+    features s390x-cpu-sampling       # August, 2010         STFLE:68
     features s390x-distinct-operands  # August, 2010
     features s390x-fp-ext             # August, 2010
     features s390x-high-word          # August, 2010
@@ -74,6 +76,7 @@ cpu 24              # All instructions with a 24-bit influence
     features s390x-msa-4              # August, 2010
     features s390x-pop-count          # August, 2010
     features s390x-rrb-mult           # August, 2010
+    features s390x-set-program-parms  # August, 2010
     features s390x-cons-trans-exe     # September, 2012
     features s390x-dfp-zoned-conv     # September, 2012
     features s390x-enh-dat-2          # September, 2012
@@ -82,10 +85,12 @@ cpu 24              # All instructions with a 24-bit influence
     features s390x-misc-inst-ext      # September, 2012
     features s390x-proc-assist        # September, 2012
     features s390x-trans-exe          # September, 2012
+    features s390x-cpu-counter-mult   # March, 2015          STFLE:142
     features s390x-dfp-packed-conv    # March, 2015
     features s390x-load-store-cond-2  # March, 2015
     features s390x-load-zero-right    # March, 2015
     features s390x-msa-5              # March, 2015
+    features s390x-store-hypervisor   # March, 2015          STFLE:74
     features s390x-vector             # March, 2015
     features s390x-vm
     include IPTE
@@ -94,7 +99,7 @@ cpu 31             # All instructions with a 31-bit influence
     addrmax 31
     ccw CCW0
     psw PSWE390
-    base all-base s390x-base all-extended s390-new-extended s390-rel-extended 
+    base all-base s390x-base all-extended s390-new-extended s390-rel-extended
     base all-io
     base all-legacy
     features s390x-translate-2        # December, 2000
@@ -127,6 +132,8 @@ cpu 31             # All instructions with a 31-bit influence
     # SA22-7832-07, February, 2009, of PoO only instroduced the Fiber Channel
     # Extensions.  No new instructions were introduced with this version.  The major
     # change was to input/output control blocks and the new TCW support.
+    features s390x-cpu-counter        # August, 2010         STFLE:67
+    features s390x-cpu-sampling       # August, 2010         STFLE:68
     features s390x-distinct-operands  # August, 2010
     features s390x-fp-ext             # August, 2010
     features s390x-high-word          # August, 2010
@@ -136,6 +143,7 @@ cpu 31             # All instructions with a 31-bit influence
     features s390x-msa-4              # August, 2010
     features s390x-pop-count          # August, 2010
     features s390x-rrb-mult           # August, 2010
+    features s390x-set-program-parms  # August, 2010
     features s390x-cons-trans-exe     # September, 2012
     features s390x-dfp-zoned-conv     # September, 2012
     features s390x-enh-dat-2          # September, 2012
@@ -144,10 +152,12 @@ cpu 31             # All instructions with a 31-bit influence
     features s390x-misc-inst-ext      # September, 2012
     features s390x-proc-assist        # September, 2012
     features s390x-trans-exe          # September, 2012
+    features s390x-cpu-counter-mult   # March, 2015          STFLE:142
     features s390x-dfp-packed-conv    # March, 2015
     features s390x-load-store-cond-2  # March, 2015
     features s390x-load-zero-right    # March, 2015
     features s390x-msa-5              # March, 2015
+    features s390x-store-hypervisor   # March, 2015          STFLE:74
     features s390x-vector             # March, 2015
     features s390x-vm
     include IPTE
@@ -156,7 +166,7 @@ cpu 64             # All instructions with a 64-bit influence
     addrmax 64
     ccw CCW0
     psw PSWE390
-    base all-base s390x-base all-extended s390-new-extended s390-rel-extended 
+    base all-base s390x-base all-extended s390-new-extended s390-rel-extended
     base all-io
     base all-legacy
     features s390x-translate-2        # December, 2000
@@ -189,6 +199,8 @@ cpu 64             # All instructions with a 64-bit influence
     # SA22-7832-07, February, 2009, of PoO only instroduced the Fiber Channel
     # Extensions.  No new instructions were introduced with this version.  The major
     # change was to input/output control blocks and the new TCW support.
+    features s390x-cpu-counter        # August, 2010         STFLE:67
+    features s390x-cpu-sampling       # August, 2010         STFLE:68
     features s390x-distinct-operands  # August, 2010
     features s390x-fp-ext             # August, 2010
     features s390x-high-word          # August, 2010
@@ -198,6 +210,7 @@ cpu 64             # All instructions with a 64-bit influence
     features s390x-msa-4              # August, 2010
     features s390x-pop-count          # August, 2010
     features s390x-rrb-mult           # August, 2010
+    features s390x-set-program-parms  # August, 2010
     features s390x-cons-trans-exe     # September, 2012
     features s390x-dfp-zoned-conv     # September, 2012
     features s390x-enh-dat-2          # September, 2012
@@ -206,10 +219,12 @@ cpu 64             # All instructions with a 64-bit influence
     features s390x-misc-inst-ext      # September, 2012
     features s390x-proc-assist        # September, 2012
     features s390x-trans-exe          # September, 2012
+    features s390x-cpu-counter-mult   # March, 2015          STFLE:142
     features s390x-dfp-packed-conv    # March, 2015
     features s390x-load-store-cond-2  # March, 2015
     features s390x-load-zero-right    # March, 2015
     features s390x-msa-5              # March, 2015
+    features s390x-store-hypervisor   # March, 2015          STFLE:74
     features s390x-vector             # March, 2015
     features s390x-vm
     include IPTEE
@@ -242,7 +257,7 @@ inst BAKR   B240 RRE            # BRANCH AND STACK
 inst BAL    45   RXA            # BRANCH AND LINK
 inst BALR   05   RR             # BRANCH AND LINK
 inst BAS    4D   RXA            # BRANCH AND SAVE
-inst BASSM  0C   RR             # BRANCH AND SAVE AND SET MODE            
+inst BASSM  0C   RR             # BRANCH AND SAVE AND SET MODE
 inst BASR   0D   RR             # BRANCH AND SAVE
 inst BC     47   RXA            # BRANCH ON CONDITION
 inst BCR    07   RR             # BRANCH ON CONDITION
@@ -916,58 +931,58 @@ inst JLU    C0F4 ERILC   E      # UNCONDITIONAL "JUMP" RELATIVE        (BRCL 15,
 inst JLZ    C084 ERILC   E      # "JUMP" RELATIVE ON ZERO              (BRCL 8,IMMED)
 
 iset all-base
-    mnemonics A AD ADB ADBR ADR AE AEB AEBR AER AH AHI AL ALR AP AR AU AUR 
-    mnemonics AW AWR AXBR AXR 
+    mnemonics A AD ADB ADBR ADR AE AEB AEBR AER AH AHI AL ALR AP AR AU AUR
+    mnemonics AW AWR AXBR AXR
     mnemonics BAKR BAL BALR BAS BASR BASSM BC BCR BCT BCTR BRAS BRC BRCT BRXH BRXLE
     mnemonics BSA BSG BSM BXH BXLE
-    mnemonics C CD CDB CDBR CDFBR CDFR CDR CDS CE CEB CEBR CEFBR CEFR CER 
-    mnemonics CFDBR CFDR CFEBR CFER CFXBR CFXR CH CHI CFC CKSM 
-    mnemonics CL CLC CLCL CLCLE CLI CLM CLR CLST CMPSC 
+    mnemonics C CD CDB CDBR CDFBR CDFR CDR CDS CE CEB CEBR CEFBR CEFR CER
+    mnemonics CFDBR CFDR CFEBR CFER CFXBR CFXR CH CHI CFC CKSM
+    mnemonics CL CLC CLCL CLCLE CLI CLM CLR CLST CMPSC
     mnemonics CP CPYA CR CS CSP CUSE CUTFU CUUTF CVB CVD CXBR CXFBR CXFR CXR
     mnemonics D DD DDB DDBR DDR DE DEB DEBR DER DIAG DIDBR DIEBR DP DR DXBR DXR
-    mnemonics EAR ED EDMK EFPC EPAR EREG ESAR ESTA EX 
-    mnemonics FIDBR FIDR FIEBR FIER FIXBR FIXR 
-    mnemonics HDR HER 
+    mnemonics EAR ED EDMK EFPC EPAR EREG ESAR ESTA EX
+    mnemonics FIDBR FIDR FIEBR FIER FIXBR FIXR
+    mnemonics HDR HER
     mnemonics IAC IC ICM IPK IPM ISKE IVSK
     mnemonics KDB KDBR KEB KEBR KXBR
-    mnemonics L LA LAE LAM LASP LCDBR LCDR LCEBR LCER LCR LCTL LCXBR LCXR 
+    mnemonics L LA LAE LAM LASP LCDBR LCDR LCEBR LCER LCR LCTL LCXBR LCXR
     mnemonics LD LDE LDEB LDEBR LDER LDR LDXBR LDXR LE LEDBR LEDR LER LEXBR LEXR LFPC
     mnemonics LH LHI LM LNDBR LNDR LNEBR LNER LNR LNXBR LNXR
-    mnemonics LPDBR LPDR LPEBR LPER LPR LPSW LPXBR LPXR LR LRA LRDR LRER 
+    mnemonics LPDBR LPDR LPEBR LPER LPR LPSW LPXBR LPXR LR LRA LRDR LRER
     mnemonics LTDBR LTDR LTEBR LTER LTR LTXBR LTXR LURA
-    mnemonics LXD LXDB LXDBR LXDR LXE LXEB LXEBR LXER LXR LZDR LZER LZXR 
+    mnemonics LXD LXDB LXDBR LXDR LXE LXEB LXEBR LXER LXR LZDR LZER LZXR
     mnemonics M MADB MADBR MAEB MAEBR MC MD MDB MDBR MDE MDEB MDEBR MDER MDR ME
-    mnemonics MEE MEEB MEEBR MEER MER MH MHI MP MR MS MSDB MSDBR MSEB MSEBR MSR MSTA 
-    mnemonics MVC MVCDK MVCIN MVCK MVCL MVCLE MVCP MVCS MVCSK MVPG MVI 
+    mnemonics MEE MEEB MEEBR MEER MER MH MHI MP MR MS MSDB MSDBR MSEB MSEBR MSR MSTA
+    mnemonics MVC MVCDK MVCIN MVCK MVCL MVCLE MVCP MVCS MVCSK MVPG MVI
     mnemonics MVN MVO MVST MVZ MXBR MXD MXDB MXDBR MXDR MXR
-    mnemonics N NC NI NR 
+    mnemonics N NC NI NR
     mnemonics O OC OI OR
-    mnemonics PACK PALB PC PCF PGIN PGOUT PLO PR PT PTLB 
+    mnemonics PACK PALB PC PCF PGIN PGOUT PLO PR PT PTLB
     mnemonics RP RRBE
-    mnemonics S SAC SACF SAR SCK SCKC SCKPF SD SDB SDBR SDR SE SEB SEBR SER SERVC 
-    mnemonics SFPC SH SIE SIGP 
-    mnemonics SL SLA SLDA SLDL SLL SLR SP SPKA SPM SPT SPX SQXBR SQD SQDB SQDBR SQDR 
-    mnemonics SQE SQEB SQEBR SQER SQXR SR SRA SRDA SRDL SRL SRNM SRP SRST SSAR SSKE 
+    mnemonics S SAC SACF SAR SCK SCKC SCKPF SD SDB SDBR SDR SE SEB SEBR SER SERVC
+    mnemonics SFPC SH SIE SIGP
+    mnemonics SL SLA SLDA SLDL SLL SLR SP SPKA SPM SPT SPX SQXBR SQD SQDB SQDBR SQDR
+    mnemonics SQE SQEB SQEBR SQER SQXR SR SRA SRDA SRDL SRL SRNM SRP SRST SSAR SSKE
     mnemonics SSM ST STAM STAP STC STCK STCKC STCKE STCM STCTL STD STE STFPC STH STIDP
-    mnemonics STM STSI STNSM STOSM STPT STPX STURA SU SUR SVC SW SWR SXBR SXR 
-    mnemonics TAR TB TBDR TBEDR TCDB TCEB TCXB THDER THDR TM TMH TML TMLH TMLL TPROT 
-    mnemonics TR TRAP2 TRAP4 TRE TRACE TRT TS 
+    mnemonics STM STSI STNSM STOSM STPT STPX STURA SU SUR SVC SW SWR SXBR SXR
+    mnemonics TAR TB TBDR TBEDR TCDB TCEB TCXB THDER THDR TM TMH TML TMLH TMLL TPROT
+    mnemonics TR TRAP2 TRAP4 TRE TRACE TRT TS
     mnemonics UNPK UPT
-    mnemonics X XC XI XR 
+    mnemonics X XC XI XR
     mnemonics ZAP
 
 iset all-extended
-    mnemonics B BE BER BH BHR BL BLR BM BMR BNE BNER BNH BNHR BNL BNLR BNM BNMR  
+    mnemonics B BE BER BH BHR BL BLR BM BMR BNE BNER BNH BNHR BNL BNLR BNM BNMR
     mnemonics BNO BNOR BNP BNPR BNZ BNZR BO BOR BP BPR BR BZ BZR NOP NOPR
 
 iset s390-rel-extended
     mnemonics BRE BRH BRL BRM BRNE BRNH BRNL BRNM BRNO BRNP BRNZ BRO BRP BRU BRZ
     mnemonics J JAS JCT JE JH JL JM JNE JNH JNL JNM JNO JNOP JNP JNZ JO JP JXH JXLE JZ
-    
+
 #iset all-channel_subsystem_io
 #    mnemonics CHSC CSCH HSCH MSCH RCHP RSCH SAL SCHM SSCH STCPS STCRW STSCH
 #    mnemonics TPI TSCH XSCH
-     
+
 iset all-legacy
     mnemonics ISK RDD RRB SSK WRD
 
@@ -1004,17 +1019,17 @@ iset s390x-base
      mnemonics STCMH STCTG STFL STG STMG STMH STPQ STRAG STRV STRVG STRVH STURG TAM
      mnemonics TMHH TMHL TRACG XG XGR
 
-     
+
 # ASN-AND-LX REUSE FACILITY (May, 2004)
 inst EPAIR  B99A RRE            # EXTRACT PRIMARY ASN AND INSTANCE
 inst ESAIR  B99B RRE            # EXTRACT SECONARY ASN AND INSTANCE
 inst PTI    B99E RRE            # PROGRAM TRANSFER WITH INSTANCE
 inst SSAIR  B99F RRE            # SET SECONDARY ASN WITH INSTANCE
-     
+
 # See IBM z/Architecture Principles of Operation, SA22-7832-03, May, 2004
 # RA instructions
 iset s390x-reuse-asn
-    mnemonics EPAIR ESAIR PTI SSAIR 
+    mnemonics EPAIR ESAIR PTI SSAIR
 
 
 # COMPARE-AND-SWAP-AND-STORE FACILITY (April, 2007)
@@ -1025,7 +1040,7 @@ inst CSST   C82 SSF2            # COMPARE SWAP AND SAVE
 iset s390x-compare-swap-save
     mnemonics CSST
 
-    
+
 # CONFIGURATION-TOPOLOGY FACILITY (February, 2008)
 inst PTF    B9A2 RRE1    P      # PERFORM TOPOLOGY FUNCTION
 
@@ -1034,7 +1049,7 @@ inst PTF    B9A2 RRE1    P      # PERFORM TOPOLOGY FUNCTION
 iset s390x-cfg-topology
     mnemonics PTF
 
-    
+
 # CONSTRAINED TRANSACTIONAL-EXECUTION FACILITY
 inst TBEGINC E561 SIL           # TRANSACTION BEGIN
 
@@ -1042,6 +1057,34 @@ inst TBEGINC E561 SIL           # TRANSACTION BEGIN
 # CX instruction
 iset s390x-cons-trans-exe
     mnemonics TBEGINC
+
+
+# CPU MEASUREMENT COUNTER FACILITY (August, 2010)
+inst ECPGA  B2ED RRE     P      # EXTRACT COPROCESSOR-GROUP ADDRESS
+inst ECCTR  B2E4 RRE            # EXTRACT CPU COUNTER
+inst EPCTR  B2E5 RRE     P      # EXTRACT PERIPHERAL COUNTER
+inst LCCTL  B284 RRE     P      # LOAD CPU-COUNTER-SET CONTROLS
+inst LPCTL  B285 S0      P      # LOAD PERIPHERAL-COUNTER-SET CONTROLS
+inst QCTRI  B28E S0      P      # QUERY COUNTER INFORMATION
+inst SCCTR  B2E0 RRE     P      # SET CPU COUNTER
+inst SPCTR  B2E1 RRE     P      # SET PERIPHERAL COUNTER
+
+# See IBM z/Architecture Principles of Operation, SA22-7832-08, August, 2010
+# See Load-Program-Parameter and the CPU Measurement Facilities, SA23-2260-01,
+# September, 2010
+iset s390x-cpu-counter
+    mnemonics ECPGA ECCTR EPCTR LCCTL LPCTL QCTRI SCCTR SPCTR
+
+
+# CPU MEASUREMENT SAMPLING FACILITY (August, 2010)
+inst LSCTL  B287 S0      P      # LOAD SAMPLING CONTROLS
+inst QSI    B386 S0      P      # QUERY SAMPLING INFORMATION
+
+# See IBM z/Architecture Principles of Operation, SA22-7832-08, August, 2010
+# See Load-Program-Parameter and the CPU Measurement Facilities, SA23-2260-01,
+# September, 2010
+iset s390x-cpu-sampling
+    mnemonics LSCTL QSI
 
 
 # DAT ENHANCEMENT FACILITY 1 (June, 2003)
@@ -1062,7 +1105,7 @@ inst LPTEA  B9AA RRFB2   P      # LOAD PAGE-TAGLE-ENTRY ADDRESS
 iset s390x-dat-2
     mnemonics LPTEA
 
-    
+
 # DECIMAL FLOATING POINT FACILITY (April, 2007)
 inst ADTR   B3D2 RRFA1          # ADD (LD)
 inst AXTR   B3DA RRFA1          # ADD (ED)
@@ -1160,7 +1203,7 @@ inst CZXT   EDA9 RSLB           # CONVERT TO ZONED (ED)
 # ZF instructions
 iset s390x-dfp-zoned-conv
      mnemonics CDZT CXZT CZDT CZXT
-   
+
 
 # DISTINCT-OPERANDS FACILITY (August, 2010)
 inst AGHIK  ECD9 RIED           # ADD IMMEDIATE (64<16)
@@ -1191,7 +1234,7 @@ inst XRK    B9F7 RRFA1          # EXCLUSIVE OR (32)
 iset s390x-distinct-operands
     mnemonics AGHIK AGRK AHIK ALGHSIK ALGRK ALHSIK ALRK ARK NGRK NRK OGRK ORK
     mnemonics SGRK SLAK SLGRK SLLK SLRK SRAK SRK SRLK XGRK XRK
-    
+
 
 # ENHANCED-DAT 1 FACILITY (February, 2008)
 inst PFMF   B9AF RRE     P      # PERFORM FRAME MANAGEMENT FUNCTION
@@ -1210,7 +1253,7 @@ inst CRDTE  B98F RRFB2   P      # COMPARE AND REPLACE DAT TABLE ENTRY
 iset s390x-enh-dat-2
     mnemonics CRDTE
 
-    
+
 # EXECUTE-EXTENSIONS FACILITY (February, 2008)
 inst EXRL   C60  RILB           # EXECUTE RELATIVE LONG
 
@@ -1276,7 +1319,7 @@ iset s390x-ext-immed
 
 # EXTENDED TRANSLATION FACILITY 2 (October, 2000)
 inst CLCLU  EB8F RSA2           # COMPARE LOGICAL LONG UNICODE
-inst MVCLU  EB8E RSA2           # MOVE LONG UNICODE 
+inst MVCLU  EB8E RSA2           # MOVE LONG UNICODE
 inst PKA    E9   SSF1           # PACK ASCII
 inst PKU    E1   SSF1           # PACK UNICODE
 inst TP     EBC0 RSLA           # TEST DECIMAL
@@ -1383,7 +1426,7 @@ iset s390x-fp-ext
     mnemonics CLFXBR CLFXTR CLGDBR CLGDTR CLGEBR CLGXBR CLGXTR CXFBRA CXFTR
     mnemonics CXGBRA CXGTRA CXLFBR CXLFTR CXLGBR CXLGTR DDTRA DXTRA FIDBRA
     mnemonics FIEBRA FIXBRA LDXBRA LEDBRA LEXBRA MDTRA MXTRA SDTRA SRNMB SXTRA
-    
+
 
 # FLOATING-POINT-SUPPORT-SIGN-HANDLING FACILITY (April, 2007)
 inst CPSDR  B372 RRFH           # COPY SIGN (LONG)
@@ -1512,9 +1555,9 @@ inst MSER   B32F RRD            # MULTIPLY AND SUBTRACT (SH)
 iset s390x-HFP-multiply-add
     mnemonics MAD MADR MAE MAER MSD MSDR MSE MSER
 
-    
+
 # HFP UNNORMALIZED EXTENSIONS FACILITY (September, 2005)
-inst MAY    ED3A RXF            # MULTIPLY AND ADD UNNORMALIZED (EH<LH) 
+inst MAY    ED3A RXF            # MULTIPLY AND ADD UNNORMALIZED (EH<LH)
 inst MAYH   ED3C RXF            # MULTIPLY AND ADD UNNORMALIZED (EH HIGH<LH)
 inst MAYHR  B33C RRFH           # MULTIPLY AND ADD UNNORMALIZED (EH HIGH<LH)
 inst MAYL   ED38 RXF            # MULTIPLY AND ADD UNNORMALIZED (EH LOW<LH)
@@ -1572,7 +1615,7 @@ iset s390x-high-word
     mnemonics CIH CLHF CLHHR CLHLR CLIH LBH LFH LHH LLCH LLHH RISBHG RISBLG SHHHR
     mnemonics SHHLR SLHHHR SLHHLR STCH STFH STHH
 
-    
+
 # IEEE-EXCEPTION-SIMULATION FACILITY
 inst LFAS   B2BD S0             # LOAD FPC AND SIGNAL
 inst SFASR  B385 RRE1           # SET FPC AND SIGNAL
@@ -1582,7 +1625,7 @@ inst SFASR  B385 RRE1           # SET FPC AND SIGNAL
 iset s390x-IEEE-exception-sim
     mnemonics LFAS SFASR
 
-    
+
 # INTERLOCKED ACCESS FACILITY (August, 2010)
 inst LAA    EBF8 RSYA           # LOAD AND ADD (32)
 inst LAAG   EBE8 RSYA           # LOAD AND ADD (64)
@@ -1722,19 +1765,19 @@ iset s390x-msa
 
 # MESSAGE SECURITY ASSIST 3 FACILITY (August, 2010)
 inst PCKMO  B928 RRE2    P      # PERFORM CRYPTOGRAPHIC KEY MANAGEMENT OPERATIONS
-    
+
 # See IBM z/Architecture Principles of Operation, SA22-7832-08, August, 2010
 # M3 instructions
 iset s390x-msa-3
     mnemonics PCKMO
 
-    
+
 # MESSAGE SECURITY ASSIST 4 FACILITY (August, 2010)
 inst KMCTR  B92D RRFI           # CIPHER MESSAGE WITH COUNTER
 inst KMF    B92A RRE            # CIPHER MESSAGE WITH CFB
 inst KMO    B92B RRE            # CIPHER MESSAGE WITH OFB
 inst PCC    B92C RRE2           # PERFORM CRYPTOGRAPHIC COMPUTATION
-    
+
 # See IBM z/Architecture Principles of Operation, SA22-7832-08, August, 2010
 # M3 instructions
 iset s390x-msa-4
@@ -1753,7 +1796,7 @@ iset s390x-msa-5
 # MISCELANEOUS-INSTUCTIONS-EXTENSION FACILITY
 inst CLGT   EB2B RSYB           # COMPARE LOGICAL AND TRAP (64)
 inst CLT    EB23 RSYB           # COMPARE LOGICAL AND TRAP (32)
-inst RISBGN EC59 RIEF           # ROTATE THEN INSERT SELECTED BITS 
+inst RISBGN EC59 RIEF           # ROTATE THEN INSERT SELECTED BITS
 
 # See IBM z/Architecture Principles of Operation, SA22-7832-09, September, 2012
 # MI instructions
@@ -1779,7 +1822,7 @@ inst TRTRE  B9BD RRFC           # TRANSLATE AND TEST REVERSE EXTENDED
 iset s390x-parsing-enh
     mnemonics TRTE TRTRE
 
-    
+
 # PFPO FACILITY
 inst PFPO   010A E              # PERFORM FLOATING-POINT OPERATION
 
@@ -1788,7 +1831,7 @@ inst PFPO   010A E              # PERFORM FLOATING-POINT OPERATION
 iset s390x-pfpo
     mnemonics PFPO
 
-    
+
 # POPULATION COUNT FACILITY (August, 2010)
 inst POPCNT B9E1 RRE            # POPULATION COUNT
 
@@ -1805,7 +1848,7 @@ inst PPA    B2E8 RRFC           # PERFORM PROCESSOR ASSIST
 # PA instruction
 iset s390x-proc-assist
     mnemonics PPA
-     
+
 
 # RESET-REFERENCE-BITS-MULTIPLE FACILITY (August, 2010)
 inst RRBM   B9AE RRE     P      # RESET REFERENCE BITS MULTIPLE
@@ -1816,15 +1859,36 @@ iset s390x-rrb-mult
      mnemonics RRBM
 
 
+# SET-PROGRAM-PARAMATERS FACILITY (August, 2010)
+inst LPP    B280 S0      P      # LOAD PROGRAM PARAMETER
+
+# See IBM z/Architecture Principles of Operation, SA22-7832-08, August, 2010
+# See Load-Program-Parameter and the CPU-Measurement Facilities, SA23-2260-01,
+# September, 2010
+
+iset s390x-set-program-parms
+    mnemonics LPP
+
+
 # STORE-CLOCK-FAST FACILITY (September, 2005)
-inst STCKF  B27C S0      P      # STORE CLOCK FAST 
+inst STCKF  B27C S0      P      # STORE CLOCK FAST
 
 # See IBM z/Architecture Principles of Operation, SA22-7832-04, September, 2005
 # SC instruction
 iset s390x-store-clock-fast
     mnemonics STCKF
 
-    
+
+# STORE-CPU-COUNTER-MULTIPLE FACILITY (March, 2015)
+inst STCCTM EB17 RSYB           # STORE CPU COUNTER MULTIPLE
+
+# See IBM z/Architecture Principles of Operation, SA22-7832-08, August, 2010
+# See Load-Program-Parameter and the CPU-Measurement Facilities, SA23-2260-04,
+# March, 2015
+iset s390x-cpu-counter-mult
+    mnemonics STCCTM
+
+
 # STORE-FACILICY-LIST-EXTENDED FACILITY (September, 2005)
 inst STFLE  B2B0 S0             # STORE FACILITY LIST EXTENDED
 
@@ -1833,9 +1897,18 @@ inst STFLE  B2B0 S0             # STORE FACILITY LIST EXTENDED
 
 iset s390x-stfle
     mnemonics STFLE
-    
+
+
+# STORE-HYPERVISOR-INFORMATION FACILITY (March, 2015)
+inst STHYI B256 RRE             # STORE HYPERVISOR INFORMATION
+
+# See IBM z/VM CP Programming Services, Version 6, Release 4, SC24-6179-09, 2016
+iset s390x-store-hypervisor
+    mnemonics STHYI
+
+
 # TOD-CLOCK-STEERING FACILITY (September, 2005)
-inst PTFF   0104 E              # PERFORM TIMING FACILITY FUNCTION 
+inst PTFF   0104 E              # PERFORM TIMING FACILITY FUNCTION
 
 # See IBM z/Architecture Principles of Operation, SA22-7832-04, September, 2005
 # TS instruction
@@ -1956,7 +2029,7 @@ inst VNO    E76B VRRC2          # VECTOR NOR
 inst VO     E76A VRRC2          # VECTOR OR
 inst VPDI   E784 VRRC1          # VECTOR PERMUTE DOUBLEWORD IMMEDIATE
 inst VPERM  E78C VRRE1          # VECTOR PERMUTE
-inst VPK    E794 VRRC1          # VECTOR PACK 
+inst VPK    E794 VRRC1          # VECTOR PACK
 inst VPKLS  E795 VRRB           # VECTOR PACK LOGICAL SATURATE (EXTENDED!)
 inst VPKS   E797 VRRB           # VECTOR PACK SATURATE (EXTENDED!)
 inst VPOPCT E750 VRRA1          # VECTOR POPULATION COUNT
