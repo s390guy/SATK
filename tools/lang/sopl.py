@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2014 Harold Grovesteen
+# Copyright (C) 2014, 2017 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -78,7 +78,7 @@ class Source(object):
         self.lineno=lineno
     def __str__(self):
         # This results in the following location strings
-        # [lineno]-fileno            
+        # [lineno]-fileno
         # [lineno]                   fileno is None
         # or no position             fileno and line are both None
         string=""
@@ -102,7 +102,7 @@ class Parameter(object):
         # statement is an instance of Line
         self.aline=aline       # The statement or paramter Line object
         self.source=aline.source  # Source of this element
-        
+
         units=aline.text.split()
         if len(units)==0:
             cls_str="msldb.py - %s.__init__() -" % self.__class__.__name__
@@ -119,7 +119,7 @@ class Parameter(object):
         print(s)
 
     def parse_units(self):
-        #     [0]       [1]...    self.unit indexes  
+        #     [0]       [1]...    self.unit indexes
         #  parm-type  attributes
         self.typ=self.units[0]
         self.attr=self.units[1:]
@@ -159,7 +159,7 @@ class Statement(Parameter):
         print(s)
 
     def parse_units(self):
-        #     [0]       [1]         [2]...      self.unit indexes  
+        #     [0]       [1]         [2]...      self.unit indexes
         #  stmt-type  stmt-id   attributes
         self.typ=self.units[0]
         self.ID=self.units[1]
@@ -219,7 +219,7 @@ class SOPL(object):
         self._translate=translate # Used to detect invalid characters
 
         # Force subclass to register its statements
-        self.register()          # Subclass calls regStmt() method in this method 
+        self.register()          # Subclass calls regStmt() method in this method
 
     # Make sure an input line contains only valid ASCII characters
     def __badchars(self,source,string):
@@ -257,6 +257,7 @@ class SOPL(object):
             if x.isStmt():
                 if stmt is not None:
                     self.stmts.append(stmt)
+                    stmt=None
                 try:
                     stmt=Statement(x,stmtd)
                 except SOPLError as me:
@@ -268,6 +269,7 @@ class SOPL(object):
                     self._do_error(error=me)
         if stmt is not None:
             self.stmts.append(stmt)
+            stmt=None
         if debug:
             self.dumpStmts()
 

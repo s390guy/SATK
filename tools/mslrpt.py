@@ -48,12 +48,12 @@ class CPU(object):
     def __init__(self,col,filename,cpux):
         # The column ndx into which this CPU instruction's flags are placed
         self.col=col
-        self.filename=filename   # The MSL filename upon which this cpu is based 
+        self.filename=filename   # The MSL filename upon which this cpu is based
         self.cpux=cpux           # msldb.CPUX object constructed from the MSL file
         #self.count=0
     def __str__(self):
         # Note cpux.ID is the CPU name from the MSL file.
-        return "[%s] %s %s" % (self.col, self.filename, self.cpux.ID)   
+        return "[%s] %s %s" % (self.col, self.filename, self.cpux.ID)
 
 
 # This object is an intermediate representation of the information for an instruction
@@ -87,7 +87,7 @@ class inst_format(object):
 #             statistics.
 #   linesize  Maximum length of the report line.  Defaults to 132
 class ITBL(Listing):
-    
+
     # Used to sort ITLBE objects into format order:
     #   Sorted by format then by instruction opcode
     @staticmethod
@@ -114,7 +114,7 @@ class ITBL(Listing):
             return -1
         if this.mnem>that.mnem:
             return 1
-        
+
         if this.format<that.format:
             return -1
         if this.format>that.format:
@@ -131,12 +131,12 @@ class ITBL(Listing):
             return -1
         if this.op_sort > that.op_sort:
             return 1
-            
+
         if this.format < that.format:
             return -1
         if this.format > that.format:
             return 1
-            
+
         return 0
 
     def __init__(self, columns, seq, msl=None, extend=False, linesize=132):
@@ -148,9 +148,9 @@ class ITBL(Listing):
         # Use Multiline detail generation
         self.buf=Multiline(self)
 
-    # Built by method cpu() - MSL CPU instruction data extracted for presentation 
+    # Built by method cpu() - MSL CPU instruction data extracted for presentation
     # in the listing.
-    
+
         # The cpu object which is the source of information for each column.
         self.cpus=[None,]*columns    # Populated by method cpu()
 
@@ -166,7 +166,7 @@ class ITBL(Listing):
         self._inst={}                # Populated by method inst()
 
         # Disctionary by instruction formats used by all instructions.  Similar to
-        # the previous dictionary it is a list, each element corresponding to a 
+        # the previous dictionary it is a list, each element corresponding to a
         # column of the report, each column being associated with a cpu of the
         # instruction report.  The values in the list are counts, by format of the
         # number of instructions defined for the CPU using the format.  For formats
@@ -188,7 +188,7 @@ class ITBL(Listing):
         self.statgrp=None
         self.lists=None
 
-        # See detail() method 
+        # See detail() method
         self.seq_ndx=None   # Index of next list in self.lists
         self.ndx=0          # Index of next instruction in self.insts
         self.seq_ndx=0      # Index of next list in self.lists
@@ -295,7 +295,7 @@ class ITBL(Listing):
     # format by column, the column associated with a cpu of the report.
     # Method Arbuments:
     #   inst   A msldb.Inst object defining an instruction for a CPU.
-    #   col    The column index into which this instruction format's counts are 
+    #   col    The column index into which this instruction format's counts are
     #          placed for the CPU associated with the column.
     def format(self, inst, col):
         try:
@@ -309,7 +309,7 @@ class ITBL(Listing):
         fmtlist[col]=n
         self._formats[inst.format]=fmtlist
 
-    # Build by instruction mnemonic, the msldb.Inst object associated with the 
+    # Build by instruction mnemonic, the msldb.Inst object associated with the
     # CPU's column
     # Method Arbuments:
     #   inst   A msldb.Inst object defining an instruction for a CPU.
@@ -370,7 +370,7 @@ class ITBL(Listing):
         self.opcode_size=max(self.opcode_size,entry.opc_len)
         self.entries.append(entry)
 
-    # From a list of msldb.Inst objects for a single instruction mnemonic 
+    # From a list of msldb.Inst objects for a single instruction mnemonic
     # create one or more ITLBE objects for the report.  Multiple ITLBE objects
     # result if there are differences in the instruction definition of the mnemonic
     def validate(self):
@@ -457,7 +457,7 @@ class ITBL(Listing):
         inst=self.insts[self.seq]
         self.seq+=1
         values=[self.mnemonic(inst),self.format_det(inst), self.opcode(inst)]
-        values.extend(inst.columns) 
+        values.extend(inst.columns)
         detail=self.detgrp.string(values=values)
         mlbuf.more(detail)
 
@@ -605,7 +605,7 @@ class ITBLE(object):
     def __init__(self,inst,instlist):
         self.mnem=inst.ID           # The instruction mnemonic
         self.format=inst.format     # MSL format name of the instruction
-        
+
         opc=self.opcode=inst.opcode # The operation code as a list of two elements
         length=self.opc_len=inst.opc_len   # The operation code length in hex digits
 
@@ -620,7 +620,7 @@ class ITBLE(object):
             self.op_hex="%02X%02X" % (opc[0],opc[1])
             self.op_sort=opc[0]*256+opc[1]
 
-        # Formated flags as a list of strings, one for each column in the 
+        # Formated flags as a list of strings, one for each column in the
         # instruction report.
         self.columns=instlist
 
@@ -655,7 +655,7 @@ class MSLRPT(object):
     PATHVAR="MSLPATH"
     DEFAULT=satkutil.satkdir("asma/msl",debug=False)
     def __init__(self,args):
-        
+
         # Process the --report argument
         self.report=args.report        # Report requested.  See run() method
 
@@ -684,7 +684,7 @@ class MSLRPT(object):
 
         # Remeber line length
         self.line=args.line
-        
+
         # A MSL DB is captured so the INTBL object can create format statistics
         # for all defined formats, not just the ones in the selected cpu(s).
         self.msldb=None   # A MSL DB is captured so the INTBL object can create
@@ -742,14 +742,16 @@ class MSLRPT(object):
             if cpu not in fn:
                 fn.append(cpu)
             files[filename]=fn
+
+        # Attach the database to its filename in the dictionary
         dbs={}
         for filename in files.keys():
             msl=msldb.MSL(default=MSLRPT.DEFAULT)
-            errors=msl.build(filename)
+            errors=msl.build(filename,fail=True)
             if errors:
                 print("MSL errors encountered in file: %s" % filename)
                 continue
-            # No errors to extract the database for the file and create dictionary
+            # No errors so extract the database for the file and create dictionary
             db=msl.DB()
             if not mslfmt:
                 mslfmt=db
@@ -818,7 +820,7 @@ class MSLRPT(object):
 # Parse the command line arguments
 def parse_args():
     parser=argparse.ArgumentParser(prog=this_module,
-        epilog=copyright, 
+        epilog=copyright,
         description="reporting tool for MSL database files in MSLPATH")
 
     # Specify the report being created:
