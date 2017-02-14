@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2013-2016 Harold Grovesteen
+# Copyright (C) 2013-2017 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -16,13 +16,13 @@
 #     You should have received a copy of the GNU General Public License
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
-# This module contains a set of useful functionality that does not easily fit 
+# This module contains a set of useful functionality that does not easily fit
 # elsewhere.
 #
 # The mdoule includes the following classes:
 #   dir_tree     Class useful in managing directory trees.
 #   DM           A Debug Manager that interfaces with the argparse class.
-#   PathMgr      Manages one or more environment variables each of which defines 
+#   PathMgr      Manages one or more environment variables each of which defines
 #                a directory search order using the native platforms path conventions
 #                for locating relative paths to files, opening the file when found.
 #   TextPrint    Simple utility for printing multiple lines of text with line numbers.
@@ -33,19 +33,20 @@
 #                module.
 #   satkdir      Determines the absolute path to an SATK directory
 #   satkroot     Determines the absolute path to the SATK root directory
-# 
+#
 
 # Python imports
 import os
 import os.path
+import re
 import sys
 
 # SATK imports: none
 
 # This class gathers directory and file lists recursively from within a root
-# directory.  The class allows inclusion or exclusion of hidden files and 
-# diretories, specific directory names or file suffixes.  A file name matching a 
-# suffix is considered a match.  Tests for inclusion of files and directories take 
+# directory.  The class allows inclusion or exclusion of hidden files and
+# diretories, specific directory names or file suffixes.  A file name matching a
+# suffix is considered a match.  Tests for inclusion of files and directories take
 # precedence over tests for exclusion.
 #
 # For directories tests are performed in this sequence:
@@ -62,9 +63,9 @@ import sys
 #
 # Class instantiation arguments:
 #   root    The root path upon which the dir_tree data is based.
-#   hidden  Indicates whether hidden files should be excluded or not.  
-#           Specify 'False' to include hidden files and directories.  
-#           Specify 'True' to exclude hidden files and directories.  
+#   hidden  Indicates whether hidden files should be excluded or not.
+#           Specify 'False' to include hidden files and directories.
+#           Specify 'True' to exclude hidden files and directories.
 #           Defaults to 'False', including hidden directories.
 #   dirs    Specify the list of directories to be included and excluded.
 #   files   Specify the list of file suffixes to be inclded and excluded.
@@ -101,7 +102,7 @@ class dir_tree(object):
         exlist=[]
         inc=arg[0]
         exc=arg[1]
-        if inc is not None: 
+        if inc is not None:
             if isinstance(inc,list):
                 inlist=inc
             else:
@@ -165,12 +166,12 @@ class dir_tree(object):
 
     # This method checks whether the directory name matches a name provided in the
     # list.
-    # 
+    #
     # Method arguments:
     #    name    The directory name being filtered
     #    lst     the list used to recognize the filtered name
     #    include Specify 'True' is the directory in being included.  Specify 'False'
-    #            if the directory is being excluded.  This argument is being 
+    #            if the directory is being excluded.  This argument is being
     #            supplied for the benefit of a subclass that overrides this method.
     # Returns:
     #    True if the directory name is found in the list
@@ -183,7 +184,7 @@ class dir_tree(object):
         return result
 
     # This method checks whether a file name matches a suffix provided in the list.
-    # 
+    #
     # Method arguments:
     #    name    The file name being filtered
     #    lst     the list suffixes being recognized
@@ -263,12 +264,12 @@ class dir_tree(object):
 # +-----------------+
 #
 
-# This class controls debug messaging and controls via argparse for the lanugage 
+# This class controls debug messaging and controls via argparse for the lanugage
 # system in particular, but for any application requiring such controls.
 #   appl       Identifies application specific debug options as a list.  Defaults
 #              to an empty list, [].
-#   langutil   Identifies this application as a user of the langutil module by 
-#              specifying True.   Specifying True implies the application also 
+#   langutil   Identifies this application as a user of the langutil module by
+#              specifying True.   Specifying True implies the application also
 #              uses the LL1parser and lexer modules.
 #   parser     Identifies this application as a user of the LL1parser module by
 #              specifying True.  Specifying True implies the application is also
@@ -277,13 +278,13 @@ class dir_tree(object):
 #              specifying True.
 #   cmdline    This argument identifies the mulit-occurring command line argument
 #              that enables a debugging option.
-# 
+#
 # Instance methods:
 #   add_argument Establishes the debug command line argument in an argparse parser
 #   disable    Disables a previously defined debug option flag.
 #   enable     Enables a previously defined debug option flag.
 #   flag       Defines a specific string as a debug option flag.
-#   init       Takes an argparse name space and set the flags based upon the 
+#   init       Takes an argparse name space and set the flags based upon the
 #              values occurring in the command line for the command line argument
 #              specified in the cmdline instance argument.
 #   isdebug    Tests the current state of a defined debug flag.
@@ -356,7 +357,7 @@ class DM(object):
                 help_str="%s %s," % (help_str,opt)
             help_str=help_str[:-1]
         return (choose,help_str)
-    
+
 
     # Add a debug control argument to an argument parser.
     # Method arguments:
@@ -367,7 +368,7 @@ class DM(object):
         choose,help_str = self.build_arg(help=help)
         argparser.add_argument(arg,action="append",metavar="OPTION",choices=choose,\
             default=[],help=help_str)
-        
+
     # Build command-line or configuration argument options and help
     # Returns:
     #   a tuple   tuple[0]  a list of choices for debugging
@@ -445,6 +446,66 @@ class DM(object):
         for x in skeys:
             string="%s    %s=%s\n" % (string,x,self.flags[x])
         print(string[:-1])
+
+
+#
+# +-------------------------------------------------------------+
+# |                                                             |
+# |   File/Path Manager with Environment Variable Replacement   |
+# |                                                             |
+# +-------------------------------------------------------------+
+#
+
+# This class performs environment variable replacement within a string.  Environment
+# variables are initiated with '${' and terminated by '}' similar to some scripting
+# tools.  If the environment variable is not found, it is replaced by an empty
+# string.
+#
+# Instance Argument:
+#   filepath   The string in which environment variable replacement is occurring
+class FilePath(object):
+    envre=re.compile("(\$\{)([_A-Za-z]+)(\})")  # Regular expression matching
+    def __init__(self,filepath):
+        self.path=filepath
+        self.rep=None
+
+    # Perform environment variable replacement within the string.
+    # Returns:
+    #   the string with environment variables replaced or
+    #   if no environment variables are present the original string is returned
+    def replace(self):
+        path=self.path        # The string being searched for variables
+        rep=""                # The replacement string being constructed
+        next=0                # Position of the next pattern matching search
+        end=len(path)         # The end position of the search
+        pat=FilePath.envre    # The regular expressiong used to search for variables
+
+        # Continue looking for variables until none are found in the string
+        while next < end:
+            mo=pat.search(path,next)
+            if mo is None:
+                # If a match object was not created no variables exist in the
+                # remainder of the string.  Could occur on the first search
+                rep=rep+path[next:end]  # Add remainder of string to the replacement
+                break                   # End the search loop
+
+            # Match object was created, so an environment variable has been found
+            start=mo.start()            # Locate start of the variable
+            if start>next:
+                part=path[next:start]   # For part of the string that did not match
+                rep=rep+part            # add it to the replacement
+
+            # Try to retrieve the environment variable's value
+            var=mo.group(2)
+            try:
+                val=os.environ[var]     # Environment variable exists, so use it
+            except KeyError:
+                val=""     # Environment variable does not exist use an empty string
+            rep=rep+val    # Add the replacement string to the result
+            next=mo.end()  # Search on next pass after the found variable
+
+        self.rep=rep
+        return rep
 
 
 #
@@ -577,7 +638,7 @@ class PathMgr(object):
 
         for v in vars:
             self.path(v,default=default)
-            
+
     def __str__(self):
         return "PathMgr: %s" % self.paths
 
@@ -599,7 +660,7 @@ class PathMgr(object):
     #               The ext string must contain the initial "." to match
     def files(self,variable,ext=None,debug=False):
         if __debug__:
-            clsstr="satkutil.py - %s.path() -" % self.__class__.__name
+            clsstr="satkutil.py - %s.path() -" % self.__class__.__name__
         assert isinstance(variable,str),\
             "%s 'variable' argument must be a string: %s" % (clsstr,variable)
 
@@ -643,7 +704,7 @@ class PathMgr(object):
     #   cwdopt      Specifies how current working directory is to be handled.
     #               Specify 'first' to always place cwd first in directory list
     #               Specify 'last' to place cwd as last directory if not in list
-    #               Specify None to ignore current working directory.  Defaults to 
+    #               Specify None to ignore current working directory.  Defaults to
     #               None.
     #   default     Specifies a default directory if the environment variable and is
     #               configured directories are both unavailable
@@ -671,7 +732,7 @@ class PathMgr(object):
             cfglist.append(d)
         if __debug__:
             if ldebug:
-                print("%s cfglist: %s" % (clsstr,cfglist))   
+                print("%s cfglist: %s" % (clsstr,cfglist))
 
         # Populate the path from the environment variable (or default if
         # environment variable is not currently defined)
@@ -695,7 +756,7 @@ class PathMgr(object):
     # Method arguments:
     #   filename    A path to a file to be opened. Required.
     #   mode        The mode in which the file is to be opened.  Defaults to "rt".
-    #   variable    Recognized path environment variable string used to search for the 
+    #   variable    Recognized path environment variable string used to search for the
     #               file.  Optional.  If not supplied, standard Python open processing
     #               applies.  The arguemnet string must have been defined when the
     #               class was instantiated (via the 'variable' argument or later
@@ -764,12 +825,12 @@ class PathMgr(object):
 
             raise ValueError("could not open in mode '%s' file '%s' with path: %s" \
                 % (mode,filename,variable))
-            
+
         else:
             # Return the open file descriptor object
             for p in pathlist:
                 filepath=os.path.join(p,filename)
-            
+
                 try:
                     return (filepath,os.open(filepath,os.O_RDONLY))
                 # on success, simply return the tuple (abspath,descriptor_object)
@@ -809,14 +870,14 @@ class Text_Print(object):
         else:
             raise ValueError("satkutil.py - Text_Print.__init__() - 'text' "
                 "argument not a list or string: %s" % text)
-        
-    # Remove whitespace at end of the text lines.  
+
+    # Remove whitespace at end of the text lines.
     # Returns a list lines without trailing whitespace or a new string without
     # trailing whitespace.
-    # 
+    #
     # Method argument:
     #    string     Specify 'True' to return a new string object of lines with
-    #               trailing whitespace removed.  Specify 'False' to return a 
+    #               trailing whitespace removed.  Specify 'False' to return a
     #               list of lines from which trailing whitespace has been
     #               removed from each line.  Defaults to 'False'.
     def cleanends(self,string=False):
@@ -826,7 +887,7 @@ class Text_Print(object):
         if string:
             return "\n".join(new_lines)
         return new_lines
-        
+
     # Formats the text for printing with line numbers.
     # Method Argument:
     #    string    Specify 'True' to have the formatted text returned as a string.
@@ -835,7 +896,7 @@ class Text_Print(object):
     def print(self,string=False):
         print_lines=self.cleanends()   # Clean up any trailing whitespace
 
-        # Determine how big the line numbers are, allow space for '[',']' and ' ' 
+        # Determine how big the line numbers are, allow space for '[',']' and ' '
         lines=len(print_lines)
         size=len("%s" % lines)+3
 
@@ -855,7 +916,7 @@ class Text_Print(object):
         print(s)          # string=False so print the string here
 
 
-# Convert a list of integers, bytes or bytesarray into a string independent of 
+# Convert a list of integers, bytes or bytesarray into a string independent of
 # encoding.
 def byte2str(blist):
     if isinstance(blist,str):
@@ -873,9 +934,53 @@ def byte2str(blist):
     return "".join(s)
 
 
+# Produce a hex dump of a bytes/bytearray sequence as a string
+# Function Arguments:
+#   barray   the sequence being dumped
+#   start    the initial starting address.  Defaults to 0
+#   mode     the "address mode" used for the dump.  Accepts 24,31,64.  Defaults to 24
+#   indent   a string constituting the line indent
+# Returns:
+#   a string of the hexadecimal represantation of the binary sequence
+def dump(barray,start=0,mode=24,indent=""):
+    #isstring=isinstance(barray,type(""))
+    isstring=not isinstance(barray,(bytes,bytearray))
+    if mode==31:
+        format="%s%s%08X %s\n"
+    else:
+        if mode==64:
+           format="%s%s%016X %s\n"
+        else:
+           format="%s%s%06X %s\n"
+    string=""
+    addr=start
+    strlen=len(barray)
+    #print("strlen: %s" % strlen)
+    strend=strlen-1
+    for x in range(0,strlen,16):
+        #print("x=%s" % x)
+        linestr=""
+        for y in range(x,x+15,4):
+            #print("y=%s" % y)
+            wordstr=""
+            if y>strend:
+                continue
+            last=min(y+4,strlen)
+            for z in range(y,last,1):
+                #print("z=%s" % z)
+                if isstring:
+                    wordstr="%s%02X" % (wordstr,ord(barray[z]))
+                else:
+                    wordstr="%s%02X" % (wordstr,barray[z])
+            linestr="%s %s" % (linestr,wordstr)
+        string=format % (string,indent,addr,linestr)
+        addr+=16
+    return string[:-1]
+
+
 # For the supplied method object, returns a tuple: method's class name, method name)
 def method_name(method):
-    io=method.__self__   # Get the instance object from the method object 
+    io=method.__self__   # Get the instance object from the method object
     cls=io.__class__     # Get the class object from the instance object
     fo=method.__func__   # Get the function object from the method object
     return (cls.__name__,fo.__name__)
