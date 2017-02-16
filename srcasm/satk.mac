@@ -1,4 +1,4 @@
-* Copyright (C) 2015 Harold Grovesteen
+* Copyright (C) 2015, 2017 Harold Grovesteen
 *
 * This file is part of SATK.
 *
@@ -36,7 +36,7 @@
 *    DSECTS    Generates various SATK and hardware DSECT definitions
 *    DWAIT     Generates a formatted disabled wait state PSW
 *    DWAITEND  Generates a normal termination disabled wait state PSW
-*    ENADEV    Establishes the device ID by which the hardware knows the device and 
+*    ENADEV    Establishes the device ID by which the hardware knows the device and
 *              makes it ready for I/O operations
 *    ESA390    Enters ESA/390 mode from z/Architecture mode.
 *    IOCB      Assembles a control block used to drive RAWIO operations.
@@ -169,7 +169,7 @@ ANTT&SYSNDX DS  0F
          AGO   .CKS390X
 .NOS390  ANOP
          DC    A(ANTU&SYSNDX)           Level 8 - ESA/390 on 64-bit not supported
-.* Build Level 9 Entry - 64-bit system 
+.* Build Level 9 Entry - 64-bit system
 .CKS390X ANOP
          AIF   ('&S390X' EQ '').NOS390X
          DC    A(&S390X)                Level 9 - 64-bit supported directly
@@ -196,7 +196,7 @@ ANTP&SYSNDX PSW360 0,0,2,0,X'200'       Enter a disabled wait state in basic mod
          MACRO
 &LABEL   APROB &HERC=NO,&S360=NO,&S380=NO,&REG=1
 .* The APROB macro generates in-line code detecting the running-architecture.
-.* The identified register is set to the detected architecture level.  PGM and SVC 
+.* The identified register is set to the detected architecture level.  PGM and SVC
 .* new PSWs are restored to their states before the probe occurred.
 .*
 .* Optional Parameter Usage:
@@ -501,7 +501,7 @@ $X       OPSYN XG
 .* If a &LABEL is provided an equate to the &LABEL symbol is made.  Multiple uses
 .* of ARCHLVL can not set the same equate symbol to different values.
 .*
-.*   &LABEL  If provided, specifies a label to which the current architecture level 
+.*   &LABEL  If provided, specifies a label to which the current architecture level
 .*           is equated.
 .*   &ZARCH  If set to NO and PSWE390 is the current XMODE PSW setting, ESA/390
 .*           will be indicated as not being on a z/Architecture system.  Otherwise
@@ -512,14 +512,14 @@ $X       OPSYN XG
 .*   &SET    If specified the architecture level is set to the specified value
 .*           regardless of the current XMODE PSW setting.  The specified value
 .*           must be between 1 and 9 inclusive.
-.*   &ARCHIND  Specify 'NO' to disable automatic generation of architecture 
+.*   &ARCHIND  Specify 'NO' to disable automatic generation of architecture
 .*             independent operation synonyms.  Defaults to 'YES'.
 .*   &MNOTE  Specify 'NO' to inhibit generation of an MNOTE reporting the current
 .*           recognized level.  Otherwise an MNOTE reports the detected level.
 .*           Defaults to 'YES'
 .*
 .* Possible &ARCHLVL values
-.*   0 - ARCHLVL macro not issued or XMODE PSW setting not available or setting is 
+.*   0 - ARCHLVL macro not issued or XMODE PSW setting not available or setting is
 .*       not supported by the ARCHLVL macro.  Implies unknown.
 .*
 .*        Environment       Input/Output System      Addressing-Mode(s)
@@ -564,6 +564,7 @@ $X       OPSYN XG
          AIF   ('&PSW' EQ '').NOPSW
          XMODE PSW,&PSW
 &USEPSW  SETC  'PSW&PSW'
+         AGO   .CKUSPSW
 .NOPSW   ANOP
 .* Determine if there is an XMODE setting available or use the SET parameter
          AIF   ('&SET' NE '').FORCE
@@ -572,6 +573,7 @@ $X       OPSYN XG
          MEXIT
 .CKSETNG ANOP
 &USEPSW  SETC  '&SYSPSW'
+.CKUSPSW ANOP
          AIF   ('&USEPSW' NE 'PSW360').CK370
 &ARCHLVL SETA  1
          AGO   .EQUATE
@@ -623,7 +625,7 @@ $X       OPSYN XG
 .* Places an IPL PSW in the assigned storage area.  Required for all bare-metal
 .* program entries whether by IPL or a restart interruption.
 .* Required Parameter Usage:
-.*   &LABEL   Identifies the 
+.*   &LABEL   Identifies the
 .*   &IA      Instruction address identifying program entry
 .* Optional Parameter Usage:
 .*   &LABEL   Label associated with the IPL PSW in the ASALOAD control section
@@ -793,7 +795,7 @@ PGMOPSW  DC    FD'0'        028 R  Program Old PSW
 MCKOPSW  DC    FD'0'        030 R  Machine Check Old PSW
 IOOPSW   DC    FD'0'        038 R  Input/Output Old PSW
 * System/360 or System/370 Basic Control Mode INTERRUPTION INFORMATION
-         ORG   EXTOPSW+2    
+         ORG   EXTOPSW+2
 BCEXTCOD DC    H'0'         01A R  External Interuption Code
          ORG   SVCOPSW+2
 BCSVCCOD DC    H'00'        022 R  Supervisor Call Interruption Code
@@ -944,14 +946,14 @@ CPUID    EQU   *+X'11B'     31B L  System/370 CPU Identity used during DAS traci
 .* to accommodate increased field sizes due to 64-bit addressing.  Because the area
 .* is not contigous positioning is effected by means of the &ORG parameter
 .*    &LABEL   if provided specifies the name of a CSECT or DSECT to be initiated
-.*             or continued before assigned storage locations are defined.  
+.*             or continued before assigned storage locations are defined.
 .*             &DSECT controls which is initiated or continued
 .*    &DSECT=  NO  - Causes the &LABEL variable, if provided, to initiate or
 .*                   continue a CSECT.  Default is NO.
 .*             YES - Causes the &LABEL variable, if provided, to initiate  or
 .*                   continue a DSECT
 .*    &ORG=    If provided, the value will be applied to the start of the
-.*             section identified by the &LABEL section.  If 'YES' is supplied, 
+.*             section identified by the &LABEL section.  If 'YES' is supplied,
 .*             a value of X'11C0' will be used.  If &LABEL is not provided, the
 .*             parameter is ignored.
 .* In general the most likely usage of this macro is to define a DSECT for the area
@@ -1023,7 +1025,7 @@ ZABSLEN  EQU   ZABSEND-ZABSBEG        Size of absolute high area usage
 
          MACRO
 &LABEL   CPUWAIT  &EXT=,&EPSW=,&ESA=YES,&IO=,&IPSW=,&ISA=YES,&AM=,&REG=1,&RELO=NO,&CHAN=254
-.* Causes the CPU to enter an enabled wait state for either or both external and 
+.* Causes the CPU to enter an enabled wait state for either or both external and
 .* input/output interruptions.  The location to which control is passed is expected
 .* to immediately follow the CPUWAIT macro, although other options exist.
 .*
@@ -1076,7 +1078,7 @@ ZABSLEN  EQU   ZABSEND-ZABSBEG        Size of absolute high area usage
 .*                  and restored from this location.
 .*   &AM      Address mode used by PSWs created by the macro.  If omitted the
 .*            address mode defaults to 24.
-.*   &REG     A register available for use by the macro when RELO=YES.  
+.*   &REG     A register available for use by the macro when RELO=YES.
 .*            Must not be 0.  Defaults to 1.
 .*   &RELO    Specify 'YES' to cause PSW IA relocation the first time the
 .*            macro is used.  Otherwise, no relocation is performed.  Defaults to
@@ -1085,7 +1087,7 @@ ZABSLEN  EQU   ZABSEND-ZABSBEG        Size of absolute high area usage
 .*            to 254 (X'FE').  Allows modification of the channel I/O mask.  Ignored
 .*            by other architectures.
 .*
-.* The &EXT and &IO parameters influence the state of the PSW introduced as the 
+.* The &EXT and &IO parameters influence the state of the PSW introduced as the
 .* current PSW performing the enabled wait.
 .*
 .* The &ESA and &ISA parameters allow the sharing of the same save areas between
@@ -1124,7 +1126,7 @@ ZABSLEN  EQU   ZABSEND-ZABSBEG        Size of absolute high area usage
          LCLA &EXTNADR     Address of the External New PSW
          LCLA &EXTCC,&IOCC       New PSW condition code
          LCLB &EXTWAIT,&IOWAIT   Whether wait is enabled
-         LCLB &EXTINLN,&IOINLN   Whether in-line new PSW used 
+         LCLB &EXTINLN,&IOINLN   Whether in-line new PSW used
          LCLB &EXTRST,&IORST     Whether the new PSW needs restoring after interrupt
          LCLB &EXTSA,&IOSA       Whether an in-line save area is required
 .*         LCLB &AMASK       Whether a 31-bit address mask is needed.
@@ -1469,7 +1471,7 @@ FALL&SYSNDX DS   0H
 &NIOCB   SETB  1
          AIF   (&ARCHLVL LE 4).NEEDCH
 &NCS     SETB  1
-         AGO   .DOPR  
+         AGO   .DOPR
 .NEEDCH  ANOP
 &NCHAN   SETB  1
 .* Process the PRINT parameter
@@ -1607,10 +1609,10 @@ DWAT&SYSNDX &ARCHIPF 0,0,2,0,X'&P&C&CD'
 &LABEL   &ARCHIPF 0,0,2,0,X'&P&C&CD'
          MEND
 
-         MACRO         
+         MACRO
 &LABEL   DWAITEND &LOAD=''
-.* This macro generates a normal termination disabled wait PSW.  This macro's 
-.* parameter has the same meaning as the corresponding parameter used by the 
+.* This macro generates a normal termination disabled wait PSW.  This macro's
+.* parameter has the same meaning as the corresponding parameter used by the
 .* DWAIT macro.
 &LABEL   DWAIT PGM=0,CODE=000,LOAD=&LOAD
          MEND
@@ -1625,7 +1627,7 @@ DWAT&SYSNDX &ARCHIPF 0,0,2,0,X'&P&C&CD'
 .* Optional Subchannel Device Usage:
 .* If provided these parameters are ignore for channel-based devices.
 .*   REG    Register used to address channel subsystem SCHIB.
-.*   CLS    A register containing the interruption sub-class in bits 26-28 or 58-60 
+.*   CLS    A register containing the interruption sub-class in bits 26-28 or 58-60
 .*          of the register.  If ommitted the sub-class of zero is used.
 .*          Note: LA &CLS,class*8 will load the register, where 'class' is a
 .*          self-defining term between 0 and 7 inclusive.
@@ -1670,7 +1672,7 @@ DWAT&SYSNDX &ARCHIPF 0,0,2,0,X'&P&C&CD'
 &LABEL   MVC   IOCBDV,IOCBDEV     Supply device identifier for channel-based device
          L     1,IOCBDID          Prepare for status clearing
          TIO   0(1)               Clear any pending status
-         BC    B'1100',&READY     If available or status cleared, ready to use it 
+         BC    B'1100',&READY     If available or status cleared, ready to use it
          B     &FAIL              Otherwise, device not ready to use.
          MEXIT
 .DOCS    ANOP
@@ -1696,7 +1698,7 @@ FINL&SYSNDX DS 0H   Retrieve Subchannel Information Block for desired device num
 .NOSNS   ANOP
          AIF   ('&CLS' EQ '').NOCLS
          N     &CLS,FINM&SYSNDS   Make sure the bits that must be zero are zero
-         $STC  &CLS,4(&REG)       Set the Subchannel interrupt-mask 
+         $STC  &CLS,4(&REG)       Set the Subchannel interrupt-mask
 .NOCLS   ANOP
          OI    PMCW1_8,PMCWE      Make sure it is enabled so I/O requests accepted
          MSCH  0(&REG)            Enable the subchannel to the channel sub-system
@@ -1814,14 +1816,14 @@ FINM&SYSNDX DC A(X'0001FFFF')     Last subchannel subsystem ID
          DC    AL1(&UERR)      +8 Detected unit errors
          AGO   .DOCERR
 .DERRDFT ANOP
-         DC    AL1(X'D3')      +8 Default detected unit errors 
+         DC    AL1(X'D3')      +8 Default detected unit errors
 .DOCERR  ANOP
          AIF   ('&CERR' EQ '').CERRDFT
          DC    AL1(&CERR)      +9 Detected channel errors
          AGO   .DSREM
 .CERRDFT ANOP
          DC    AL1(X'3F')      +9 Default detected channel errors
-.DSREM   ANOP         
+.DSREM   ANOP
          DC    HL2'0'          +10 Accumulated unit and channel errors
          DC    HL2'0'          +12 Tested unit and channel status
          DC    XL1'00'         +14 Accumulated subchannel status control from SCSW
@@ -2317,7 +2319,7 @@ IOMK&SYSNDX DS 0F
 
          MACRO
 &LABEL   IOTRFR &REG
-.* Calculates the number of bytes transfered in an I/O using the device IOCB 
+.* Calculates the number of bytes transfered in an I/O using the device IOCB
 .* following a successful RAWIO operation.
 .* Required Parameter Usage:
 .*   &REG    The register containing the number of transferred bytes
@@ -2382,7 +2384,7 @@ IOTR&SYSNDX DC H'8'
 .*   &LPM    Logical-Path Mask.  Defaults to 255 or any available logical path.
 .*   &CSS    For extended ORB, specifies the channel subsystem priority.  Defaults to
 .*           0.  Ignored if the ORB is not extended.
-.*   &CU     For extended command-mode ORB, specifies the control unit priority.  
+.*   &CU     For extended command-mode ORB, specifies the control unit priority.
 .*           Defaults to 0.  For extended transport-mode ORB, specifies the program
 .*           reseved value.  Ignored if the ORB is not extended.
 .* Flags supported by &FLAG parameter (must be upper case).  Level indicates the
@@ -2403,7 +2405,7 @@ IOTR&SYSNDX DC H'8'
 .*     L    5-9     1  24  Incorrect-length suppression control
 .*     D     9      1  25  Modified-Indirect-Data-Addressing control (MIDAW)
 .*     X    8,9     1  31  ORB-extension control
-.*             
+.*
 .* Dependencies:
 .*   &ARCHLVL previously set by ARCHLVL macro in satk.mac
 .*
@@ -2512,7 +2514,7 @@ IOTR&SYSNDX DC H'8'
 &BADFLGS SETB  &BADFLGS OR &L
          AIF   (NOT &BADFLGS).GENBLK
          MNOTE 1,'ORB - FLAGS SET INCOMPATIBLE WITH TRANSPORT-MODE ORB'
-         MEXIT 
+         MEXIT
 .GENBLK  ANOP
          AIF   (NOT &DOMASK).NOALIGN
          DS    0F
@@ -2727,7 +2729,7 @@ PSWBLEN  EQU   *-PSWB
 .*
 .* Run-time Requirements:
 .* General register 1 contains the device identifier:
-.*   - a channel/unit address for channel based I/O or 
+.*   - a channel/unit address for channel based I/O or
 .*   - a subchannel subsystem ID for subchannel-based operations.
 .* Required Parameter Usage:
 .*   &FAIL   Control passes here for a failure receive expected interrupt (required).
@@ -2737,7 +2739,7 @@ PSWBLEN  EQU   *-PSWB
 .*   &LABLE  Label assigned to start of in-line logic.
 .*   &IOSAVE IOSAVE parameter for CPUWAIT macro.  See CPUWAIT for usage.  Defaults
 .*           to 'YES'.
-.*   &CHAN   PSW channel interruption mask.  Ignored for channel subystem or 
+.*   &CHAN   PSW channel interruption mask.  Ignored for channel subystem or
 .*           channel I/O system not operating as a System/360 or System/370 in
 .*           BC-mode.  Defaults to X'FE'.
 .*
@@ -2821,7 +2823,7 @@ IOWT&SYSNDX DS 0H  Wait for I/O to complete
 .*
 .* Run-time Requirements:
 .* General register 1 contains the device identifier:
-.*   - a channel/unit address for channel based I/O or 
+.*   - a channel/unit address for channel based I/O or
 .*   - a subchannel subsystem ID for subchannel-based operations.
 .*
 .* Required Parameter Usage:
@@ -2841,7 +2843,7 @@ IOWT&SYSNDX DS 0H  Wait for I/O to complete
 .*           physical end-of-file condition reported by a unit exception status.
 .*   &IOSAVE IOSAVE parameter for CPUWAIT macro.  See CPUWAIT for usage.  Defaults
 .*           to 'YES'.
-.*   &CHAN   PSW channel interruption mask.  Ignored for channel subystem or 
+.*   &CHAN   PSW channel interruption mask.  Ignored for channel subystem or
 .*           channel I/O system not operating as a System/360 or System/370 in
 .*           BC-mode.  Defaults to X'FE'.
 .* Note: System/370 initializes CR2 to all ones, thereby automatically enabling all
@@ -3043,7 +3045,7 @@ CPU&SYSNDX DC  H'0'
 .*  &RETURN   Register containing a routine caller's return address.
 .*
 .* Routine Register Usage:
-.* A base register other than those used below if relative branches are not supported.  
+.* A base register other than those used below if relative branches are not supported.
 .* Input:    Symbol
 .*  &PAIR     &R2  Size in bytes of area to be allocated.  A value of 0 will cause the
 .*                 next allocation to be based upon the next higher aligned location.
@@ -3067,7 +3069,7 @@ CPU&SYSNDX DC  H'0'
 .*   use Y,Y+1 and Z registers.
 .*
 .* To use within a function:
-.*          SMMGR 2,6,8 
+.*          SMMGR 2,6,8
 .*   In a function, the function establishes the control field (SMMGRB) address.  The
 .*   function caller supplied the allocation size and alignment.
 .*
@@ -3131,7 +3133,7 @@ SMMN&SYSNDX DS  0H
 .* This macro generates the fields used by the Static Memory Manager (SMMGR) for
 .* managing allocations.
 .* Required Parameter Usage:
-.*  &START   Location of the memory location available to SMMGR.  Any assemlbed 
+.*  &START   Location of the memory location available to SMMGR.  Any assemlbed
 .*           locations following this location are subject to overlay due to storage
 .*           allocation.
 .* Optional Parameter Usage:
@@ -3187,7 +3189,7 @@ SMMN&SYSNDX DS  0H
          PSWZ   0,0,2,0,X'160'    Machine Check Trap New PSW
          PSWZ   0,0,2,0,X'170'    Input/Output Trap New PSW
          MEND
-         
+
          MACRO
 &LABEL   TRAPS &ENABLE=,&PSW=
 .* Enable in-line ISR Trap PSWs based upon current architecture level
@@ -3332,7 +3334,7 @@ SMMN&SYSNDX DS  0H
 
          MACRO
 &LABEL   ZEROLH &REG,&BITS
-.* This macro sets the high-order bits starting at bit 32 of a 64-bit register to 
+.* This macro sets the high-order bits starting at bit 32 of a 64-bit register to
 .* zero.  On 32-bit register systems this is equivalent to ZEROH
 .* Reguired Parameter Usage:
 .*   &REG   The register whose high-order bits are being set to 0
@@ -3355,7 +3357,7 @@ SMMN&SYSNDX DS  0H
 
          MACRO
 &LABEL   ZEROLL &REG,&BITS
-.* This macro sets the low-order bits ending at bit 31 of a 64-bit register to 
+.* This macro sets the low-order bits ending at bit 31 of a 64-bit register to
 .* zero.  On 32-bit register systems this is equivalent to ZEROL
 .* Reguired Parameter Usage:
 .*   &REG   The register whose high-order bits are being set to 0
