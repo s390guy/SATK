@@ -17,7 +17,7 @@
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
 # This module processes files written in the Machine Specification Language (MSL).  The
-# following constitutes the description of the MSL.  It is the responsibility of 
+# following constitutes the description of the MSL.  It is the responsibility of
 # users of a file written in MSL to parse and process it as appropriate to its needs.
 # It is hoped that the language is simple enough that other scripting languages, for
 # example REXX, or Perl, etc.  The module provides both a command line utility
@@ -51,19 +51,19 @@
 # MSL is _strictly_ case sensitive.  All statement and parameter line information
 # is case sensitive.
 #
-# A 'name' identifies each statement.  Statement names must be unique.  Duplications 
+# A 'name' identifies each statement.  Statement names must be unique.  Duplications
 # are not allowed.
 #
 # Python Integration:
 #
 # Integration of the MSL processor into another Python module is accomplisehed by
-# importing this module.  Instatiating 
+# importing this module.  Instatiating
 #
 # External Processor Integration:
 #
 # The command line utility provided by this module can output a stripped down version
-# of the input file.  This file contains only statement and parameter lines with 
-# all comments removed.  include statements have been acted upon as well.  This 
+# of the input file.  This file contains only statement and parameter lines with
+# all comments removed.  include statements have been acted upon as well.  This
 # reduces some of the processing needs on the part of other processors.
 
 #
@@ -204,7 +204,7 @@ class soper(object):
         self.mfields=mfields  # Machine fields populated by this source operand
         self.signed = typ in soper.signed  # Whether the value is signed
     def __str__(self):
-        return "soper('%s',type='%s',mfields=%s)" % (self.name,self.typ,self.mfields)  
+        return "soper('%s',type='%s',mfields=%s)" % (self.name,self.typ,self.mfields)
 
 class MSLDB(object):
     def __init__(self):
@@ -219,12 +219,16 @@ class MSLDB(object):
             raise ValueError("%s MSLDB items must be an instance of MSLDBE: %s" \
                 % (cls_str,item))
         try:
-            defined=self.ids[item.ID]
+            #defined=self.ids[item.ID]
+            defined=self.ids[key]
             raise MSLError(loc=item.els.source,\
-                msg="duplicate ID previously defined at %s: %s" \
-                    % (defined.els.source,item.ID))
+                msg="duplicate %s ID previously defined at %s: %s" \
+                    % (item.__class__.__name__,defined.els.source,key))
         except KeyError:
-            self.ids[item.ID]=item
+            pass
+
+        #self.ids[item.ID]=item
+        self.ids[key]=item
 
     def dump(self,indent="",string=False,sort=False):
         lcl="%s    " % indent
@@ -454,7 +458,7 @@ class CPU(MSLDBE):
 
         if error:
             raise MSLError(loc=self.loc,\
-                msg="cpu %s statement contains errors:%s" % (self.ID,s)) 
+                msg="cpu %s statement contains errors:%s" % (self.ID,s))
 
     def dump(self,indent="",string=False):
         if self.experimental:
@@ -609,7 +613,7 @@ class CPUX(object):
         del self.inst[old]
         inst.ID=new
         self.inst[new]=inst
-  
+
     def summarize(self,indent="",string=False,sort=False):
         lcl="%s    " % indent
         s="CPUX ID: %s" % self.ID
@@ -698,7 +702,7 @@ class CU(MSLDBE):
 class Format(MSLDBE):
     lengths=[2,4,6]   # Valid instruction length sizes in bytes
     # The sops source operand names are tightly coupled to ASMA.  Changes there or
-    # here must be coordinated.  This dictionary maps source operand type to the 
+    # here must be coordinated.  This dictionary maps source operand type to the
     # number of machine fields to which it provides values.
     sops={"I":1,"M":1,"R":1,"RELI":1,"RI":1,"V":1,"S":2,\
           "SY":3,"SL":3,"SR":3,"SX":3,"SYL":4,"SYX":4}
@@ -733,7 +737,7 @@ class Format(MSLDBE):
                 raise ValueError("%s invalid parameter type for format statement: %s" \
                     % (cls_str,p.typ))
 
-        # Make sure the mach and source fields make sense        
+        # Make sure the mach and source fields make sense
         self.sanity(els.source)
 
     def bit_range(self,beg,end,parm,loc):
@@ -752,7 +756,7 @@ class Format(MSLDBE):
         return (beg_bit,end_bit)
 
     def consistent(self,db):
-        # This statement does not reference any other statements so there is 
+        # This statement does not reference any other statements so there is
         # nothing to validate for consistency with the database.
         pass
 
@@ -1053,7 +1057,7 @@ class Inst(MSLDBE):
         if len(attr)<2 or len(attr)>4:
             raise MSLError(loc=els.source,\
                 msg="inst %s statement requires 2 or 3 attributes, found: %s" \
-                    % (self.ID,len(attr)))  
+                    % (self.ID,len(attr)))
 
         # Validate OP Code
         attr=els.attr
@@ -1073,7 +1077,7 @@ class Inst(MSLDBE):
         self.opcode=list(divmod(opc,factor))
         self.opc_len=opc_len
 
-        # Set format ID 
+        # Set format ID
         self.format=attr[1].upper()
 
         # Set optional flags
@@ -1115,7 +1119,7 @@ class Inst(MSLDBE):
                 msg="inst %s format statement not defined or not a format "
                     "statement: %s" % (self.mnemonic,self.format))
         if self.nolenck:
-            return 
+            return
         format=db[self.format]
         two_bits=self.opcode[0]>>6
         length=Inst.bits2[two_bits]
@@ -1123,7 +1127,7 @@ class Inst(MSLDBE):
             raise MSLError(loc=self.loc,\
                 msg="inst %s opcode implies a length of %s bytes, but format %s "
                     "requires length: %s" % (self.ID,length,format.ID,format.length))
-            
+
         # Ensure format and instruction fixed fields are consistent
         mfields=format.mach
         for ff in self.fixed:
@@ -1158,7 +1162,7 @@ class Inst(MSLDBE):
             raise MSLError(loc=fparm.source,\
                 msg="inst statement fixed parameter requires two attributes: %s" \
                     % len(attr))
-        
+
         # Make sure no duplicate fixed parmaters
         fchar=attr[0]
         if fchar in self.fixed:
@@ -1490,7 +1494,7 @@ class MSL(sopl.SOPL):
             # Check for dead statements.  Passing myself gives access to _do_error()
             xrefdb.check(self,xref=xref)
 
-    # This method builds a database based upon an MSL source file as input.  It it 
+    # This method builds a database based upon an MSL source file as input.  It it
     # the primary method used by an MSL consumer in constructing the MSL database.
     # Method arguments:
     #   filename    The path to the primary MSL source file
@@ -1514,7 +1518,7 @@ class MSL(sopl.SOPL):
         # Return if there were any detected errors.
         return self.isErrors()
 
-    # Returns the MSLDB object 
+    # Returns the MSLDB object
     def DB(self):
         if self.isErrors():
             cls_str="msldb.py - %s.DB() -" %  self.__class__.__name__
@@ -1612,7 +1616,7 @@ class xref(object):
 
     # Update the data with a reference
     def ref(self,loc):
-        self.refs.append(loc)   
+        self.refs.append(loc)
 
     # Returns whether a statement is referenced.  Top entries are implicitly referenced
     def check(self):

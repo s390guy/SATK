@@ -929,6 +929,8 @@ inst JLO    C014 ERILC   E      # "JUMP" RELATIVE ON ONES/OVERFLOW     (BRCL 1,I
 inst JLP    C024 ERILC   E      # "JUMP" RELATIVE ON PLUS              (BRCL 2,IIMED)
 inst JLU    C0F4 ERILC   E      # UNCONDITIONAL "JUMP" RELATIVE        (BRCL 15,IMMED)
 inst JLZ    C084 ERILC   E      # "JUMP" RELATIVE ON ZERO              (BRCL 8,IMMED)
+inst JXHG   EC44 RIEE    E      # "JUMP" RELATIVE ON INDEX HIGH        (BRXHG)
+inst JXLEG  EC45 RIEE    E      # "JUMP" RELATIVE ON INDEX LOW OR HIGH (BXLEG)
 
 iset all-base
     mnemonics A AD ADB ADBR ADR AE AEB AEBR AER AH AHI AL ALR AP AR AU AUR
@@ -1000,7 +1002,7 @@ iset s390-new
 iset s390-new-extended
     mnemonics BREL BRHL BRLL BRML BRNEL BRNHL BRNLL BRNML BRNOL BRNPL BRNZL BROL
     mnemonics BRPL BRUL BRZL JASL JLE JLH JLL JLM JLNE JLNH JLNL JLNM JLNO JLNOP
-    mnemonics JLNP JLNZ JLO JLP JLU JLZ
+    mnemonics JLNP JLNZ JLO JLP JLU JLZ JXHG JXLEG
 
 # See IBM z/Architecture Principles of Operation, SA22-7832-00, December, 2000
 # All N and N3 instructions
