@@ -39,13 +39,13 @@
 # assemblers apply selective use of expression evaluation, the ASMA Macro Language
 # will continue this direction by optimizing expression recognizers and replacing
 # full scale grammar based parsing with more granular approaches, for example using
-# finite state machines, in conjunction with the lexical analyzer as opposed to 
+# finite state machines, in conjunction with the lexical analyzer as opposed to
 # LL1 grammars.
 #
 # The use of the technology discovered by Vaughn Pratt for operator precedence
 # expression evaluation has also proven to be a success.  This technology has been
 # further leveraged by generalizing the implementation to support any operators
-# and any set of precedence relationships between them.  
+# and any set of precedence relationships between them.
 #
 # The ASMA assembler.py module uses a special integration facility based upon the
 # LL1 parsing technology in SATK to recognize expressions.  The use of LL1 parsing
@@ -92,7 +92,7 @@ import asmtokens              # Access Pratt expression evaluators
 #  +--------------------------------+
 #  |                                |
 #  |   Macro Implementation Notes   |
-#  |                                | 
+#  |                                |
 #  +--------------------------------+
 #
 
@@ -141,7 +141,7 @@ import asmtokens              # Access Pratt expression evaluators
 # the creation of statements from model statements, the state of case sensitivity
 # must be known during all of these macro related processes.  It is supplied to
 # each of these objects when instantiated:
-# 
+#
 # MacroLanguage - by directly accessing the Assembler object's case attribute
 # Invoker       - also by directly accessing the Assembler object's case attribute.
 # EngineState   - by directly accessing the macro's Invoker object's case attribute.
@@ -149,7 +149,7 @@ import asmtokens              # Access Pratt expression evaluators
 #
 # Sequence symbol case sensitivity is handled completely by the __seq() method
 # of the MacroLanguage object when a sequence symbol appears in a macro directive's
-# name field.  When a sequence symbol is part of the directives operands (AGO and 
+# name field.  When a sequence symbol is part of the directives operands (AGO and
 # AIF) the respective MacroLanguage method handles the case sensitivity.
 
 
@@ -177,13 +177,13 @@ class MacroError(Exception):
         # invocation of the macro generated the error in the macro processing
         self.line=line   # Assembler statement for which the error is reported
         self.msg=msg     # Nature of the error.
-        
+
         # Generate the error reported if this error is not caught.
         string=""
         if line is not None:
              string="%s" % line
         if len(msg)>0:
-             string="%s %s" % (string,msg)   
+             string="%s %s" % (string,msg)
         super().__init__(string)
 
 
@@ -191,7 +191,7 @@ class MacroError(Exception):
 #  +----------------------------+
 #  |                            |
 #  |   Macro Defining Classes   |
-#  |                            | 
+#  |                            |
 #  +----------------------------+
 #
 
@@ -211,7 +211,7 @@ class Prototype(object):
         self.lblsym=lblsym         # The label field variable symbol
         self.pos=positionals       # List of position parameters
         self.keywords=keywords     # Dictionary of keyword parameters with defaults
-        
+
         self.noparms = (len(self.pos)==0) and (len(self.keywords)==0)
 
     def __str__(self):
@@ -233,7 +233,7 @@ class Macro(object):
                 % (assembler.eloc(self,"__init__",module=this_module),prototype)
         assert case in [True,False],\
             "%s 'case' argument must be either True or False: %s" \
-                % (assembler.eloc(self,"__init__",module=this_module),case) 
+                % (assembler.eloc(self,"__init__",module=this_module),case)
 
         self.name=prototype.macid  # Macro Name
         self.prototype=prototype   # Prototype object
@@ -242,17 +242,17 @@ class Macro(object):
         self._defined=defn         # source statement number where definition occurs
         self._refs=[]              # source statements referencing this macro
         # XREF object for my references
-        self._xref=None            # see asmoper.MacroTable.define() method. 
+        self._xref=None            # see asmoper.MacroTable.define() method.
 
         # Controls whether &SYSLIST is created when invoked
         self.syslist=False
-        
+
         # Debug switch
         self.idebug=False          # If True trace macro invocation
 
     # This method initializes the prototype parameter values when the macro is
     # invoked.  Only unique SETC local symbols are created.  The local symbolic
-    # variable may be unsubscripted or subscripted depending upon whether the 
+    # variable may be unsubscripted or subscripted depending upon whether the
     # parameter defined a single value or multiple in a list.
     def __initparm(self,parm,pvalue,lcls):
         assert isinstance(parm,str),\
@@ -292,7 +292,7 @@ class Macro(object):
     def _agoc(self,lineno,dest,expr,seq=None,syslist=False):
         self.syslist=self.syslist or syslist
         self.engine.define(AGOC(lineno,dest,expr),seq=seq)
-   
+
     # Add an AIF operation
     def _aif(self,lineno,dest,expr,seq=None,syslist=False):
         self.syslist=self.syslist or syslist
@@ -313,15 +313,15 @@ class Macro(object):
     # Add a GBLC operation
     def _gblc(self,lineno,symid,seq=None,syslist=False):
         self.engine.define(GBLC(lineno,symid),seq=seq,syslist=syslist)
-   
+
     # Add a LCLA operation
     def _lcla(self,lineno,symid,seq=None,syslist=False):
         self.engine.define(LCLA(lineno,symid),seq=seq,syslist=syslist)
-        
+
     # Add a LCLB operation
     def _lclb(self,lineno,symid,seq=None,syslist=False):
         self.engine.define(LCLB(lineno,symid),seq=seq,syslist=syslist)
-   
+
     # Add a LCLC operation
     def _lclc(self,lineno,symid,seq=None,syslist=False):
         self.engine.define(LCLC(lineno,symid),seq=seq,syslist=syslist)
@@ -374,7 +374,7 @@ class Macro(object):
     #   value found in the macro statement.  If a keyword is encountered but not
     #   defined in the prototype, it is silently ignored.
     #
-    #   Sequentially assign positional parameters to each defined positional in 
+    #   Sequentially assign positional parameters to each defined positional in
     #   the prototype.  Additional positional parameters are ignored.  Unspecified
     #   positional prototype parameters are assigned the empty string.
     # Method Arguments:
@@ -435,9 +435,9 @@ class Macro(object):
         # Define all of the keyword symbols as specified or with prototype defaults
         for key,proto_kparm in proto.keywords.items():
             # key is the keyword parameter
-            # value is a keyword prototype macsyms.MacroParm object 
+            # value is a keyword prototype macsyms.MacroParm object
             try:
-                key_parm=stmt_kparms[key]   
+                key_parm=stmt_kparms[key]
                 # key_parm is the keyword statement macsyms.MacroParm object
                 value=key_parm.value
             except KeyError:
@@ -483,7 +483,7 @@ class Macro(object):
     # Update this macro cross reference with this reference
     def reference(self,lineno):
         self._xref.ref(lineno)
-        
+
 
 class Built_In(Macro):
     def __init__(self,proto,case):
@@ -503,7 +503,7 @@ class Built_In(Macro):
 #  +----------------------+
 #  |                      |
 #  |   Macro Operations   |
-#  |                      | 
+#  |                      |
 #  +----------------------+
 #
 
@@ -514,7 +514,7 @@ class Built_In(Macro):
 # the engines functionality.
 class MacroEngine(object):
     def __init__(self,name):
-        # These attributes are built during macro definition by calls to the 
+        # These attributes are built during macro definition by calls to the
         # define() method.
         self.name=name   # Name of the macro using this engine
         self.ops=[]      # List of macro operations defining the macro's functions
@@ -554,7 +554,7 @@ class MacroEngine(object):
             "%s can not add MacroOp, Mend encountered: %s" \
                 % (assembler.eloc(self,"define",module=this_module),\
                     op.__class__.__name__)
-                
+
         self.syslist=self.syslist or syslist
 
         # Define the macro directives sequence symbol if provided
@@ -569,10 +569,10 @@ class MacroEngine(object):
             # raises assembler.AssemblerError exception for undefined sequence symbol
             self.__resolve()
             self.done=True
-        
+
         op.location(next_loc)
         self.ops.append(op)
-        
+
     # Converts an macro operation index into its relavant statement
     # Method Argument:
     #   n   macro operation index value
@@ -580,7 +580,7 @@ class MacroEngine(object):
     #   the source statement number in which the operation is defined.
     def op2stmt(self,n):
         return self.ops[n].lineno
-        
+
     # This method exeutes macros.  Because recursive macros are possible, the
     # caller must maintain the engine state externally.
     def run(self,state,debug=False):
@@ -596,7 +596,7 @@ class MacroEngine(object):
         while True:
             # Fetch the operation
             op=self.ops[loc]
-       
+
             # Execute it
             try:
                 loc,result=op.operation(state,debug=idebug)
@@ -610,7 +610,7 @@ class MacroEngine(object):
                 state.next=None
                 # None ends the input source and the macro invocation.
                 return state
-            # If a model statement has been generated, return it as an input 
+            # If a model statement has been generated, return it as an input
             if isinstance(result,list):
                 state.next=loc
                 state.result=result
@@ -622,14 +622,14 @@ class MacroEngine(object):
     # Start the engine by returning its initial state
     def start(self,exp):
         return EngineState(exp)
-    
+
 class EngineState(object):
     def __init__(self,exp):
         assert isinstance(exp,Invoker),\
             "%s 'exp' argument must be an Invoker: %s" \
                 % (assembler.eloc(self,"__init__",module=this_module),self.exp)
 
-        # These attributes maintain the dynamic state of the MacroEngine and 
+        # These attributes maintain the dynamic state of the MacroEngine and
         # preserve the state between each cycle of the MacroEngine.
         #
         # Next index of the next operation to be performed.
@@ -704,7 +704,7 @@ class EngineState(object):
     def setc(self,symid,value):
         self.lcls.setc(symid,value)
 
-    
+
 # The base class for all macro operations.  Helper methods for operations are also
 # provided.
 # Method Arguments:
@@ -743,7 +743,7 @@ class MacroOp(object):
     # For most operations, this method does nothing.
     def post_resolve(self):
         pass
- 
+
   #
   # Macro Operation Execution Helper Methods
   #
@@ -824,7 +824,7 @@ class ACTR(MacroOp):
             if isinstance(value,C_Val):
                 found="character value"
             else:
-                raise ValueError("ACTR %s encountered unexpected result: %s" 
+                raise ValueError("ACTR %s encountered unexpected result: %s"
                     % (self.lineno,value))
             raise MacroError(invoke=True,\
                 msg="ACTR computation requires arithmetic result: %s" % found)
@@ -869,7 +869,7 @@ class AGOC(MacroOp):
             elif isinstance(value,C_Val):
                 found="character value"
             else:
-                raise ValueError("AGO %s encountered unexpected result: %s" 
+                raise ValueError("AGO %s encountered unexpected result: %s"
                     % (lineno,value))
             raise MacroError(invoke=True,\
                 msg="AGO computation requires arithmentic result: %s" % found)
@@ -893,6 +893,8 @@ class AIF(MacroOp):
         self.expr=expr        # AIF logical expression
 
     def operation(self,state,debug=False):
+        state.exp.mhelp_04()   # Dump variable symbols if requested
+
         value=self.evaluate_expr(state,self.expr,debug=False,trace=False)
 
         if isinstance(value,(macsyms.A_Val,macsyms.B_Val,int)):
@@ -901,10 +903,11 @@ class AIF(MacroOp):
             if isinstance(value,C_Val):
                 found="character value"
             else:
-                raise ValueError("AIF %s encountered unexpected result: %s" 
-                    % (lineno,value))
+                raise ValueError("AIF %s encountered unexpected result: %s"
+                    % (self.lineno,value))
             raise MacroError(invoke=True,\
-                msg="AIF computation requires logical result: %s" % found)
+                msg="AIF computation at source line %s requires logical result: %s" \
+                    % (self.lineno,found))
 
         state.actr()    # Decrement ACTR and abort if exhausted
 
@@ -1060,7 +1063,7 @@ class Model(MacroOp):
 class SETx(MacroOp):
     def __init__(self,lineno):
         super().__init__(lineno)
-        
+
     # Shared process identifies symbol being set, and, for subscripted set symbols
     # drives the updating of successive symbols from each operand in the statement
     def process(self,state,debug=False):
@@ -1127,7 +1130,7 @@ class SETA(SETx):
         self.setsym=setsym     # Prepared SymbolRef object
         self.expr=expr         # List of prepared arithmetic expressions
         super().__init__(lineno)
-        
+
     # Perform the statements operation
     def operation(self,state,debug=False):
         self.process(state,debug=debug)   # Do the set(s)
@@ -1187,10 +1190,10 @@ class SETB(SETx):
            raise ValueError(\
                "%s [%s] SETB operand %s encountered unexpected result: %s" \
                % (assembler.eloc(self,"setx",module=this_module),\
-                   self.lineno,n+1,value)) 
+                   self.lineno,n+1,value))
 
         state.setb(symid,v)
-            
+
 
 class SETC(SETx):
     def __init__(self,lineno,setsym,expr,debug=False):
@@ -1206,7 +1209,7 @@ class SETC(SETx):
                                 % (assembler.eloc(self,"__init__",\
                                     module=this_module),lineno,n,item)
 
-        self.setsym=setsym  
+        self.setsym=setsym
         self.expr=expr
         if __debug__:
             if debug:
@@ -1253,7 +1256,7 @@ class SETC(SETx):
 #  +--------------------------------+
 #  |                                |
 #  |   Macro Processing Interface   |
-#  |                                | 
+#  |                                |
 #  +--------------------------------+
 #
 
@@ -1263,7 +1266,7 @@ class SETC(SETx):
 #
 # On the macro side of the interface, it enteracts with a MacroEngine object to
 # interpret a defined macro.  On the assembler input side, it passes raw input
-# statements, strings, to the MacroSource object for injection into the universal 
+# statements, strings, to the MacroSource object for injection into the universal
 # input source, the asminput.LineBuffer object.
 #
 # Methods used for invoking a macro definition:
@@ -1288,7 +1291,7 @@ class SETC(SETx):
 #   _getSTE_REf  Returns the assembler entry object for a given label definition
 class Invoker(object):
 
-    # Built as system variable symbols are defined.  See MacroLanguage._initsys()    
+    # Built as system variable symbols are defined.  See MacroLanguage._initsys()
     gblc=[]  # This list controls which global variables are passed to a macro
 
     def __init__(self,mgr,debug=False):
@@ -1296,13 +1299,12 @@ class Invoker(object):
         self.asm=mgr.asm        # The assembler
         self.case=self.asm.case # Specifies case sensitivity is enabled when True
         self.pm=self.asm.PM     # The Parser manager object
-        #print("Invoker.case=%s" % self.case)
         self.debug=debug        # If True, enables expander debug message.
 
         # Macro expansion state:
         self.gbls=self.mgr.gbls # Locate the global variable symbols
 
-        # These attributes are set by invoke() method when preparing the macro for 
+        # These attributes are set by invoke() method when preparing the macro for
         # entry.
         self.macro=None         # Macro object being expanded, if any.
         self.engine=None        # The macro engine being expanded
@@ -1313,8 +1315,8 @@ class Invoker(object):
         self.lineno=None        # Statement number of invoking statement
         self.name=None          # The macro name being invoked
         self.sysndx=""          # &SYSNDX string (from __init_lcls() method)
-        
-        # MHELP related attributes.  See mhelp() method
+
+        # MHELP related attributes.  See mhelp_init() method
         self._mhelp_sup=128
         self._mhelp_01=0        # Trace macro entry
         self._mhelp_02=0        # Trace macro branches (AIF, AGO)
@@ -1322,7 +1324,7 @@ class Invoker(object):
         self._mhelp_08=0        # Dump SET symbols on exit (MEND, MEXIT)
         self._mhelp_10=0        # Dump parameters in entry
         self._mhelp_20=0        # Ignore global symbols with _mhelp_10 & _mhelp_08
-        self._mhelp_40=0        # Dump SETC hex with 
+        self._mhelp_40=0        # Dump SETC hex with
         self._mhelp_prefix=""   # Prefix used for all MHELP output of this invocation
 
         # Swich to enable tracing of the macro invokation
@@ -1331,7 +1333,7 @@ class Invoker(object):
     # Intialize the macro's local variable symbols
     def __init_lcls(self):
         l=Mac_Symbols(self.case,unique=True)
-        
+
         # Make system global variables available to local macro.  Each of these are
         # read only.
         gbl=self.gbls
@@ -1385,12 +1387,12 @@ class Invoker(object):
                 gl="GBL"
             else:
                 gl="LCL"
-            
+
             value=symo.value
-            
+
             typ=symo.__class__.__name__[0]
             h=""
-            
+
             if typ=="C":
                 val="'%s'" % value.string()
                 if self._mhelp_40:
@@ -1449,8 +1451,8 @@ class Invoker(object):
         self.mhelp_init()                   # Initialize MHELP values
         self.mhelp_01()                     # Trace macro entry if requested
         self.mhelp_10()                     # Dump parameters if requested
-        self.state=self.engine.start(self)  # Start the macro engine 
-    
+        self.state=self.engine.start(self)  # Start the macro engine
+
     # Creates a MacroError object from one supplied, adding macro specific
     # information to the error and reflecting the invoking statement as the error's
     # location.
@@ -1464,9 +1466,9 @@ class Invoker(object):
         # This gets raised to terminate the macro processing.  It is ultimately
         # caught by the assembler input loop in Assembler.statement() method
         return MacroError(line=self.lineno,linepos=linepos,invoke=True,msg=msg)
-    
+
     # Generate a new source statement line of text to be added to the assembly
-    # Returns: 
+    # Returns:
     #     a string (the generated model statement) or
     #     None to indicate the macro expansion has terminated.
     def generate(self):
@@ -1477,7 +1479,7 @@ class Invoker(object):
                 break
             # Macro is not done, so just return the model statement
             self.state=state       # Save the macro engine state for the next call
-            
+
             if __debug__:
                 if self.debug:
                     print("%s macro %s returning: %s" \
@@ -1508,11 +1510,11 @@ class Invoker(object):
         self.macro=macro
         self.engine=macro.engine       # MacroEngine object of macro definition
         self.idebug=macro.idebug       # Pick up debug switch from macro definition
-        
+
         # Parse statement macro parameters and create and update local symbols
         # based upon the macro prototype.
         self.lcls=self.__init_lcls()
-        
+
         # This method may raise assembler.AssemblerError exceptions.  They will
         # be handled by the assembler during pre-processing.
         macro.parms(stmt,self.lcls,debug=stmt.trace)
@@ -1521,7 +1523,7 @@ class Invoker(object):
         self.lineno=stmt.lineno        # Statement number of invoking statement
         self.name=self.macro.name      # Macro being invoked
         # This Invoker object is now ready to enter the macro.
-        # Entry occurs in the asminput.MacroSource object when its init() method 
+        # Entry occurs in the asminput.MacroSource object when its init() method
         # is called by the asminput.LineBuffer managing all source statement input.
 
     # Updates the current MHELP local values from the current global settings
@@ -1537,6 +1539,8 @@ class Invoker(object):
         self._mhelp_20=mhelp & 0x20   # Ignore global symbols with mhelp_04 & mhelp_08
         self._mhelp_40=mhelp & 0x40   # Dump SETC hex data with mhelp_10, mhelp_08 and
                                       # mhelp_04
+        #print("%s _mhelp_sup: %s" \
+        #    % (assembler.eloc(self,"mhelp_init",module=this_module),self._mhelp_sup))
 
     # Perform MHELP option 1 - Trace macro entry
     def mhelp_01(self):
@@ -1676,8 +1680,8 @@ class MacroBuilder(object):
 
             # Prototype statement found
             try:
-                # Debugging of prototype statements requires use of the MACRO 
-                # DEBUG operand.  Neither --oper nor ATRACEON works for the 
+                # Debugging of prototype statements requires use of the MACRO
+                # DEBUG operand.  Neither --oper nor ATRACEON works for the
                 # prototype statement
                 stmt.Pass0(self.asm,macro=self,debug=ddebug)
             except assembler.AssemblerError as ae:
@@ -1732,13 +1736,13 @@ class MacroBuilder(object):
 
         # Tell caller we processed the statement here.
         return True
-        
+
     # Flush the current definition being built
     def flush(self):
         self.indefn=None             # Leaving macro definition mode
         self.ddebug=False            # Turn off definition debug switch
         self.state=0                 # Change state to relfect this
-        
+
 
 class MacroLanguage(object):
     def __init__(self,asm):
@@ -1762,7 +1766,7 @@ class MacroLanguage(object):
 
         # Managed by getSysNdx() method
         self.sysndx=0       # The global sysndx upon which each local is derived
-        
+
         # MHELP action mask. See the mhelp() method
         # Mask or Value       Action taken
         # 0x80     128     Suppress MHELP actions
@@ -1776,12 +1780,12 @@ class MacroLanguage(object):
         self.mhelp_mask=0     # MHELP trace/dump mask
         self.mhelp_sup=0x80   # MHELP actions suppressed
         # Note: mhelp output is created by the Invoker object.
-        
+
         # MHELP maximum &SYSNDX value.  See the mhelp() method
         self.max_sysmon=0   # If not zero, &SYSNDX value is being monitored
         self.max_sysndx=0   # Maximum &SYSNDX value allowed
         self.max_hit=False  # Set to True if the maximum hit
-        
+
         # Managed by nest() and unnest() methods
         self._nest=0        # Current macro nesting level
         self.expanders=[]   # List of active expanders
@@ -1804,7 +1808,7 @@ class MacroLanguage(object):
 
         # Assembly date: YYYYMMDD
         self._initsys("&SYSDATC",datc,gbls=g)
-        
+
 
         # Assembly date: MM/DD/YY
         date="%s/%s/%s" % (month,day,year[2:4])
@@ -1872,7 +1876,7 @@ class MacroLanguage(object):
             sid=macsyms.SymbolID(name.upper())
         else:
             sid=macsyms.SymbolID(name)
-        s=self.gbls.defc(sid) 
+        s=self.gbls.defc(sid)
         if value is not None:
             s.setValue(sid,macsyms.C_Val(value),user=True)
 
@@ -1880,7 +1884,7 @@ class MacroLanguage(object):
     def _init_gblc_file(self,filepath):
         directory, filename=os.path.split(filepath)
       # "/dir/dir","filename.ext"
-        
+
         name,      ext     =os.path.splitext(filename)
       # "filename",".ext" or
       # "filename",""
@@ -1940,7 +1944,7 @@ class MacroLanguage(object):
         assert isinstance(macro,Macro),\
             "%s 'stmt.macro' must be a Macro object: %s" \
                 % (assembler.eloc(self,"macstmt",module=this_module),macro)
-            
+
         # Before launching the macro's invocation determine if MHELP maximum &SYSNDX
         # value exceeded if it is set.  Once the maximum &SYSNDX is triggered,
         # following macros are ignored.
@@ -2012,14 +2016,14 @@ class MacroLanguage(object):
 #  +------------------------+
 #  |                        |
 #  |   Macro Symbol Table   |
-#  |                        | 
+#  |                        |
 #  +------------------------+
 #
 
 # Class for managing symbols.
 # Instance arguments:
 #   unique    Specify True if all variables must be unique when defined.
-#             Specify False if previously defined variables are allowed.  
+#             Specify False if previously defined variables are allowed.
 #             Default is False.
 #             Note: Global variables are not required to be unique when defined.
 #                   Local variables and macro context variables must be unique
@@ -2136,9 +2140,9 @@ class Mac_Symbols(object):
     # Returns:
     #   the referenced SymbolValue object: A_Val, B_Val or C_Val object
     # Exceptions:
-    #   MacroError when variable symbol is undefined, 
-    #              when a subscript is provided for an unsubscripted symbol, 
-    #              when the subscript is out of range, or 
+    #   MacroError when variable symbol is undefined,
+    #              when a subscript is provided for an unsubscripted symbol,
+    #              when the subscript is out of range, or
     #              when macro parameter sublists nesting depth is exceeded.
     # Note: The macsyms module may generate a macsyms.SymbolError, but it is
     # converted to a MacroError by this method.
@@ -2155,7 +2159,7 @@ class Mac_Symbols(object):
             raise MacroError(invoke=True,msg="symbol '%s' - %s" \
                 % (sym.symbol,se.msg)) from None
 
-    # References a symbolic variable MacroSymbol whose reference is defined by a 
+    # References a symbolic variable MacroSymbol whose reference is defined by a
     # SymbolID object's symbolic variable name.
     # Method Arguments:
     #   symbol    the SymbolID object identifying the referenced variable and subscript
@@ -2190,21 +2194,21 @@ class Mac_Symbols(object):
         if updating and mac_sym.ro:
             raise MacroError(invoke=True,\
                 msg="symbol '%s' read-only, can not SET" % sym.symbol)
-        
+
         return mac_sym
 
 
-    # References a symbolic variable MacroSymbol whose reference is defined by a 
+    # References a symbolic variable MacroSymbol whose reference is defined by a
     # SymbolID object's symbolic variable name for the purposes of providing
     # the symbol's T' attribute.
     # Method Arguments:
-    #   symbol    the SymbolID object identifying the referenced variable and 
+    #   symbol    the SymbolID object identifying the referenced variable and
     #             subscript
     # Returns:
     #   the referenced SymbolValue object, A_Val, B_Val or C_Val object if defined
     #   None if the symbol is not defined.
     # Exceptions:
-    #   MacroError if subscript provided for unsubscripted symbol, if subscript is 
+    #   MacroError if subscript provided for unsubscripted symbol, if subscript is
     #   out of range.
     def _reference_T(self,symbol):
         assert isinstance(symbol,macsyms.SymbolID),\
@@ -2213,7 +2217,7 @@ class Mac_Symbols(object):
                     symbol)
         assert self.case or symbol.var == symbol.var.upper(),\
             "symbol not case insensitive: %s" % symbol
-        
+
         try:
             mac_sym=self.syms[symbol.var]   # Locate its MacroSymbol object
         except KeyError:
@@ -2235,7 +2239,7 @@ class Mac_Symbols(object):
     # Method Arguments:
     #   symbol   SymbolID object identifying the symbol's name and subscripting
     #   parm     If True, indicates the symbol is a macro parameter.  Default is False.
-    #   unique   If True, forces the symbol to be unique within the table even if 
+    #   unique   If True, forces the symbol to be unique within the table even if
     #            the table does not require it.  Default is False.
     #   ro       If True, the symbol is read-only.  Default is False.  If read-only'
     #            the setx argument user=False must be specified to set its value.
@@ -2261,7 +2265,7 @@ class Mac_Symbols(object):
     #   getc   Returns a character symbol's C_Val object
     #   getx   Returns the symbol's A_Sym, B_Sym or C_Sym object
     # Method Argument:
-    #   symbol A SymbolID object identifying the symbol's name and subscripting 
+    #   symbol A SymbolID object identifying the symbol's name and subscripting
     # Returns:
     #   an A_Val, B_Val or C_Val object
     # Excpetions: the caller needs to catch and handle appropriately
@@ -2334,4 +2338,3 @@ class Mac_Symbols(object):
 
 if __name__ == "__main__":
     raise NotImplementedError("asmmacs.py - intended for import use only")
-        
