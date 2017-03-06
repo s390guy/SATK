@@ -4782,7 +4782,8 @@ class SPACE(TemplateStmt):
     template=[asmbase.Single,]
 
     def __init__(self,lineno,logline=None):
-        super().__init__(lineno,logline=logline,minimum=1)
+        #super().__init__(lineno,logline=logline,minimum=1)
+        super().__init__(lineno,logline=logline,minimum=None)
         self.asmdir=True         # This is an assembler directive
         self.prdir=True          # This ia also a print directive
 
@@ -4796,12 +4797,17 @@ class SPACE(TemplateStmt):
         edebug=asm.dm.isdebug("exp")
         etrace=asm.dm.isdebug("tracexp") or ptrace
 
-        # Results are in the list self.PO_operands, asmbase.Operand subclass objects.
-        self.evaluate_operands(asm,debug=edebug,trace=etrace)
-        # Evaluated expression(s) in the self.bin_oprs list
+        if len(self.P0_operands)==0:
+            self.plist=1   # When operands are omitted, defaults to 1 line
+        else:
+            # Results are in the list self.PO_operands, asmbase.Operand subclass 
+            # objects.
+            self.evaluate_operands(asm,debug=edebug,trace=etrace)
+            # Evaluated expression(s) in the self.bin_oprs list
 
-        # Communicate number of spaces to listing manager       
-        self.plist=self.bin_oprs[0].getValue()
+            # Communicate number of space lines to listing manager       
+            self.plist=self.bin_oprs[0].getValue()
+
         self.prdir=True           # This statement requires processing during listing
         self.ignore=True          # No more processing needed by assembler passes
 
