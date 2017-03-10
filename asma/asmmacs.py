@@ -1149,9 +1149,12 @@ class SETA(SETx):
             else:
                 v=macsyms.A_Val(0)
         elif isinstance(value,macsyms.C_Val):
-            raise MacroError(invoke=True,\
-                msg="SETA operand %s requires arithmentic result, character "
-                    "value: %s" % (n+1,value))
+            v=value.sdterm(state.exp.pm,excp=False,debug=debug)
+            if v is None:
+                raise MacroError(invoke=True,\
+                    msg="SETA operand %s requires arithmentic result, character "
+                        "value: %s" % (n+1,value))
+            v=macsyms.A_Val(value=v)
         else:
             raise ValueError("[%s] SETA operand %s encountered unexpected "
                 "result: %s" % (self.lineno,n+1,value))

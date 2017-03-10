@@ -16,8 +16,8 @@
 #     You should have received a copy of the GNU General Public License
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
-# This module implements macro symbolic variables, local and global, and 
-# macro statement parameters. 
+# This module implements macro symbolic variables, local and global, and
+# macro statement parameters.
 
 this_module="%s.py" % __name__
 
@@ -58,7 +58,7 @@ class Mac_Sym(object):
         self.unique=unique
         # Set for symbols when defined. Used to filter symbols when MHELP 0x20 is set
         self.gbl=False          # Set for symbols when defined. Used to filter MHELP
-        # Macro symbolic parameter. 
+        # Macro symbolic parameter.
         self.parm=False         # Used to identify symbols when MHELP 0x10 is set
 
     def _ck_nosub(self,symid):
@@ -86,7 +86,7 @@ class Mac_Sym(object):
                 % (assembler.eloc(self,"_ck_value",module=this_module),\
                     self.entrycls.__name__,value)
         return
-                
+
     def _ck_writable(self,user):
         assert (not user) or (not self.ro),\
             "%s symbol '%s' read-only, can not set value" \
@@ -140,7 +140,7 @@ class Mac_Val(object):
     # Parse the supplied string as a valid self-defining term.  This method is
     # used in two situations.
     #   1. A SETC symbol occurs in an arithmetic expression.  This is valid if
-    #      the value of the symbol is a self-defining term.  This case uses 
+    #      the value of the symbol is a self-defining term.  This case uses
     #      excp=True.
     #   2. Returning the type (T') attribute of a parameter or SETC symbol.
     # Method Arguments:
@@ -169,7 +169,7 @@ class Mac_Val(object):
             sdscope=pm.parse_sdterm(string)
         except assembler.AsmParserError as mpe:
             if excp:
-            # Convert to a pratt parser error 
+            # Convert to a pratt parser error
                 raise pratt3.PEvaluationError(msg=mpe.msg) from None
             else:
                 return None
@@ -359,7 +359,7 @@ class Parm_Val(Mac_Val):
     #   None  if a sublist is not present
     #   A list containing a Parm_Val object if the sublist entry is present
     #         or None for an omitted sublist entry.
-    # This method will be called by each instance of this class, until no sublist 
+    # This method will be called by each instance of this class, until no sublist
     # entries are found.
     def sublist(self,trace=False):
         string=self.cval._value
@@ -473,7 +473,7 @@ class Parm_Val(Mac_Val):
                             raise SymbolError(msg="operand %s - sublist contains "
                                 "umbalanced parenthesis: %s" % self.onum+1)
                         self.sublists.append(Parm_Val(value=sub,onum=self.onum))
-                        
+
                         # Reset sublist related values
                         sub=""
                         lparens=0
@@ -483,7 +483,7 @@ class Parm_Val(Mac_Val):
                 else:
                     sub+=c
 
-            # checking for attribute single quote 
+            # checking for attribute single quote
             elif state == 3:
                 sub+=c
                 state=2
@@ -524,7 +524,7 @@ class Parm_Val(Mac_Val):
 # &SYSLIST subclass of generic Parm_Val object
 # &SYSLIST is essentially a Parm_Val object that only has sublists.
 #
-# This subclass 
+# This subclass
 #  - uses Parm_Val.display() and Parm_Val.fetch() methods.
 #  - does not use the Parm_val.sublist() method
 class SYSLIST(Parm_Val):
@@ -592,7 +592,7 @@ class lexfsm(fsm.FSM):
             c=self.text[self.cndx]
             return c in chars
         return False
-        
+
     # Establishes state for new part
     def new_part(self):
         raise NotImplementedError("%s subclass must provide new_part() method" \
@@ -618,7 +618,7 @@ class lexfsm(fsm.FSM):
         self.text=text
         self.cndx=ndx
         # Actually starts the finite state machine
-        super().start() 
+        super().start()
 
 # This object parses macro operands in either macro statements or macro prototypes
 class MacroOperands(object):
@@ -636,10 +636,10 @@ class MacroOperands(object):
         #assert isinstance(operand,(asmline.LOperand)),\
         #    "parse() method 'operand' argument must be an instance of LOperand: %r" \
         #        % operand
-                
+
         self.keyword=None
         self.value=None
-        
+
         # Test for keyword parameter
         text=operand.text
         if proto:
@@ -650,7 +650,7 @@ class MacroOperands(object):
             # Have a valid prototype parameter
             groups=mo.groups()
             # Index 0 -> prototype parameter name
-            # Index 1 -> equal sign of keyword prototype parameter 
+            # Index 1 -> equal sign of keyword prototype parameter
             if groups[1] is None:
                 # Have a positional parameter
                 if mo.end() != len(text):
@@ -707,7 +707,7 @@ class MacroOperands(object):
 class ProtoParser(MacroOperands):
     def __init__(self,trace=False):
         super().__init__(trace=False)
-        
+
     def parse_operands(self,stmt,debug=False):
         return super().parse_operands(stmt,proto=True,debug=debug)
 
@@ -716,7 +716,7 @@ class ProtoParser(MacroOperands):
 #  +--------------------------+
 #  |                          |
 #  |   Macro Symbol Classes   |
-#  |                          | 
+#  |                          |
 #  +--------------------------+
 #
 
@@ -740,7 +740,7 @@ class Mac_Sym_Array(Mac_Sym):
     # Returns my value attibutes
     def getAttr(self,attr):
         return self.value.getAttr(attr)
-        
+
     # Returns the symbol's value based upon an integer subscript.
     def getValue(self,symbol):
         if __debug__:
@@ -793,7 +793,7 @@ class Macro_Array(object):
         # Return the subscripted value.  If the value is not present, return the
         # a value as initialized.
         try:
-            return self.entries[key] 
+            return self.entries[key]
         except KeyError:
             print("%s key not found: %s" \
                 % (assembler.eloc(self,"__getitem__",module=this_module),key))
@@ -811,7 +811,7 @@ class Macro_Array(object):
                 % (assembler.eloc(self,"__setitem__",module=this_module),\
                     self.entrycls.__name__,item)
 
-        # Detect out of range subscript   
+        # Detect out of range subscript
         if key>self.size or key<1:
             raise SymbolError(msg="subscript out of range (1-%s): %s" \
                 % (self.size,key))
@@ -820,7 +820,7 @@ class Macro_Array(object):
         self.entries[key]=item
         # Adjust N' to current maximum subscript
         self.attr["N"]=max(self.attr["N"],key)
-        
+
     def getAttr(self,attr):
         return self.attr[attr]
 
@@ -831,7 +831,7 @@ class A_Sym_Array(Mac_Sym_Array):
 class A_Array(Macro_Array):
     def __init__(self,size):
         super().__init__(size,A_Val)
-        
+
 class B_Sym_Array(Mac_Sym_Array):
     def __init__(self,name,size,ro=False,unique=False):
         super().__init__(name,B_Array(size),ro=ro,unique=unique)
@@ -876,7 +876,7 @@ class SymbolID(object):
     def __str__(self):
         return "%s(variable=%s,subscipt=%s,indices=%s)" \
             % (self.__class__.__name__,self.var,self.sub,self.indices)
-            
+
     # This method is used to provide a user friendly string of the symbol reference
     # object.  Primarily used for error reporting.
     def display(self):
@@ -982,7 +982,7 @@ class A_Val(Mac_Val):
     def __ge__(self,other):
         return self.value() >= self.__other(other)
     def __gt__(self,other):
-        return self.value() > self.__other(other)  
+        return self.value() > self.__other(other)
 
     # Returns the integer value of the operand
     # Exception:
@@ -1079,7 +1079,7 @@ class B_Val(Mac_Val):
     # Unary plus
     def __pos__(self):
         return A_Val(self.value())
-        
+
     #
     # Infix Comparison Operations
     #
@@ -1094,7 +1094,7 @@ class B_Val(Mac_Val):
     def __ge__(self,other):
         return self.value() >= self.__other(other)
     def __gt__(self,other):
-        return self.value() > self.__other(other)    
+        return self.value() > self.__other(other)
 
     def __check(self,value):
         try:
@@ -1123,10 +1123,10 @@ class B_Val(Mac_Val):
             return other.sdterm()
         raise pratt3.PEvaluationError(\
             msg="operation not supported between a binary value and %s" % other)
-        
+
     def string(self):
-        return "%s" % self._value 
-        
+        return "%s" % self._value
+
     def update(self,value):
         if isinstance(value,B_Val):
             self._value=value.value()
@@ -1170,7 +1170,7 @@ class C_Val(Mac_Val):
         # This is set when a self-defining term is recognized during arithmetic
         # expression processing of this SETC symbol value.
         # See asmfsmbp.PLitSym.avalue() method.
-        
+
         # Whether the current value has been parsed as a self-defining term
         self._sdparse=False
         # Value as an integer of the self-defining term
@@ -1178,7 +1178,7 @@ class C_Val(Mac_Val):
 
     def __str__(self):
         return '%s("%s")' % (self.__class__.__name__,self._value)
-        
+
     #
     # Infix Arithmetic Operations
     #
@@ -1229,7 +1229,7 @@ class C_Val(Mac_Val):
     #
     # Infix Comparison Operations
     #
-    
+
     # If the comparison with another SETC symbol or string
 
     def __lt__(self,other):
@@ -1260,7 +1260,7 @@ class C_Val(Mac_Val):
     def __gt__(self,other):
         othr=self.__other_char(other)
         if isinstance(other,int):
-            return self.sdterm() > othr 
+            return self.sdterm() > othr
         return self.value() > othr
 
     # Returns an integer of the other operand
@@ -1308,7 +1308,7 @@ class C_Val(Mac_Val):
     # Returns an integer (and remembers it) if this C_Val object is a self
     # defining term.
     # Method Arguments:
-    #   excp    Specify whether an exception is raised if the value is not a 
+    #   excp    Specify whether an exception is raised if the value is not a
     #           self.defining term.  Specify True to generate an exception.
     #           Specify False to return None.  Defaults to False.
     # Returns:
@@ -1348,6 +1348,6 @@ class C_Val(Mac_Val):
     def value(self):
         return self._ebcdic
 
-    
+
 if __name__ == "__main__":
     raise NotImplementedError("%s module intended for import only" % this_module)
