@@ -1143,7 +1143,7 @@ class SETA(SETx):
             v=macsyms.A_Val(value)
         elif isinstance(value,macsyms.A_Val):
             v=value
-        elif isinstace(value,macsyms.B_Val):
+        elif isinstance(value,macsyms.B_Val):
             if value._value!=0:
                 v=macsyms.A_Val(1)
             else:
