@@ -978,7 +978,7 @@ class LineMgr(object):
         if logical.error:
             oper=OMF.getError()
         elif logical.comment or logical.empty:
-            oper=OMF.getComment(mbstate=mbstate,quiet=logical.quiet)
+            oper=OMF.getComment(mbstate=mbstate,quiet=logical.quiet or logical.empty)
         elif logical.literal:
             oper=OMF.getLiteral(logical.literal)
         else:

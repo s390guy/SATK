@@ -835,6 +835,9 @@ class ASMStmt(object):
         # Bubble up the operation field from the logical line to the ASMStmt 
         # subclass, remembering if there are any ampersands present in the field
         self.oper_fld=oper=self.logline.oper_fld
+        assert oper is not None,\
+            "%s [%s] %s" % (assembler.eloc(self,"pre_process",module=this_module),\
+                self.lineno,self.logline)
         if oper.amp:
             self.amp=True
             self.amp_list.append(oper)
