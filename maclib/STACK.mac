@@ -1,0 +1,57 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   STACK &SIZE
+.* Defines the initial bottom of the stack based upon the current CSECT, doubleword
+.* aligned.  If the bottom of the stack needs to be placed in a different CSECT, that
+.* CSECT needs to be the current active CSECT (and implied REGION) before issuing the
+.* STACK macro.  Typically the STACK macro will be used near the end of the assembly.
+.* Required Parameter Usage:
+.*  &SIZE      The size of stack in bytes.  The size is specified by a self defining
+.*             term.  The stack will not exceed the specified value by rounding down
+.*             to the next lower number of double words.
+         GBLA  &ARCHLVL   Current architecture level
+.* Symbols supplied by FRAME macro
+         GBLB  &SATKD32  Whether 32-bit register STKF DSECT has been defined
+         GBLB  &SATKD64  Whether 64-bit register STKG DSECT has been defined
+         LCLA  &SZ       Stack size as a symbolic variable
+         LCLC  &PFX      Prefix for stack frame symbols
+         AIF   ('&SIZE' NE '').SIZEOK
+         MNOTE 1,'STACK - REQUIRED SIZE PARAMETER MISSING'
+         MEXIT
+.SIZEOK  ANOP
+         AIF   (&ARCHLVL EQ 9).USEG
+         AIF   (&SATKD32).FDEFN
+         MNOTE 1,'STACK - NEED FRAME MACRO IN ARCHLVL LESS THAN OR EQUAL TO 8'
+.FDEFN   ANOP
+&PFX     SETC  'STKF'
+         AGO   .GEN
+.USEG    ANOP
+         AIF   (&SATKD64).GDEFN
+         MNOTE 1,'STACK - NEED FRAME MACRO IN ARCHLVL 9'
+         MEXIT
+.GDEFN   ANOP
+&PFX     SETC  'STKG'
+.GEN     ANOP
+.* &BASE    SETC  '&TOP'
+&SZ      SETA  &SIZE
+&SZ      SETA  (&SZ/8)*8
+.* The stack is allocated from high to low addresses.
+         DS    0D
+&LABEL   EQU   *+&SZ-(&PFX.LCL-&PFX)    Defines the initial _bottom_ of the stack
+         MEND

@@ -1,0 +1,325 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         FRAME &PACK=NO,&FP=NO,&AFP=NO,&BACKPTR=NO,&PRINT=
+.* Defines the standard frame size and format used by all functions.  The options
+.* selected here dictate what registers can be saved and preserved during function
+.* calls.  If fields are not available in the STKF or STKG DSECT the corresponding
+.* register can not be saved nor preserved.  Within the set of available options
+.* established by this macro, a specific function may save or preserve for its
+.* calling function those registers it uses.
+.*
+.* Because the stack frame is universal for the assembly, the options selected here
+.* wil influence the size of the stack frame and the number of function calls
+.* supported by a stack of a given size.  The smallest stack frame results from
+.* PACK=YES with all other options defaulting to NO.  The largest stack frame
+.* results from PACK=NO and all other options specified as YES.
+.*
+.* The stack frame structure will ensure that the stack frame is always doublword
+.* aligned (provided the stack itself is established on a doublword boundary).
+.*
+.* Parameter Usage:
+.*    &PACK   Specify 'YES' to only allow room for only preserved registers.  Volatile
+.*            registers, other than the caller's return location, can not be saved in
+.*            the frame.  Specify 'NO' to save all most registers
+.*            registers.  Default is 'NO'
+.*    &FP     Specify 'YES' to allow the floating point registers to be saved.
+.*            If PACK=YES, only preserved floating point registers can be saved.
+.*            If PACK=NO, floating point registers 0, 2, 4, and 6 can be saved.
+.*            Specify 'NO' to disallow saving of floating point registers.  Default
+.*            is 'NO'.
+.*    &AFP    If the architecture level supports the additional twelve floating point
+.*            registers and FP='YES', the additional floating point registers can
+.*            be saved.  If PACK=YES, only the preserved additional floating point
+.*            registers can be saved.  If PACK=NO, all additional floating point
+.*            registers can be saved.  Default is 'NO'.
+.*   &BACKPTR Specify 'YES' to allow back pointer to be saved.  Default is 'NO'.
+.*   &PRINT   Controls how the current PRINT setting is managed.  Specify 'ON' to
+.*            save the current settings and set PRINT ON.  Specify 'OFF' to save the
+.*            current PRINT settings and set PRINT OFF.  If the settings were saved,
+.*            they are restored at the end of the FRAME definition.  Otherwise, the
+.*            current PRINT settings are used without change.
+.*
+.* Register Handling Options Summary:
+.*  UPPER CASE indicates the default register handling.
+.*
+.*                 PACK=NO    PACK=YES    Restored
+.*   R0,R1        NOT SAVED   not saved      NO
+.*   R2-R5          SAVED     not saved      NO
+.*   R6-R15         SAVED       saved        YES
+.*   F0,F2,F4,F6  NOT SAVED   not saved      no      FP=NO  AFP ignored
+.*   F0,F2          saved     not saved      no      FP=YES
+.*   F4,F6          saved       saved        yes     FP=YES
+.* * F1,F3,F5     NOT SAVED   not saved      no      FP=YES,AFP=NO
+.* * F7-F15       NOT SAVED   not saved      no      FP=YES,AFP=NO
+.* * F0-F7          saved     not saved      no      FP=YES,AFP=YES
+.* * F8-F15         saved       saved        yes     FP=YES,AFP=YES
+.*   BACKPTR      NOT SAVED   not saved      no      BACKPTR=NO
+.*   BACKPTR        saved       saved        no      BACKPTR=YES
+.*
+.* * Only if the architecture level supports additional floating point registers.
+.*
+         GBLA  &ARCHLVL  Current architecture level
+.* Global 32-bit register frame values
+         GBLA  &SATKFFN  Number of floating point register save areas
+         GBLA  &SATKFRN  Number of 32-bit general register save areas
+         GBLA  &SATKFSZ  Stack frame size in bytes
+         GBLB  &SATKD32  Whether 32-bit register STKF DSECT has been defined
+         GBLB  &SATKFBK  Whether the backpointer is available or not.
+.* Global 64-bit register frame values
+         GBLA  &SATKGFN  Number of floating point register save areas
+         GBLA  &SATKGRN  Number of 64-bit general register save areas
+         GBLA  &SATKGSZ  Stack frame size in bytes
+         GBLB  &SATKD64  Whether 64-bit register STKG DSECT has been defined
+         GBLB  &SATKGBK  Whether the backpointer is used or not.
+.* Local frame values
+         LCLA  &FPRN     Number of floating point register save areas
+         LCLA  &GRN      Number of general register save areas
+         LCLA  &REGSIZE  Register size in bytes
+         LCLA  &BACK     Number of back pointer save areas available
+.* Used to build the DSECT
+         LCLB  &PAK      Whether function frame is packed
+         LCLB  &AFPS     Whether additional floating point registers preserved
+         LCLB  &FPS      Whether floating point registers expected to be saved
+         LCLB  &BAK      Whether back pointer is expected to be saved
+         LCLB  &CANAFP   Whether architecture supports additional floating point regs
+         LCLB  &PRON     PRINT=ON specified
+         LCLB  &PROFF    PRINT=OFF specified
+         LCLC  &A        Address constant type
+         LCLC  &D        FP constand type
+         LCLC  &LBL      Generated label
+         LCLC  &PFX      Label prefix
+&CANAFP  SETB  &ARCHLVL GE 7,     Set whether AFP supported
+         AIF   (&ARCHLVL EQ 9).BITS64
+         AIF   (&SATKD32).DONE
+&REGSIZE SETA  4
+&A       SETC  'A'
+&D       SETC  'D'
+&PFX     SETC  'STKF'
+         AGO   .CKPACK
+.BITS64  ANOP
+         AIF   (&SATKD64).DONE
+&REGSIZE SETA  8
+&A       SETC  'AD'
+&D       SETC  'D '
+&PFX     SETC  'STKG'
+.* Validate &PACK parameter
+.CKPACK  ANOP
+         AIF   ('&PACK' EQ '').CKFP
+         AIF   ('&PACK' EQ 'NO').CKFP
+         AIF   ('&PACK' EQ 'YES').SETPACK
+         MNOTE 1,'FRAME - UNRECOGNIZED PACK PARAMETER - &PACK'
+         MEXIT
+.SETPACK ANOP
+&PAK     SETB  1
+.* Validate &FP parameter
+.CKFP    ANOP
+         AIF   ('&FP' EQ '').CKBACK
+         AIF   ('&FP' EQ 'NO').CKBACK
+         AIF   ('&FP' EQ 'YES').DOFP
+         MNOTE 1,'FRAME - UNRECOGNIZED FP PARAMETER - &FP'
+         MEXIT
+.DOFP    ANOP
+&FPS     SETB  1
+.* Validae &AFP parameter (only if FP=YES)
+.CKAFP   ANOP
+         AIF   (NOT &CANAFP).CKBACK   Ignore AFP if level does not support 16 FPRs
+         AIF   ('&AFP' EQ '').CKBACK
+         AIF   ('&AFP' EQ 'NO').CKBACK
+         AIF   ('&AFP' EQ 'YES').DOAFP
+         MNOTE 1,'FRAME - UNRECOGNIZED AFP PARAMETER - &AFP'
+         MEXIT
+.DOAFP   ANOP
+&AFPS    SETB  1
+.* Validate &BACKPTR parameter
+.CKBACK  ANOP
+         AIF   ('&BACKPTR' EQ '').CKPR
+         AIF   ('&BACKPTR' EQ 'NO').CKPR
+         AIF   ('&BACKPTR' EQ 'YES').DOBACK
+         MNOTE 1,'FRAME - UNRECOGNIZED BACKPTR PARAMETER - &BACKPTR'
+         MEXIT
+.DOBACK  ANOP
+&BAK     SETB  1
+.* Process &PRINT parameter
+.CKPR    ANOP
+&PRON    SETB  '&PRINT' EQ 'ON'
+&PROFF   SETB  '&PRINT' EQ 'OFF'
+         AIF   (NOT &PRON).NOON
+         PUSH  PRINT
+         PRINT ON
+         AGO   .GENFRM
+.NOON    ANOP
+         AIF   (NOT &PROFF).GENFRM
+         PUSH  PRINT,NOPRINT
+         PRINT OFF,NOPRINT
+
+.* Generate the frame structure DSECT
+.GENFRM  ANOP
+         AIF   (&PAK).DOPACK
+&PFX     DSECT
+         AIF   (NOT &BAK).NOBAK
+&LBL     SETC  '&PFX.BACK'
+&LBL DS    &A     Backward pointer to previous frame, when used (R13)
+&LBL     SETC  '&PFX.RSV '
+&LBL DS    &A     reserved         - volatile  - NOT available
+.NOBAK   ANOP
+&LBL     SETC  '&PFX.R2  '
+&LBL DS    &A     GR 2 save area   - volatile  - called parm 1 / returned value
+&LBL     SETC  '&PFX.R3  '
+&LBL DS    &A     GR 3 save area   - volatile  - called parm 2
+&LBL     SETC  '&PFX.R4  '
+&LBL DS    &A     GR 4 save area   - volatile  - called parm 3
+&LBL     SETC  '&PFX.R5  '
+&LBL DS    &A     GR 5 save area   - volatile  - called parm 4
+&LBL     SETC  '&PFX.R6  '
+&LBL DS    &A     GR 6 save area   - preserved - called parm 5
+&LBL     SETC  '&PFX.R7  '
+&LBL DS    &A     GR 7 save area   - preserved - available
+&LBL     SETC  '&PFX.R8  '
+&LBL DS    &A     GR 8 save area   - preserved - available
+&LBL     SETC  '&PFX.R9  '
+&LBL DS    &A     GR 9 save area   - preserved - available
+&LBL     SETC  '&PFX.R10 '
+&LBL DS    &A     GR 10 save area  - preserved - available
+&LBL     SETC  '&PFX.R11 '
+&LBL DS    &A     GR 11 save area  - preserved - available
+&LBL     SETC  '&PFX.R12 '
+&LBL DS    &A     GR 12 save area  - preserved - available
+&LBL     SETC  '&PFX.R13 '
+&LBL DS    &A     GR 13 save area  - preserved - stack frame pointer
+&LBL     SETC  '&PFX.R14 '
+&LBL DS    &A     GR 14 save area  - preserved - caller's return
+&LBL     SETC  '&PFX.R15 '
+&LBL DS    &A     GR 15 save area  - preserved - function base register
+&LBL     SETC  '&PFX.F0  '
+&LBL DS    &D     FPR 0 save area  - volatile  - float parm 1 /returned float value
+&LBL     SETC  '&PFX.F2  '
+&LBL DS    &D     FPR 2 save area  - volatile  - float parm 2
+&LBL     SETC  '&PFX.F4  '
+&LBL DS    &D     FPR 4 save area  - preserved - float parm 3
+&LBL     SETC  '&PFX.F6  '
+&LBL DS    &D     FPR 6 save area  - preserved - float parm 4
+&FPRN    SETA  4
+&GRN     SETA  14
+&BACK    SETA  2
+         AIF   (NOT &AFPS).LOCAL
+&LBL     SETC  '&PFX.F1  '
+&LBL DS    &D     FPR 1 save area  - volatile  - available
+&LBL     SETC  '&PFX.F3  '
+&LBL DS    &D     FPR 3 save area  - volatile  - available
+&LBL     SETC  '&PFX.F5  '
+&LBL DS    &D     FPR 5 save area  - volatile  - available
+&LBL     SETC  '&PFX.F7  '
+&LBL DS    &D     FPR 7 save area  - volatile  - available
+&LBL     SETC  '&PFX.F8  '
+&LBL DS    &D     FPR 8 save area  - preserved - available
+&LBL     SETC  '&PFX.F9  '
+&LBL DS    &D     FPR 9 save area  - preserved - available
+&LBL     SETC  '&PFX.F10 '
+&LBL DS    &D     FPR 10 save area - preserved - available
+&LBL     SETC  '&PFX.F11 '
+&LBL DS    &D     FPR 11 save area - preserved - available
+&LBL     SETC  '&PFX.F12 '
+&LBL DS    &D     FPR 12 save area - preserved - available
+&LBL     SETC  '&PFX.F13 '
+&LBL DS    &D     FPR 13 save area - preserved - available
+&LBL     SETC  '&PFX.F14 '
+&LBL DS    &D     FPR 14 save area - preserved - available
+&LBL     SETC  '&PFX.F15 '
+&LBL DS    &D     FPR 15 save area - preserved - available
+&FPRN    SETA  &FPRN+12
+         AGO   .LOCAL
+.DOPACK  ANOP
+&PFX     DSECT
+&LBL     SETC  '&PFX.R6  '
+&LBL DS    &A     GR 6 save area   - preserved - available
+&LBL     SETC  '&PFX.R7  '
+&LBL DS    &A     GR 7 save area   - preserved - available
+&LBL     SETC  '&PFX.R8  '
+&LBL DS    &A     GR 8 save area   - preserved - available
+&LBL     SETC  '&PFX.R9  '
+&LBL DS    &A     GR 9 save area   - preserved - available
+&LBL     SETC  '&PFX.R10 '
+&LBL DS    &A     GR 10 save area  - preserved - available
+&LBL     SETC  '&PFX.R11 '
+&LBL DS    &A     GR 11 save area  - preserved - available
+&LBL     SETC  '&PFX.R12 '
+&LBL DS    &A     GR 12 save area  - preserved - available
+&LBL     SETC  '&PFX.R13 '
+&LBL DS    &A     GR 13 save area  - preserved - stack frame pointer
+&LBL     SETC  '&PFX.R14 '
+&LBL DS    &A     GR 14 save area  - preserved - caller's return
+&LBL     SETC  '&PFX.R15 '
+&LBL DS    &A     GR 15 save area  - preserved - function base register
+&GRN     SETA  10
+         AIF   (NOT &FPS).NOFP
+&LBL     SETC  '&PFX.F4  '
+&LBL DS    &D     FPR 4 save area  - preserved - available
+&LBL     SETC  '&PFX.F6  '
+&LBL DS    &D     FPR 6 save area  - preserved - available
+&FPRN    SETA  2
+         AIF   (NOT &AFPS).NOFP
+&LBL     SETC  '&PFX.F8  '
+&LBL DS    &D     FPR 8 save area  - preserved - available
+&LBL     SETC  '&PFX.F9  '
+&LBL DS    &D     FPR 9 save area  - preserved - available
+&LBL     SETC  '&PFX.F10 '
+&LBL DS    &D     FPR 10 save area - preserved - available
+&LBL     SETC  '&PFX.F11 '
+&LBL DS    &D     FPR 11 save area - preserved - available
+&LBL     SETC  '&PFX.F12 '
+&LBL DS    &D     FPR 12 save area - preserved - available
+&LBL     SETC  '&PFX.F13 '
+&LBL DS    &D     FPR 13 save area - preserved - available
+&LBL     SETC  '&PFX.F14 '
+&LBL DS    &D     FPR 14 save area - preserved - available
+&LBL     SETC  '&PFX.F15 '
+&LBL DS    &D     FPR 15 save area - preserved - available
+&FPRN    SETA  &FPRN+8
+.NOFP    ANOP
+         AIF   (NOT &BAK).LOCAL
+&LBL     SETC  '&PFX.BACK'
+&LBL DS    &A     Backward pointer to previous frame, when used
+&BACK    SETA  1
+         AIF   (&REGSIZE NE 4).LOCAL
+         DS    &A    Maintain stack on double word boundary
+&BACK    SETA  &BACK+1
+.LOCAL   ANOP
+&LBL     SETC  '&PFX.LCL '
+&LBL EQU   *
+         AIF   (&ARCHLVL EQ 9).SET64
+&SATKFRN SETA  &GRN
+&SATKFFN SETA  &FPRN
+&SATKFBK SETB  &BACK EQ 2
+&SATKFSZ SETA  ((&GRN+&BACK)*4)+(&FPRN*8)
+&SATKD32 SETB  1
+         AGO   .DONE
+.SET64   ANOP
+&SATKGRN SETA  &GRN
+&SATKGFN SETA  &FPRN
+&SATKGBK SETB  &BACK EQ 2
+&SATKGSZ SETA  ((&GRN+&BACK)*8)+(&FPRN*8)
+&SATKD64 SETB  1
+.DONE    ANOP
+.* Restore print settings
+         AIF   (NOT &PRON).NOONR
+         POP   PRINT
+.NOONR   ANOP
+         AIF   (NOT &PROFF).ENDMAC
+         POP   PRINT,NOPRINT
+.ENDMAC  MEND

@@ -1,0 +1,59 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   CALLR &REG
+.* Calls a function based upon an address.
+.* Parameter Usage:
+.*    &LABEL The label associated with this CALLR macro.
+.*    &REG   The register containing the function address enclosed in parenthesis or
+.*           the address constant identifying the function being called.  If ommitted
+.*           R1 is assumed to already contain the address of the function being
+.*           called.
+         GBLA  &ARCHLVL
+         LCLA  &REGSUB  Number of register sub-parameters
+         LCLB  &FETCH Whether a function is being fetched from storage
+         LCLB  &LOADR Whether the function address is in a register
+         LCLC  &R     Register holding the address (defaults to 1)
+.* Dependendy:
+.* Depends upon the ARCHIND operator synonyms.
+.* Analyze the option
+         AIF   ('&REG' EQ '').CALLIT
+&REGSUB  SETA  N'&REG
+         AIF   (&REGSUB EQ 0).NEEDFCH
+         AIF   (&REGSUB EQ 1).USEREG
+         MNOTE 1,'CALLR - TOO MANY FIRST POSITIONAL SUBPARAMETERS - &REGSUB'
+         MEXIT
+.NEEDFCH ANOP
+&R       SETC  '1'
+&FETCH   SETB  1
+         AGO   .GEN
+.USEREG  ANOP
+&R       SETC  '&REG(1)'
+&LOADR   SETB  1
+.* Generate the Register Call
+.GEN     ANOP
+.NOREG   ANOP
+         AIF   (NOT &FETCH).NOFETCH
+         $L    1,&REG       Locate the function
+         AGO   .CALLIT
+.NOFETCH ANOP
+         AIF   (NOT &LOADR).CALLIT
+         $LR   1,&R         Locate the function
+.CALLIT  ANOP
+         $BASR 14,1         Call the function
+         MEND

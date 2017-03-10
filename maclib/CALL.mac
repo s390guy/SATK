@@ -1,0 +1,92 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   CALL  &FUNC,&INLINE=,&RELO=NO
+.* Calls a function using an in-line location.  The in-line location may be
+.* an address constant or a relative location.
+.* Required Parameter Usage:
+.*    &FUNC     Specifies the location of the function being called.
+.* Optional Parameter Usage:
+.*    &LABEL    The label location associated with the function call
+.*    &INLINE   Specifies the type of in-line mechanism used for the function's
+.*              location.
+.*                 'A'   Forces use of an aligned address constant based upon the
+.*                       current architecture level.
+.*                 'J'   Forces use of a position relative long address
+.*              If ommitted, the current architecture level will dictate the selection.
+.*                 Level   In-line mechanism implied
+.*                  0-7       'A'
+.*                  8,9       'J'
+.*              When a forced option is used, the generated instructions must be
+.*              consistent with the run-time architecture in use.
+.*    &RELO     When an address constant is used to locate the called function,
+.*              Specifies whether self-relocation is required.  Specify 'YES' for
+.*              self-relocation to be used.  Defaults to 'NO'.  The current
+.*              relocation environment will control the type of address constant
+.*              used for self relocation.
+.* Dependencies:
+.* Depends on ARCHIND symbols and operator synonyms.
+.* If self-relocation is used, this macro depends upon 'selfrelo.mac'.
+         GBLA  &ARCHLVL
+.* Symbols provided by the ARCHIND macro
+         GBLA  &ARCHASZ   Size of an address constant in bytes
+         GBLC  &ARCHATP   Address constant type
+         GBLC  &ARCHITP   Integer constant type
+.*         LCLC  &LAR   LOAD ADDRESS RELATIVE type instruction
+         LCLC  &LBL   Generated label
+         LCLC  &NLINE In-line option in use
+         AIF   ('&FUNC' NE '').GOODFUN
+         MNOTE 1,'CALL - REQUIRED FIRST POSITIONAL PARAMETER MISSING - FUNC'
+         MEXIT
+.GOODFUN ANOP
+         AIF   ('&INLINE' EQ '').DEFNLIN
+         AIF   ('&INLINE' EQ 'A').FRCA
+         AIF   ('&INLINE' EQ 'J').FRCJ
+         MNOTE 1,'CALL - UNRECOGNIZED KEYWORD INLINE PARAMETER - &INLINE'
+         MEXIT
+.DEFNLIN ANOP
+&NLINE   SETC  '&ARCHATP'
+         AIF   (&ARCHLVL GE 8).FRCJ
+.* Inline address constant is the default
+.FRCA    ANOP
+&NLINE   SETC  'A'
+         AGO   .GENCALL
+.* Inline LOAD ADDRESS RELATIVE
+.FRCJ    ANOP
+&NLINE   SETC  'J'
+.* Generate the function call
+.GENCALL ANOP
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H
+.NOLBL   ANOP
+         AIF   ('&NLINE' NE 'A').JADD
+.USECON  ANOP
+         $L    1,CALL&SYSNDX
+         $B    CALL&SYSNDX+&ARCHASZ
+&LBL     SETC  'CALL&SYSNDX'
+         AIF   ('&RELO' EQ 'YES').DORELO
+&LBL     DC    &ARCHATP.(&FUNC)
+         AGO   .CALLIT
+.DORELO  ANOP
+&LBL     RELOA &FUNC
+         AGO   .CALLIT
+.JADD    ANOP
+         LARL  1,&FUNC
+.CALLIT  ANOP
+         $BASR 14,1
+.DONE    MEND

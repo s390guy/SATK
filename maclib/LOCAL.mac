@@ -1,0 +1,54 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         LOCAL
+.* Initiate local usage of a stack frame by the following function
+         GBLA  &ARCHLVL
+.* Symbols supplied by FRAME macro
+         GBLB  &SATKD32  Whether 32-bit register STKF DSECT has been defined
+         GBLB  &SATKD64  Whether 64-bit register STKG DSECT has been defined
+.* Symbols supplied by FUNCTION macro
+         GBLB  &SATKFIF  Function definition active
+.* Symbols supplied by LOCAL macro
+         GBLB  &SATKFLY  Whether the function is using the stack frame locally
+         GBLC  &SATKFLC  CSECT in which local was initiated
+.* Make sure we are not in a function already
+         AIF   (NOT &SATKFIF).NOTFUN
+         MNOTE 1,'LOCAL - CAN NOT DEFINE FUNCTION LOCAL FRAME USAGE IN A FUNCTION'
+         MEXIT
+.NOTFUN  ANOP
+         LCLC  &PFX
+         AIF   (&ARCHLVL EQ 9).CKSTKG
+         AIF   (&SATKD32).FGOOD
+         MNOTE 1,'LOCAL - NEED FRAME MACRO IN ARCHLVL LESS THAN OR EQUAL TO 8'
+         MEXIT
+.FGOOD   ANOP
+&PFX     SETC  'STKF'
+         AGO   .SAVSECT
+.CKSTKG  ANOP
+         AIF   (&SATKD64).GGOOD
+         MNOTE 1,'LOCAL - NEED FRAME MACRO IN ARCHLVL 9'
+         MEXIT
+.GGOOD   ANOP
+&PFX     SETC  'STKG'
+.SAVSECT ANOP
+&SATKFLC SETC  '&SYSECT'
+&PFX     DSECT
+         ORG   &PFX.LCL   Start function local stack frame usage
+&SATKFLY SETB  1
+         MEND

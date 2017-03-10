@@ -1,0 +1,68 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   STKINIT &BOTTOM,&LOAD=NO,&RELO=NO
+.* Initializes the program stack.  Required before any functions may be called.
+.* Required Parameter Usage:
+.*  &BOTTOM   Identifies the source of the stack bottom address.  If enclosed in
+.*            parenthesis it identifies the register containing the bottom address.
+.*            If not enclosed in parenthesis, identifies the symbol associated with
+.*            the stack bottom.  The symbol defined by the STACK macro is suitable.
+.* Optional Parameter Usage:
+.*  &LOAD     Specify 'YES' to use the &BOTTOM as a symbol for an address constant.
+.*            Otherwise &BOTTOM is the actual symbol for the bottom of the stack and
+.*            an inline address constant will be used.  Defaults to 'NO'.
+.*  &RELO     Specify 'YES' to make the inline bottom of stack address constant
+.*            self relocatable.  Defaults to 'NO'.
+         GBLA  &ARCHLVL   Current architecture level
+.* Symbols provided by the ARCHIND macro
+         GBLA  &ARCHASZ   Size of an address constant in bytes
+         GBLB  &ARCHIND   Whether operator synonyms defined
+         GBLC  &ARCHATP   Address constant type
+.*         GBLC  &ARCHITP   Integer constant type
+         LCLA  &NBOTTOM
+         LCLC  &REG
+&NBOTTOM SETA  N'&BOTTOM
+         AIF   ('&BOTTOM' NE '').BOTOK
+         MNOTE 1,'STKINIT - REQUIRED BOTTOM PARAMETER MISSING'
+.BOTOK   ANOP
+         AIF   (&ARCHIND).GEN
+         MNOTE 1,'STKINIT - REQUIRED ARCHIND MACRO OPERATOR SYNONYMS UNDEFINED'
+         MEXIT
+.GEN     ANOP
+         AIF   (&NBOTTOM EQ 1).USEREG
+         AIF   (&NBOTTOM EQ 0).USEADDR
+         MNOTE 1,'STKINIT - BOTTOM PARAMETER MAY NOT BE A SUBLIST'
+         MEXIT
+.USEREG  ANOP
+&REG     SETC  '&BOTTOM(1)'
+&LABEL   $LR   15,&REG        Initialize program stack pointer
+         MEXIT
+.USEADDR ANOP
+         AIF   ('&LOAD' NE 'YES').INLINE
+&LABEL   $L    15,&BOTTOM     Initialize program stack pointer
+         MEXIT
+.INLINE  ANOP
+&LABEL   $L    15,STKI&SYSNDX Initialize program stack pointer
+         $B    STKI&SYSNDX+&ARCHASZ  Branch around bottom of stack address
+         AIF   ('RELO' EQ 'YES').RELAD
+STKI&SYSNDX DC    &ARCHATP.(&BOTTOM) Bottom of stack
+         MEXIT
+.RELAD   ANOP
+STKI&SYSNDX RELOA &BOTTOM            Bottom of stack
+         MEND

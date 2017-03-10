@@ -1,4 +1,4 @@
-* Copyright (C) 2015 Harold Grovesteen
+* Copyright (C) 2017 Harold Grovesteen
 *
 * This file is part of SATK.
 *
@@ -36,6 +36,8 @@
 * Two regions are used: the first for assigned storage locations and the second
 * for the Hello World program itself.
 *
+* Requires ASMA environment variable MACLIB set to SATK/maclib
+*
 * Suggested Hercules Config:
 *    # Depending upon your choice of ASMA target use:
 *    ARCHMODE S/370   # For ASMA target command-line argument -t s360 or -t s370
@@ -50,7 +52,6 @@
          SPACE 1
          PRINT OFF
          COPY  'satk.mac'
-         COPY  'function.mac'
          PRINT ON
 *
 * Macro for conditionally including an architecture change or not

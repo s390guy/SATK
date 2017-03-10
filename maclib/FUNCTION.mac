@@ -1,0 +1,189 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   FUNCTION &FP=NO,&AFP=NO
+.* Defines a function entry
+.* Required Parameter Usage:
+.*    &LABEL   Assigns a location to the function entry.
+         GBLA  &ARCHLVL  Current architecture level
+.* Symbols provided by the ARCHIND macro
+.*         GBLA  &ARCHASZ   Size of an address constant in bytes
+         GBLB  &ARCHIND   Whether operator synonyms defined
+.*         GBLC  &ARCHATP   Address constant type
+.*         GBLC  &ARCHITP   Integer constant type
+.* Global 32-bit register frame values supplied by FRAME macro
+         GBLA  &SATKFFN  Number of floating point register save areas
+         GBLA  &SATKFRN  Number of 32-bit general register save areas
+         GBLA  &SATKFSZ  Stack frame size in bytes
+         GBLB  &SATKD32  Whether 32-bit register STKF DSECT has been defined
+         GBLB  &SATKFBK  Whether the backpointer is available or not.
+.* Global 64-bit register frame values supplied by FRAME macro
+         GBLA  &SATKGFN  Number of floating point register save areas
+         GBLA  &SATKGRN  Number of 64-bit general register save areas
+         GBLA  &SATKGSZ  Stack frame size in bytes
+         GBLB  &SATKD64  Whether 64-bit register STKG DSECT has been defined
+         GBLB  &SATKGBK  Whether the backpointer is used or not.
+.* Symbols supplied by LOCAL macro
+         GBLB  &SATKFLY  Whether the function is using the stack frame locally
+         GBLC  &SATKFLC  CSECT in which local was initiated
+         GBLC  &SATKFLL  Local stack frame ending symbol
+.* Global symbols used to manage local stack frame usage supplied by FUNCTION
+         GBLB  &SATKFAP  Whether additional floating point registers saved/restored
+         GBLB  &SATKFFP  Whether traditional floating point registers saved/restored
+         GBLB  &SATKFIF  Function definition active
+.* Make sure we are not already in a function definition
+         AIF   (NOT &SATKFIF).NOTFUN
+         MNOTE 1,'FUNCTION - FUNCTION DEFINITION ALREADY ACTIVE - MACRO IGNORED'
+         MEXIT
+.NOTFUN  ANOP
+.* Reset floating point save area requirements just in case
+&SATKFAP SETB  0
+&SATKFFP SETB  0
+.* Reset local stack frame end just in case
+&SATKFLL SETC  ''
+.* Symbols used by this macro
+         LCLA  &FPSA     Number of floating point save areas in the stack
+         LCLB  &BACK     Back pointer being used
+         LCLB  &PACK     Is PACK=YES in use by frame
+         LCLB  &DOAFP    Save restore addtional floating point regs
+         LCLB  &DOFP     Save restore traditional floating point regs
+         LCLC  &PFX      Stack frame DSECT name
+         LCLC  &STKEND   Symbol defining the end of the stack frame
+.* Validate parameters
+         AIF   ('&LABEL' NE '').GOODNAM
+         MNOTE 1,'FUNCTION - REQUIRED LABEL PARAMETER MISSING'
+         MEXIT
+.GOODNAM ANOP
+&DOFP    SETB  '&FP' EQ 'YES'
+&DOAFP   SETB  '&AFP' EQ 'YES'
+&DOFP    SETB  &DOFP OR &DOAFP
+.* Make sure the FRAME has been defined for this type of CPU
+         AIF   (&ARCHLVL EQ 9).CKSTKG
+         AIF   (&SATKD32).FGOOD
+         MNOTE 1,'FUNCTION - NEED FRAME MACRO IN ARCHLVL LESS THAN OR EQUAL TO 8'
+         MEXIT
+.FGOOD   ANOP
+&PFX     SETC  'STKF'
+&PACK    SETB  &SATKFRN NE 14
+&FPSA    SETA  &SATKFFN
+&BACK    SETB  &SATKFBK
+         AGO   .FINLCL
+.CKSTKG  ANOP
+         AIF   (&SATKD64).GGOOD
+         MNOTE 1,'FUNCTION - NEED FRAME MACRO IN ARCHLVL 9'
+         MEXIT
+.GGOOD   ANOP
+&PFX     SETC  'STKG'
+&PACK    SETB  &SATKGRN NE 14
+&FPSA    SETA  &SATKGFN
+&BACK    SETB  &SATKGBK
+.* Finalize a previously started local stack definition
+.FINLCL  ANOP
+         AIF   (NOT &SATKFLY).NOLCLS
+.* Local stack usage in effect, terminate the local definition
+&PFX     DSECT
+FUNS&SYSNDX  DS    0D      Make sure stack frame ends on double word
+&STKEND  SETC  'FUNS&SYSNDX'
+&SATKFLC CSECT
+         AGO   .START
+.NOLCLS  ANOP
+&STKEND  SETC  '&PFX.LCL'
+.* Generate the function prolog logic
+.START   ANOP
+         AIF   (&ARCHIND).GEN
+         MNOTE 1,'FUNCTION - REQUIRED ARCHIND MACRO OPERATOR SYNONYMS UNDEFINED'
+         MEXIT
+.GEN     ANOP
+&SATKFIF SETB  1,      Function definition initiated (reset by RETURN macro)
+&SATKFLL SETC  '&STKEND'
+&LABEL   DS    0H     Define function entry point
+         AIF   (&ARCHLVL GE 7).NOUSE1
+         USING *,1       Temporarily use R1 to address pre-amble constants
+.NOUSE1  ANOP
+         USING &PFX,15   Address the stack frame
+         AIF   (NOT &PACK).SAVEALL
+.* Save only preserved registers on the stack
+         $STM  6,15,&PFX.R6      Save restored registers on the stack
+         AIF   ('&FP' NE 'YES').PUSH
+         AGO   .FPSAVE
+.* Save most registers on the stack
+.SAVEALL ANOP
+         $STM  2,15,&PFX.R2      Save most registers on the stack
+         AIF   ('&FP' NE 'YES').PUSH
+.* Save floating point
+.FPSAVE  ANOP
+         AIF   (&DOAFP AND &FPSA GE 10).SAVEAFP
+         MNOTE 1,'FUNCTION - &PFX STACK FRAME CAN NOT SAVE ADDITIONAL FP REGISTERS'
+&DOAFP   SETB  0
+.SAVEAFP ANOP
+         AIF   (&DOFP AND &FPSA GT 0).SAVEFP
+         MNOTE 1,'FUNCTION - &PFX STACK FRAME CAN NOT SAVE FLOATING POINT REGISTERS'
+&DOFP    SETB  0
+         AGO   .BACKPTR
+.SAVEFP  ANOP
+         AIF   (NOT &DOAFP).NOAFP
+         AIF   (&PACK).PAFP
+         STD   1,&PFX.F1
+         STD   3,&PFX.F3
+         STD   5,&PFX.F5
+         STD   7,&PFX.F7
+.PAFP    ANOP
+         STD   8,&PFX.F8
+         STD   9,&PFX.F9
+         STD   10,&PFX.F10
+         STD   11,&PFX.F11
+         STD   12,&PFX.F12
+         STD   13,&PFX.F13
+         STD   14,&PFX.F14
+         STD   15,&PFX.F15
+.NOAFP   ANOP
+         AIF   (NOT &DOFP).BACKPTR
+         AIF   (&PACK).PFP
+         STD   0,&PFX.F0
+         STD   2,&PFX.F2
+.PFP     ANOP
+         STD   4,&PFX.F4
+         STD   6,&PFX.F6
+.* Preserver back pointer in stack
+.BACKPTR ANOP
+         AIF   (NOT &BACK).PUSH
+         $ST   15,&PFX.BACK
+.NOBACK  ANOP
+.* Create save area for my function calls and space for my locals on the stack
+.PUSH    ANOP
+         AIF   (NOT &BACK).NOBACK
+         AIF   (&ARCHLVL GE 7).USEIMED
+         SL    15,FUNL&SYSNDX
+         $BAS  13,FUNL&SYSNDX+4
+         DROP  1                 Forget use of R1
+         USING *,13              Establish function base register
+FUNL&SYSNDX DC A(&STKEND-&PFX)
+         AGO   .RESET
+.USEIMED ANOP
+         AHI   15,-(&STKEND-&PFX)
+         AIF   (&ARCHLVL GE 7).NODROP1
+.NODROP1 ANOP
+.*         $BASR 13,0
+.*         USING *,13
+         $LR   13,1
+         USING &LABEL,13
+.* Reset local information
+.RESET   ANOP
+&SATKFLY SETB  0
+&SATKFLC SETC  ''
+         MEND

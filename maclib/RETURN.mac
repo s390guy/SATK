@@ -1,0 +1,92 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   RETURN &RET
+.* Returns to the caller of a function
+.* Parameter Usage:
+.*    &LABEL   Location label associated with the function return
+.*    &RET     General register containing the returned value
+         GBLA  &ARCHLVL
+.* Symbols provided by the ARCHIND macro
+.*         GBLA  &ARCHASZ   Size of an address constant in bytes
+         GBLB  &ARCHIND   Whether operator synonyms defined
+.*         GBLC  &ARCHATP   Address constant type
+.*         GBLC  &ARCHITP   Integer constant type
+.* Symbols supplied by FRAME macro
+         GBLB  &SATKD32  Whether 32-bit register STKF DSECT has been defined
+         GBLB  &SATKD64  Whether 64-bit register STKG DSECT has been defined
+.* Symbols supplied by FUNCTION macro
+         GBLB  &SATKFAP  Whether additional floating point registers saved/restored
+         GBLB  &SATKFFP  Whether traditional floating point registers saved/restored
+         GBLB  &SATKFIF  Function definition active
+         GBLC  &SATKFLL  Local stack frame ending symbol
+.* Make sure we are in a function
+         AIF   (&SATKFIF).INFUN
+         MNOTE 1,'RETURN - RETURN MACRO MAY ONLY BE USED WITHIN A FUNCTION DEFINITION'
+         MEXIT
+.INFUN   ANOP
+.* Instruction used by the macro
+         LCLC  &PFX     Stack frame DSECT
+         AIF   (&ARCHLVL EQ 9).USEG
+         AIF   (&SATKD32).FDEFN
+         MNOTE 1,'RETURN - NEED FRAME MACRO IN ARCHLVL LESS THAN OR EQUAL TO 8'
+.FDEFN   ANOP
+&PFX     SETC  'STKF'
+         AGO  .CKIND
+.USEG    ANOP
+         AIF   (&SATKD64).GDEFN
+         MNOTE 1,'RETURN - NEED FRAME MACRO IN ARCHLVL 9'
+         MEXIT
+.GDEFN   ANOP
+&PFX     SETC  'STKG'
+.CKIND   ANOP
+         AIF   (&ARCHIND).GEN
+         MNOTE 1,'FUNCTION - REQUIRED ARCHIND MACRO OPERATOR SYNONYMS UNDEFINED'
+         MEXIT
+.GEN     ANOP
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H
+.NOLBL   ANOP
+         AIF   (NOT &SATKFAP).NOAFP
+         LD    8,&PFX.F8+(&SATKFLL-&PFX)
+         LD    9,&PFX.F9+(&SATKFLL-&PFX)
+         LD    10,&PFX.F10+(&SATKFLL-&PFX)
+         LD    11,&PFX.F11+(&SATKFLL-&PFX)
+         LD    12,&PFX.F12+(&SATKFLL-&PFX)
+         LD    13,&PFX.F13+(&SATKFLL-&PFX)
+         LD    14,&PFX.F14+(&SATKFLL-&PFX)
+         LD    15,&PFX.F15+(&SATKFLL-&PFX)
+&SATKFAP SETB  0
+.NOAFP   ANOP
+         AIF   (NOT &SATKFFP).NOFP
+         LD    4,&PFX.F4+(&SATKFLL-&PFX)
+         LD    6,&PFX.F6+(&SATKFLL-&PFX)
+&SATKFFP SETB  0
+.NOFP    ANOP
+         AIF   ('&RET' EQ '').NORET
+         $LR   2,&RET
+.NORET   ANOP
+         $LM   6,15,&PFX.R6+(&SATKFLL-&PFX)
+         DROP  13,15
+         BR    14
+.* Reset function definition state and floating point save area usage.
+&SATKFLL SETC  ''
+&SATKFAP SETB  0
+&SATKFFP SETB  0
+&SATKFIF SETB  0,   Reset function definition state, function definition completed.
+         MEND
