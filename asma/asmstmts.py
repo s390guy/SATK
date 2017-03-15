@@ -678,7 +678,6 @@ class ASMStmt(object):
 
         return (pool,align)
 
-
     # Pass 1 - Create the binary content for a new statement and assign a label if
     #          present.  The minimum length of the label is one regardless of the
     #          length of the binary content.
@@ -2100,6 +2099,9 @@ class CCW0(TemplateStmt):
         # Create the binary content and assign a label if present in the statement
         self.new_content(asm,alignment=8,length=8,T="W",debug=idebug)
 
+        # Update the current location counter
+        asm.cur_loc.increment(self.content)
+
     def Pass2(self,asm,debug=False,trace=False):
         idebug=trace or self.trace
         etrace=asm.dm.isdebug("tracexp") or idebug
@@ -2134,6 +2136,9 @@ class CCW0(TemplateStmt):
         bytes=CCW0.struct.build(self,values,trace=trace)
         # Update the statements binary content with the CCW0
         self.content.update(bytes,at=0,full=True,finalize=True,trace=idebug)
+
+        # Update the current location counter
+        asm.cur_loc.increment(self.content)
 
 
 # CCW1 Assembler Directive - Oper Type TPL
@@ -2332,6 +2337,7 @@ class CNOP(TemplateStmt):
         # Current location counter is start of binary with a section relative address
 
         self.label_create(asm,length=1,T="I")
+        asm.cur_loc.increment(self.content)
 
     def Pass2(self,asm,debug=False,trace=False):
         # Generate the needed BCR 0,0 instructions
@@ -3898,6 +3904,7 @@ class PSWS(TemplateStmt):
     def Pass1(self,asm,debug=False,trace=False):
         # Create the binary content and assign a label if present in the statement
         self.new_content(asm,alignment=1,length=4,T="3")
+        asm.cur_loc.increment(self.content)
 
     def Pass2(self,asm,debug=False,trace=False):
         ptrace=trace or self.trace
@@ -3974,6 +3981,7 @@ class PSW360(TemplateStmt):
     def Pass1(self,asm,debug=False,trace=False):
          # Create the binary content and assign a label if present in the statement
         self.new_content(asm,alignment=8,length=8,T="3")
+        asm.cur_loc.increment(self.content)
 
     def Pass2(self,asm,debug=False,trace=False):
         ptrace=trace or self.trace
@@ -4054,6 +4062,7 @@ class PSW67(TemplateStmt):
     def Pass1(self,asm,debug=False,trace=False):
         # Create the binary content and assign a label if present in the statement
         self.new_content(asm,alignment=8,length=8,T="3")
+        asm.cur_loc.increment(self.content)
 
     def Pass2(self,asm,debug=False,trace=False):
         ptrace=trace or self.trace
@@ -4143,6 +4152,7 @@ class PSWBC(TemplateStmt):
     def Pass1(self,asm,debug=False,trace=False):
         # Create the binary content and assign a label if present in the statement
         self.new_content(asm,alignment=8,length=8,T="3")
+        asm.cur_loc.increment(self.content)
 
     def Pass2(self,asm,debug=False,trace=False):
         ptrace=trace or self.trace
@@ -4221,6 +4231,7 @@ class PSWEC(TemplateStmt):
     def Pass1(self,asm,debug=False,trace=False):
         # Create the binary content and assign a label if present in the statement
         self.new_content(asm,alignment=8,length=8,T="3")
+        asm.cur_loc.increment(self.content)
 
     def Pass2(self,asm,debug=False,trace=False):
         ptrace=trace or self.trace
@@ -4348,6 +4359,7 @@ class PSWBi(TemplateStmt):
     def Pass1(self,asm,debug=False,trace=False):
         # Create the binary content and assign a label if present in the statement
         self.new_content(asm,alignment=8,length=8,T="3")
+        asm.cur_loc.increment(self.content)
 
     def Pass2(self,asm,debug=False,trace=False):
         ptrace=trace or self.trace
@@ -4501,6 +4513,7 @@ class PSWZ(TemplateStmt):
     def Pass1(self,asm,debug=False,trace=False):
         # Create the binary content and assign a label if present in the statement
         self.new_content(asm,alignment=8,length=16)
+        asm.cur_loc.increment(self.content)
 
     def Pass2(self,asm,debug=False,trace=False):
         ptrace=trace or self.trace
