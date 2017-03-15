@@ -31,7 +31,7 @@ import macopnd
 import macsyms
 
 
-# Model statement processing is delegated to this object.  It may utilize the 
+# Model statement processing is delegated to this object.  It may utilize the
 # statement object's methods for some of its processing.
 #
 # The generic model statement uses: alt=True (for macro statement models), sep=True
@@ -43,9 +43,9 @@ import macsyms
 #
 #   - LField    label field                      asmline.Logline.fields() method
 #   - LField    operation field                  asmline.Logline.fields() method
-#   - LOperand  indivdual operand field operand  ASMStmt.parse_line(), sep=True 
+#   - LOperand  indivdual operand field operand  ASMStmt.parse_line(), sep=True
 #
-# These objects form the basis for symbolic variable replacement and statement 
+# These objects form the basis for symbolic variable replacement and statement
 # generation.  Statement generation creates text strings as if they had been read
 # from a file using stream file format continuation conventions.
 #
@@ -77,7 +77,7 @@ class Model(object):
 
         # These attributes are established during parsing operations
         self.label_fld=None       # See parse_label() method
-        self.oper_fld=None        # See parse_operation() method      
+        self.oper_fld=None        # See parse_operation() method
         self.operands=[]          # See parse_operands() method
         self.comments=[]          # See find_comment() method
         self.comment_pos=None     # Starting position of the comment
@@ -99,7 +99,7 @@ class Model(object):
             self.loud=logline.plines[0].text
 
         if __debug__:
-            if debug:    
+            if debug:
                 print("%s [%s] loud: %s" \
                     % (assembler.eloc(self,"__init__",module=this_module),\
                         stmt.lineno,self.loud))
@@ -173,7 +173,7 @@ class Model(object):
             if __debug__:
                 if self.debug:
                     print("%s operands: '%s'" % (cls_str,operands))
-        # Remove the first superfluous comma created by the loop      
+        # Remove the first superfluous comma created by the loop
         operands=operands[1:]
         if __debug__:
             if self.debug:
@@ -184,15 +184,18 @@ class Model(object):
             if ddebug:
                 print("%s line: '%s'" % (cls_str,line))
 
-        # Make into continuatin lines if need be and add comment
+        # Make into continuation lines if need be and add comment
         cont=" "*15
         plines=[]
         pline=None
         ndx=0
         end=len(line)
+
+        # This loop breaks the one long line of label, operation and operands into
+        # individual lines with continuation when necessary.
         while ndx<end:
             if pline is not None:
-                pline="%s \\" % pline  # Add stream file format continuation
+                pline="%s\\" % pline  # Add stream file format continuation
                 plines.append(pline)
                 pline=None
             if len(plines)==0:
@@ -354,7 +357,7 @@ class Model(object):
             return result
 
         result.prepare(stmt,"[%s] model-%s" % (stmt.lineno,desc))
-        return result.ctoken()   
+        return result.ctoken()
 
     # Perform any required symbolic replacement
     def replace(self,exp,debug=False):
@@ -402,4 +405,3 @@ class Model(object):
 if __name__ == "__main__":
     raise NotImplementedError("%s - this module only supports import usage" \
         % this_module)
-        
