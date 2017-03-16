@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014-2016 Harold Grovesteen
+# Copyright (C) 2014-2017 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -16,8 +16,8 @@
 #     You should have received a copy of the GNU General Public License
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
-# This model consolidates 
-#   - all lexical and 
+# This model consolidates
+#   - all lexical and
 #   - all pratt3 tokens
 #   - all finite-state-machine base classes
 
@@ -39,7 +39,7 @@ import lnkbase              # Access address objects
 #  +--------------------------------------------+
 #  |                                            |
 #  |  ASMA Shared Regular Expression Patterns   |
-#  |                                            | 
+#  |                                            |
 #  +--------------------------------------------+
 #
 
@@ -136,7 +136,7 @@ class PLitCur(pratt3.PLit):
         super().__init__(token)
 
         # The asmstmts.ASMStmt object whose location is the location of the
-        # current location counter.  This value gets assigned by the 
+        # current location counter.  This value gets assigned by the
         # asmbase.ASMExprArith.prepare() method when this object is created.
         self.stmt=stmt     # The asmstmts.ASMStmt object to which current location
         # The use of the Assembler.cur_loc.retrieve() method will no longer work
@@ -179,7 +179,7 @@ class PLitDblQ(pratt3.PLit):
 class PLitLabel(pratt3.PLit):
     def __init__(self,token):
         super().__init__(token)
-        
+
         self.label=token.label  # Label being referenced
         # This class does not refernence attributes, but subclasses do
         self.attr=None          # Label attribute being referenced.
@@ -213,7 +213,7 @@ class PLitLabel(pratt3.PLit):
         return value
 
 
-# This class allows a symbol or one of its attributes to be used as a factor within an 
+# This class allows a symbol or one of its attributes to be used as a factor within an
 # expression.  It retrieves from the symbol table the symbol's value and passes it to
 # directly to the Pratt expression evaluator if no attribute was supplied.  If
 # supplied, it will return the requested attribute's value.
@@ -240,7 +240,8 @@ class PLitLabelAttr(PLitLabel):
         attr_val=ste[self.attr]
         if trace:
             print("%s.value() %s'%s=%s" \
-                % (assembler.eloc(self,"value",module=this_module),attr,label,value))
+                % (assembler.eloc(self,"value",module=this_module),\
+                    self.attr,label,attr_val))
         return attr_val
 
 
@@ -248,7 +249,7 @@ class PLitLabelAttr(PLitLabel):
 class PLitLabelAttr_D(PLitLabelAttr):
     def __init__(self,token):
         super().__init__(token)
-        
+
     def getSTE(self,external=None,debug=False,trace=False):
         try:
             return external._getSTE_Ref(self.label,self.src.line)
@@ -270,7 +271,7 @@ class PLitLabelAttr_D(PLitLabelAttr):
 class PLitLabelAttr_O(PLitLabelAttr):
     def __init__(self,token):
         super().__init__(token)
-        
+
     def value(self,external=None,debug=False,trace=False):
         return external._getAttr_O(self.label.upper())
 
@@ -290,7 +291,7 @@ class PLitLabelAttr_OChr(PLitLabelAttr):
 class PLitLabelAttrChr(PLitLabelAttr):
     def __init__(self,token):
         super().__init__(token)
-        
+
     def value(self,external=None,debug=False,trace=False):
         char=super().value(external=external,debug=debug,trace=trace)
         # Attribute returns a character.  This treats is as a self-defining term
@@ -347,8 +348,8 @@ class APLitSym(PLitSym):
     def __init__(self,token):
         super().__init__(token)
 
-    # This method must be part of the pratt3.PLit object to facilitate error 
-    # reporting of an invalid self defining-term.  This need complicates the 
+    # This method must be part of the pratt3.PLit object to facilitate error
+    # reporting of an invalid self defining-term.  This need complicates the
     # implementation because the ideal place for this method is the asmmacs.C_Val
     # object.
     #
@@ -370,7 +371,7 @@ class APLitSym(PLitSym):
                     % (assembler.eloc(self,"value",module=this_module),self))
 
         valo=super().value(external=external,debug=debug,trace=debug)
-        
+
         if __debug__:
             if debug:
                 print("%s valo: %s" \
@@ -383,14 +384,14 @@ class APLitSym(PLitSym):
         return valo.value()
 
 
-# This class accesses a variable symbol's attribute in the context of an arithmetic 
+# This class accesses a variable symbol's attribute in the context of an arithmetic
 # expression, being sensitive to xxxA, xxxB, and xxxC symbols in this contest.
 class APLitSymAttr(PLitSym):
     def __init__(self,token):
         super().__init__(token)
 
-    # This method must be part of the pratt3.PLit object to facilitate error 
-    # reporting of an invalid self defining-term.  This need complicates the 
+    # This method must be part of the pratt3.PLit object to facilitate error
+    # reporting of an invalid self defining-term.  This need complicates the
     # implementation because the ideal place for this method is the asmmacs.C_Val
     # object.
     #
@@ -412,7 +413,7 @@ class APLitSymAttr(PLitSym):
                     % (assembler.eloc(self,"value",module=this_module),self))
 
         valo=super().value(external=external,debug=debug,trace=debug)
-        
+
         if __debug__:
             if debug:
                 print("%s valo: %s" \
@@ -458,14 +459,14 @@ class ArithEval(pratt3.PParser):
         try:
             sdscope=Parsers.sdterm.parse(string)
         except assembler.AsmParserError as mpe:
-            # Convert to a pratt parser error 
+            # Convert to a pratt parser error
             raise pratt3.PParserError(ptok=ptok,msg=mpe.msg) from None
         # Convert the SDDEC, SDHEX, SDCHR or SDBIN lexical token into an integer
         return sdscope.sdtok.convert()
 
     def __init__(self):
         super().__init__()
-        
+
         # Operator Precedence (higher takes precedence to lower)
         #   /, *
         #   +, -
@@ -678,13 +679,13 @@ class LexicalToken(lexer.Token):
         self.binary=False       # Whether token represents a binary operator
         self.unary=False        # Whether token represents a unary operator
 
-    # Generates and returns a pratt3 module PToken object for macro arithmetic 
+    # Generates and returns a pratt3 module PToken object for macro arithmetic
     # expressions.  By default, it returns the token generated by the ptoken()
     # method.  A subclass must override this method to change this behavior.
     def atoken(self):
         return self.ptoken()
 
-    # Generates and returns a pratt3 module PToken object for macro binary 
+    # Generates and returns a pratt3 module PToken object for macro binary
     # expressions.  By default, it returns the token generated by the ptoken()
     # method.  A subclass must override this method to change this behavior.
     def btoken(self):
@@ -696,7 +697,7 @@ class LexicalToken(lexer.Token):
             % (assembler.eloc(self,"convert",module=this_module),\
                 self.__class__.__name__))
 
-    # Generates and returns a pratt3 module PToken object for macro character 
+    # Generates and returns a pratt3 module PToken object for macro character
     # expressions.  By default, it returns the token generated by the ptoken()
     # method.  A subclass must override this method to change this behavior.
     def ctoken(self):
@@ -722,7 +723,7 @@ class LexicalToken(lexer.Token):
     #
     # The lexical analyzer is designed to recognize entire files.  However, ASMA
     # only uses it to recognize portions of a line.  So after accepting the token
-    # ASMA must update the token with actual statement location as produced 
+    # ASMA must update the token with actual statement location as produced
     # by the assembler listing.
     def update(self,line,incr,source=None):
         self.line=line
@@ -740,7 +741,7 @@ class LexicalToken(lexer.Token):
 # optionally one or more secondary expressions.  This token results when a parser
 # recognizes a complex term.  Because the parser, rather than a lexical analyzer
 # performs the recognition, no token type is used to create it.
-# 
+#
 # A corresponding PLit token is created from this object for evaluation of the
 # complex term into an expression operand during expression evaluation.
 
@@ -796,7 +797,7 @@ class LogGenToken(LexicalToken):
         raise NotImplementedError("%s subclass %s must implement ptokens() method"\
             % (assembler.eloc(self,"ptokens",module=this_module),\
                 self.__class__.__name__))
-        
+
     def syntax(self):
         self.binary=True
 
@@ -806,7 +807,7 @@ class BWOpToken(LogGenToken):
         super().__init__()
     def ptokens(self):
         return LogGenToken.bitwise_ops
-        
+
 class LogicalToken(LogGenToken):
     def __init__(self):
         super().__init__()
@@ -869,7 +870,7 @@ class LogGenNotType(lexer.Type):
         % (spaces,anduc,oruc,xoruc,spaces,notuc,spaces)
     def __init__(self,tid,tcls,debug=False):
         super().__init__(tid,LogGenNotType.pattern,tcls=tcls,mo=True,debug=debug)
-        
+
 # These classes are used to instantiate the actual types:
 
 # Bit-wise arithmetic operators
@@ -902,7 +903,7 @@ class LogNotType(LogGenNotType):
 class AmpToken(LexicalToken):
     def __init__(self):
         super().__init__()
-        
+
     def ptoken(self):
         return PLitAmp(self)
 
@@ -974,7 +975,7 @@ class ChrsRepType(lexer.Type):
 class ChrsToken(LexicalToken):
     def __init__(self):
         super().__init__()
-        
+
     def ptoken(self):
         return PLitChrs(self)
 
@@ -997,12 +998,12 @@ class CompToken(LexicalToken):
     def extract(self):
         groups=self.groups()
         return groups[1]
-        
+
     # Returns a pratt3 PToken object with myself as the source
     def ptoken(self):
         cls=CompToken.ptokens[self.extract().upper()]
         return cls(src=self)
-        
+
     def syntax(self):
         self.binary=True
 
@@ -1019,7 +1020,7 @@ class CompType(lexer.Type):
 class DblQuoteToken(LexicalToken):
     def __init__(self):
         super().__init__()
-        
+
     def ctoken(self):
         return PLitDblQ(src=self)
 
@@ -1045,7 +1046,7 @@ class DCDS_Bin_Token(LexicalToken):
     def init(self,tid,string,beg,end,line=0,linepos=0,eols=0,ignore=False,mo=None):
         super().init(tid,string,beg,end,line=line,linepos=linepos,eols=eols,\
             ignore=ignore,mo=mo)
-        
+
         self.digs=remove_spaces(self.string)
 
 
@@ -1156,7 +1157,7 @@ class DCDS_Float_Token(LexicalToken):
     def dct(self):
         if self.sgn is not None and len(self.sgn)>1:
              raise fp.FPError(self,msg="must contain only one sign: %s" % self.sgn)
-             
+
         # Reconstruct the constant without any spaces
         string=""
         if self.sgn:
@@ -1184,7 +1185,7 @@ class DCDS_Float_Token(LexicalToken):
             ignore=ignore,mo=mo)
 
         groups=self.dict()
-        
+
         # Initialize the sign information
         sign=groups["sign"]
         if sign is not None:
@@ -1215,7 +1216,7 @@ class DCDS_Float_Token(LexicalToken):
         rmode=groups["rmode"]
         if rmode:
             self.rmode=remove_spaces(rmode)
-        
+
 
 # Recognizes a floating point finite number
 class DCDS_Float_Type(lexer.Type):
@@ -1247,7 +1248,7 @@ class DCDS_Float_Special_Token(LexicalToken):
         super().init(tid,string,beg,end,line=line,linepos=linepos,eols=eols,\
             ignore=ignore,mo=mo)
         groups=self.dict()
-        
+
         # Initialize the sign information
         sign=groups["sign"]
         if sign is not None:
@@ -1294,7 +1295,7 @@ class DCDS_Hex_Token(LexicalToken):
     def __init__(self):
         super().__init__()
         self.digs=None     # Hexadecimal digits with spaces removed
-        
+
     def extract(self):
         if len(self.digs)==0:
             raise assembler.AsmParserError(self,\
@@ -1396,7 +1397,7 @@ class DCDS_Number_Token(LexicalToken):
     #    value=groups[1]
     #    #value=remove_spaces(value)
     #    #if len(value)==0:
-    #    #    raise 
+    #    #    raise
     #    self.value=int(value,10)*sign
     #    return self.value
 
@@ -1442,7 +1443,7 @@ class EoOperType(lexer.Type):
         super().__init__("EOO",spaces,tcls=EoOperToken,mo=True,debug=debug)
 
 
-# =      - Recognizes the equal sign 
+# =      - Recognizes the equal sign
 class EqualToken(LexicalToken):
     def __init__(self):
         super().__init__()
@@ -1461,7 +1462,7 @@ class CommaType(lexer.Type):
 class LabelToken(LexicalToken):
     def __init__(self):
         super().__init__()
-        
+
         # Supplied by init() method
         self.label=None   # Label being referenced
 
@@ -1510,7 +1511,7 @@ class LabelAttrToken(LexicalToken):
             "O":PLitLabelAttr_O,      #      char
             "S":PLitLabelAttr,        #      int
             "T":PLitLabelAttr}        #      char
-    
+
     # Classes used for machine instructions and assembler directives
     #                                   Attribute
     p_attr={"D":PLitLabelAttr_D,      #      int
@@ -1526,8 +1527,8 @@ class LabelAttrToken(LexicalToken):
         # Initialized by init() method
         self.label=None      # Case (in)sensitive label being referenced
         self.attr=None       # Attribute of the label being referenced
-        
-    # Access the class attribute dictionary to determine the Pratt operand 
+
+    # Access the class attribute dictionary to determine the Pratt operand
     # class to be returned.
     def __getPLit(self,dct):
         try:
@@ -1547,12 +1548,12 @@ class LabelAttrToken(LexicalToken):
         if attr:
             self.attr=attr[0].upper()
         self.label=mogrps[1]  # The referenced label
-        
+
     def atoken(self):
         if self.attr is None:
             return PLitLabel(self)
         return self.__getPLit(LabelAttrToken.a_attr)
-        
+
     def btoken(self):
         if self.attr is None:
             return PLitLabel(self)
@@ -1603,7 +1604,7 @@ class LParenToken(LexicalToken):
 class LParenType(lexer.Type):
     def __init__(self,debug=False):
         super().__init__("LPAREN","[\(]",tcls=LParenToken,debug=debug)
-   
+
 
 # LABEL&SYM  - Recgonizes an assembler label with a final symbollic variable.
 # This is used exclusively by the Fields Parser to allow this construct to be
@@ -1648,7 +1649,7 @@ class NotType(lexer.Type):
 class PeriodToken(LexicalToken):
     def __init__(self):
         super().__init__()
-        
+
 class PeriodType(lexer.Type):
     def __init__(self,debug=False):
         super().__init__("PERIOD","\,",tcls=PeriodToken,debug=debug)
@@ -1662,9 +1663,9 @@ class QuoteToken(LexicalToken):
 class QuoteType(lexer.Type):
     def __init__(self,debug=False):
         super().__init__("QUOTE","'",tcls=QuoteToken,debug=debug)
-   
 
-# )      - Recognizes a single right parenthesis 
+
+# )      - Recognizes a single right parenthesis
 class RParenToken(LexicalToken):
     def __init__(self):
         super().__init__()
@@ -1789,7 +1790,7 @@ class SeqType(lexer.Type):
 # this works is not intuitive which is why this lengthy explanation is provided.
 # It is based upon the rule that valid strings will always contain an even number
 # of single quotes.
-# 
+#
 # The regular expression of the StringType object recognizes this basic pattern: '.*'
 # This includes two single quotes with nothing between them or any set of characters
 # which are not single quotes.
@@ -1802,7 +1803,7 @@ class SeqType(lexer.Type):
 #      'X''abc'''
 #      <-><---><>
 #       1   2   3  <---StringToken object number
-# 
+#
 # The characters actually provided in each of the StingToken object's string attribute
 # is as follows, the content being surrounded here by double quotes:
 #
@@ -1814,7 +1815,7 @@ class SeqType(lexer.Type):
 # allowing the final quote to end up becoming the single quote as expected when
 # additional characters are added to the string.
 #
-# The extend method() allows the next StringToken object to contribute to the 
+# The extend method() allows the next StringToken object to contribute to the
 # content of the first StringToken object.  Here is the content of the first
 # StringToken object after extending it by the second and third objects:
 #
@@ -1832,14 +1833,14 @@ class SeqType(lexer.Type):
 class StringToken(LexicalToken):
     def __init__(self):
         # Normally will drop the initial single quote.  Reset in a subclass if needed.
-        self.drop=True   
+        self.drop=True
         super().__init__()
 
     def atoken(self):
         raise NotImplementedError(\
             "%s TID:%s must not be recognized in arithemetic expressions" \
                 % (assembler.eloc(self,"atoken",module=this_module),self.tid))
-        
+
     def btoken(self):
         raise NotImplementedError(\
             "%s TID:%s must not be recognized in binary expressions" \
@@ -1855,7 +1856,7 @@ class StringToken(LexicalToken):
         # the trailing single quote.
         data=self.string[:-1]
         if amp:
-            data=data.replace("&&","&") 
+            data=data.replace("&&","&")
         return data
 
     # This method allows for the logical extension of a string token, allowing two
@@ -1863,7 +1864,7 @@ class StringToken(LexicalToken):
     def extend(self,ltok):
         assert isinstance(ltok,StringToken),\
             "%s 'ltok' argument must be another StringToken object: %s" \
-                % (assembler.eloc(self,"extend",module=this_module),ltok)  
+                % (assembler.eloc(self,"extend",module=this_module),ltok)
 
         self.string="%s%s" % (self.string,ltok.string)
         self.end=ltok.end
@@ -1914,7 +1915,7 @@ class SymToken(LexicalToken):
         super().__init__()
         # Symbolic variable name being referenced.  See init() method.
         self.symname=None
-        
+
     def init(self,tid,string,beg,end,line=0,linepos=0,eols=0,ignore=False,mo=None):
         # Let super classs initalize the lexical token
         super().init(tid,string,beg,end,line=line,linepos=linepos,eols=eols,\
@@ -1937,7 +1938,7 @@ class SymAttrToken(LexicalToken):
         # See init() method
         self.symname=None     # Symbolic variable name being referenced
         self.attr=None        # Attribute character in upper case
-        
+
     def ptoken(self):
         # REPLACE THIS OBJECT
         raise NotImplementedError(\
@@ -1986,7 +1987,7 @@ class SymbolToken(LexicalToken):
         super().__init__()
         # Symbolic variable name being referenced.  See init() method
         self.symname=None
-        
+
     def init(self,tid,string,beg,end,line=0,linepos=0,eols=0,ignore=False,mo=None):
         super().init(tid,string,beg,end,line=line,linepos=linepos,eols=eols,\
                      ignore=ignore,mo=mo)
@@ -2014,7 +2015,7 @@ class SymDeclToken(LexicalToken):
         super().__init__()
         # Symbolic variable name being referenced.  See init() method.
         self.symname=None
-        
+
     def init(self,tid,string,beg,end,line=0,linepos=0,eols=0,ignore=False,mo=None):
         # Let super classs initalize the lexical token
         super().init(tid,string,beg,end,line=line,linepos=linepos,eols=eols,\
