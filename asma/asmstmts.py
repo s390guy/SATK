@@ -3552,6 +3552,12 @@ class MNOTE(ASMStmt):
 
         pm=asm.PM
         scope=pm.parse_operands(self,"mnote",required=True)
+        if __debug__:
+            if pdebug:
+                print("%s scope.severity: %s" \
+                    % (assembler.eloc(self,"Pass0",module=this_module),\
+                        scope.severity))
+
         note=scope.message.convert()
         if scope.comment:
             info=True
@@ -3570,9 +3576,17 @@ class MNOTE(ASMStmt):
                 operand=255
             info=False
             sev=operand
+            
+        msg="MNOTE %s,%s" % (sev,note)
+        if __debug__:
+            if pdebug:
+                print("%s [%s] msg: %s" \
+                    % (assembler.eloc(self,"Pass0",module=this_module),\
+                        self.lineno,msg))
 
-        raise assembler.AssemblerError(line=self.lineno,\
-            msg="MNOTE %s,%s" % (sev,note),info=info)
+        #raise assembler.AssemblerError(line=self.lineno,\
+        #    msg="MNOTE %s,%s" % (sev,note),info=info)
+        raise assembler.AssemblerError(line=self.lineno,msg=msg)
 
 
     def Pass1(self,asm,debug=False,trace=False): pass

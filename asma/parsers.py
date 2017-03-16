@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2015, 2016 Harold Grovesteen
+# Copyright (C) 2015-2017 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -70,7 +70,7 @@ STRING=asmtokens.StringType()
 #  +----------------------------------------+
 #
 
-# A single CSLA can support all context sensitive parsers by defining all of the 
+# A single CSLA can support all context sensitive parsers by defining all of the
 # _lexical_ contexts required by the context sensitive parsers.
 class CSLA(lexer.CSLA):
     def __init__(self,dm):
@@ -88,7 +88,7 @@ class CSLA(lexer.CSLA):
         # Set ldebug=True to cause a context's token list to be displayed when the
         # debug manager has ldebug set to True.
         # Set tdebug=True to cause the token type matching debug to be enabled
-        
+
         self.init_abs_expr()
         self.init_addr_expr()
         self.init_bin_value()
@@ -109,7 +109,7 @@ class CSLA(lexer.CSLA):
         self.init_start_region()
 
         # Print the tokens when the debug manager is set for ldebug
-        # Token debugging is determined by 
+        # Token debugging is determined by
         if self.dm.isdebug("ldebug"):
             self.types(debug=True)
 
@@ -123,7 +123,7 @@ class CSLA(lexer.CSLA):
         self.type(c,types,debug=tdebug)
 
     # Define an address expression context
-    # The difference between this context and the 'absexpr' context is that 
+    # The difference between this context and the 'absexpr' context is that
     # symbol attributes are allowed.
     #
     # Should this be the default?  For now only using this with address constant
@@ -168,7 +168,7 @@ class CSLA(lexer.CSLA):
         types=[DCDPT,COMMA,DCQUOTE]
         self.type(c,types,debug=tdebug)
 
-    # DC/DS Type 
+    # DC/DS Type
     def init_dc_types(self,ldebug=False,tdebug=False):
         c="dctypes"
         self.ctx(c,debug=ldebug)
@@ -187,7 +187,7 @@ class CSLA(lexer.CSLA):
         self.ctx(c,debug=ldebug)
         types=[DCQUOTE,COMMA,DCFLSPL,DCFLOAT]
         # Note: the regular expression pattern used to recognize a floating point
-        # finite number (token id DCFLOAT) will result in a match object with 
+        # finite number (token id DCFLOAT) will result in a match object with
         # all groups set to None if no match occurs.  For this reason, all other
         # types of the context must precede the DCFLOAT type.
         self.type(c,types,debug=tdebug)
@@ -279,7 +279,7 @@ class AsmLexer(lexer.Lexer):
         lst.append(EOO)         # " "      One or more spaces
         lst.append(EOS)         # end of input string detected by lexer
         # Because of the options used by the fsmparser.FSMParser class, the lexical
-        # analyzer will also generate the lexer.Unrecognized() token when no 
+        # analyzer will also generate the lexer.Unrecognized() token when no
         # match is found.
 
         for typ in lst:
@@ -308,14 +308,14 @@ class AddressParser(asmbase.AsmFSMParser):
     # Define my states and action methods.
     def initialize(self):                                            # Next state
         init=fsmparser.PState("init")
-        init.action([LABEL,],self.ACT_Add_Base)                      #   adjust     
+        init.action([LABEL,],self.ACT_Add_Base)                      #   adjust
         init.error(self.ACT_ExpectedLabel)
         self.state(init)
 
         # Initial infix +/- expected
         adjust=fsmparser.PState("adjust")
         adjust.action([AOPER,],self.ACT_Add_Adjustment)              #   rh
-        adjust.action([EOO,EOS],self.ACT_End)  # No adjustment, done  
+        adjust.action([EOO,EOS],self.ACT_End)  # No adjustment, done
         adjust.error(self.ACT_ExpectedAdjustment)
         self.state(adjust)
 
@@ -341,7 +341,7 @@ class AddressParser(asmbase.AsmFSMParser):
             gs.token(value)
             return "rh"
         self.ACT_Expected("plus or minus address adjustment",value)
-        
+
     def ACT_Add_Base(self,value,state,trace=False):
         gs=self.scope()
         gs.token(value)
@@ -386,13 +386,13 @@ class AddressParser(asmbase.AsmFSMParser):
 
     def ACT_ExpectedExpr(self,value,state,trace=False):
         self.ACT_Expected("arithmetic operation or valid arithemtic operand",value)
-        
+
     def ACT_ExpectedLabel(self,value,state,trace=False):
         self.ACT_Expected("initial address label",value)
 
     def ACT_ExpectedOperand(self,value,state,trace=False):
         self.ACT_Expected("address, self-defining term, or left parenthesis",value)
-     
+
     def ACT_ExpectedOperator(self,value,state,trace=False):
         self.ACT_Expected("infix operator",value)
 
@@ -495,7 +495,7 @@ class MNOTEParser(asmbase.AsmFSMParser):
         init.action([STRING,],self.ACT_Message_Start)
         init.error(self.ACT_ExpectedSeverity)
         self.state(init)
-        
+
         expr=fsmparser.PState("expr")
         expr.action([SDBIN,SDHEX,SDDEC,SDCHR,AOPER],self.ACT_Add_Token)
         expr.action([LPAREN,],self.ACT_LPAREN)
@@ -503,28 +503,28 @@ class MNOTEParser(asmbase.AsmFSMParser):
         expr.action([COMMA,],self.ACT_COMMA)
         expr.error(self.ACT_ExpectedExpr)
         self.state(expr)
-        
+
         comma=fsmparser.PState("comma")
         comma.action([COMMA,],self.ACT_COMMA)
         comma.error(self.ACT_ExpectedComma)
         self.state(comma)
-        
+
         msg_beg=fsmparser.PState("msg_beg")
         msg_beg.action([STRING,],self.ACT_Message_Start)
         msg_beg.error(self.ACT_ExpectedMessage)
         self.state(msg_beg)
-        
+
         msg_cont=fsmparser.PState("msg_cont")
         msg_cont.action([STRING,],self.ACT_Message_More)
         msg_cont.action([EOO,EOS],self.ACT_Done)
         msg_cont.error(self.ACT_ExpectedEnd)
         self.state(msg_cont)
-        
+
     def ACT_Add_Token(self,value,state,trace=False):
         gs=self.scope()
         gs.token(value)
-        return state.state
-        
+        return "expr"
+
     def ACT_Asterisk(self,value,state,trace=False):
         gs=self.scope()
         oper=value.string
@@ -536,7 +536,7 @@ class MNOTEParser(asmbase.AsmFSMParser):
             gs.token(value)
             return "expr"
         self.ACT_Expected("asterisk or unary arithmetic operator",value)
-        
+
     # Comma found after severity
     def ACT_COMMA(self,value,state,trace=False):
         gs=self.scope()
@@ -561,10 +561,10 @@ class MNOTEParser(asmbase.AsmFSMParser):
 
     def ACT_ExpectedMessage(self,value,state,trace=False):
         self.ACT_Expected("message string",value)
-  
+
     def ACT_ExpectedSeverity(self,value,state,trace=False):
         self.ACT_Expected("serverity expression, comma, or message",value)
-  
+
     def ACT_LPAREN(self,value,state,trace=False):
         gs=self.scope()
         gs.lparen(value)
@@ -675,7 +675,7 @@ class START_Parser(asmbase.AsmCtxParser):
         #cs=self.cscope()
         assert cs is not None,"context scope is None"
         gs.start_list(cs,value)
-        
+
         # Determine next context or whether we are in fact done
         if value.tid!="COMMA":
             state.atend()
@@ -753,7 +753,7 @@ class START_Scope(asmbase.AsmCtxScope):
 #  +-----------------------------+
 #  |                             |
 #  |   Common Parser Interface   |
-#  |                             | 
+#  |                             |
 #  +-----------------------------+
 #
 
@@ -811,7 +811,7 @@ class ParserMgr(object):
         except pratt3.PParserError as pe:
             # Convert PParserError into an AssemblerError.  The PParserError object
             # may contain an object generated by the PParser object without a
-            # source.  Before using the src for the AssemblerError we need to 
+            # source.  Before using the src for the AssemblerError we need to
             # make sure it is valid.  If all else fails, simply convert the
             # ptok to a printable string and use whatever results.
             raise assembler.AssemblerError(line=stmt.lineno,linepos=pe.pos,msg=pe.msg) \
@@ -850,7 +850,7 @@ class ParserMgr(object):
         return expr
 
     # Update a lexical token with its actual position in the statement.
-    # Users of the parser are encouraged to use this method rather than 
+    # Users of the parser are encouraged to use this method rather than
     def ltoken_update(self,stmt,ltok,asmstr=None):
         assert isinstance(asmstr,asmbase.ASMString),\
             "%s 'asmstr' argument must be an instance of asmbase.ASMString: %s" \
@@ -934,13 +934,13 @@ class ParserMgr(object):
     #   required  Specify 'True' if the operands are required for the statement
     # Returns:
     #   1. a fsmparser.PScope object with the results of the successful parse or
-    #   2. None if no operands present and operands are not required.  
+    #   2. None if no operands present and operands are not required.
     #   Caller must be aware of this second condition before attempting to process
     #   a scope object.
     # Exception:
     #   AssemblerError if the parse fails or required operands are not present
     #
-    #   The AssemblerError object is generated from the information in the 
+    #   The AssemblerError object is generated from the information in the
     #   assembler.Stmt object augmented by information from the
     #   assembler.AsmParserError object if available.
     def parse_operands(self,stmt,parser,scope=None,required=False):
@@ -960,7 +960,7 @@ class ParserMgr(object):
 
         # Only parse operands if they are actually present in the statement
         if string is None:
-            if required: 
+            if required:
                 raise assembler.AssemblerError(source=source,line=stmt.lineno,\
                     msg="%s operation required operand field missing" % stmt.instu)
             else:
