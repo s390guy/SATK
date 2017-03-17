@@ -21,7 +21,7 @@
 this_module="asmconfig.py"
 
 # ASMA displayed copyright information.  This must match the copyright in asma.py
-copyright="asma.py Copyright (C) %s Harold Grovesteen" % "2014-2016"
+copyright="asma.py Copyright (C) %s Harold Grovesteen" % "2014-2017"
 
 # Python imports: None
 # ASMA/SATK imports:

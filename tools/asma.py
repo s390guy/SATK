@@ -19,7 +19,9 @@
 # This module provides a command line interface to the ASMA assembler.py module.
 
 this_module="asma.py"
-copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014-2016")
+copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014-2017")
+# When changing this copyright update asma/asmconfig.copyright attribute.
+# That copyright notice is the one actually printed when asma.py is run.
 
 # Python imports
 import sys
