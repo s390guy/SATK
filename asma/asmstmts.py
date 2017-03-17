@@ -351,9 +351,10 @@ class ASMStmt(object):
             self.aes.append(ae)  # Add the AssemblerError object to my error list
             return
 
-        # Treat AssemblerError object as an error
-        self.error=True        # Indicate this statement is now in error
-        self.ignore=True       # Make sure it is further ignored.
+        # Treat AssemblerError object as a error if not a warning
+        if not ae.warning:
+            self.error=True        # Indicate this statement is now in error
+            self.ignore=True       # Make sure it is further ignored.
         self.aes.append(ae)    # Add the AssemblerError to my error list
 
 
@@ -3576,7 +3577,7 @@ class MNOTE(ASMStmt):
                 operand=255
             info=False
             sev=operand
-            
+
         msg="MNOTE %s,%s" % (sev,note)
         if __debug__:
             if pdebug:
@@ -4882,13 +4883,36 @@ class START(ASMStmt):
 
         pm=asm.PM
         # Either of these two methods may raise an AssemblerError
-        scope=pm.parse_scope(self,"start")
+        scope=self.gscope=pm.parse_scope(self,"start")
         scope.Pass0(self,pm,debug=pdebug)    # Should this move here????
-        if scope.new_region:
-            self.region=scope.reg_name
 
-        self.gscope=scope   # Remember the Pass0 processing
+        #self.gscope=scope   # Remember the Pass0 processing
         self.csect=self.label_optional()
+        if __debug__:
+            if pdebug:
+                print("%s [%s] self.csect: %s" \
+                    % (assembler.eloc(self,"Pass0",module=this_module),\
+                        self.lineno,self.csect))
+                print("%s [%s] new_region: %s" \
+                    % (assembler.eloc(self,"Pass0",module=this_module),\
+                        self.lineno,scope.reg_name))
+                print("%s [%s] scope.new_region: %s" \
+                    % (assembler.eloc(self,"Pass0",module=this_module),\
+                        self.lineno,scope.new_region))
+
+        if scope.new_region:
+            if scope.reg_name == self.csect:
+                if __debug__:
+                    if pdebug:
+                        print("%s REGION and CSECT names the same"\
+                            % assembler.eloc(self,"Pass0",module=this_module))
+                ae=assembler.AssemblerError(line=self.lineno,warning=True,\
+                    msg="WARNING: REGION name ignored - must not be the same as "\
+                        "CSECT name: %s" % scope.reg_name)
+                asm._ae_excp(ae,self)
+                scope.new_region=False  # Disable region handling in Pass2()
+            else:
+                self.region=scope.reg_name
 
     def Pass1(self,asm,debug=False,trace=False):
         utrace=trace or self.trace

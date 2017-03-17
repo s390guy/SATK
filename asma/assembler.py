@@ -17,11 +17,11 @@
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
 # Other Notices:
-# z/Architecture is a registered trademark of International Business Machines 
+# z/Architecture is a registered trademark of International Business Machines
 # Corporation.
 
-# This module provides an Python based mainframe assembler for the creation of 
-# binary image files from a simple source language.  It is intended for import use 
+# This module provides an Python based mainframe assembler for the creation of
+# binary image files from a simple source language.  It is intended for import use
 # only.  Use asma.py for a command line interface.
 
 #
@@ -43,8 +43,8 @@
 #  - REGION statement specific to ASMA.
 #  - Multiple START statements allowed supporting multiple region
 #
-# Supported assembler directives: 
-#    CCW, CCW0, CCW1, CSECT, DC, DROP, DS, DSECT, END, EQU, ORG, PRINT, REGION, 
+# Supported assembler directives:
+#    CCW, CCW0, CCW1, CSECT, DC, DROP, DS, DSECT, END, EQU, ORG, PRINT, REGION,
 #    START, TITLE, USING, various PSW formats.
 #
 # All machine instruction formats are supported through 2012.  Specific instructions
@@ -52,8 +52,8 @@
 # database.  Only instruction supported in the input MSL file are supported for a
 # given execution of the assembler.
 #
-# Supported storage/constant types: A, AD, B, C, CA, CE, D, F, FD, H, P, S, X, Y, Z 
-# 
+# Supported storage/constant types: A, AD, B, C, CA, CE, D, F, FD, H, P, S, X, Y, Z
+#
 # Limitations from traditional mainframe assembler
 #  - D constant type is a synonym for FD.  Floating point constants are not supported.
 #  - Only the assembler directives identified above are supported
@@ -74,7 +74,7 @@
 #  ------
 #
 #  During pass 1 all CSECT's, DSECT'S and REGION's are established.  ORG statements
-#  are acted upon.  Relative addresses are asigned to image content generating 
+#  are acted upon.  Relative addresses are asigned to image content generating
 #  statements and associated symbols.  CSECT's are bound to physical addresses
 #  with their respective regions and regions are located within the final image.
 #  Note: actual binary image content has yet to be built.
@@ -84,8 +84,8 @@
 #
 #  All expressions that have not as of yet been evaluted are done so.  The results
 #  are used to create the object content of constants and machine instructions.  At
-#  the end of the pass, all object content is consolidated into their respective 
-#  regions and CSECTS.  The regions are concatenated together to in the sequence 
+#  the end of the pass, all object content is consolidated into their respective
+#  regions and CSECTS.  The regions are concatenated together to in the sequence
 #  of their START statements to form the final output.
 
 this_module="%s.py" % __name__
@@ -114,7 +114,7 @@ def eloc(clso,method_name,module=None):
 #  +---------------------------+
 #  |                           |
 #  |   Statistics Management   |
-#  |                           | 
+#  |                           |
 #  +---------------------------+
 #
 
@@ -125,7 +125,7 @@ class AsmStats(object):
     def __init__(self):
         self.timers={}       # Active timers
         self.stmts=None      # Number of statements processes
-        
+
         # These three timers may be updated with better times from an external source.
         # asma.py understands how to update these timers.  Use it as an example
         # for use of ASMA in a different embedded context.
@@ -177,16 +177,16 @@ class AsmStats(object):
         except KeyError:
             raise ValueError("%s %s timer does not exist" \
                 % (eloc(self,method_name),tname))
-            
+
     # Returns whether a timer has been created
     def available(self,tname):
         try:
             self.timers[tname]
         except KeyError:
             return False
-        return True    
+        return True
 
-    # Returns a timer's elapsed time. 
+    # Returns a timer's elapsed time.
     def elapsed(self,tname):
         timer=self.__fetch(tname,"running")
         return timer.elapsed()
@@ -211,7 +211,7 @@ class AsmStats(object):
 
         wt=self.report_time("wall")
         pt=self.report_time("process")
- 
+
         assembly=self.report_time("assemble_w")
         string="%s\nWall Clock    percent   seconds" % total
         string="%s\n  total       %s" % (string,self.__format(wt,time=wt))
@@ -237,9 +237,9 @@ class AsmStats(object):
         string="%s\n      rate    %7.4f  (stmt/sec)" % (string,stmts/assembly)
 
         return string
-        
+
     # Returns a timer's elapsed time.  If the timer has not been stopped it stops
-    # it and provides a warning.  If the timer was never started it returns None.  
+    # it and provides a warning.  If the timer was never started it returns None.
     def report_time(self,tname):
         timer=self.__fetch(tname,"running")
         if not timer.started():
@@ -454,12 +454,12 @@ import hexdump       # Useful ad hoc dumping of binary data
 #  +--------------------------------------------+
 #  |                                            |
 #  |  ASMA Shared Regular Expression Patterns   |
-#  |                                            | 
+#  |                                            |
 #  +--------------------------------------------+
 #
 
 # These definitions provide consistency between different modules definitions
-# Note: These module attributes must be defined before other imported ASMA modules 
+# Note: These module attributes must be defined before other imported ASMA modules
 # access them when imported below.
 char="\$@\#_"                        # Special characters used in names
 multiline="(?m)"                    # Turns on multiline for start/end match
@@ -499,7 +499,7 @@ Stats.stop("import_p")
 #  +--------------------------------+
 #  |                                |
 #  |   Assembler Parser Exception   |
-#  |                                | 
+#  |                                |
 #  +--------------------------------+
 #
 
@@ -522,14 +522,45 @@ class AsmParserError(Exception):
 #  +-------------------------------------+
 #  |                                     |
 #  |   Assembler User Error Exceptions   |
-#  |                                     | 
+#  |                                     |
 #  +-------------------------------------+
 #
 
 # This excpetion is used to discontinue processing and report a user generated
-# error.  These errors are user correctable.  All ofther excpetions raised by this 
+# error.  These errors are user correctable.  All ofther excpetions raised by this
 # module represent unexpected situations encountered by the assembler and require
 # programming corrections.
+
+# Generate an error, warning or informational message for the listing
+# Instance Arguments:
+#   source   A asminputSource object providing input file and line info (optional)
+#   line     The assembler listing statement lineno associated with the error
+#            (optional)
+#   linepos  Position in the input line of the error (optional)
+#   msg      Text information of the error
+#   info     Whether this is an informational message (True) or not (False).
+#            If True, the error is not placed included in the list of errors at
+#            the end of the listing.
+#   nostmt   Whether this error is associated with a statement (True) or not (False)
+#            Specifying True causes the error to appear in the list of errors but
+#            not printed with the line in the listing.
+#            WARNING: apparently deprecated
+#   warning  Whether this is a WARNING error message (True) or not (False)
+#            If True, the error is listed with the statement and is in the summary
+#            list, but does not cause the statement to be ignored.
+#            Must call Assembler._ae_excp() method
+#
+# Actions taken based upon settings:
+#
+#   info      Error with statement      Error in list       statement ignored
+# info=True         yes                      no                     no
+# nostmt=True       no                      yes                    yes
+# warning=True      yes                     yes                     no
+#
+# See methods:
+#    - assembler.Assembler._ae_excp()
+#    - asmstmts.AsmStmt.ae_error()
+#    - asmlist.AsmListing.__build()
 
 class AssemblerError(Exception):
     @staticmethod
@@ -539,7 +570,7 @@ class AssemblerError(Exception):
         return item.line
 
     def __init__(self,source=None,line=None,linepos=None,msg="",info=False,\
-                 nostmt=False):
+                 nostmt=False,warning=False):
         assert line is None or isinstance(line,int),\
             "%s 'line' argument must be None or integer:\n    line: %s\n    msg='%s'"\
                 % (eloc(self,"__init__"),line,msg)
@@ -551,6 +582,7 @@ class AssemblerError(Exception):
         self.source=source   # source statement source information generating the error
         self.line=line       # Global statement number of Line where the error occurred
         self.info=info       # If True, not an error, an informational message
+        self.warning=warning # If True, error is listed but statement is not ignored
         # If True, error not reported with statment only in the summary
         self.nostmt=nostmt
 
@@ -579,7 +611,7 @@ class AssemblerError(Exception):
 #  +-----------------+
 #  |                 |
 #  |   Label Error   |
-#  |                 | 
+#  |                 |
 #  +-----------------+
 #
 
@@ -595,7 +627,7 @@ class LabelError(Exception):
 #  +----------------------+
 #  |                      |
 #  |   Shared Functions   |
-#  |                      | 
+#  |                      |
 #  +----------------------+
 #
 
@@ -612,12 +644,12 @@ def isLabel(string):
 #  +---------------------------------+
 #  |                                 |
 #  |   A Small Mainframe Assembler   |
-#  |                                 | 
+#  |                                 |
 #  +---------------------------------+
 #
 
 
-# This class manages output options directed to the assembler.  None implies the 
+# This class manages output options directed to the assembler.  None implies the
 # output is not written to the file system (although it might be created internally).
 class AsmOut(object):
     def __init__(self,deck=None,image=None,ldipl=None,listing=None,mc=None,rc=None,\
@@ -640,7 +672,7 @@ class AsmOut(object):
                 % (module,desc,filename))
             return
 
-        # Once the file is open, any problems writing the file or closing it 
+        # Once the file is open, any problems writing the file or closing it
         # represent a major issue.  In this case we bail entirely with a message.
         try:
             fo.write(content)
@@ -695,11 +727,11 @@ class AsmOut(object):
         self.write_file(module,self.vmc,"wt",vmcfile,"STORE command",silent=silent)
 
 
-# This class implements a small mainframe assembler consisting of a subset of 
+# This class implements a small mainframe assembler consisting of a subset of
 # mainframe assembler functions.  Its output is a binary image of the assembled
 # statements.
 #
-# The Assembler is designed to be a backend supporting some front end process that 
+# The Assembler is designed to be a backend supporting some front end process that
 # presents source statements to the assembler for assembly.  The asma.py module
 # provides a command line interface to this assembler.
 #
@@ -717,7 +749,7 @@ class AsmOut(object):
 # the ASMA assembler.
 #
 # It is the responsibility of the instantiator to present the individual statements
-# to the class instance for assembly and determine the destination of the returned 
+# to the class instance for assembly and determine the destination of the returned
 # attributes of the returned Image instance.
 class Assembler(object):
     # Recognized debug options.  May be used directly in argparse choices argument
@@ -745,7 +777,7 @@ class Assembler(object):
     #
 
     # Assembler object.  All processing occurs via this class.  Global state is
-    # managed here.  The object is passed around to various methods accessing or 
+    # managed here.  The object is passed around to various methods accessing or
     # updating global state.
     #
     # Instance arguments:
@@ -775,7 +807,7 @@ class Assembler(object):
     #               specified in the MSL database for the target machine is used.
     #   psw         Specify the initial execution mode for PSW's.  See the dictionary
     #               Assembler.psw_xmode for supported options.  None implies no
-    #               external option is supplied and the execution mode specified in 
+    #               external option is supplied and the execution mode specified in
     #               the MSL database for the target machine is used.
     #   ptrace      A list of integers identifying which passes will be traced in
     #               their entirety.  This is a diagnostic option.
@@ -783,7 +815,7 @@ class Assembler(object):
     #               be traced in all passs including initial parsing.
     #   mcall       Specify True to enable inner macro statement printing when
     #               PRINT ON is the current printing statements.
-    #   stats       Specify True to enable statistics reporting at end of pass 2.  
+    #   stats       Specify True to enable statistics reporting at end of pass 2.
     #               Should be False if an external driver is updating statistics.
     # Path Managers for various input sources:
     #   asmpath     Assembler source COPY directive PathMgr object
@@ -800,7 +832,7 @@ class Assembler(object):
 
         Assembler.test_version()     # Make sure we have the right Python
         self.version=asma_version    # Current version of the assembler
-        
+
         self.now=time.localtime()    # now is an instance of struct_time.
 
         assert isinstance(aout,AsmOut),\
@@ -842,12 +874,12 @@ class Assembler(object):
         # Statement operand parsers. See __init_parsers() method
         self.PM=self.__init_parsers()
         Assembler.sdterm=self.PM.parsers["sdterm"]
-        
+
         # Statement processor drives processing
         self.SP=STMTProcessor(self,depth=nest)
         # Input manager used by processor (access provided for new input sources)
         self.IM=self.SP.IM     # An asmline.LineMgr object
-        
+
         # MACLIB processor for macro library definitions
         self.MP=MACLIBProcessor(self)
 
@@ -873,7 +905,7 @@ class Assembler(object):
         self.trans=self.__init_codepage()
         # The Translater object is available now via this object attribute and
         # in modules that import assembler via assembler.CPTRANS
-        
+
         # Literal Pool Management
         self.LPM=literal.LiteralPoolMgr(self)
 
@@ -899,7 +931,7 @@ class Assembler(object):
         # Current Location Counter - value of an asterisk in address expression
         self.cur_loc=LocationCounter()
 
-        # These attributes are constructed and manipulated during the various 
+        # These attributes are constructed and manipulated during the various
         # assembler passes performed on the statements stored in self.stmts list.
 
         # Base register assignment manager
@@ -920,7 +952,7 @@ class Assembler(object):
         self.cur_reg=None     # Current active Region into which Sections are added
         self.cur_sec=None     # Current active Section into which Content is added
 
-        # Unnamed REGION and CSECT if created.  
+        # Unnamed REGION and CSECT if created.
         # These objects are maintained here not via the symbol table.
         self.unname_reg=None  # The unnamed region if created
         self.unname_sec=None  # The unnamed section if created
@@ -999,6 +1031,11 @@ class Assembler(object):
   #
 
     # Performs generic AssemblerError exception handling
+    # Method Arguments:
+    #   as     an assembler.AssemblerError object
+    #   stmt   a asmstmts.AsmStmt object
+    #   string a debugging message when debug=True
+    #   debug  Whether debugging messges are generated (True) or not (False)
     def _ae_excp(self,ae,stmt,string="",debug=False):
         if stmt is not None:
             stmt.ae_error(ae)
@@ -1031,7 +1068,7 @@ class Assembler(object):
         if self.unname_reg is None:
             # Unnamed region does not exist, so create it
             self.unname_reg=self._region_unname(0,debug=debug)
-        # Activate the unnamed region.  This can result in an unassigned active 
+        # Activate the unnamed region.  This can result in an unassigned active
         # section if the unnamed region just created is activated.
         self._region_activate(self.unname_reg,debug=debug)
 
@@ -1167,7 +1204,7 @@ class Assembler(object):
                     % (cls_str,self.cur_sec.name))
 
     # Creates a new CSECT, adds it to the active region and symbol table.
-    # Returns the new Section instance to the caller.    
+    # Returns the new Section instance to the caller.
     def _dsect_new(self,line,dsect_name,debug=False):
         if not self.case:
             dsect=Section(dsect_name.upper(),dummy=True)
@@ -1197,7 +1234,7 @@ class Assembler(object):
 
         try:
             sect=ste.value()
-        except NotImplementedError:  
+        except NotImplementedError:
             # This means the symbol value is not Content, so not a DSECT
             raise AssemblerError(line=stmt.lineno,\
                 msg="symbol already defined: '%s'" % sect_name)
@@ -1240,7 +1277,7 @@ class Assembler(object):
         if self.aout.mc is not None:
             image.mc=self.OM.mc_file(self)
         if self.aout.ldipl is not None:
-            image.ldipl=self.OM.ldipl(self)   
+            image.ldipl=self.OM.ldipl(self)
 
     def _getAttr(self,name,attr,line):
         ste=self._symbol_ref(name)
@@ -1318,7 +1355,7 @@ class Assembler(object):
         #print("%s %s" % (eloc(self,"_label_create",module=this_module),sym))
         self._symbol_define(sym,line=stmt.lineno)
 
-    # The supplied region becomes the active region and its active CSECT the 
+    # The supplied region becomes the active region and its active CSECT the
     # active CSECT of the assembly.
     def _region_activate(self,region,debug=False):
         assert isinstance(region,Region),\
@@ -1336,7 +1373,7 @@ class Assembler(object):
 
         if __debug__:
             if debug:
-                print("%s current active region is:  '%s'" 
+                print("%s current active region is:  '%s'"
                     % (eloc(self,"_region_activate"),self.cur_reg.name))
                 if self.cur_sec is None:
                     print("%s current active section is: None" \
@@ -1465,7 +1502,7 @@ class Assembler(object):
             new_loc=new_con.loc
             if __debug__:
                 if stmt.trace:
-                    print("%s [%s] statements binary location: %s" 
+                    print("%s [%s] statements binary location: %s"
                         % (eloc(self,"_track_loc"),stmt.lineno,new_loc))
             if new_loc:
                 stmt.location=stmt.p2_loc=new_loc
@@ -1497,7 +1534,7 @@ class Assembler(object):
 #  +------------------------------+
 #  |                              |
 #  |   Base Register Management   |
-#  |                              | 
+#  |                              |
 #  +------------------------------+
 #
 
@@ -1540,15 +1577,15 @@ class Base(object):
         # The address assigned by the USING directive.  The address may be
         # relative or absolute.  At the stage of the assingment within the
         # assembler, a CSECT will be utilizing absolute addresses and only a DSECT
-        # symbol provide a relative address.  Because many of the addresses will be 
+        # symbol provide a relative address.  Because many of the addresses will be
         # relative addresses converted to absolute, the test for absolute or relative
-        # MUST use the isAbsolute() or isRelative() method tests, NOT a class 
+        # MUST use the isAbsolute() or isRelative() method tests, NOT a class
         # isinstance test.
-        self.loc=addr 
+        self.loc=addr
 
         # The purpose of this class is to convert an address into a base/displacement
-        # pair.  In terms of the Python implementation, the class converts an Address 
-        # instance into a tuple of integers representing the base register and 
+        # pair.  In terms of the Python implementation, the class converts an Address
+        # instance into a tuple of integers representing the base register and
         # displacement.  The calculation is always performed on the Address.address
         # attribute regardless of whether it is a relative address or not being
         # assigned by the USING directive.
@@ -1570,7 +1607,7 @@ class Base(object):
 
         # Set to allow comparison of base register options on displacement
         self.disp=None
-        
+
         if self.address is None:
             raise ValueError("%s Base address is None: %s" \
                 % (eloc(self,"__init__"),repr(addr)))
@@ -1591,7 +1628,7 @@ class Base(object):
     # Because the actual displacement has not been calculated the highest address
     # results in the smallest displacement.  (We know that a base location is eligible
     # or it would not be in the list being sorted.  Eligible means the base address
-    # or displacement is less than or equal to the address for which a base is 
+    # or displacement is less than or equal to the address for which a base is
     # sought.)
     def __cmp__(self,other):
         assert self.disp is not None,\
@@ -1599,7 +1636,7 @@ class Base(object):
                 % (eloc(self,"__cmp__"),self.reg,self.loc)
 
         if self.disp<other.disp:
-            return -1 
+            return -1
         if self.disp>other.disp:
             return 1
 
@@ -1664,7 +1701,7 @@ class BaseMgr(object):
          6:Base(6,lnkbase.AbsAddr(0x2000)),   # 12K       0x6000 ->  24,576
          7:Base(7,lnkbase.AbsAddr(0x3000))}   # 16K       0x7000 ->  28,672
 
-    # This is established when BaseMgr in instantiated  
+    # This is established when BaseMgr in instantiated
     direct=None
 
     def __init__(self,extended=False):
@@ -1704,7 +1741,7 @@ class BaseMgr(object):
         return (reg,disp)            # Return the base/displacement tuple
 
     # This method removes a previously registered base.  If it was not previously
-    # registered it is silenty ignored.  The effect of the DROP statement is to 
+    # registered it is silenty ignored.  The effect of the DROP statement is to
     # make a register unavailable for use as a base.  It does not matter whether
     # it wss previously available or not.
     def drop(self,reg,trace=False):
@@ -1731,7 +1768,7 @@ class BaseMgr(object):
              pass
 
     # Resolve an address into a tuple of two integers (basereg,displacement)
-    # If no base is found, a KeyError is raised to alert the caller to the 
+    # If no base is found, a KeyError is raised to alert the caller to the
     # failure.  It is the responsibility of the caller to provide any user
     # reporting.
     # Method Arguments:
@@ -1841,7 +1878,7 @@ class BaseMgr(object):
 #  +---------------------+
 #  |                     |
 #  |   Location Object   |
-#  |                     | 
+#  |                     |
 #  +---------------------+
 #
 
@@ -1860,7 +1897,7 @@ class Location(object):
 #  +-----------------------------+
 #  |                             |
 #  |   Global Location Counter   |
-#  |                             | 
+#  |                             |
 #  +-----------------------------+
 #
 
@@ -1872,7 +1909,7 @@ class LocationCounter(object):
         self.section=None
         self.location=None
         self.disp=0
-        
+
     def __str__(self):
         return "LocCtr: sec:%s loc:%s disp:%s" \
             % (self.section,self.location,self.disp)
@@ -1919,7 +1956,7 @@ class LocationCounter(object):
 
         if __debug__:
             if debug:
-                print("%s location: %s" % (eloc(self,"establish"),self.location)) 
+                print("%s location: %s" % (eloc(self,"establish"),self.location))
 
     def increment(self,bin,debug=False):
         if __debug__:
@@ -1948,7 +1985,7 @@ class LocationCounter(object):
 #  +---------------------------+
 #  |                           |
 #  |   Image Content Classes   |
-#  |                           | 
+#  |                           |
 #  +---------------------------+
 #
 
@@ -1961,7 +1998,7 @@ class LocationCounter(object):
 # From a class perspective, Binary is the base class.  Its content is raw binary data.
 # The other two containers in the hierarchy contain, the others.  The Content class
 # is the foundation for each of the container classes, providing common functionality
-# to both Region and Section.  Content is the super class of both the Region and 
+# to both Region and Section.  Content is the super class of both the Region and
 # Section classes, and is a subclass of Binary.  The Content class is never itself
 # instantiated directly.
 
@@ -1982,7 +2019,7 @@ class Binary(object):
         # Set when object is added to a container by the container's append() method
         self.container=None    # Container in which this object resides.
 
-    # Return the length of the content    
+    # Return the length of the content
     def __len__(self):
         return self._length
 
@@ -2048,7 +2085,7 @@ class Binary(object):
                     desc="%s '%s'" % (cls_str,self.name)
                 else:
                     desc="Binary @ %s barray" % (self.loc)
-                print("%s %s barray length: %s" 
+                print("%s %s barray length: %s"
                     % (cls_str,desc,len(self.barray)))
 
     def str2bytes(self,string):
@@ -2062,11 +2099,11 @@ class Binary(object):
     #
     # Method arguments:
     #   data     This must be an immutable bytes list
-    #   at       The position relative to the start of the bytearray object at 
+    #   at       The position relative to the start of the bytearray object at
     #            which the bytes list will be placed.  It is the first argument
     #            of a slice.  The second argument will be the sum of the at position
     #            and the length of the supplied bytes list in the data argument.
-    #   full     If specified true the bytes list in the data argunent must be 
+    #   full     If specified true the bytes list in the data argunent must be
     #            exactly match the length of the image content bytearray in length.
     #            When full=True is used, the at argument must be 0.
     def update(self,data,at=0,full=False,finalize=False,trace=False):
@@ -2116,7 +2153,7 @@ class Binary(object):
 # This class is used to hold storage content from DC/DS statements
 # The container holds one or more Binary objects.  It takes the alignement
 # of the first Binary and location of the first Binary opject in the area.
-# The Area derives its length of all of the combined Binary objects, similar to 
+# The Area derives its length of all of the combined Binary objects, similar to
 # a Section, but embedded within a section.  This is a pseudo-container.  It is
 # only used in a Stmt instance to establish the size of a symbol associated with
 # a DC statement.  Such symbols have the length attribute of the operands.
@@ -2195,7 +2232,7 @@ class Area(Binary):
 class Content(Binary):
     # Methods inherited from Binary: __str__(), value()
     def __init__(self,alignment,cls):
-        # Attributes inherited from Binary: 
+        # Attributes inherited from Binary:
         #   self._align, self._length, self.barray, self.container, self.loc,
         #   self.address
         super().__init__(alignment,0)
@@ -2211,7 +2248,7 @@ class Content(Binary):
         # These must be initialized by the subclass AFTER calling my __init__
         self._current=None    # Current target initialized by subclass
         self._base=None
-        
+
         # Allocation system - Supplied by subclass during initialization, if used.
         #self._allocation=None
 
@@ -2243,7 +2280,7 @@ class Content(Binary):
             siz=size._length
         else:
             siz=size
-            
+
         #self._allocation.alloc(siz)
 
         self._current+=siz
@@ -2261,7 +2298,7 @@ class Content(Binary):
         self.elements.append(content)
         content.container=self
 
-    # Align the container and assign a location to the supplied content and 
+    # Align the container and assign a location to the supplied content and
     # allocate space in this container for the added content
     def assign(self,content,append=True):
         assert isinstance(content,Binary),\
@@ -2356,7 +2393,7 @@ class Content(Binary):
 
 
 # This class represents.  It is create when either CSECT and DSECT creates a new
-# section.  It is contained within a Region container and is made part of the 
+# section.  It is contained within a Region container and is made part of the
 # active REGION when created during processing of a CSECT statement.  DSECT's are
 # not associated with any Region, but stand alone.
 class Section(Content):
@@ -2371,9 +2408,9 @@ class Section(Content):
             self.loc=lnkbase.DDisp(0,self)
         else:
             self.loc=lnkbase.SectAddr(0,self)
-            
+
         #self._allocation=lnkbase.Allocation(self.name,typ="S")
-            
+
         # List of location counters associated with this
         self.counters=[]
 
@@ -2471,6 +2508,8 @@ class Section(Content):
 
     def org(self,address):
         # Note: _org_pass1() method checked for an address within the current section
+        assert address.value is not None,\
+            "%s address.value must not be None" % eloc(self,"org")
         self._current=address.value
         self._alloc=max(self._alloc,self._current)
 
@@ -2512,7 +2551,7 @@ class Region(Content):
         self._base=start                # This never changes, used to calculate length
         self._current=start             # I start from my start address
         self.cur_sec=None               # The active section in this region
-        
+
         #self._allocation=lnkbase.Allocation(self.name,typ="R",start=start)
 
     def __len__(self):
@@ -2617,7 +2656,7 @@ class Img(Content):
         self.name="IMAGE"       # May be updated by END statement
         super().__init__(0,Region)
         self.img_cur=0
-        
+
         self._allocation=lnkbase.Allocation(self.name,typ="I",start=self.img_cur)
 
     def __str__(self):
@@ -2642,7 +2681,7 @@ class Img(Content):
             r.dump_all()
         self.dump()
 
-    # Insert all of my Regions into my binary image byte array.  Convert it to a bytes 
+    # Insert all of my Regions into my binary image byte array.  Convert it to a bytes
     # list when done.
     def insert(self,trace=False):
         my_loc=0
@@ -2767,13 +2806,13 @@ class LabelSymbol(asmbase.ASMSymEntry):
 
         if not line in self._refs:
             self._refs.append(line)
-            
-            
+
+
 #
 #  +---------------+
 #  |               |
 #  |   A LITERAL   |
-#  |               | 
+#  |               |
 #  +---------------+
 #
 
@@ -2919,7 +2958,7 @@ class Literal(LabelSymbol):
 #  +-------------------------+
 #  |                         |
 #  |   Output Image Object   |
-#  |                         | 
+#  |                         |
 #  +-------------------------+
 #
 
@@ -2927,7 +2966,7 @@ class Literal(LabelSymbol):
 class Image(object):
     def __init__(self):
         #self.source=[]       # Supplied by Assembler.statement() as received
-        # This list is used strictly for reporting Pass 0 internal errors.  
+        # This list is used strictly for reporting Pass 0 internal errors.
         # Should it be just the current logical line?
 
         self.aes=[]          # List of AssemblerError exceptions generated
@@ -2968,11 +3007,11 @@ class Image(object):
 #  +---------------------------------------+
 #
 #                                                        Next phase
-#                                        Full Pass  
-# Pass 0 - Phase 0 - input and parsing          Y    1         4      6           
-# Pass 1 - Phase 1 - evaluation                 N        2     4  
+#                                        Full Pass
+# Pass 0 - Phase 0 - input and parsing          Y    1         4      6
+# Pass 1 - Phase 1 - evaluation                 N        2     4
 #          Phase 2 - evaluation retry           N           3  4      6
-#          Phase 3 - allocation                 Y              4      6                      
+#          Phase 3 - allocation                 Y              4      6
 # Pass 2 - Phase 4 - object generation          N                 5   6
 #          Phase 5 - object module creation     Y                     6
 # Pass 3 - Phase 6 - Listing creation           Y                        7
@@ -2993,12 +3032,12 @@ class Image(object):
 
 # Label Definition and sizing process for object generating statements:
 #    1.  Align statement within the current location counter (if required).  All
-#        previous statements in the location counter must have been successfully 
+#        previous statements in the location counter must have been successfully
 #        aligned and sized.
 #    2.  Assign the statement its position in the location counter.
 #    3.  Define the unique label if required
 #    4.  Evaluate size if needed then size the statement (DC/DS). If this fails
-#        no more labels may be defined or statements positioned in this location 
+#        no more labels may be defined or statements positioned in this location
 #        counter.  This relates to DC/DS duplication and explicit lengths.
 #        Mark retry=True
 #
@@ -3011,7 +3050,7 @@ class Image(object):
 #              This occurs when PosArithError is raised which can only occur
 #              after labels have been defined.  This is a sizing issue
 #   undef  3   Whether a label needs to be defined by this statement
-#   
+#
 
 class STMTProcessor(asmbase.ASMProcessor):
     def __init__(self,asm,depth=1):
@@ -3031,9 +3070,9 @@ class STMTProcessor(asmbase.ASMProcessor):
         self.stmts=[]        # Populated by initial input pass
         self.lineno=1        # Global statement lineno assingments
 
-        self.deferred=[]     
+        self.deferred=[]
         self.cur_pass=None   # The current method handling this pass
-        
+
     def init(self):
         self.defPhase("pass0_1",self.Pass0_1)
         self.defPhase("pass1_post",self.Pass1_Post)
@@ -3077,7 +3116,7 @@ class STMTProcessor(asmbase.ASMProcessor):
 
             # add the statement to our list of ASMStmt objects and pre-process.
             asm.stmts.append(s)
-            # At the end of this process, the statement is queued for later 
+            # At the end of this process, the statement is queued for later
             # assembly via the assemble() method.
             if isinstance(s,asmstmts.StmtError):
                 # Raises an AssemblerError
@@ -3106,14 +3145,14 @@ class STMTProcessor(asmbase.ASMProcessor):
     def Pass0_1(self,asm,fail=False,debug=False):
         Stats.start("pass1_p")
         Stats.start("pass1_w")
-        
+
         debug=asm.dm.isdebug("stmt")
         while True:
             try:
                 self.getStmts0_1(asm,fail=fail,debug=debug)
             except asmmacs.MacroError as me:
                 # An error was detected in a macro invocation.
-                # If we are failing immediately upon any detected error, 
+                # If we are failing immediately upon any detected error,
                 # do so now
                 if asm.fail:
                     raise me from None
@@ -3150,11 +3189,11 @@ class STMTProcessor(asmbase.ASMProcessor):
         ctrace=debug or asm._is_otrace("csect")
         rtrace=debug or asm._is_otrace("region")
         dtrace=debug or asm._is_otrace("dsect")
-        
+
         # For an assembly that has created no sections or regions
         # This ensures the remainder of Pass 1 post processing succeeds.
         asm._check_cur_sec(debug=ctrace)
-        
+
         # Place all of the CSECTS into their respective Regions, assigning
         # them an absolute starting address
         for r in asm.imgwip.elements:
@@ -3195,7 +3234,7 @@ class STMTProcessor(asmbase.ASMProcessor):
             if s.ignore:
                 if __debug__:
                     if debug:
-                        print("%s [%s] phase %s ignoring:\n    %s" 
+                        print("%s [%s] phase %s ignoring:\n    %s"
                            % (eloc(self,"Pass2"),s.lineno,self.cur_phase,s))
                 continue
 
@@ -3231,7 +3270,7 @@ class STMTProcessor(asmbase.ASMProcessor):
         asm.LM.create()  # Generate listing and place it in the final Image object
         Stats.stop("output_w")
         Stats.stop("output_p")
-        
+
         Stats.stop("assemble_w")
         Stats.stop("assemble_p")
         Stats.stop("wall")
@@ -3242,7 +3281,7 @@ class STMTProcessor(asmbase.ASMProcessor):
 
         if asm.stats:
             print(Stats.report())
-            
+
         # Return to asma.py True to indicate successful execution
         return True
 
@@ -3305,7 +3344,7 @@ class MACLIBProcessor(asmbase.ASMProcessor):
         # Whether this is a Windows platform (True) or another, for example, Linux
         # (False).  This is needed to handle case insensitive (Windows) vs. case
         # sensitive file systems when the assembler is operating in case i
-        self.isWindows=sys.platform.startswith("win")  
+        self.isWindows=sys.platform.startswith("win")
 
         # Macro Builder
         self.MB=asmmacs.MacroBuilder(asm,"S")
@@ -3387,7 +3426,7 @@ class MACLIBProcessor(asmbase.ASMProcessor):
                 self.getStmts(asm,fail=fail,debug=debug)
             except asmmacs.MacroError as me:
                 # An error was detected in a macro invocation.
-                # If we are failing immediately upon any detected error, 
+                # If we are failing immediately upon any detected error,
                 # do so now
                 if asm.fail:
                     raise me
@@ -3430,7 +3469,7 @@ class MACLIBProcessor(asmbase.ASMProcessor):
                 break
 
         return result
-        
+
     # Open the macro file with the name as coded in the source statement.
     # This is used for all platforms when the assembler is operating in case
     # sensitive mode or the platform's file system is case insensitive (for example
