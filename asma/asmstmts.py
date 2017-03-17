@@ -1007,7 +1007,7 @@ class ParmStmt(ASMStmt):
             if lbl.typ==typ:
                 var=lbl.text
             else:
-                raise assembler.AssemblerError(line=stmt.lineno,\
+                raise assembler.AssemblerError(line=self.lineno,\
                     msg="invalid prototype label parameter: '%s'" % lbl.text)
         else:
             var=None
@@ -2209,7 +2209,7 @@ class CCW1(TemplateStmt):
         # Validate CCW1 Address - Operand 2
         if isinstance(address,lnkbase.Address):
             if not address.isAbsolute():
-                raise assembler.AssemblerError(line=stmt.lineno,\
+                raise assembler.AssemblerError(line=self.lineno,\
                     msg="CCW1 operand 2 result must be an absolute address: %s" \
                         % address)
             ccwaddr=address.address
@@ -3737,10 +3737,10 @@ class ORG(TemplateStmt):
 
         # Validate we can use the result to adjust the location
         if not isinstance(new_loc,lnkbase.Address):
-            assembler.AssemblerError(line=stmt.lineno,\
+            assembler.AssemblerError(line=self.lineno,\
                 msg="ORG result must be an address: %s" % new_loc)
         if not new_loc.isRelative():
-             assembler.AssemblerError(line=stmt.lineno,\
+             assembler.AssemblerError(line=self.lineno,\
                 msg="ORG result must be a relative address: %s" % new_loc)
 
         cur_sec=asm.cur_sec
@@ -3852,7 +3852,7 @@ class PRINT(ASMStmt):
             elif operand == "NODATA":
                 asm.pdata=False
             else:
-                raise assembler.AssemblerError(line=stmt.lineno,
+                raise assembler.AssemblerError(line=self.lineno,
                     msg="PRINT directive operand %s unrecognized: %s" \
                         % (ndx+1,original))
 
@@ -5062,7 +5062,7 @@ class USING(TemplateStmt):
                 print("%s [%s] content location: %s" \
                     % (cls_str,lineno,self.content.loc))
                 print("%s [%s] %s operands: %s"\
-                    % (cls_str,lineno,self.inst,stmt.operands))
+                    % (cls_str,lineno,self.inst,self.operands))
                 print("%s [%s] Location Counter: %s" \
                     % (cls_str,lineno,asm.cur_loc.retrieve()))
 
@@ -5133,7 +5133,7 @@ class XMODE(ASMStmt):
 
         operands=self.spp_operands(debug=pdebug)
         if len(operands)!=2:
-            raise assembler.AssemblerError(line=stmt.lineno,\
+            raise assembler.AssemblerError(line=self.lineno,\
                 msg="XMODE directive requires two operands, found: %s" \
                     % len(operands))
 
