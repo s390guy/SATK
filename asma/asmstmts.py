@@ -2898,16 +2898,23 @@ class END(ASMStmt):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         pdebug = self.pre_process(asm) or debug
-        self.parse_line(asm,debug=pdebug)
-
-        self.scope=asm.PM.parse_operands(self,"addr",required=False)
-         # Create the literal pool
+        
+        # Create the literal pool if one is pending before any exceptions might
+        # happen here.  The pool is injected into the input stream here.
         self.pool,self.align=self.literal_pool_create(asm,debug=pdebug)
+        if self.pool:
+            # Perform alignment for the pool if one is pending
+            self.new_content(asm,alignment=self.align,length=0)
 
-    def Pass1(self,asm,debug=False,trace=False):
-        self.new_content(asm,alignment=self.align,length=0)
-        asm.IM.end()      #  Tell Line Buffer, no more input
+        # Regardless of any errors with the operand...
+        asm.IM.end()      # ...tell Line Buffer, no more input
+        
+        # Parse END operand and comment fields per Statement Processing Controls
+        self.parse_line(asm,debug=pdebug)
+        # Parse the operand
+        self.scope=asm.PM.parse_operands(self,"addr",required=False)
 
+    def Pass1(self,asm,debug=False,trace=False): pass
     def Pass2(self,asm,debug=False,trace=False):
         scope=self.scope
         if scope is None:
@@ -2916,7 +2923,16 @@ class END(ASMStmt):
         # Calculate entry address
         desc="END %s" % self.lineno
         expr=asm.PM.L2ArithExpr(desc,self,ltoks=scope.lextoks)
-        asm.entry=entry=expr.evaluate(asm,debug=False,trace=trace)
+        
+        try:
+            asm.entry=entry=expr.evaluate(asm,debug=False,trace=trace)
+        except lnkbase.AddrArithError as ae:
+            raise assembler.AssemblerError(line=self.lineno,source=self.source,\
+                msg="operand 1 %s" % ae.msg) from None
+        except assembler.LabelError as le:
+            raise assembler.AssemblerError(line=self.lineno,source=self.source,\
+                msg="operand 1 undefined label: %s" % le.label) from None
+            
         self.laddr=[None,entry]
 
 
