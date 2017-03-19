@@ -2898,7 +2898,7 @@ class END(ASMStmt):
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
         pdebug = self.pre_process(asm) or debug
-        
+
         # Create the literal pool if one is pending before any exceptions might
         # happen here.  The pool is injected into the input stream here.
         self.pool,self.align=self.literal_pool_create(asm,debug=pdebug)
@@ -2908,7 +2908,7 @@ class END(ASMStmt):
 
         # Regardless of any errors with the operand...
         asm.IM.end()      # ...tell Line Buffer, no more input
-        
+
         # Parse END operand and comment fields per Statement Processing Controls
         self.parse_line(asm,debug=pdebug)
         # Parse the operand
@@ -2923,7 +2923,7 @@ class END(ASMStmt):
         # Calculate entry address
         desc="END %s" % self.lineno
         expr=asm.PM.L2ArithExpr(desc,self,ltoks=scope.lextoks)
-        
+
         try:
             asm.entry=entry=expr.evaluate(asm,debug=False,trace=trace)
         except lnkbase.AddrArithError as ae:
@@ -2932,7 +2932,7 @@ class END(ASMStmt):
         except assembler.LabelError as le:
             raise assembler.AssemblerError(line=self.lineno,source=self.source,\
                 msg="operand 1 undefined label: %s" % le.label) from None
-            
+
         self.laddr=[None,entry]
 
 
@@ -3064,6 +3064,12 @@ class EQU(TemplateStmt):
             new_length=self.bin_oprs[1].getValue()
         new_value=val_expr.getValue()
         if isinstance(new_value,lnkbase.SectAddr):
+            if __debug__:
+                if etrace:
+                    print("%s [%s] %s\n    adding to asm.equates: %s %s" \
+                        % (assembler.eloc(self,"Pass1",module=this_module),\
+                            self.lineno,self.logline.plines[0],new_value,\
+                                new_value.r))
             asm.equates.append(new_value)
         if isinstance(new_value,lnkbase.Address):
             # If there is not an explicit length, the new symbol gets its length

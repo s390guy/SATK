@@ -1,5 +1,5 @@
-#!/usr/bin/python3.3
-# Copyright (C) 2015, 2016 Harold Grovesteen
+#!/usr/bin/python3
+# Copyright (C) 2015-2017 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -49,7 +49,7 @@ def eloc(clso,method_name,module=None):
 #  +---------------------+
 #  |                     |
 #  |   Address Objects   |
-#  |                     | 
+#  |                     |
 #  +---------------------+
 #
 
@@ -76,15 +76,15 @@ def eloc(clso,method_name,module=None):
 # in the symbol table, the actual Address object is used to provide the symbol's
 # value.  During the address binding process, the address is converted from a
 # relative address into an absolute addres.  Because the very same object is used in
-# the symbol table, the change in the content address is automatically seen in the 
+# the symbol table, the change in the content address is automatically seen in the
 # symbol table.
-# 
+#
 # The Address class and its subclasses are designed to pariticipate in Python
 # arithmetic operations using overloading methods.  This allows them to paricipate
 # directly in expression evaluation as would a standard Python integer.
 
 # This exception is raised when problems arise during address arithemtic.  It
-# should be caught and an AssemblerError with relevant context information should 
+# should be caught and an AssemblerError with relevant context information should
 # then be raised.
 class AddrArithError(Exception):
     def __init__(self,msg=None):
@@ -178,6 +178,9 @@ class Address(object):
         self.address=address    # May not be a negative value
         self.length=length      # This attibute is used for implied length values
 
+        # For debugging purposes
+        #self.r=super().__repr__()
+
     def __len__(self):
         return self.length
 
@@ -224,7 +227,7 @@ class Address(object):
         raise AddrArithError(msg="can't perform: %s %s %s" % (self,op,b))
 
     def _no_rsup(self,op,b):
-        raise AddrArithError(msg="can't perform: %s %s %s" % (b,op,self)) 
+        raise AddrArithError(msg="can't perform: %s %s %s" % (b,op,self))
 
     def _no_usup(self,op):
         raise AddrArithError(msg="can't perform: %s %s" % (op,self))
@@ -263,13 +266,13 @@ class Address(object):
         self._no_rsup("*",other)
     def __rsub__(self,other):
         self._no_rsup("-",other)
-        
+
     # Unsupported unary operations
     def __neg__(self):
         self._no_usup("-")
 
     # Comparison overloads for addresses
-    def __lt__(self,other): 
+    def __lt__(self,other):
         me,other=self._cmp(other,"<")
         return me<other
     def __le__(self,other):
@@ -287,7 +290,7 @@ class Address(object):
     def __ge__(self,other):
         me,other=self._cmp(other,">=")
         return me>=other
-        
+
     # Unary + overload for addresses
     def __pos__(self):
         return self
@@ -369,7 +372,7 @@ class DDisp(Address):
             return AbsAddr(address=new_addr,length=other.length)
         if rsup:
             self._no_rsup("+",other)
-        self._no_sup("+",other)  
+        self._no_sup("+",other)
 
     def __sub__(self,other):
         typo=self._type(other)    # The other objects type number
@@ -409,7 +412,7 @@ class DDisp(Address):
 
     def lval(self):
         return self.value
-        
+
     # Position I/F methods only supported for addresses that have a presence
     # within object modules.  Should never be used with DDisp objects
     def addr_a(self,samode=True):
@@ -478,7 +481,7 @@ class ExternalAddr(Address):
 
     def lval(self):
         return self.value
-        
+
 
 class AbsAddr(Address):
     def __init__(self,address=None,rel=None,section=None,typ=3,length=1):
@@ -535,7 +538,7 @@ class AbsAddr(Address):
 
     def lval(self):
         return self.address
-        
+
     # Position I/F methods only supported for addresses that have a presence
     # within object modules.  Should never be used with DDisp objects
     def addr_a(self,samode=True):
@@ -575,7 +578,7 @@ class SectAddr(AbsAddr):
 
         if rsup:
             self._no_rsup("+",other)
-        self._no_sup("+",other) 
+        self._no_sup("+",other)
 
     def __sub__(self,other,rsup=False):
         if self.typ==3:  # Use super class if I am an absolute address now
@@ -590,7 +593,7 @@ class SectAddr(AbsAddr):
             if self.section!=other.section:
                 self._no_sup("-",other)
             return self.value-other.value
-        self._no_sup("-",other) 
+        self._no_sup("-",other)
 
     def base(self):
         if self.isRelative():
@@ -604,8 +607,8 @@ class SectAddr(AbsAddr):
 
     def makeAbs(self):
         if self.typ!=2:
-            raise ValueError("%s relative (%s) already absolute: %s" \
-                % (eloc(self,"makeAbs"),self._rel_str(),self._abs_str()))
+            raise ValueError("%s relative (%s) typ (%s) already absolute: %s" \
+                % (eloc(self,"makeAbs"),self._rel_str(),self.typ,self._abs_str()))
 
         section=self.section
         if section.isdummy():
@@ -617,6 +620,10 @@ class SectAddr(AbsAddr):
                 raise ValueError("%s section address is not absolute: %s" \
                     % (eloc(self,"makeAbs"),repr(sec_addr)))
             self.address=sec_addr.address+self.value
+            # Enable this to help track addresses that
+            #print("%s %s made relative (%s) typ (%s) into absolute (%s) typ (3)" \
+            #    % (eloc(self,"makeAbs"),self.r,self._rel_str(),self.typ,\
+            #        self._abs_str()))
             self.typ=3
 
     def description(self):
@@ -679,7 +686,7 @@ class LNKError(Exception):
 # This object represents relocatable address within a section
 class Relo(object):
     types=None
-    
+
     # Need to work on this for linker (not used by assembler)
     @staticmethod
     def accept(pname,rname,rld):
@@ -697,10 +704,10 @@ class Relo(object):
             cls=Relo.types[rlditem.typ]
         except KeyError:
             raise LNKError(msg="unrecognized objlib relocation item: %s" % rlditem)
-            
+
         rld=cls.accept(pname,rname,rld)
         return rld
-    
+
     def __init__(self,typ,size,pndx,rndx,radj,rname=None):
         assert isinstnace(typ,int) and typ>=0 and typ<=4,\
             "%s 'typ' argument must be an integer between 0 and 4: %s" \
@@ -719,7 +726,7 @@ class Relo(object):
                 % (eloc(self,"__init__"),radj)
         assert rname is None or isinstance(rname,str),\
             "%s 'rname' argument must be a string or None: %s" \
-                % (eloc(self,"__init__"),rname) 
+                % (eloc(self,"__init__"),rname)
 
         self.typ=typ          # Type of relocation being defined.
         self.length=size      # Length of the address constant being relocated
@@ -798,7 +805,7 @@ Relo.types={ARelo.typ:ARelo,VRelo.typ:VRelo,QRelo.typ:QRelo,\
 #
 # The actual content is separate from the Allocation in which it will placed and
 # its positioning.  The content is represented by a Text object.  The text object
-# is anchored to the allocation via its assigned Position.  The Position is 
+# is anchored to the allocation via its assigned Position.  The Position is
 # anchored to the Allocation.
 #
 # These objects are completely free from the concepts of sections or addresses.
@@ -889,7 +896,7 @@ class Allocation(object):
         return Position(self,disp=pos)
 
     # Allocate with optional alignment an area of a given size.
-    # Note: 
+    # Note:
     #   alloc(0) is equivalent to start()
     #   alloc(0,align) is equivalent to align(align)
     # Method Arguments:
@@ -913,7 +920,7 @@ class Allocation(object):
         for cont in self.sub_allocs:
             cont.bind()
             cont.contpos=self.alloc(len(cont),align=cont._align)
-       
+
     # From the top of the hierarchy assign fixed positions based upon their relative
     # positions.
     def bind(self):
@@ -944,7 +951,7 @@ class Allocation(object):
         assert pos.cntr==self.cont,\
             "%s Position not within this allocation (%s: %s" \
                 % (eloc(self,"org"),self.name,pos)
-                
+
         self._cur=pos.disp
 
     # Return the current location within the allocation as a Position object
@@ -972,7 +979,7 @@ class Position(object):
         assert isinstance(disp,int) and disp>=0,\
             "%s 'disp' argument must be a non-negative integer: %s" \
                 % (eloc(self,"__init__"),disp)
-                
+
         # Container object information
         self.cntr=cntr        # Container object in which this is a member
         self.disp=disp        # This object's displacement index into its container
@@ -984,7 +991,7 @@ class Position(object):
 
     # These methods allow Positions within the same allocation to be used
     # arithmetically.  Integer right hand arguments are supported
-    
+
     # Perform:  Position + int
     # Returns:
     #   a new Position object
@@ -996,7 +1003,7 @@ class Position(object):
                 % (eloc(self,"__add__"),other)
 
         return Position(self.cntr,disp=self.disp+other)
-        
+
     # Perform  int + Position
     # Returns:
     #   a new Position object
@@ -1041,7 +1048,7 @@ class Position(object):
         if not self.a_addr:
             if self.cntr is None:
                 raise ValueError("%s not assigned a container: %s" \
-                    % (eloc(self,"addr_a"),self))  
+                    % (eloc(self,"addr_a"),self))
             self.a_addr=self.cntr.addr_a()+self.disp
         return self.a_addr
 
@@ -1060,7 +1067,7 @@ class Position(object):
             raise ValueError("%s not assigned a container: %s" \
                 % (eloc(self,"addr_o"),self))
         return self.cntr.addr_i()
-        
+
     # Region absolute address
     def addr_sa(self):
         if not self.sa_addr:
@@ -1069,7 +1076,7 @@ class Position(object):
                     % (eloc(self,"addr_a"),self))
                 self.sa_addr=self.cntr.addr_sa()+self.disp
         return self.sa_addr
-        
+
     # Tests whether another position is from the same container (Allocation) as
     # this Position object.
     # Returns:
@@ -1113,7 +1120,7 @@ class Text(Position):
         if length is not None:
             self.set_len(length) # Length of text (must match text if text present)
         self.valid=not self._invalid()
-            
+
         self.binary=None         # sa mode binary output
 
     # Return the length of the object.  If text is present the length is that of
@@ -1138,14 +1145,14 @@ class Text(Position):
         # Assume we are dealing with a slice object.  If not very likely an
         # AttributeError will occur somewhere in the processing.  This is a bug
         # that needs fixing.  slice objects are very difficult to programmatically
-        # identify, so a "look before you leap" approach is heavy. 
+        # identify, so a "look before you leap" approach is heavy.
 
         # The slice object must not contain a third value,
         # self[i:J:k] is not supported.  This assertion tests for this case.
         assert key.step is None,\
             "%s slice object must not contain a step value: %s" \
                 % (eloc(self,"__getitem__"),key)
-        # An IndexError may result if the indices are out of bounds.  Again, a 
+        # An IndexError may result if the indices are out of bounds.  Again, a
         # bug so just let it happen.
         return self._text[key.start:key.end]
 
@@ -1191,7 +1198,7 @@ class Text(Position):
         assert isinstance(bytes,bytearray),\
             "%s 'bytes' argument must be a bytearray object: %s" \
                 % (eloc(self,"append"),bytes)
-                
+
         self._text+=bytes
         self._len=len(self._text)
 
@@ -1213,11 +1220,11 @@ class Text(Position):
         assert isinstance(text,Text),\
             "%s 'text' argument must be a Text object: %s" \
                 % (eloc(self,"extend"),text)
-              
+
         gap=self.follows(text)
         assert gap>=0,"%s can not extend object, follows() method returned: %s" \
             % (eloc(self,"extend"),gap)
-        
+
         if gap == 0:
             self._text+=text._text
             self._len=len(self._text)
@@ -1265,7 +1272,7 @@ class Text(Position):
             return -2
         if rel==2:
             # Other text object precedes this object
-            return -3    
+            return -3
         raise ValueError(\
             "%s received unexpected result from relative() method: %s" \
                 % (eloc(self,"follows"),rel))
@@ -1296,7 +1303,7 @@ class Text(Position):
         assert isinstance(other,Text),\
             "%s 'other' argument must be a Text object: %s" \
                 % (eloc(self,"overlap"),other)
-        
+
         mypos=self._pos
         pos=text._pos
         if not mypos.together(pos):
@@ -1312,7 +1319,7 @@ class Text(Position):
             return overlap*2
         else:
             return overlap*1
-        
+
     # Set the length of this Text object.  If the object already contains text
     # data, then the length being set must match.  This method is expected to be
     # used prior to use of set_text() method.
@@ -1360,7 +1367,7 @@ class Text(Position):
             raise ValueError("%s %s imcomplete: %s" \
                 % (eloc(self,"validate"),self.__class__.__name__,self))
 
-        
+
 # This object represents an address constant positioned within a section
 # During assembly Pass1 type, length, and position are established and in Pass2 the
 # relocated address is specified
@@ -1381,7 +1388,7 @@ class Adcon(Text):
         self._adj=None         # Adjustment applied to relocated address
         # Note the adjustment value becomes the text content for the adcon
         if addr is not None:
-            self.set_relo(addr)  # This is the source of the text content for the 
+            self.set_relo(addr)  # This is the source of the text content for the
 
     def __str__(self):
         return "%s  %s:%s" % (super().__str__(),self.typ,self._relo)
@@ -1397,7 +1404,7 @@ class Adcon(Text):
         assert isinsance(addr,Address),\
             "%s 'addr' argument must an Address object: %s" \
                 % (eloc(self,"set_relo"),addr)
-                
+
         # Establish the adcon type
         if isinstance(addr,SectAddr):
             typ="A"
@@ -1407,7 +1414,7 @@ class Adcon(Text):
             raise ValueError("%s unexpected type: %s" \
                 % (eloc(self,"set_relo"),addr))
         self.typ=typ
-        
+
         # Establishe relocation information from the relocation address
         self._relo=addr
         lval=addr.lval()
@@ -1456,7 +1463,7 @@ class LNKBase(object):
 #            elements added to it.
 #   track    Specify True to cause elements to be tracked sequentially when added
 #            Specify False to only maintain added elements by name
-#   unnamed  Whether this element can be unnamed. 
+#   unnamed  Whether this element can be unnamed.
 class LNKELE(LNKBase):
     def __init__(self,name,ecls,track=False,unnamed=False):
         super().__init__(name,unnamed=unnamed)
@@ -1483,7 +1490,7 @@ class LNKELE(LNKBase):
             return self.named[key] # Use the symbol as the symbol dictionary key
         raise ValueError("%s requested item must be an integer or string: %s" \
             % (eloc(self,"__getitem__"),key))
-        
+
     def __str__(self):
         return "%s:%s" % (self.__class__.__name__,self.name)
 
@@ -1595,7 +1602,7 @@ class LNKContent(LNKELE):
         # Create the binary content for regions and image
         self.binary=bytesarray(self.length)
         for ele in self.seq:
-            ele.build()           # Consolidate the elements content 
+            ele.build()           # Consolidate the elements content
             start=ele.disp
             end=ele.disp+ele.length
             try:
@@ -1610,7 +1617,7 @@ class LNKContent(LNKELE):
     def star(self):
         return self._alloc.star()
 
-    # Assigns positions to elements within this 
+    # Assigns positions to elements within this
     def position(self):
         for ele in self.seq:
             # Position element's own elements within itself so we know its length
@@ -1654,7 +1661,7 @@ class LNKModule(LNKContent):
         assert isinstance(sect,LNKSection),\
             "%s 'item' argument must be a LNKSection object: %s" \
                 % (eloc(self,"add_section",sect))
-        
+
         self[sect.symbol]=sect
         self.add_symbol(sect)
 
@@ -1879,19 +1886,18 @@ class ASMLocCtr(LNKContent):
 # using the various "add_xxx" methods.
 
 # Stand-Alone Mode:
-#   root is 
+#   root is
 
 class LNKMOD(object):
     def __init__(self,sa=True):
         self.sa=se          # Whether this is running in stand-alone mode or not
-        self.pc_reg=None    # 
+        self.pc_reg=None    #
         self.pc_sect=None
         self.regions={}
         self.reg_seq=[]
         self.sections={}
         #self.seq_seq=
         pass
-        
+
 if __name__=="__main__":
    raise NotImplementedError("%s - is intended only for import" % this_module)
-        

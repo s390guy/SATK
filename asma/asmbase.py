@@ -31,7 +31,7 @@ import asmtokens
 import lnkbase
 
 
-# This class supports expressions as lexical tokens, pratt token creation and 
+# This class supports expressions as lexical tokens, pratt token creation and
 # evaluation.
 class ASMExpr(object):
     def __init__(self,tokens):
@@ -44,7 +44,7 @@ class ASMExpr(object):
         self.pratt=None
         # Set to the pratt token when a quick evaluation can be performed.
         self.quick=False
-        
+
     # Returns the number of lexical token in the list of lexical tokens
     def __len__(self):
         return len(self.tokens)
@@ -70,7 +70,7 @@ class ASMExpr(object):
         assert self.pratt is not None,"%s pratt attribute is None" \
             % assembler.eloc(self,"evaluate",module=this_module)
 
-        # Quick execution if the expression is a single pratt Token.  No need to 
+        # Quick execution if the expression is a single pratt Token.  No need to
         # invoke the parser with its context generation, etc.
         if self.quick:
             return self.quick.value(external,debug=debug,trace=trace)
@@ -91,7 +91,7 @@ class ASMExpr(object):
                 if tok.tid in tid:
                     return tok
         return None  # Not found
-        
+
     def find_first_ptok(self,lineno,cls=[],debug=False):
         assert self.pratt is not None,"%s [%s] pratt attribute is None" \
             % (assembler.eloc(self,"find_first_ptok",module=this_module),lineno)
@@ -145,10 +145,24 @@ class ASMExprArith(ASMExpr):
         assert self.pratt is not None,"%s pratt attribute is None" \
             % assembler.eloc(self,"evaluate",module=this_module)
 
-        # Quick execution if the expression is a single pratt Token.  No need to 
+        # Quick execution if the expression is a single pratt Token.  No need to
         # invoke the parser with its overhead, context generation, etc.
         if self.quick:
-            return self.quick.value(external,debug=debug,trace=trace)
+            val=self.quick.value(external,debug=debug,trace=trace)
+            if isinstance(val,lnkbase.SectAddr) and val.isRelative():
+                # Quick expressions avoid invoking the Pratt expression processing
+                # by returning the single Pratt token itself.  When the value
+                # of the token is a section relative address the same object
+                # may end up being made absolute more than once.  When that happens
+                # an uncaught exception is raised during post pass 1 processing.
+                # This can occur with an EQU when the first operand is a single
+                # label referencing a section relative address.
+                # By placing the fix here (rather than elsewhere) it addresses the
+                # problem with EQU and any other potential place with the same
+                # issue.
+                return val.clone()
+            return val
+            #return self.quick.value(external,debug=debug,trace=trace)
         # Use the Pratt parser to evaluate the expression
         return self.pratt.evaluate(external,debug=debug,trace=trace)
 
@@ -194,13 +208,13 @@ class ASMExprBinary(ASMExpr):
         assert self.pratt is not None,"%s pratt attribute is None" \
             % assembler.eloc(self,"evaluate",module=this_module)
 
-        # Quick execution if the expression is a single pratt Token.  No need to 
+        # Quick execution if the expression is a single pratt Token.  No need to
         # invoke the parser with its context generation, etc.
         if self.quick:
             return self.quick.value(external,debug=debug,trace=trace)
         # Use the Pratt parser to evaluate the expression
         return self.pratt.evaluate(external,debug=debug,trace=trace)
-        
+
     def prepare(self,stmt,desc,debug=False):
         assert self.pratt is None,\
             "%s pratt attribute not None: %s" \
@@ -232,7 +246,7 @@ class ASMExprChar(ASMExpr):
     def __init__(self,tokens,string=False):
         super().__init__(tokens)
         self.string=string
-        
+
     def evaluate(self,external,debug=False,trace=False):
         res=super().evaluate(external,debug=debug,trace=trace)
         if __debug__:
@@ -251,7 +265,7 @@ class ASMExprChar(ASMExpr):
         # Create an empty Pratt binary expression.  Only binary expressions
         # will ever evaluate character expression tokens, so we will use it here.
         # Although technically either binary or arithmetic should work because
-        # this object will only ever have one pratt token and should use the 
+        # this object will only ever have one pratt token and should use the
         # quick execution path.
         pexpr=asmtokens.CharacterExpr(desc,stmt.lineno,tokens=[],string=self.string)
         if __debug__:
@@ -288,7 +302,7 @@ class ASMExprChar(ASMExpr):
         self.quick=pexpr.quick()
 
 
-# This allows an arithmetic expression to be evaluated multiple times,  Used for 
+# This allows an arithmetic expression to be evaluated multiple times,  Used for
 # retry evaluations during assembly.
 class ASMExprRetry(ASMExprArith):
     def __init__(self,tokens):
@@ -373,10 +387,10 @@ class ASMOperand(object):
             return len(self._expr)-1
         return 0
 
-    # Return whether primary expression is being added 
+    # Return whether primary expression is being added
     def isPrimaryState(self):
         return len(self._expr)==0
-        
+
     # Return whether secondary expression is being added
     def isSecondaryState(self):
         return len(self._expr)>=1
@@ -468,7 +482,7 @@ class CTerm(ASMOperand):
     def ctoken(self):
         return self.ptoken()
 
-    # This method generates a pratt3 module PToken object, specifically a 
+    # This method generates a pratt3 module PToken object, specifically a
     # subclass of asmtokens.PLitCTerm.
     def ptoken(self,*args,**kwds):
         raise NotImplementedError("%s subclass %s must provide ptoken() method" \
@@ -486,7 +500,7 @@ class CTerm(ASMOperand):
     #
     # The lexical analyzer is designed to recognize entire files.  However, ASMA
     # only uses it to recognize portions of a line.  So after accepting the token
-    # ASMA must update the token with actual statement location as produced 
+    # ASMA must update the token with actual statement location as produced
     # by the assembler listing.
 
     # This updates the token position based upon a ASMPloc object.  Generally
@@ -541,7 +555,7 @@ class ASMString(object):
         # entry in the list corresponds to the index 0, the starting location of
         # self.string.  Method ndx2loc() provides the location of the supplied index.
         #
-        # Each entry in the list is a tuple: 
+        # Each entry in the list is a tuple:
         #  ( index-in-self.start, ASMPLoc-of-this-index)
         self.new_line=[]      # self.string index starting on a new physical line
 
@@ -608,7 +622,7 @@ class ASMString(object):
             # If an ampersand is not present, no replacement so return original
             return self.text
         # Ampersand is present so need to parse the string for symbolic variables
-        
+
 
     # Returns the starting location of the string
     def start(self):
@@ -639,7 +653,7 @@ class ASMOper(object):
         #    M - Macro definition
         #    O - Machine instruction
         #    S - Macro definition found in library
-        #    U - Undefined, unknown, unassigned or deleted 
+        #    U - Undefined, unknown, unassigned or deleted
         self.O=O
 
     def __str__(self):
@@ -742,12 +756,12 @@ class AsmFSMState(fsmparser.PState):
         super().__init__(self.next_state(state))
         self.exit=exit
     def next_state(self,state):
-        return "%s_%s" % (self.pfx,state) 
+        return "%s_%s" % (self.pfx,state)
 
 
 # Base class for AsmFSMParser scopes supporting expressions and compound strings.
 # Other parsers may continue to utilize fsmparser.PScope.  It has special handling
-# for elements encountered in assembly parsing, specifically, expressions and 
+# for elements encountered in assembly parsing, specifically, expressions and
 # strings with dual single quotes that must be converted to a single quote.
 #
 # Instance Methods:
@@ -831,12 +845,12 @@ class AsmFSMScope(fsmparser.PScope):
     def lparen(self,value):
         self._parens+=1
         self.token(value)
-        
+
     # Returns the number of lexical tokens (or equivalent) pending in the
     # accumulated expression.
     def pending(self):
         return len(self._lextoks)
-        
+
     # Process a right parenthesis in an expression.  Add the parenthesis to the
     # expression lexical token list and decrements the parenthesis count
     def rparen(self,value):
@@ -885,7 +899,7 @@ class AsmFSMScope(fsmparser.PScope):
     # Adds a lexical token to the expression token list
     def token(self,tok):
         self._lextoks.append(tok)
-        
+
     # Updates a lexical token to reflect its position in the Stmt object's source
     # statement.
     #def update(self,stmt,token):
@@ -893,7 +907,7 @@ class AsmFSMScope(fsmparser.PScope):
     #    source=stmt.source
     #    operpos=stmt.fields.operpos
     #    token.update(lineno,operpos,source)
-       
+
     # Updates an individual token with its position information
     def update_loc(self,source,line,token):
         loc=source.ndx2loc(token.linepos)
@@ -904,11 +918,11 @@ class AsmFSMScope(fsmparser.PScope):
 class AsmCtxScope(AsmFSMScope):
     def __init__(self):
         super().__init__()
-        
+
         # The statements operation field in upper case.
         self.stmt_inst=None  # See the statement() method
         self.stmt_lineno=None  # The statemetn's assemly line number
-        
+
     def statement(self,stmt):
         #assert isinstance(stmt,assembler.Stmt),\
         #    "%s 'stmt' argument must be an assembler.Stmt object: %s" \
@@ -926,11 +940,11 @@ class AsmCtxScope(AsmFSMScope):
 #   dm        The debug manager object in use
 #   pm        The parser manager (parsers.Parsers object)
 #   lex       The name of the lexical analyzer as known by parsers.ParserMgr object.
-#   scope     The global scope class used by the parser.  Defaults to 
+#   scope     The global scope class used by the parser.  Defaults to
 #   init      The initial FSM parser state.  Defaults to 'init'
 #   context   The initial context.  Defaults to 'init'
 #   external  External helper object supplied to the parser.  Defaults to None
-#   trace     Specify True to enable tracing of the finite state machine.  
+#   trace     Specify True to enable tracing of the finite state machine.
 #             Defaults to False (no tracing)
 class AsmCtxParser(fsmparser.FSMContext):
     def __init__(self,dm,pm,lex,scope=AsmFSMScope,init="init",context="init",\
@@ -948,7 +962,7 @@ class AsmCtxParser(fsmparser.FSMContext):
     # This overrides the semantics of the super class fmsparser.FSMParser
     # _init_scope() method by reversing the priority.  It returns:
     #    1. the provided scope in the scope argument
-    # or 2. A new object initialized by the super class 
+    # or 2. A new object initialized by the super class
     def _init_scope(self,scope=None):
         if scope is not None:
             return scope
@@ -983,7 +997,7 @@ class AsmCtxParser(fsmparser.FSMContext):
         else:
             msg="%s%s" % (msg,found)
         raise assembler.AsmParserError(value,msg=msg)
-        
+
     def Lexer(self,name):
         return self.pm.lexers[name]
 
@@ -992,7 +1006,7 @@ class AsmCtxParser(fsmparser.FSMContext):
 #  +--------------------------------------------+
 #  |                                            |
 #  |   MACHINE INSTRUCTION OPERAND PROCESSING   |
-#  |                                            | 
+#  |                                            |
 #  +--------------------------------------------+
 #
 
@@ -1000,7 +1014,7 @@ class AsmCtxParser(fsmparser.FSMContext):
 # operands.  Each operand in the source input is convered into a subclass of Operand.
 class Operand(object):
     def __init__(self,name):
-        self.name=name       # An operand name.  
+        self.name=name       # An operand name.
         #For MSLDB Format the source sfield (without a number) is the name.
 
         # These attributes hold the state of the validation results, good or bad
@@ -1008,11 +1022,11 @@ class Operand(object):
         self.exprs=[]        # From validate_source() method
         self.fields=0x000    # From validate_expr() method (valid and invalid)
 
-        # Evaluated expressions.  Only an Address or int object is returned by 
+        # Evaluated expressions.  Only an Address or int object is returned by
         # expression evalution.  Attribute is set by the evaluate() method
         self.values=[None,None,None]
 
-        # Address for listing set by resolve() method 
+        # Address for listing set by resolve() method
         self.laddr=None
 
     def __str__(self):
@@ -1051,7 +1065,7 @@ class Operand(object):
         raise NotImplementedError("%s field() subclass must supply field() method" \
             % cls_str)
 
-    # This method is used by assembler directives to retrieve the results of 
+    # This method is used by assembler directives to retrieve the results of
     # evaluating the operand.
     def getValue(self):
         cls_str="assembler.py - %s.getValue() -" % self.__class__.__name__
@@ -1199,7 +1213,7 @@ class SingleAddress(Operand):
 #   fields     Source statement syntax             [0]           [1]   [2]
 #
 #   0x100 -  integer-expression                   [int,          None, None]
-#   0x200 -  CSECT-Address-expression             [isAbsolute(), None, None]  
+#   0x200 -  CSECT-Address-expression             [isAbsolute(), None, None]
 #   0x200 -  DSECT-Address-expression             [isDummy(),    None, None]
 class SingleAny(Operand):
     valid_expr=[0x100,0x200,]
@@ -1277,7 +1291,7 @@ class SingleRelImed(Operand):
             raise assembler.AssemblerError(line=stmt.lineno,\
                 msg="operand %s (%s) encountered unexpected odd value as relative "
                     "target: %s" % (opn,self.name,relative))
-        
+
         self.relimed=relative//2
 
     def source_error(self):
@@ -1417,7 +1431,7 @@ class Storage(Operand):
 #   0x210 -  DSECT-Addr(ndx/len)       [isDummy,    int,  None]  int   int     implied
 #   0x211 -  DSECT-Addr(ndx/len,base)  [isDummy,    int1, int2]  int1  int1     int2
 #
-# Base register for an absolute address is implied from the current absolute USING 
+# Base register for an absolute address is implied from the current absolute USING
 # registers assignments.
 #
 # Base register for DSECT displacements is implied from the current relative USING
@@ -1468,7 +1482,7 @@ class StorageExt(Storage):
             return self.index
         else:
             if typ == "L":
-                return max(0,self.length-1) 
+                return max(0,self.length-1)
 
         raise ValueError("%s upsupported machine type requested: %s index=%s" \
             % (assembler.eloc(self,"field"),typ,self.isIndex))
@@ -1579,7 +1593,7 @@ class StorageExt(Storage):
 #  +------------------------------+
 #
 
-# This object is the basis for statement handling within source code and 
+# This object is the basis for statement handling within source code and
 # macro library accesses.  Each uses a different approach.  This object ensures
 # that an access to phase numbers are adjusted even with changes to the phase
 # sequencing as along as other objects use the phase name as an object attribute.
@@ -1595,13 +1609,13 @@ class ASMProcessor(object):
         self.phase=None       # Current processing phase number
         self.cur_phase=None   # Current processing phase name
         self.init()           # Subclass defines phases
-        
+
         # Supplied during phase processing returned by the process() method
         self.result=None
 
     # Utility method for defining a phase.  Each phase is called in sequence.
     # Each phase is assigned a number based upon the sequence in which it is
-    # defined.  The name is used as an attribute of this object to access the number. 
+    # defined.  The name is used as an attribute of this object to access the number.
     # Method Arguments:
     #   name    The name of a phase as a string.  Defines an object attribute of
     #           its name equal to the number assigned to the phase.  Objects
@@ -1612,7 +1626,7 @@ class ASMProcessor(object):
     #           definition.  This includes method names of the subclass.
     #   method  The bound method of the subclass that processes this phase.
     #           Use self.method not Class.method.  Phase methods are defined with
-    #           this argyment signature:   
+    #           this argyment signature:
     #               method(asm,fail=False)
     #           where:
     #               asm is the global Assembler object and
@@ -1649,7 +1663,7 @@ class ASMProcessor(object):
         raise NotImplementedError("%s subclass %s must provide run() method" \
             % (assembler.eloc(self,"init",module=this_module),\
                 self.__class__.__name__))
-        
+
 
 #
 #  +-------------------------------+
@@ -1662,15 +1676,15 @@ class ASMProcessor(object):
 # This class manages attribute values for a single label or symbolic variable
 # Attributes may be applied as follows in open code:
 #                                    ASMA Supported         ASMA specific
-#   open code label              T, L,        D,  O,  S,  I 
+#   open code label              T, L,        D,  O,  S,  I
 #   open code sections/regions   T, L,        D,      S,  I        M
 #   literals in macro operands   T, L,        D,      S,  I
 #   global system variables      T,    K, N
-#   
+#
 # Attributes may be applied as follows in macro definitions
 #   ordinary symbols             T, L,        D,  O,  S,  I
 #   literals in macro operands   T, L,        D,      S,  I
-#   symbolic parameters          T, L*, K, N  D*, O*, S*, I*,      M*               
+#   symbolic parameters          T, L*, K, N  D*, O*, S*, I*,      M*
 #   &SYSLIST                     T, L*, K, N  D*, O*, S*, I*,      M*
 #   other system variables       T,     K, N
 #
@@ -1766,7 +1780,7 @@ class ASMSymAttr(object):
         return s[1:]
 
 # These two class provides generic Symbol Table support
-# Attributes are normally accessed using the item fetch self[attr] or 
+# Attributes are normally accessed using the item fetch self[attr] or
 # set self[attr]=v syntax.  Use the update method to set multiple attributes as
 # keyword arguments.
 # Instance Arguments:
@@ -1796,7 +1810,7 @@ class ASMSymEntry(object):
         # Set the legnth attribute if supplied
         if length is not None:
             self["L"]=length
-            
+
     def __str__(self):
         return "SymEntry: %s %s" % (self.name,self.attrs)
 
@@ -1813,7 +1827,7 @@ class ASMSymEntry(object):
            "'key' argument must be a string of one character: '%s'" % key
 
         self.attrs[key]=value
-        
+
     # Update attributes.  Each updated attribute is an undefined keyword argument
     # accessed bia the **attrs dictionary, for exmaple update(I=5,T="A")
     def update(self,**attrs):
@@ -1854,7 +1868,7 @@ class ASMSymTable(object):
     def __getitem__(self,symbol):
         return self.tbl[symbol]
 
-    # Set the value of a symbol in the table using index syntax: 
+    # Set the value of a symbol in the table using index syntax:
     #    table[name]=object
     # 'object' must be an instance of class identified when the table was created.
     # Raises KeyError if write_once=True and the symbol name already exists
@@ -1875,7 +1889,7 @@ class ASMSymTable(object):
 
         self.tbl[key]=item
 
-    # Add a new lang.STE entry.  The 'line' argument is the defining statement number  
+    # Add a new lang.STE entry.  The 'line' argument is the defining statement number
     # AssemblerError is raised if symbol already exists in the table
     def add(self,entry,line):
         if not self.case:
@@ -1900,7 +1914,7 @@ class ASMSymTable(object):
         except KeyError:
             # Symbol is undefined so return the attributes default
             return ASMSymAttr.dfts[attr]
-            
+
         # Symbol is defined so return its attribute value (or possibly default)
         return sym[attr]
 
@@ -1908,8 +1922,8 @@ class ASMSymTable(object):
     def entries(self):
         return self.tbl.items()
 
-    # Fetch a symbol by name.  Returns an instance of lang.STE.  
-    # Raises KeyError if symbol is not defined 
+    # Fetch a symbol by name.  Returns an instance of lang.STE.
+    # Raises KeyError if symbol is not defined
     def get(self,item):
         if not self.case:
             return self[item.upper()]
