@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014,2015 Harold Grovesteen
+# Copyright (C) 2014, 2015, 2017 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -183,7 +183,7 @@ class DCDS_Parser(asmbase.AsmCtxParser):
         self.types[cnst.typ]=cnst
 
     # Initialize all of the constant types
-    # Note: these must be consistant with the pattern defined by the 
+    # Note: these must be consistant with the pattern defined by the
     # class DCDS_Types_Type.
     def __init_constants(self):
         c=DCDS_Constant   # This is just a typing convenience.
@@ -280,7 +280,7 @@ class DCDS_Parser(asmbase.AsmCtxParser):
         self.ctx("quote",  lexctx="quote",   ccls=asmbase.AsmFSMScope)
 
     def initialize(self):
-        # Looks for duplication factor as a self-defining term or parenthesized 
+        # Looks for duplication factor as a self-defining term or parenthesized
         # expression
         dup=fsmparser.PState("dup")
         dup.action([SDDEC,],self.ACT_Dup_SD_found)
@@ -336,15 +336,15 @@ class DCDS_Parser(asmbase.AsmCtxParser):
         len_expr.action([RPAREN,],self.ACT_Len_RPAREN)
         len_expr.error(self.ACT_Expected_Len_Expr)
         self.state(len_expr)
-        
-        # Recognizes start of nominal values by a single left parenthesis following 
+
+        # Recognizes start of nominal values by a single left parenthesis following
         # modifiers
         nomp=fsmparser.PState("nomp")
         nomp.action([LPAREN,],self.ACT_Addr_Begin)
         nomp.action([COMMA,EOO,EOS],self.ACT_Addr_NotStarted)
         nomp.error(self.ACT_Expected_Address_Values)
         self.state(nomp)
-        
+
         # Recognizes start of nominal values by a single quote following modifiers
         nomq=fsmparser.PState("nomq")
         nomq.action([DCQUOTE,],self.ACT_Value_Started)
@@ -415,7 +415,7 @@ class DCDS_Parser(asmbase.AsmCtxParser):
         fltvals.error(self.ACT_Expected_FloatingPt_Value)
         self.state(fltvals)
 
-        # Types DD, ED, LD - 
+        # Types DD, ED, LD -
         # Recognizes whether another floating point nominal or operand is done
         fltnext=fsmparser.PState("fltnext")
         fltnext.action([DCQUOTE,],self.ACT_Operand_Done)      # changes context
@@ -577,7 +577,7 @@ class DCDS_Parser(asmbase.AsmCtxParser):
             if trace:
                 print("ACT_DC_Type constant: %s" % t)
         operand.dc_type(value,t)
-        
+
         self.context(t.len_ctx)  # Lexical context changes for length modifier
         return t.len_state       # Start looking for length modifier
 
@@ -646,7 +646,7 @@ class DCDS_Parser(asmbase.AsmCtxParser):
         self.ACT_Expected("duplication factor",value)
 
     def ACT_Expected_Dup_Expr(self,value,state,trace=False):
-        self.ACT_Exprected(\
+        self.ACT_Expected(\
             "duplication modifier arithmetic operation or operand",value)
 
     def ACT_Expected_Fixed_Point_Value(self,value,state,trace=False):
@@ -662,25 +662,25 @@ class DCDS_Parser(asmbase.AsmCtxParser):
         self.ACT_Expected("constant length",value)
 
     def ACT_Expected_Len_Expr(self,value,state,trace=False):
-        self.ACT_Exprected(\
+        self.ACT_Expected(\
             "length modifier arithmetic operation or valid operand",value)
 
     def ACT_Expected_Length(self,value,state,trace=False):
         self.ACT_Expected(\
             "decimal self-defining term or parenthesized expression",value)
-        
+
     def ACT_Expected_More_String(self,value,state,trace=False):
         self.ACT_Expected("continuation of character constant",value)
-        
+
     def ACT_Expected_More_Values(self,value,state,trace=False):
         self.ACT_Expected("another value signaled by a comma",value)
-        
+
     def ACT_Expected_Quoted_Values(self,value,state,trace=False):
         self.ACT_Expected("nominal values signaled by a single quote",value)
-        
+
     def ACT_Expected_String_Value(self,value,state,trace=False):
         self.ACT_Expected("character string nominal value",value)
-        
+
     def ACT_Expected_Type(self,value,state,trace=False):
         self.ACT_Expected("constant type",value)
 
@@ -727,7 +727,7 @@ class DCDS_Parser(asmbase.AsmCtxParser):
     def ACT_Len_Expr_Start(self,value,state,trace=False):
         self.context("lenexpr")
         return "lenexpr"
-    
+
     def ACT_Len_Found(self,value,state,trace=False):
         self.context("length")
         return "length"
@@ -841,7 +841,7 @@ class DCDS_Scope(asmbase.AsmCtxScope):
 
         # Pass 0 results:
         #self.dc=False        # True if parsing DC operands
-        
+
         # Pass 1 results:
         #self.values=None     # List of DSDC_Operand and/or asmdcds.Nominal objects.
 
@@ -858,7 +858,7 @@ class DCDS_Scope(asmbase.AsmCtxScope):
         self.operand=None
 
 
-# The context of a single operand.  Used for Pass 0, 1. 
+# The context of a single operand.  Used for Pass 0, 1.
 # Pass 2 uses build() method to create binary content.
 class DCDS_Operand(asmbase.AsmFSMScope):
     def __init__(self):
@@ -872,7 +872,7 @@ class DCDS_Operand(asmbase.AsmFSMScope):
         # Parsing results
         self._dup_expr=[]   # Duplication expression lexical tokens
         self._len_expr=[]   # Length expression lexical tokens
-        self._values=[]     # Lexical token or expression token list of nominal values 
+        self._values=[]     # Lexical token or expression token list of nominal values
         self._typ_tok=None  # Lexical token of operand type
 
         # Pass0 results
@@ -891,7 +891,7 @@ class DCDS_Operand(asmbase.AsmFSMScope):
         self.T="U"          # Type attribute of operand
         self.S=0            # Scale attribute of operand
         self.I=0            # Integer attribute of operand
-        # also updates asndcds.Nominal objects in self.values with explicit lengths 
+        # also updates asndcds.Nominal objects in self.values with explicit lengths
         # if required.
 
     def __str__(self):
@@ -917,7 +917,7 @@ class DCDS_Operand(asmbase.AsmFSMScope):
     # This lets Pass 2 build nothing.
     def build(self,stmt,asm,n,debug=False,trace=False):
         pass
-    
+
     def dc_type(self,ltok,cobj):
         self._typ_tok=ltok              # Save the type lexical token
         self.typ=cobj                   # Remember the DCDS_Constant object
@@ -974,7 +974,7 @@ class DCDS_Operand(asmbase.AsmFSMScope):
         if len(self._len_expr)>0:
             self._len=parsers.L2ArithExpr("oprnd %s len expr" % n,\
                 stmt,ltoks=self._len_expr)
-        
+
         # Create Nominal objects for each nominal value
         for vn,val in enumerate(self._values):
             if not isinstance(val,asmtokens.LexicalToken):
@@ -1033,7 +1033,7 @@ class DCDS_Operand(asmbase.AsmFSMScope):
                 raise assembler.AssemblerError(line=stmt.lineno,\
                     msg="operand %s length modifier exceeds allowed maximum of "
                     "%s: %s" % (self.opnum,max_len,self.act_len))
-            
+
             # Perform nominal value explicit length check.  Because the length
             # applies to all nominal values, the first value is used to perform
             # the check.  An AssemblerError is raised if the check fails
@@ -1043,7 +1043,7 @@ class DCDS_Operand(asmbase.AsmFSMScope):
             self.act_algn=0
             self.T=self.nomcls.utyp
         else:
-            self.act_len=self.imp_len 
+            self.act_len=self.imp_len
             self.act_algn=self.imp_algn
             self.T=self.nomcls.atyp
 
@@ -1057,7 +1057,7 @@ class DCDS_Operand(asmbase.AsmFSMScope):
         for val in self.values:
             val.Pass1(exp_len,T=self.T)
 
-        # If there is at least one nominal value for a DC, its 
+        # If there is at least one nominal value for a DC, its
         #   - length (implicit or explicit)
         #   - alignment (implied or suppressed)
         #   - Scale attribute and
@@ -1172,7 +1172,7 @@ class Nominal(object):
         return s
 
     def __init__(self,ltok,length=None,alignment=0,signed=None):
-        # This check is performed to ensure alignment meets the needs of 
+        # This check is performed to ensure alignment meets the needs of
         assert isinstance(alignment,int),\
             "%s 'alignment' argument must be an integer: %s" \
                 % (assembler.eloc(self,"__init__",module=this_module),alignment)
@@ -1223,7 +1223,7 @@ class Nominal(object):
     def ck_length(self,act_len,n):
         pass
 
-    # This method returns an instance of the Nominal subclass suitable for generating 
+    # This method returns an instance of the Nominal subclass suitable for generating
     # binary data.  All subclasses share this method.
     def clone(self):
         new=self.__class__(self.ltok)
@@ -1322,7 +1322,7 @@ class BinaryBits(Nominal):
 class Characters(Nominal):
     def __init__(self,ltok,ccls):
         super().__init__(ltok,length=1,alignment=0,signed=False)
-        
+
         # This attribute represents an intermediate form between a lexical token
         # and the assembled value.
         self.ivalue=ccls(ltok.convert(),ltok.linepos)
@@ -1440,11 +1440,11 @@ class Storage(Nominal):
         attr=typcls.attr
         super().__init__(None,length=attr[0],alignment=attr[1],signed=False)
         self.typcls=typcls
-        # Assume alignment here.  But it might change if there is a length  
+        # Assume alignment here.  But it might change if there is a length
         self.T=typcls.atyp
         self.S=0     # When no nomimal value is supplied
         self.I=0     # When no nominal value is supplied
-        
+
     def __str__(self):
         return "%s(length=%s,alignment=%s)" \
             % (self.__class__.__name__,self._length,self._alignment)
@@ -1697,7 +1697,7 @@ class ADCON(object):
         return "%s(expr=%s)" % (self.__class__.__name__,self.expr)
 
     def build(self,asm,parsers,stmt,n,length,trace=False):
-        #print("%s trace: %s" 
+        #print("%s trace: %s"
         #    % (assembler.eloc(self,"build",module=this_module),trace))
         try:
             value=parsers.evaluate_expr(asm,stmt,self.expr,debug=False,trace=trace)
@@ -1733,7 +1733,7 @@ class ADCON(object):
 
         if __debug__:
             if trace:
-                print("%s return bytes: %s '%s'" 
+                print("%s return bytes: %s '%s'"
                     % (assembler.eloc(self,"build",module=this_module),len(b),b))
 
         return b
@@ -1774,7 +1774,7 @@ class Bits(object):
 # This object abstracts input signed decimal values.  It is derived from a lexical
 # token but ceases to be connected to it.  It assumes that the lexical token's type
 # regular expression has done its job and only valid characters are present.
-# The handling of the original lexical token and its input is similar to the 
+# The handling of the original lexical token and its input is similar to the
 # FixedPoint class.  However, assembled data diverges dramatically from the
 # FixedPoint class.
 class Decimal(object):
@@ -1868,7 +1868,7 @@ class Zoned(Decimal):
 # This object abstracts input signed numeric values.  It is derived from a lexical
 # token but ceases to be connected to it.  It assumes that the lexical token's type
 # regular expression has done its job and only valid characters are present.
-# The handling of the original lexical token and its input is similar to the 
+# The handling of the original lexical token and its input is similar to the
 # Decimal class.  However, assembled data diverges dramatically from the Decimal class.
 class FixedPoint(object):
     sign_char={"+":1,"-":-1,None:1,"U":1}
@@ -1889,7 +1889,7 @@ class FixedPoint(object):
         # Convert the integer into bytes
         b=i.to_bytes((i.bit_length()//8)+1,byteorder="big",signed=signed)
 
-        # Determine padding 
+        # Determine padding
         if signed and i<0:
             pad=b'\xFF' * length
         else:
@@ -1955,7 +1955,7 @@ class SCON(object):
 
     def __str__(self):
         return "%s(expr=%s)" % (self.__class__.__name__,self.expr)
-        
+
     def build(self,asm,parsers,stmt,n,length,trace=False):
         if length != self.length:
             raise assembler.AssemblerError(line=stmt.lineno,\
@@ -1989,9 +1989,9 @@ class SCON(object):
             if trace:
                 print("%s return bytes: %s '%s'" \
                     % (assembler.eloc(self,"build",module=this_module),len(b),b))
-        
+
         return b
-        
+
 
 class String(object):
     def __init__(self,chrs,linepos):
@@ -1999,7 +1999,7 @@ class String(object):
         self.linepos=linepos
         # This is the assembler value.  Double quotes have been handled by parser.
         # Double ampersands are handled here.
-        self.achrs=self.chrs.replace("&&","&") 
+        self.achrs=self.chrs.replace("&&","&")
 
     def __str__(self):
         return "%s(chrs='%s',pos=%s)" \
