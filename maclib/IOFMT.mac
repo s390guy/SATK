@@ -1,0 +1,354 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         IOFMT &DSECT=
+.* Define the structure and format of various input/output structures.  Each structure
+.* may only be defined once.  Additional requests for a structure are ignored.
+.* Paramater Usage:
+.*   &DSECT  Specifies the requested DSECT.  May be a single DSECT as a keyword
+.*           parmeter or a list of DSECT's as sub-parameters.  The DSECT may be
+.*           in upper case only:
+.*              CCW    Channel Command Word Formats 0 and 1
+.*              CCW0   Channel Command Word Format 0 only
+.*              CCW1   Channel Command Word Format 1 only
+.*              CSW    Channel Status Word
+.*              IRB    Interrupt-Response Block
+.*              ORB    Operation-Request Block
+.*              SCHIB  Subchannel-Information Block
+.*              SCSW   Subchannel Status Word
+.*              ALL    All not previously defined structures are created
+.* Use the ORB macro to generate a DSECT for the ORB structure.
+.* Dependencies: None
+         GBLB  &SATKCW0 Whether CCW format 0 previously generated
+         GBLB  &SATKCW1 Whether CCW format 1 previously generated
+         GBLB  &SATKCWF Wherher CCW flag equates previously generated
+         GBLB  &SATKCSW Whether CSW previously generated
+         GBLB  &SATKIRB Whether IRB previously generated
+         GBLB  &SATKORB Whether ORB previously generated
+         GBLB  &SATKSIB Whether SCHIB previously generated
+         GBLB  &SATKSSW Whether SCSW previously generated
+         LCLA  &NDS  Number of sub-parameters in &DSECT paramater
+         LCLA  &XDS  Current DSECT sub-parameter index
+         LCLB  &NCCW0,&NCCW1,&NCCWF,&NCSW,&NIRB,&NORB,&NSCSW,&NSIB
+         LCLC  &DS   Current DSECT being scanned
+.* Analyze requested DSECTs
+&NDS     SETA  N'&DSECT
+&XDS     SETA  1
+         AIF   (&NDS GT 0).DSLOOP
+         AIF   ('&DSECT' EQ '').DONE
+&DS      SETC  '&DSECT'
+         AGO   .DSTEST
+.DSLOOP  ANOP
+&DS      SETC  '&DSECT(&XDS)'
+.DSTEST  ANOP
+.* Check the requested DSECT
+         AIF   ('&DS' EQ 'CCW').SETCCW
+         AIF   ('&DS' EQ 'CCW0').SETCCW0
+         AIF   ('&DS' EQ 'CCW1').SETCCW1
+         AIF   ('&DS' EQ 'CSW').SETCSW
+         AIF   ('&DS' EQ 'IRB').SETIRB
+         AIF   ('&DS' EQ 'ORB').SETORB
+         AIF   ('&DS' EQ 'SCHIB').SETSIB
+         AIF   ('&DS' EQ 'SCSW').SETSCSW
+         AIF   ('&DS' EQ 'ALL').SETALL
+         MNOTE *,'IOFMT - UNRECOGNIZED DSECT - &DS'
+         AGO   .NEXTDS
+.SETALL  ANOP
+&NCCW0   SETB  (NOT &SATKCW0)
+&NCCW1   SETB  (NOT &SATKCW1)
+&NCCWF   SETB  (NOT &SATKCWF)
+&NCSW    SETB  (NOT &SATKCSW)
+&NIRB    SETB  (NOT &SATKIRB)
+&NORB    SETB  (NOT &SATKORB)
+&NSCSW   SETB  (NOT &SATKSSW)
+&NSIB    SETB  (NOT &SATKSIB)
+         AGO   .CCW0
+.SETCCW  ANOP
+&NCCW0   SETB  (NOT &SATKCW0)
+&NCCW1   SETB  (NOT &SATKCW1)
+&NCCWF   SETB  (NOT &SATKCWF)
+         AGO   .NEXTDS
+.SETCCW0 ANOP
+&NCCW0   SETB  (NOT &SATKCW0)
+&NCCWF   SETB  (NOT &SATKCWF)
+         AGO   .NEXTDS
+.SETCCW1 ANOP
+&NCCW1   SETB  (NOT &SATKCW1)
+&NCCWF   SETB  (NOT &SATKCWF)
+         AGO   .NEXTDS
+.SETCSW  ANOP
+&NCSW    SETB  (NOT &SATKCSW)
+         AGO   .NEXTDS
+.SETIRB  ANOP
+&NIRB    SETB  (NOT &SATKIRB)
+         AGO   .NEXTDS
+.SETORB  ANOP
+&NORB    SETB  (NOT &SATKORB)
+         AGO   .NEXTDS
+.SETSCSW ANOP
+&NSCSW   SETB  (NOT &SATKSSW)
+         AGO   .NEXTDS
+.SETSIB  ANOP
+&NSIB    SETB  (NOT &SATKSIB)
+.NEXTDS  ANOP
+&XDS     SETA  &XDS+1
+         AIF   (&XDS LE &NDS).DSLOOP
+.* Generate the Channel Command Word formats if needed
+.CCW0    AIF   (NOT &NCCW0).CCW1
+CCW0     DSECT
+CCW0CODE DC    X'00'         Device specific Command Code
+CCW0ADDR DC    AL3(0)        Data Address
+CCW0FLGS DC    X'00'         Flags (see flag equates)
+         DC    X'00'         not used - must be zeros
+CCW0CNT  DC    H'0'          Byte Count
+CCW0L    EQU   *-CCW0 Length of CCW Format 0
+         SPACE 1
+&SATKCW0 SETB  1
+.CCW1    AIF   (NOT &NCCW1).CCWF
+CCW1     DSECT
+CCW1CODE DC    X'00'         Device specific Command Code
+CCW1FLGS DC    X'00'         Flags (see flag equates)
+CCW1CNT  DC    H'0'          Byte Count
+CCW1ADDR DC    A(0)          Data Address
+CCW1L    EQU   *-CCW1 Length of CCW Format 1
+         SPACE 1
+&SATKCW1 SETB  1
+.CCWF    AIF   (NOT &NCCWF).CSW
+* Chanel Command Word Flags used by both CCW formats 0 and 1
+CCWCD    EQU   X'80'         Chain Data flag
+CCWCC    EQU   X'40'         Command Chain flag
+CCWSLI   EQU   X'20'         Suppress Length Indication flag
+CCWSKIP  EQU   X'10'         Suprress data transfer flag (skip)
+CCWPCI   EQU   X'08'         Causes an intermediate interruption (programmed control)
+CCWIDA   EQU   X'04'         Use Indirect Data Addressing
+CCWSUSP  EQU   X'02'         Cause suspension before executing this command word
+         SPACE 1
+&SATKCWF SETB  1
+.* Generate the Channel Status Word if needed
+.CSW     AIF   (NOT &NCSW).ORB
+CSWFMT   DSECT
+CSWFLAG  DC    X'00'    Flags
+CSWKEYM  EQU   X'F0'    Storage Key Mask of subchannel storage key
+* The following flags are not available and always zero on System/360
+CSWSUSP  EQU   X'08'    I/O operation CCW suspended
+CSWLOG   EQU   X'04'    Further I/O instructions blocked due to pending logout
+CSWDCCM  EQU   X'03'    Deferred condiont code mask
+CSWDCC0  EQU   X'00'    Normal I/O interruption
+CSWDCC1  EQU   X'01'    Deferred condition code is 1
+CSWDCC3  EQU   X'03'    Deferred condition code is 3
+         SPACE 1
+CSWCCW   DC    AL3(0)   Last CCW address plus 8
+         SPACE 1
+CSWUS    DC    X'00'    Unit Status
+CSWATTN  EQU   X'80'    Attention
+CSWSM    EQU   X'40'    Status modifier
+CSWCUE   EQU   X'20'    Control-unit end
+CSWBUSY  EQU   X'10'    Busy
+CSWCE    EQU   X'08'    Channel end
+CSWDE    EQU   X'04'    Device end
+CSWUC    EQU   X'02'    Unit check
+CSWUX    EQU   X'01'    Unit exception
+         SPACE 1
+CSWCS    DC    X'00'    Channel Status
+CSWPCI   EQU   X'80'    Program-controlled interruption
+CSWIL    EQU   X'40'    Incorrect length
+CSWPRGM  EQU   X'20'    Program check
+CSWPROT  EQU   X'10'    Protection Check
+CSWCDAT  EQU   X'08'    Channel-data check
+CSWCCTL  EQU   X'04'    Channel-control check
+CSWICTL  EQU   X'02'    Interface-control check
+CSWCHNG  EQU   X'01'    Chaining check
+         SPACE 1
+CSWCNT   DC    H'0'     Residual CCW count
+CSWFMTL  EQU   *-CSWFMT Length of CSW
+         SPACE 1
+&SATKCSW SETB  1
+.* Generate the Operation Request Block if needed
+.ORB     AIF   (NOT &NORB).SCHIB
+ORB      DSECT
+ORBPARM  DC    F'0'     Word 0, bits 0-31
+         SPACE 1
+ORB1_0   DC    X'00'    Word 1, bits 0-7
+ORBKEYM  EQU   X'F0'    Word 1, bits 0-3   - Storage Key Mask
+ORBS     EQU   X'08'    Word 1, bit 4      - Suspend Control
+ORBC     EQU   X'04'    Word 1, bit 5      - Streaming Mode Control
+ORBM     EQU   X'02'    Word 1, bit 6      - Modification Control
+ORBY     EQU   X'01'    Word 1, bit 7      - Synchronization Control
+         SPACE 1
+ORB1_8   DC    X'00'    Word 1, bits 8-15
+ORBF     EQU   X'80'    Word 1, bit 8      - CCW Format-Control
+ORBP     EQU   X'40'    Word 1, bit 9      - Pre-fetch control
+ORBI     EQU   X'20'    Word 1, bit 10     - Initial-status Interruption Control
+ORBA     EQU   X'10'    Word 1, bit 11     - Address Limit Checking Control
+ORBU     EQU   X'08'    Word 1, bit 12     - Suppress-suspended-interruption control
+ORBB     EQU   X'04'    Word 1, bit 13     - Channel-Program-Type Control
+ORBH     EQU   X'02'    Word 1, bit 14     - Format 2-IDAW Control
+ORBT     EQU   X'01'    Word 1, bit 15     - 2K-IDAW control
+ORBLPM   DC    X'00'    Word 1, bits 16-23 - Logical Path Mask
+ORRB1_24 DC    X'00'    Word 1, bits 24-31
+ORBL     EQU   X'80'    Word 1, bit 24     - Incorrect Length Suppression Mode
+ORBRSV3  EQU   X'7F'    Word 1, bits 25-31 - reserved must be zeros
+ORBD     EQU   X'40'    Word 1, bit 25     - MIDAW Addressing Control
+ORBRSV26 EQU   X'3E'    Word 1, bits 26-30 - reserved must be zeros
+ORBRSV25 EQU   X'7E'    Word 1, bits 25-30 - reserved must be zeros
+ORBX     EQU   X'01'    Word 1, bit 31     - ORB-extension control
+         SPACE 1
+ORBCCW   DC    A(0)     Word 2, bits 1-31  - Channel Program Address
+ORBRSV4  EQU   X'80'    Word 2, bit 0      - reserved must be zero
+ORBLEN   EQU   *-ORB Length of standard ORB
+* Extended ORB fields
+ORBCSS   DC    X'00'    Word 3, bits 0-7   - Channel Subsystem Priority
+ORBRSV5  DC    X'00'    Word 3, bits 8-15  - reserved must be zeros
+ORBPGM   DC    0X'00'   Word 3, bits 16-23 - Transport mode reserves for program use
+ORBCU    DC    X'00'    Word 3, bits 16-23 - Control Unit Priority
+ORBRSV6  DC    X'00'    Word 3, bits 24-31 - reserved must be zeros
+ORBRSV7  DC    XL16'00' Words 4-7          - reserved must be zeros
+ORBXLEN  EQU   *-ORB Length of extended ORB
+         SPACE 1
+&SATKORB SETB  1
+.* Generate the Subchannel Information Block if needed
+.SCHIB   AIF   (NOT &NSIB).IRB
+SCHIB    DSECT          Subchannel Information Block
+* Fields marked RW may be changed by MSCH.  IN indicates installed value supplied
+SCHPMCW  DC    0XL28'00'  Words 0-6 - Path-Management-Control Word
+PMCWIP   DC    F'0'   RW  Word 0, bits 0-31 - Interruption Parameter
+PMCW1_0  DC    X'00'      Word 1, bits 0-7
+PMCWISCM EQU   X'38'  RW  Interruption Subclass Code Mask
+         SPACE 1
+PMCW1_8  DC    X'00'      Word 1, bits 8-15
+PMCWE    EQU   X'80'  RW  Word 1, bit 8 - Subchannel Enabled
+PMCWLM   EQU   X'60'  RW  Word 1, bits 9,10 - Limit-Mode Mask
+PMCWLMG  EQU   X'20'  RW  Word 1, bit 9 - Address must be GE to limit
+PMCWLML  EQU   X'40'  RW  Word 1, bit 10 - Address must be less than the limit
+PMCWMM   EQU   X'18'  RW  Word 1, bits 11,12 - Measurement Mode Mask
+PMCWMME  EQU   X'10'  RW  Word 1, bit 11 - Measurement Block Update Enabled
+PMCWMMC  EQU   X'08'  RW  Word 1, bit 12 - Device Connect Time Measurement Enabled
+PMCWM    EQU   X'04'  RW  Word 1, bit 13 - Multipath Mode Enabled
+PMCWT    EQU   X'02'  IN  Word 1, bit 14 - Timing facility availability
+PMCWV    EQU   X'01'  IN  Word 1, bit 15 - Device number valid
+         SPACE 1
+PMCWDNUM DC    H'0'   IN  Word 1, bits 16-31 - Device Number
+         SPACE 1
+PMCWLPM  DC    X'00'  RW  Word 2, bits 0-7   - Logical Path Mask
+PMCWPNOM DC    X'00'  RW  Word 2, bits 8-15  - Logical Path Not Operational Mask
+PMCWLPUM DC    X'00'  IN  Word 2, bits 16-23 - Logical Path Used Mask
+PMCWPIM  DC    X'00'  IN  Word 2, bits 24-31 - Path-Installed Mask
+PMCWMBI  DC    H'0'   RW  Word 3, bits 0-15  - Measurement Block Index
+PMCWPOM  DC    X'00'  RW  Word 3, bits 16-23 - Path-Operational Mask
+PMCWPAM  DC    X'00'  IN  Word 3, bits 24-31 - Path-Available Mask
+PMCWCHP0 DC    X'00'  IN  Word 3, bits 0-7   - Channel Path Identifier 0
+PMCWCHP1 DC    X'00'  IN  Word 3, bits 8-15  - Channel Path Identifier 1
+PMCWCHP2 DC    X'00'  IN  Word 3, bits 16-23 - Channel Path Identifier 2
+PMCWCHP3 DC    X'00'  IN  Word 3, bits 24-31 - Channel Path Identifier 3
+PMCWCHP4 DC    X'00'  IN  Word 4, bits 0-7   - Channel Path Identifier 4
+PMCWCHP5 DC    X'00'  IN  Word 4, bits 8-15  - Channel Path Identifier 5
+PMCWCHP6 DC    X'00'  IN  Word 4, bits 16-23 - Channel Path Identifier 6
+PMCWCHP7 DC    X'00'  IN  Word 4, bits 24-31 - Channel Path Identifier 7
+PMCWRES1 DC    0XL4'00'   Word 6, bits 0-31  - reserved or pre-z systems
+PMCWRES2 DC    XL3'00'    Word 6, bits 0-23  - reserved on z systems
+PMCWEXC  DC    X'00'      Word 6, bits 24-28 - reserved
+PMCWB    EQU   X'04'  RW  Word 6, bit 29     - Measurement Block Format Control
+PMCWX    EQU   X'02'  RW  Word 6, bit 30     - Extended Measurement Word Mode Enable
+PMCWS    EQU   X'01'  RW  Word 6, bit 31     - Concurrent Sense Enable
+         SPACE 1
+SCHSCSW  DC    XL12'00'   Words 7-9 - Subchannel Status Word (See DSECT SCSW)
+SCHMDA3  DC    0XL12'00'  Words 10-12 - Model Dependent Area on pre-z systems
+SCHMBA   DC    AD(0)  RW  Words 10,11 - Measurement Block Address
+SCHMDA1  DC    XL4'00'    Word 12 - Model Dependent Area on z systems
+SCHIBL   EQU   *-SCHIB Length of SCHIB
+         SPACE 1
+&SATKSIB SETB  1
+.* Generate the Interruption Response Block if needed
+.IRB     AIF   (NOT &NIRB).SCSW
+IRB      DSECT          Interruption Response Block
+IRBSCSW  DC    XL12'00' Words 0-2 - Subchannel Status Word (Defined by DSECT SCSW)
+IRBESW   DC    XL20'00' Words 3-7 - Extended Status Word
+IRBECW   DC    XL32'00' Words 8-15 - Extended Control Word
+IRBL     EQU   *-IRB    IRB Length
+IRBEMW   DC    XL32'00' Words 16-23 - Extended Measurement Word
+IRBXL    EQU   *-IRB    Extended IRB Length
+         SPACE 1
+&SATKIRB SETB  1
+.* Generate the Subchannel Status Word if needed
+.SCSW    AIF   (NOT &NSCSW).DONE
+SCSW     DSECT          Subchannel Status Word
+SCSWFLAG DC    X'00'    Flags
+SCSWKEYM EQU   X'F0'    Storage Key Mask of subchannel storage key
+SCSWSUSC EQU   X'08'    Suspend Control
+SCSWESWF EQU   X'04'    Extended Status Word Format
+SCSWDCCM EQU   X'03'    Deferred condiont code mask
+SCSWDCC0 EQU   X'00'    Normal I/O interruption
+SCSWDCC1 EQU   X'01'    Deferred condition code is 1
+SCSWDCC3 EQU   X'03'    Deferred condition code is 3
+         SPACE 1
+SCSWCTLS DC    X'00'    General Controls
+SCSWCCWF EQU   X'80'    CCW Format control when ...
+SCSWCCWP EQU   X'40'    CCW Prefetch Control
+SCSWISIC EQU   X'20'    Initial-Status-Interruption Control
+SCSWALKC EQU   X'10'    Address-Limit-Checking Control
+SCSWSSIC EQU   X'08'    Suppress suspended interruption
+SCSW0CC  EQU   X'04'    Zero-Condition Code
+SCSWECWC EQU   X'02'    Extended Control Word control
+SCSWPNOP EQU   X'01'    Path Not Operational
+         SPACE 1
+SCSW1    DC    X'00'    Control Byte 1
+SCSWFM   EQU   X'70'    Functional Control Mask
+SCSWFS   EQU   X'40'    Function Control - Start Function
+SCSWFH   EQU   X'20'    Function Control - Halt Function
+SCSWFC   EQU   X'10'    Function Control - Clear Function
+SCSWARP  EQU   X'08'    Activity Control - Resume pending
+SCSWASP  EQU   X'04'    Activity Control - Start pending
+SCSWAHP  EQU   X'02'    Activity Control - Halt pending
+SCSWACP  EQU   X'01'    Activity Control - Clear pending
+SCSW2    DC    X'00'    Control Byte 2
+SCSWASA  EQU   X'80'    Activity Control - Subchannel Active
+SCSWADA  EQU   X'40'    Activity Control - Device Active
+SCSWASUS EQU   X'20'    Activity Control - Suspended
+SCSWSAS  EQU   X'10'    Status Control   - Alert Status
+SCSWSINT EQU   X'08'    Status Control   - Intermediate Status
+SCSWSPRI EQU   X'04'    Status Control   - Primary Status
+SCSWSSEC EQU   X'02'    Status Control   - Secondary Status
+SCSWSPEN EQU   X'01'    Status Control   - Status Pending
+         SPACE 1
+SCSWCCW  DC    A(0)     CCW Address
+         SPACE 1
+SCSWUS   DC    X'00'    Unit Status
+SCSWATTN EQU   X'80'    Attention
+SCSWSM   EQU   X'40'    Status modifier
+SCSWCUE  EQU   X'20'    Control-unit end
+SCSWBUSY EQU   X'10'    Busy
+SCSWCE   EQU   X'08'    Channel end
+SCSWDE   EQU   X'04'    Device end
+SCSWUC   EQU   X'02'    Unit check
+SCSWUX   EQU   X'01'    Unit exception
+         SPACE 1
+SCSWCS   DC    X'00'    Channel Status
+SCSWPCI  EQU   X'80'    Program-controlled interruption
+SCSWIL   EQU   X'40'    Incorrect length
+SCSWPRGM EQU   X'20'    Program check
+SCSWPROT EQU   X'10'    Protection Check
+SCSWCDAT EQU   X'08'    Channel-data check
+SCSWCCTL EQU   X'04'    Channel-control check
+SCSWICTL EQU   X'02'    Interface-control check
+SCSWCHNG EQU   X'01'    Chaining check
+         SPACE 1
+SCSWCNT  DC    H'0'     Residual CCW count
+SCSWL    EQU   *-SCSW
+         SPACE 1
+&SATKSSW SETB  1
+.DONE    MEND

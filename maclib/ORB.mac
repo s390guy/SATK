@@ -1,0 +1,205 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   ORB   &CCW=0,&FLAG=,&I=0,&KEY=0,&LPM=255,&CSS=0,&CU=0,&MASK='NO'
+.* Defines the Input/Output Operation Request Block used by Channel Subsystem I/O.
+.* Parameter Usage:
+.*   &LABEL  Location of the assembled block or mask
+.*   &MASK   Specifying 'YES' assembles a reserved bit mask for the ORB.  Only
+.*           &FLAG parameters X and B effect a mask.  All other flags and parameters
+.*           are ignored.
+.* Parameters used by ORB assembly (&MASK not specified as 'YES'):
+.*   &CCW    The address of the first channel-command word.  Defaults to 0.
+.*   &FLAG   Sets one or more flags in the ORB.  Specify the flags as a single
+.*           sequence of characters with or without surrounding quotes, for example,
+.*           FLAG=SYU.  See the following description of supported flag values.
+.*   &I      Interruption parameter.  Defaults to 0
+.*   &KEY    Storage key used by channel subsystem access.  Specify a self-defining
+.*           term between the values of 0 and 15, inclusive.  Defaults to 0.
+.*   &LPM    Logical-Path Mask.  Defaults to 255 or any available logical path.
+.*   &CSS    For extended ORB, specifies the channel subsystem priority.  Defaults to
+.*           0.  Ignored if the ORB is not extended.
+.*   &CU     For extended command-mode ORB, specifies the control unit priority.
+.*           Defaults to 0.  For extended transport-mode ORB, specifies the program
+.*           reseved value.  Ignored if the ORB is not extended.
+.* Flags supported by &FLAG parameter (must be upper case).  Level indicates the
+.* architecture level in which the flag is valid.
+.*   Flag  Level  Word Bit Meaning
+.*     S    5-9     1   4  Suspend control
+.*     C    8,9     1   5  Streaming-Mode control
+.*     M    8,9     1   6  Modification control
+.*     Y    8,9     1   7  Synchronization control
+.*     F    5-9     1   8  CCW-format control
+.*     P    5-9     1   9  Prefetch control
+.*     I    5-9     1  10  Initial-status interruption control
+.*     A    5-9     1  11  Address-limit-checking control
+.*     U    5-9     1  12  Supress-suspended-interruption control
+.*     B     9      1  13  Channel-program-type control
+.*     H    8,9     1  14  Format-2 IDAW control
+.*     T    8,9     1  15  2K-IDAW control
+.*     L    5-9     1  24  Incorrect-length suppression control
+.*     D     9      1  25  Modified-Indirect-Data-Addressing control (MIDAW)
+.*     X    8,9     1  31  ORB-extension control
+.*
+.* Dependencies:
+.*   &ARCHLVL previously set by ARCHLVL macro in satk.mac
+.*
+         GBLA  &ARCHLVL Used by ARCHLVL macro to communicate the detected level
+         LCLA  &ORBLEN  Length of the ORB
+         LCLB  &CANEXT  Whether architecture allow ORB extension
+         LCLB  &DOMASK  Mask is being created not the block itself
+.* Symbols used to assemble ORB flags
+         LCLA  &NFLAG   Number of &FLAG sub-parameters
+         LCLA  &NDXFLG  Flag sub-parameter index
+         LCLB  &A,&B,&C,&D,&F,&H,&IF,&L,&M,&P,&S,&T,&U,&X,&Y
+         LCLC  &FLG     Current flag beint examined
+.* Make sure &ARCHLVL has been set
+         AIF   (&ARCHLVL GE 1 AND &ARCHLVL LE 9).HAVELVL
+         MNOTE 1,'ORB - ARCHITECTURE LEVEL NOT RECOGNIZED OR NOT SET - &ARCHLVL'
+         MEXIT
+.HAVELVL ANOP
+&ORBLEN  SETA  12
+&CANEXT  SETB  &ARCHLVL GE 8
+&DOMASK  SETB  ('&MASK' EQ 'YES')
+.* Assemble an ORB or a mask
+.* Analyze flags
+.* &NFLAG   SETA  N'&FLAG
+&NFLAG   SETA  K'&FLAG
+&NDXFLG  SETA  1
+         AIF   (&NFLAG EQ 0).NOFLAG
+.FGLOOP  ANOP
+&FLG     SETC  '&FLAG'(&NDXFLG,1)
+.FGTEST  ANOP
+.* Check for flags valid for all channel-subsystem architectures
+         AIF   ('&FLG' EQ 'S').SETS
+         AIF   ('&FLG' EQ 'F').SETF
+         AIF   ('&FLG' EQ 'P').SETP
+         AIF   ('&FLG' EQ 'I').SETI
+         AIF   ('&FLG' EQ 'A').SETA
+         AIF   ('&FLG' EQ 'U').SETU
+         AIF   ('&FLG' EQ 'L').SETL
+         AIF   (&ARCHLVL LT 8).BADFLG
+.* Check for flags valid only for z and ESA/390 on z
+         AIF   ('&FLG' EQ 'C').SETC
+         AIF   ('&FLG' EQ 'M').SETM
+         AIF   ('&FLG' EQ 'Y').SETY
+         AIF   ('&FLG' EQ 'H').SETH
+         AIF   ('&FLG' EQ 'T').SETT
+         AIF   ('&FLG' EQ 'X').SETX
+         AIF   (&ARCHLVL LT 9).BADFLG
+.* Check for flags only valid on z
+         AIF   ('&FLG' EQ 'D').SETD
+         AIF   ('&FLG' EQ 'B').SETB
+.BADFLG  ANOP
+         MNOTE *,'ORB - UNRECOGNIZED FLAG ARCHITECTURE LEVEL &ARCHLVL IGNORED - &FLG'
+         AGO   .NEXTFL
+.SETA    ANOP
+&A       SETB  1
+         AGO   .NEXTFL
+.SETB    ANOP
+&B       SETB  1
+         AGO   .NEXTFL
+.SETC    ANOP
+&C       SETB  1
+         AGO   .NEXTFL
+.SETD    ANOP
+&D       SETB  1
+         AGO   .NEXTFL
+.SETF    ANOP
+&F       SETB  1
+         AGO   .NEXTFL
+.SETH    ANOP
+&H       SETB  1
+         AGO   .NEXTFL
+.SETI    ANOP
+&IF      SETB  1
+         AGO   .NEXTFL
+.SETL    ANOP
+&L       SETB  1
+         AGO   .NEXTFL
+.SETM    ANOP
+&M       SETB  1
+         AGO   .NEXTFL
+.SETP    ANOP
+&P       SETB  1
+         AGO   .NEXTFL
+.SETS    ANOP
+&S       SETB  1
+         AGO   .NEXTFL
+.SETT    ANOP
+&T       SETB  1
+         AGO   .NEXTFL
+.SETU    ANOP
+&U       SETB  1
+         AGO   .NEXTFL
+.SETX    ANOP
+&X       SETB  1
+&ORBLEN  SETA  32
+         AGO   .NEXTFL
+.SETY    ANOP
+&Y       SETB  1
+         AGO   .NEXTFL
+.NEXTFL  ANOP
+&NDXFLG  SETA  &NDXFLG+1
+         AIF   (&NDXFLG LE &NFLAG).FGLOOP
+.NOFLAG  ANOP
+         AIF   (NOT &B).GENBLK
+&BADFLGS SETB  &S OR &C OR &M OR &Y
+&BADFLGS SETB  &BADFLGS OR &F OR &P OR &IF OR &A OR &U OR &H OR &T
+&BADFLGS SETB  &BADFLGS OR &L
+         AIF   (NOT &BADFLGS).GENBLK
+         MNOTE 1,'ORB - FLAGS SET INCOMPATIBLE WITH TRANSPORT-MODE ORB'
+         MEXIT
+.GENBLK  ANOP
+         AIF   (NOT &DOMASK).NOALIGN
+         DS    0F
+.NOALIGN ANOP
+&LABEL   DS    0XL&ORBLEN
+         AIF   (&DOMASK).ASMMASK
+         DC    A(&I)                        Word 0 - Interruption Parameter
+         DC    AL1((&KEY)*16+B'&S&C&M&Y')   Word 1, bits 0-7
+         DC    BL1'&F&P&IF&A&U.0&H&T'       Word 1, bits 8-15
+         DC    AL1(&LPM)                    Word 1, bits 16-23
+         DC    BL1'&L.000000&X'              Word 1, bits 24-31
+         DC    AL4(&CCW)                    Word 2 - CCW address
+         AIF   (NOT &X).DONE
+.* Assemble extended ORB content
+         DC    AL1(&CSS,0,&CU,0)            Word 3, bits 0-31
+         DC    AL4(0,0,0,0)                 Words 4-7
+         AGO   .DONE
+.* Assemble an ORB mask
+.ASMMASK ANOP
+         DC    X'FFFFFFFF'     Word 0
+         AIF   (&B).ASMTMSK
+.* Command-Mode ORB Flags
+         AIF   (&CANEXT).CEXTF
+         DC    X'F8F8FF80'     Word 1
+         AGO   .COMMON
+.CEXTF   ANOP
+         DC    X'FFFCFF8&X'     Word 1
+         AGO   .COMMON
+.ASMTMSK ANOP
+.* Transport-Mode ORB Flags
+         DC    X'F004FF0&X'     Word 1
+.COMMON  ANOP
+         DC    X'7FFFFFFF'     Word 2
+         AIF   (NOT &X).DONE
+.* Assemble ORB extension mask
+         DC    X'FF00FF00'     Word 3
+         DC    XL16'00'        Words 4-7
+.DONE    MEND
