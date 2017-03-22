@@ -1,0 +1,157 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         ARCHIND
+.* Uses OPSYN to create architecture independent instruction selection
+.* Each architecture independent version of an instruction begins with a '$' followed
+.* by the basic instruction name.  For example, $LM is the architecture independent
+.* instruction for LOAD MULTIPLE.  This macro depends upon ARCHLVL having detected
+.* the operational architecture level.
+         GBLA  &ARCHLVL   Current architecture level
+.* Symbols provided by the ARCHIND macro
+         GBLA  &ARCHASZ   Size of an address constant in bytes
+         GBLA  &ARCHIRB   Size of an IRB in full words
+         GBLA  &ARCHORB   Size of an ORB in full words
+         GBLA  &ARCHORX   Size of an extended ORB in full words
+         GBLA  &ARCHSCB   Size of a SCHIB in full words
+         GBLB  &ARCHIND   Whether operator synonyms defined
+         GBLC  &ARCHAMK   Address constant mask
+         GBLC  &ARCHATP   Address constant type
+         GBLC  &ARCHITP   Integer constant type
+         GBLC  &ARCHIPF   IPL PSW format assembler directive
+.* Multi-architecture assists
+         GBLC  &A         Architecture specific symbol suffix
+         GBLC  &I         Input/output architecture specific symbol suffix
+         GBLC  &S         Sharable code register size symbol suffix
+.* Define default selectable instructions
+$AL      OPSYN AL
+$ALR     OPSYN ALR
+$B       OPSYN B
+$BAS     OPSYN BAS
+$BASR    OPSYN BASR
+$BC      OPSYN BC
+$BCTR    OPSYN BCTR
+$BE      OPSYN BE
+$BH      OPSYN BH
+$BL      OPSYN BL
+$BM      OPSYN BM
+$BNE     OPSYN BNE
+$BNH     OPSYN BNH
+$BNL     OPSYN BNL
+$BNM     OPSYN BNM
+$BNO     OPSYN BNO
+$BNP     OPSYN BNP
+$BNZ     OPSYN BNZ
+$BO      OPSYN BO
+$BP      OPSYN BP
+$BXLE    OPSYN BXLE
+$BZ      OPSYN BZ
+$CH      OPSYN CH
+$L       OPSYN L
+$LH      OPSYN LH
+$LM      OPSYN LM
+$LPSW    OPSYN LPSW
+$LR      OPSYN LR
+$LTR     OPSYN LTR
+$NR      OPSYN NR
+$SL      OPSYN SL
+$SLR     OPSYN SLR
+$SR      OPSYN SR
+$ST      OPSYN ST
+$STM     OPSYN STM
+$X       OPSYN X
+&ARCHAMK SETC  '00FFFFFF'
+&ARCHASZ SETA  4
+&ARCHATP SETC  'A'
+&ARCHIPF SETC  'PSW'
+&ARCHITP SETC  'F'
+&A       SETC  '&ARCHLVL'
+&I       SETC  'C'
+&S       SETC  'F'
+         AIF   (&ARCHLVL NE 1).NOT360
+.* Define S/560 instructions as selectable
+$BAS     OPSYN BAL
+$BASR    OPSYN BALR
+         AGO   .DEFINED                   S/360 complete
+.NOT360  ANOP
+         AIF   (&ARCHLVL LT 4).DEFINED    S/370 complete
+.* Define S/380
+&ARCHAMK SETC  '7FFFFFFF'
+         AIF   (&ARCHLVL EQ 4).DEFINED
+.* Define 370-XA, ESA/370
+&ARCHORB SETA  3
+&ARCHIRB SETA  16
+&ARCHSCB SETA  13
+&I       SETC  'D'
+         AIF   (&ARCHLVL LT 7).DEFINED    370-XA, ESA/370 complete
+.* Define ESA/390 native
+$AHI     OPSYN AHI
+$B       OPSYN J
+$BC      OPSYN BRC
+$BE      OPSYN JE
+$BH      OPSYN JH
+$BL      OPSYN JL
+$BM      OPSYN JM
+$BNE     OPSYN JNE
+$BNH     OPSYN JNH
+$BNL     OPSYN JNL
+$BNM     OPSYN JNM
+$BNO     OPSYN JNO
+$BNP     OPSYN JNP
+$BNZ     OPSYN JNZ
+$BO      OPSYN JO
+$BP      OPSYN JP
+$BXLE    OPSYN JXLE
+$BZ      OPSYN JZ
+$CHI     OPSYN CHI
+         AIF   (&ARCHLVL LT 8).DEFINED   ESA/390 native complete
+.* Define ESA/390 on z
+&ARCHIRB SETA  24
+         AIF   (&ARCHLVL LT 9).DEFINED   ESA/390 on z complete
+.* Define 64-bit register specific instruction
+$AHI     OPSYN AGHI
+$AL      OPSYN ALG
+$ALR     OPSYN ALGR
+$BCTR    OPSYN BCTGR
+$BXLE    OPSYN JXLEG
+$CH      OPSYN CGH
+$CHI     OPSYN CGHI
+$L       OPSYN LG
+$LH      OPSYN LGH
+$LM      OPSYN LMG
+$LPSW    OPSYN LPSWE
+$LR      OPSYN LGR
+$LTR     OPSYN LTGR
+$NR      OPSYN NGR
+$SL      OPSYN SLG
+$SLR     OPSYN SLGR
+$SR      OPSYN SGR
+$ST      OPSYN STG
+$STM     OPSYN STMG
+$X       OPSYN XG
+&ARCHAMK SETC  'FFFFFFFFFFFFFFFF'
+&ARCHASZ SETA  8
+&ARCHATP SETC  'AD'
+&ARCHIPF SETC  'PSWE390'
+&ARCHITP SETC  'FD'
+&ARCHORX SETA  8
+&I       SETC  'M'
+&S       SETC  'G'
+.DEFINED ANOP
+&ARCHIND SETB  1
+         MEND

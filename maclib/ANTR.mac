@@ -1,0 +1,148 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   ANTR &REG=1,&S360=,&S370BC=,&S370=,&S380=,&XA=,&E370=,&E390=,&S390=,&S390X=
+.* ANTR is used in conjunction with the APROB macro to enter architecture specific
+.* portion of a program for the run-time detected architecture.  Run-time detection
+.* of an unsupported architecture resutlts in a disabled wait condition with address
+.* 00020x, where 'x' is the detected unsupported architecture level.  'x' being
+.* zero indicates an invalid level.
+.*
+.* Optional Parameter Usage:
+.*   LABEL     Symbol assigned to the architecture selecting code
+.*   REG       Register expected to be contain the detected architecture level from
+.*             the APROB macro.  Defaults to 1.  Coordination with the register
+.*             specified for the APROB macro required.
+.*           ARCHLVL  Description
+.*   S360       1     Symbol to which control is passed if S/360 is supported.
+.*                    APROB must have been coded with S3660=YES for detection of this
+.*                    level.
+.*   S370BC     2     Symbol to which control is passed if S/370 BC-mode is supported
+.*   S370       3     Symbol to which control is passed if S/370 EC-mode is supported
+.*   S380       4     Symbol to which control is passed if Hercules S/380 mode is
+.*                    supported.  APROB must have been coded with S380=YES for
+.*                    detection of this level.
+.*   XA         5     Symbol to which control is passed if 370-XA is supported.
+.*                    APROB must be coded with HERC=NO for detection of this level
+.*   E370       6     Symbol to which control is passed if ESA/370 is supported.
+.*                    APROB must have been coded with HERC=NO for detection of this
+.*                    level.
+.*   E390       7     Symbol to which control is passed if native ESA/390 is supported.
+.*   S390       8     Symbol to which control is passed if ESA/390 on a 64-bit system
+.*                    is supported.
+.*   S390X      9     Symbol to which control is passed if a 64-bit system is
+.*                    supported.  This can only occur if a 64-bit mode system
+.*                    uses a Restart interruption to enter it or the program has
+.*                    already entered 64-bit operation before APROB was used.
+.*
+.* Register Usage:
+.*   Register as specified by the REG parameter
+.*   Base register established prior to entry to the macro
+         LCLB  &NEEDBC    Whether a basic-control mode error PSW needed
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H
+.NOLBL   ANOP
+         AR    &REG,&REG                Turn the architecture level into a disp.
+         AR    &REG,&REG                full-word displaceent
+         CL    &REG,ANTM&SYSNDX         Value exceeds table length?
+         BH    ANTE&SYSNDX              ..Yes, architecture not recognized
+         L     &REG,ANTT&SYSNDX.(&REG)  Locate where to go
+         BR    &REG                     Enter the architecture logic
+ANTM&SYSNDX DC F'36'                    Maximum valid table index
+ANTT&SYSNDX DS  0F
+         DC    A(ANTE&SYSNDX)           Level 0 - invalid and actual arch unknown
+.* Build Level 1 Entry - S/360
+         AIF   ('&S360' EQ '').NO360
+         DC    A(&S360)                 Level 1 - S/360 supported
+         AGO   .CKBC
+.NO360   ANOP
+&NEEDBC  SETB  1
+         DC    A(ANTB&SYSNDX)           Level 1 - S/360 not supported
+.CKBC    ANOP
+.* Build Level 2 Entry - S/370 BC-mode
+         AIF   ('&S370BC' EQ '').NOBC
+         DC    A(&S370BC)               Level 2 - S/370 BC-mode supported
+         AGO   .CKEC
+.NOBC    ANOP
+&NEEDBC  SETB  1
+         DC    A(ANTB&SYSNDX)           Level 2 - S/370 BC-mode not supported
+.* Build Level 3 Entry - S/370 EC-mode
+.CKEC    ANOP
+         AIF   ('&S370' EQ '').NOEC
+         DC    A(&S370)                 Level 3 - S/370 EC-mode supported
+         AGO   .CK380
+.NOEC    ANOP
+         DC    A(ANTU&SYSNDX)           Level 3 - S/370 EC-mode not supported
+.* Build Level 4 Entry - Hercules S/380
+.CK380   ANOP
+         AIF   ('&S380' EQ '').NO380
+         DC    A(&S380)                 Level 4 - S/380 supported
+         AGO   .CKXA
+.NO380   ANOP
+         DC    A(ANTU&SYSNDX)           Level 4 - S/380 not supported
+.* Build Level 5 Entry - 370-XA
+.CKXA    ANOP
+         AIF   ('&XA' EQ '').NOXA
+         DC    A(&XA)                   Level 5 - 370-XA supported
+         AGO   .CKE370
+.NOXA    ANOP
+         DC    A(ANTU&SYSNDX)           Level 5 - 370-XA not supported
+.* Build Level 6 Entry - ESA/370
+.CKE370  ANOP
+         AIF   ('&E370' EQ '').NOE370
+         DC    A(&E370)                 Level 6 - ESA/370 supported
+         AGO   .CKE390
+.NOE370  ANOP
+         DC    A(ANTU&SYSNDX)           Level 6 - ESA/370 not supported
+.* Build Level 7 Entry - Native ESA/390
+.CKE390  ANOP
+         AIF   ('&E390' EQ '').NOE390
+         DC    A(&E390)                 Level 7 - Native ESA/390 supported
+         AGO   .CKS390
+.NOE390  ANOP
+         DC    A(ANTU&SYSNDX)           Level 7 - Native ESA/390 not supported
+.* Build Level 8 Entry - ESA/390 on 64-bit system
+.CKS390  ANOP
+         AIF   ('&S390' EQ '').NOS390
+         DC    A(&S390)                 Level 8 - ESA/390 on 64-bit supported
+         AGO   .CKS390X
+.NOS390  ANOP
+         DC    A(ANTU&SYSNDX)           Level 8 - ESA/390 on 64-bit not supported
+.* Build Level 9 Entry - 64-bit system
+.CKS390X ANOP
+         AIF   ('&S390X' EQ '').NOS390X
+         DC    A(&S390X)                Level 9 - 64-bit supported directly
+         AGO   .ERROR
+.NOS390X ANOP
+         DC    A(ANTU&SYSNDX)           Level 9 - 64-bit not supported directly
+.* Enter disabled wait state on an error
+.ERROR   ANOP
+ANTU&SYSNDX DS 0H   Unsupported architecture
+         STC   &REG,ANTD&SYSNDX+7       Set the unsupported architecture in the PSW
+ANTE&SYSNDX DS 0H   Unknown arch - EC-mode PSW might cause specification exception
+         LPSW  ANTD&SYSNDX
+         AIF   (NOT &NEEDBC).NOBCL
+ANTB&SYSNDX LPSW ANTP&SYSNDX            Enter disabled wait state in basic mode
+         STC   &REG,ANTP&SYSNDX+7       Set the unsupported architecture in the PSW
+         LPSW  ANTP&SYSNDX
+.NOBCL   ANOP
+ANTD&SYSNDX PSWEC 0,0,2,0,X'200'        Enter a disabled wait state
+         AIF   (NOT &NEEDBC).NOBCP
+ANTP&SYSNDX PSW360 0,0,2,0,X'200'       Enter a disabled wait state in basic mode
+.NOBCP   ANOP
+         MEND

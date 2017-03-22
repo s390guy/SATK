@@ -1,0 +1,150 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         PSWFMT
+.* Generates Program Status Word definitions based upon the current architecture
+.* level detected by ARCHLVL macro.
+.*    Level       Formats provided
+.*       1        S/360 basic format only
+.*      2-4       Extended format and basic-control mode format
+.*      5-7       Extended format only
+.*      8,9       Extended format and trimodal addressing format
+.* Parameter Usage: None
+.* Dependencies:
+.*    ARCHLVL macro
+         GBLA  &ARCHLVL Used by ARCHLVL macro to communicate the detected level
+         GBLB  &SATKPSB Whether PSWB DSECT previously generated
+         GBLB  &SATKPSE Whether PSWE DSECT previously generated
+         GBLB  &SATKPSZ Whether PSWZ DSECT previously generated
+         AIF   (&ARCHLVL GE 1 AND &ARCHLVL LE 9).HAVELVL
+         MNOTE 1,'PSWFMT - ARCHITECTURE LEVEL NOT RECOGNIZED - &ARCHLVL'
+         MEXIT
+.HAVELVL ANOP
+         AIF   (&ARCHLVL EQ 1).BCFMT
+.* Define extended mode format PSW
+         AIF   (&SATKPSE).TESTZ
+PSWE     DSECT
+* PSW Format - Extended Control
+PSWEMASK DC    X'00'         System Mask
+PSWPER   EQU   X'40'         Enables Program Event Recording interruptions
+PSWDAT   EQU   X'04'         Enables Dynamic Address Translation
+PSWIO    EQU   X'02'         Enables Input/Output interruptions
+PSWEXT   EQU   X'01'         Enables External interruptions
+         SPACE 1
+PSWESYS  DC    X'00'         System State
+PSWKEYM  EQU   B'11110000'   Storage Key mask
+PSWMCK   EQU   X'04'         Enables machine-check interruptions
+PSWWAIT  EQU   X'02'         Places the CPU into a wait state
+PSWPGM   EQU   X'01'         Places the CPU into problem program state
+         SPACE 1
+PSWEPGM  DC    X'00'         Program State
+PSWASMD  EQU   X'C0'         Address-Space Mode mask
+PSWPRI   EQU   X'2F'         Enables Primary-Space Mode by setting bits to 0
+PSWSEC   EQU   X'80'         Enables Secondary-Space Mode
+PSWAR    EQU   X'40'         Enables Access-Register Mode (not available on S/370)
+PSWHOME  EQU   X'C0'         Enables Home-Space Mode (not available on S/370)
+PSWCCM   EQU   X'30'         Condition Code Mask
+PSWCC0   EQU   X'00'         Condition Code 0
+PSWCC1   EQU   X'10'         Condition Code 1
+PSWCC2   EQU   X'20'         Condition Code 2
+PSWCC3   EQU   X'30'         Condition Code 3
+PSWGPMM  EQU   X'0F'         Program Mask
+PSWFPO   EQU   X'08'         Fixed Point Overflow Mask
+PSWDO    EQU   X'04'         Decimal Overflow Mask
+PSWHEU   EQU   X'02'         Hexadecimal Floating Point Exponent Underflow Mask
+PSWHS    EQU   X'01'         Hexadecimal Floating Point Significance Mask
+         SPACE 1
+         DC    X'00'         not used - must be zeros
+         SPACE 1
+PSWEADDR DC    0A(0)         Bimodal Instruction Address (not available on S/370)
+PSWE31   EQU   X'80'         Enables 31-bit addressing when first bit is set
+PSWE31D  EQU   X'7FFFFFFF'   Disables 31-bit addressing in an address constant
+PSWE31E  EQU   X'80000000'   Enables 31-bit addressing in an address constant
+         SPACE 1
+         DC    X'00'         not used - must be zeros for single mode address
+         SPACE 1
+PSWESADR DC    AL3(0)        Single Mode Instruction Address
+PSWELEN  EQU   *-PSWE        PSW format length
+         SPACE 1
+&SATKPSE SETB  1
+.TESTZ   ANOP
+         AIF   (&ARCHLVL GE 8).ZFMT      For z also do trimodal format
+         AIF   (&ARCHLVL LE 4).BCFMT     For S/370 or S/380 also do BC-format
+         AGO   .DONE
+.ZFMT    ANOP
+         AIF   (&SATKPSZ).DONE
+.* Define trimodal addressing format
+* PSW Format - 64-bit Addressing
+PSWZ     DSECT
+PSWZMASK DC    X'00'         System Mask (same usage as PSWEMASK)
+PSWZSYS  DC    X'00'         System State (same usage as PSWESYS)
+PSWZPGM  DC    X'00'         Program State (same usage as PSWEPGM)
+PSWZEMOD DC    X'00'         Extended Addressing (trimode)
+PSWZ64   EQU   X'01'         Enables 64-bit addressing when 31-bit also enabled
+PSWZAMOD DC    X'00'         Bimodal Addressing Mode
+PSWZ31   EQU   X'80'         Enables 31-bit addressing
+         DC    XL3'00'       not used - requires zeros
+PSWZADDR DC    AD(0)         Instruction Address
+PSWZLEN  EQU   *-PSWZ
+         SPACE 1
+&SATKPSZ SETB  1
+         AGO   .DONE
+.BCFMT   ANOP
+         AIF   (&SATKPSB).DONE
+PSWB     DSECT
+* PSW Format - System/360 or Basic Control
+PSWBMASK DC    X'00'         Interruption Mask
+PSWBCH0  EQU   X'80'         Enables channel 0 interruptions
+PSWBCH1  EQU   X'40'         Enables channel 1 interruptions
+PSWBCH2  EQU   X'20'         Enables channel 2 interruptions
+PSWBCH3  EQU   X'10'         Enables channel 3 interruptions
+PSWBCH4  EQU   X'08'         Enables channel 4 interruptions
+PSWBCH5  EQU   X'04'         Enables channel 5 interruptions
+PSWBCHM  EQU   X'02'         Enables channel 6 and higher interruptions
+PSWBIO   EQU   X'FE'         Enables all channel interruptions
+PSWBEXT  EQU   X'01'         Enables external interruptions
+         SPACE 1
+PSWBSYS  DC    X'00'         System State
+PSWBKEYM EQU   X'F0'         Storage Key mask
+         AIF   (&ARCHLVL NE 1).NOABIT
+PSWBASCI EQU   X'08'         ASCII-mode mask
+.NOABIT  ANOP
+PSWBMCKM EQU   X'04'         Enables machine-check interruptions
+PSWBWAIT EQU   X'02'         Places the CPU into a wait-state
+PSWBPGMM EQU   X'01'         Places the CPU into a problem program state
+         SPACE 1
+PSWBCODE DC    H'0'          Interruption Code
+         SPACE 1
+PSWBPGM  DC    X'00'         Program State
+PSWBILCM EQU   X'C0'         Instruction Length Code Mask
+PSWBCCM  EQU   X'30'         Condition-Code Mask
+PSWBCC0  EQU   X'00'         Condition Code 0
+PSWBCC1  EQU   X'10'         Condition Code 1
+PSWBCC2  EQU   X'20'         Condition Code 2
+PSWBCC3  EQU   X'30'         Condition Code 3
+PSWBPGMK EQU   X'0F'         Program Exception Mask
+PSWBFPO  EQU   X'08'         Fixed Point Overflow Mask
+PSWBDO   EQU   X'04'         Decimal Overflow Mask
+PSWBHEU  EQU   X'02'         Hexadecimal Floating Point Exponent Underflow Mask
+PSWBHS   EQU   X'01'         Hexadecimal Floating Point Significance Mask
+         SPACE 1
+PSWBADDR DC    AL3(0)        Instruction Address
+PSWBLEN  EQU   *-PSWB
+         SPACE 1
+&SATKPSB SETB  1
+.DONE    MEND

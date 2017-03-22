@@ -1,0 +1,116 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   SMMGR &PAIR,&PAIR1,&W,&BLOCK=9,&RETURN=
+.* Generates an inline algorithm for a serially re-usable Static Memory Manager.
+.* Allocations are performed sequentially from lower to higher addresses.  Allocations
+.* are permanent.
+.* Required Parameter Usage:
+.*  &PAIR     Input register pair containing allocation size (register &PAIR) and
+.*            alignment (register &PAIR+1)
+.*  &PAIR1    Work register pair
+.*  &W        A single additional work register
+.* Optional Parameter Usage:
+.*  &LABEL    The symbol associated with the routine
+.*  &BLOCK    Register pointing to the control fields created by SMMGRB macro.
+.*            If omitted, defaults to R9.
+.*  &RETURN   Register containing a routine caller's return address.
+.*
+.* Routine Register Usage:
+.* A base register other than those used below if relative branches are not supported.
+.* Input:    Symbol
+.*  &PAIR     &R2  Size in bytes of area to be allocated.  A value of 0 will cause the
+.*                 next allocation to be based upon the next higher aligned location.
+.*  &PAIR+1   &R3  Allocation alignment in bytes.  Values must be in units of powers
+.*                 of 2, for example, 1, 2, 4, 8, etc.  Values <=0 are ignored.
+.* Processing:
+.* A base register other than those used below if relative branches are not supported.
+.* Register pointing to SMMGRB control fields (&BLOCK)
+.*  &PAIR1    &R6  Alignment factor
+.*  &PAIR1+1  &R7  Next address to allocate
+.*  &W        &W   Allocation size
+.* Output:
+.*  &PAIR     &R2  Start of permanently allocated area
+.*
+.* NOTE: This macro does not generate a routine or function, but rather an incline
+.* algorithm.
+.*
+.* To use as a routine:
+.*   ALABEL SMMGR X,Y,Z,BLOCK=A,RETURN=B  where X,Y,Z,A and B are registers as required
+.*   Callers of the routine use X,X+1,A and B as expected knowing the routine will
+.*   use Y,Y+1 and Z registers.
+.*
+.* To use within a function:
+.*          SMMGR 2,6,8
+.*   In a function, the function establishes the control field (SMMGRB) address.  The
+.*   function caller supplied the allocation size and alignment.
+.*
+.* Because the control fields are separate from the algorithm, multiple instances of
+.* the algorithm can exist with different register usages.  And different areas may
+.* be allocated from different starting locations in the control fields with the
+.* same instance of the algorithm.
+.*
+         GBLA  &ARCHLVL   Current architecture level
+.* Symbolic variables supplied by ARCHIND
+         GBLA  &ARCHASZ   Size of an address constant in bytes
+         GBLB  &ARCHIND   Whether operator synonyms defined
+         GBLC  &ARCHATP   Address constant type
+         GBLC  &ARCHITP   Integer constant type
+.* Symbols used for registers for documentation purposes
+         LCLC  &R2,&R3,&R6,&R7,&R8
+         AIF   ('&PAIR' NE '').POK
+         MNOTE 1,'SMMGR - REQUIRED FIRST REGISTER PAIR MISSING'
+         MEXIT
+.POK     ANOP
+         AIF   ('&PAIR1' NE '').P1OK
+         MNOTE 1,'SMMGR - REQUIRED SECOND REGISTER PAIR MISSING'
+         MEXIT
+.P1OK    ANOP
+         AIF   ('&W' NE '').WORKOK
+         MNOTE 1,'SMMGR - REQUIRED WORK REGISTER MISSING'
+         MEXIT
+.WORKOK  ANOP
+.* Set up register symbols
+&R2      SETC  '&PAIR'
+&R3      SETC  '&PAIR+1'
+&R6      SETC  '&PAIR1'
+&R7      SETC  '&PAIR1+1'
+&R8      SETC  '&W'
+         AIF   (&ARCHIND).GEN
+         MNOTE 1,'SMMGR - REQUIRED ARCHIND MACRO OPERATOR SYNONYMS UNDEFINED'
+         MEXIT
+.GEN     ANOP
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H    SATK Static Memory Management Allocator
+.NOLBL   ANOP
+         $LR   &R8,&R2                   Save allocation size
+         $L    &R7,0(0,&BLOCK)           Fetch the next address
+         $LTR  &R6,&R3                   Was an alignment provided?
+         $BNP  SMMN&SYSNDX               ..No, just allocate
+         $BCTR &R6,0                     Turn value into alignment mask/factor
+         $ALR  &R7,&R6                   Add the alignment factor - 1
+         $X    &R6,&ARCHASZ.(0,&BLOCK)   Turn "factor -1" into a mask
+         $NR   &R7,&R6                   Starting location now aligned
+SMMN&SYSNDX DS  0H
+         $LR   &R2,&R7                   Return the new starting location
+         $ALR  &R7,&R8                   Add the allocation size
+         $ST   &R7,0(0,&BLOCK)           Set the new next available location
+         AIF   ('&RETURN' EQ '').NORTN
+         BR    &RETURN                   Return to caller
+.NORTN   ANOP
+         MEND

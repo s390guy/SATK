@@ -1,0 +1,142 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   ARCHLVL &ZARCH=YES,&PSW=,&SET=,&ARCHIND=YES,&MNOTE=YES
+.* Sets the global symbolic variable based upon current value of &SYSPSW.  May be
+.* used multiple times to set the current assembly architecture level.
+.* If a &LABEL is provided an equate to the &LABEL symbol is made.  Multiple uses
+.* of ARCHLVL can not set the same equate symbol to different values.
+.*
+.*   &LABEL  If provided, specifies a label to which the current architecture level
+.*           is equated.
+.*   &ZARCH  If set to NO and PSWE390 is the current XMODE PSW setting, ESA/390
+.*           will be indicated as not being on a z/Architecture system.  Otherwise
+.*           ESA/390 will be assumed as being on a z/Architecture system.
+.*   &PSW    Before setting the current architecture level, an XMODE directive is
+.*           issued, setting the PSW format that is then examined when determining
+.*           the current level.
+.*   &SET    If specified the architecture level is set to the specified value
+.*           regardless of the current XMODE PSW setting.  The specified value
+.*           must be between 1 and 9 inclusive.
+.*   &ARCHIND  Specify 'NO' to disable automatic generation of architecture
+.*             independent operation synonyms.  Defaults to 'YES'.
+.*   &MNOTE  Specify 'NO' to inhibit generation of an MNOTE reporting the current
+.*           recognized level.  Otherwise an MNOTE reports the detected level.
+.*           Defaults to 'YES'
+.*
+.* Possible &ARCHLVL values
+.*   0 - ARCHLVL macro not issued or XMODE PSW setting not available or setting is
+.*       not supported by the ARCHLVL macro.  Implies unknown.
+.*
+.*        Environment       Input/Output System      Addressing-Mode(s)
+.*   1 -  System/360          channel-based I/O        24-bit addressing
+.*   2 -  System/370 BC Mode  channel-based I/O        24-bit addressing
+.*   3 -  System/370 EC Mode  channel-based I/O        24-bit addressing
+.*   4 -  System/380          channel-based I/O        24- or 31-bit addressing
+.*   5 -  370-XA              channel subsystem I/O    24- or 31-bit addressing
+.*   6 -  ESA/370             channel subsystem I/O    24- or 31-bit addressing
+.*   7 -  ESA/390             channel sybsystem I/O    24- or 31-bit addressing
+.*   8 -  ESA/390 on z        channel subsystem I/O    24- or 31-bit addressing
+.*   9 -  z/Architecture      channel subsystem I/0    24-, 31- or 64-bit addressing
+.* Test for a value of 2 or less for interruption codes saved in old PSWs
+.* Test for a value of 4 or less to detect channel-based I/O
+.* Test for a value of 5 or more to detect channel-subsystem I/O
+.* Test for a value of 8 for multi-architecture capability
+         GBLA  &ARCHLVL     A global variable used by other macros for code generation
+         LCLA  &SETTING     Forced architecture setting
+         LCLC  &USEPSW      The PSW setting used by the macro
+.* Macros that need to understand the current architecture level must declare this
+.* global symbolic variable.  The setting of this variable allows the macro to
+.* select instructions depending upon this setting.  The following capabilities
+.* were introduced with these levels:
+.*   2   BRANCH AND SAVE
+.*   4   31-bit addressing
+.*   5   Channel subsystem I/O instructions replace channel I/O instructions
+.*   7 * Branch relative instructions (JUMP extended mnemonics)
+.*     * Immediate instructions (for example, CHI, AHI, etc.)
+.*       12 additional floating point registers.
+.*       Floating point control register
+.*       Binary floating point instructions
+.*   8   Addressing Mode instructions (SAMxx, TAM)
+.*   9   64-bit register instructions: xxxG
+.*       Relative long instructions (LARL, JLU, etc.)
+.*       Extended immediate (CFI, etc.)
+.*       Long-distance facility, 20-bit or 1M displacement (LAY, AY, ALY, etc.)
+.*       Decimal floating point instructions
+.*
+.* * Also available on level 3 or 4 with S/370 instruction extensions on Hercules.
+.*
+.* Process the PSW parameter
+         AIF   ('&PSW' EQ '').NOPSW
+         XMODE PSW,&PSW
+&USEPSW  SETC  'PSW&PSW'
+         AGO   .CKUSPSW
+.NOPSW   ANOP
+.* Determine if there is an XMODE setting available or use the SET parameter
+         AIF   ('&SET' NE '').FORCE
+         AIF   ('&SYSPSW' NE '').CKSETNG
+         MNOTE 1,'XMODE PSW NOT SET'
+         MEXIT
+.CKSETNG ANOP
+&USEPSW  SETC  '&SYSPSW'
+.CKUSPSW ANOP
+         AIF   ('&USEPSW' NE 'PSW360').CK370
+&ARCHLVL SETA  1
+         AGO   .EQUATE
+.CK370   AIF   ('&USEPSW' NE 'PSWBC').CK370EC
+&ARCHLVL SETA  2
+         AGO   .EQUATE
+.CK370EC AIF   ('&USEPSW' NE 'PSWEC').CK380
+&ARCHLVL SETA  3
+         AGO   .EQUATE
+.CK380   AIF   ('&USEPSW' NE 'PSW380').CKXA
+&ARCHLVL SETA  4
+         AGO   .EQUATE
+.CKXA    AIF   ('&USEPSW' NE 'PSWXA').CKE370
+&ARCHLVL SETA  5
+         AGO   .EQUATE
+.CKE370  AIF   ('&USEPSW' NE 'PSWE370').CKE390
+&ARCHLVL SETA  6
+         AGO   .EQUATE
+.CKE390  AIF   ('&USEPSW' NE 'PSWE390').CKZ
+         AIF   ('&ZARCH' EQ 'NO').NOTONZ
+&ARCHLVL SETA  8
+         AGO   .EQUATE
+.NOTONZ  ANOP
+&ARCHLVL SETA  7
+         AGO   .EQUATE
+.CKZ     AIF   ('&USEPSW' NE 'PSWZ').NOSUP
+&ARCHLVL SETA  9
+         AGO   .EQUATE
+.NOSUP   MNOTE 1,'ARCHLVL - XMODE PSW &SYSPSW NOT SUPPORTED BY ARCHLVL MACRO'
+         MEXIT
+.FORCE   ANOP
+&SETTING SETA  &SET
+         AIF   (&SETTING GE 1 AND &SETTING LE 9).DOFORCE
+         MNOTE 1,'ARCHLVL - SET PARAMETER NOT A VALID LEVEL - &SETTING'
+         MEXIT
+.DOFORCE ANOP
+&ARCHLVL SETA  &SETTING
+.EQUATE  AIF   ('&LABEL' EQ '').DOIND
+&LABEL   EQU   &ARCHLVL
+.DOIND   AIF   ('&ARCHIND' NE 'YES').MNOTE
+         ARCHIND
+.MNOTE   ANOP
+         AIF   ('&MNOTE' NE 'YES').MEND
+         MNOTE *,'ARCHLVL - ARCHITECTURE LEVEL SET - &ARCHLVL'
+.MEND    MEND

@@ -1,0 +1,99 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   ASAZAREA &DSECT=NO,&ORG=
+.* This macro defines the various save areas and other fields moved to higher storage
+.* to accommodate increased field sizes due to 64-bit addressing.  Because the area
+.* is not contigous positioning is effected by means of the &ORG parameter
+.*    &LABEL   if provided specifies the name of a CSECT or DSECT to be initiated
+.*             or continued before assigned storage locations are defined.
+.*             &DSECT controls which is initiated or continued
+.*    &DSECT=  NO  - Causes the &LABEL variable, if provided, to initiate or
+.*                   continue a CSECT.  Default is NO.
+.*             YES - Causes the &LABEL variable, if provided, to initiate  or
+.*                   continue a DSECT
+.*    &ORG=    If provided, the value will be applied to the start of the
+.*             section identified by the &LABEL section.  If 'YES' is supplied,
+.*             a value of X'11C0' will be used.  If &LABEL is not provided, the
+.*             parameter is ignored.
+.* In general the most likely usage of this macro is to define a DSECT for the area
+.* and utilize a base register for access.  The base register is required to access
+.* these areas above the first 4096 bytes of storage.  The EQU ZSASDISP provides the
+.* starting location of these areas and may be used to initialize a base register via
+.* an address constant.
+.*
+.* Initiate CSECT/DSECT if specified
+         AIF   ('&LABEL' EQ '').GEN
+         AIF   ('&DSECT' EQ 'YES').DODSECT
+         AIF   ('&DSECT' EQ 'NO').DOCSECT
+         MNOTE *,'ASAZAREA - DSECT VALUE NEITHER "YES" NOR "NO", DEFAULTING TO "NO"'
+.DOCSECT ANOP
+&LABEL   CSECT
+         AGO   .POS
+.DODSECT ANOP
+&LABEL   DSECT
+.* Position the fields within the section if requested
+.POS     ANOP
+         AIF   ('&ORG' EQ '').GEN
+         AIF   ('&ORG' EQ 'YES').POSDEF
+         ORG   &LABEL+&ORG
+         AGO   .GEN
+.POSDEF  ANOP
+         ORG   &LABEL+X'11C0'
+.GEN  ANOP
+.* Generate various z/Architecture fields
+ZREALBEG EQU   *             11C0 R   Start of assigned high real area locations
+ZAVAIL   DC    XL64'00'      11C0 R   Available for programming
+ZMKFPRS  DC    16D'0'        1200 R   Machine-Check floating point registers
+ZMKGRS   DC    16FD'0'       1280 R   Machine-Check general registers
+ZMKLOG   DC    XL16'00'      1300 R   Machine-Check fixed logout area
+ZMKRES   DC    FD'0'         1310 R   Reserved
+ZUA1     DC    F'0'          1318 R   unused area
+ZMKFPCR  DC    F'0'          131C R   Machine-Check floating point control register
+ZUA2     DC    F'0'          1320 R   unused area
+ZMKTODPR DC    F'0'          1324 R   Machine-Check TOD-programmable register
+ZMKCPUTM DC    FD'0'         1328 R   Machine-Check CPU-timer
+ZUA3     DC    X'00'         1330 R   unused area
+ZMKCLKCM DC    XL7'00'       1331 R   Machine-Check Clock-Comparator
+ZUA4     DC    FD'0'         1338 R   unused area
+ZMKARS   DC    16F'0'        1340 R   Machine-Check accress registers
+ZMKCRS   DC    16FD'0'       1380 R   Machind-Check control registers
+ZUA5     EQU   *             1400 R   unused area
+         ORG   *+X'400'      1400 R   unused area
+ZPGMTDB  DC    XL256'00'     1800 R   Program-interruption Transaction Diagnostic Block
+ZREALEND EQU   *             1900 R   End of assigned high real area locations
+ZREALLEN EQU   ZREALEND-ZREALBEG      Length of assigned high real locations
+         ORG   ZMKFPRS
+ZABSBEG  EQU   *             1200 A   Start of absolute high area assigned locations
+ZSSFPRS  DC    16D'0'        1200 A   Store-status floating point registers
+ZSSGRS   DC    16FD'0'       1280 A   Store-status general registers
+ZSSPSW   DC    XL16'00'      1300 A   Store-status PSW
+ZUA6     DC    FD'0'         1310 A   unused area
+ZSSPRFX  DC    F'0'          1318 A   Store-status prefix
+ZSSFPCR  DC    F'0'          131C A   Store-status floating point control register
+ZUA7     DC    F'0'          1320 A   unused area
+ZSSTODPR DC    F'0'          1324 A   Store-status TOD-programmable register
+ZSSCPUTM DC    FD'0'         1328 A   Store-status CPU-timer
+ZUA8     DC    X'00'         1330 A   unused area
+ZSSCLKCM DC    XL7'00'       1331 A   Store-status Clock-Comparator
+ZUA9     DC    FD'0'         1338 A   unused area
+ZSSARS   DC    16F'0'        1340 A   Store-status accress registers
+ZSSCRS   DC    16FD'0'       1380 A   Store-status control registers
+ZABSEND  EQU   *             1400 A   End of absoulate high area assigned locations
+ZABSLEN  EQU   ZABSEND-ZABSBEG        Size of absolute high area usage
+         MEND

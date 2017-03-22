@@ -1,0 +1,27 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   ESA390 &PAIR,&CPUR,&SUCCESS=,&FAIL=
+.* In-line enter ESA/390 mode from z/Architecture mode
+         GBLA  &ARCHLVL   Current architecture level
+         AIF   (&ARCHLVL GE 8).GEN
+         MNOTE *,'ESA390 - WARNING: ARCHITECTURE LEVEL LESS THAN 8 - &ARCHLVL'
+.GEN     ANOP
+&LABEL   LA    &PAIR+1,1           Establish change to ESA/390 parameter
+         SIGCPU &PAIR,&CPUR,ORDER=X'12',SUCCESS=&SUCCESS,FAIL=&FAIL
+         MEND

@@ -1,0 +1,39 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   TRAP64 &RESTART=NO,&PSW=
+.* Generate 64-bit ISR Trap PSWs
+.* Optional Parameter Usage:
+.*   &LABEL   Associate a symbol with the generated PSWs
+.*   &PSW=''  Override XMODE PSW setting for generated PSWs
+.*   &RESTART Specify 'YES' to cause the restart new PSW to be created
+.*            Specify 'ONLY' to cause just the new restart PSW to be created
+.*            Otherwise, a new restart PSW is not created.  Default is 'NO'.
+         AIF    ('&LABEL' EQ '').NOLBL
+&LABEL   DS     0AD
+.NOLBL   ANOP
+         AIF    ('&RESTART' NE 'YES' AND '&RESTART' NE 'ONLY').NOFILL
+         PSW&PSW 0,0,2,0,X'008'    64-bit Restart ISR Trap New PSW
+         AIF    ('&RESTART' EQ 'ONLY').DONE
+.NOFILL  ANOP
+         PSW&PSW 0,0,2,0,X'018'    64-bit External ISR Trap New PSW
+         PSW&PSW 0,0,2,0,X'020'    64-bit Supervisor Call ISR Trap New PSW
+         PSW&PSW 0,0,2,0,X'028'    64-bit Program ISR Trap New PSW
+         PSW&PSW 0,0,2,0,X'030'    64-bit Machine Check Trap New PSW
+         PSW&PSW 0,0,2,0,X'038'    64-bit Input/Output Trap New PSW
+.DONE    MEND

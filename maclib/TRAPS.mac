@@ -1,0 +1,90 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   TRAPS &ENABLE=,&PSW=
+.* Enable in-line ISR Trap PSWs based upon current architecture level
+.* Optional Parameter Usage:
+.*   &LABEL   Associate a symbol with the in-line enabling instructions
+.*   &ENABLE  Specify 'YES' to enable in-line trap PSW's
+.*            Specify 'NO' to only generate PSW's
+.*            Specify 'ONLY' to enable PSWs identified by the &PSW parameter
+.*   &PSW     Override XMODE PSW format for non-z architectures if required.
+.*            z/Architecture systems always use PSWE390 and PSWZ formats.  When
+.*            ENABLE=ONLY, this parameter identifies where the TRAP PSW's are
+.*            located.
+.* Register Usage:
+.*   Local addressability required
+         GBLA  &ARCHLVL   Current architecture level
+.* Symbolic variables supplied by ARCHIND
+         GBLB  &ARCHIND   Whether operator synonyms defined
+         LCLA  &PSWD      Bytes of generated PSWs
+         LCLB  &ENA       Whether PSWs are enabled
+         LCLB  &GEN       Whether in-line PSWs are created
+         LCLC  &PSWA      Address of PSWs being enabled
+         LCLC  &PSWFM
+         AIF   ('&ENABLE' EQ 'YES').ENAYES
+         AIF   ('&ENABLE' EQ 'ONLY').ENAONLY
+         AIF   ('&ENABLE' EQ 'NO').GENONLY
+.ENAYES  ANOP
+&GEN     SETB  1
+&PSWA    SETC  'TRAP&SYSNDX'
+.ENAONLY ANOP
+&ENA     SETB  1
+         AIF   ('&PSW' NE '').PSWGOOD
+         MNOTE 1,'TRAPS - REQUIRED ENABLE=ONLY PSW PARAMETER MISSING'
+.PSWGOOD ANOP
+&PSWA    SETC  '&PSW'
+         AGO   .CKIND
+.GENONLY ANOP
+&GEN     SETB  1
+&PSWA    SETC  '&LABEL'
+         AGO   .LBL
+.CKIND   ANOP
+         AIF   (&ARCHIND).ARCHGOD
+         MNOTE 1,'TRAP64 - REQUIRED ARCHIND MACRO OPERATOR SYNONYMS UNDEFINED'
+.ARCHGOD ANOP
+.LBL     ANOP
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H
+         AIF   (NOT &ENA).GENPSW
+.NOLBL   ANOP
+         MVC   X'000'(8,0),&PSWA      Enable Restart ISR Trap
+         MVC   X'058'(40,0),&PSWA+8   Enable all other 64-bit PSW ISR Traps
+         AIF   (&ARCHLVL LT 8).NOZENA
+         MVC   X'1A0'(96,0),&PSWA+48  Enable all 128-bit PSW ISR Traps
+.NOZENA  ANOP
+.* Generate in-line PSWs for ENABLE=YES
+         AIF   (NOT &GEN).DONE
+         AIF   (NOT &ENA).GENPSW
+         AIF   (&ARCHLVL LT 9).JUST64
+         $B    TRAP&SYSNDX+144
+         AGO   .GENPSW
+.JUST64  ANOP
+         $B    TRAP&SYSNDX+48
+.GENPSW  ANOP
+         AIF   (&ARCHLVL EQ 9).USEEC
+&PSWFM   SETC  '&PSW'
+         AGO   .TRAPS
+.USEEC   ANOP
+&PSWFM   SETC  'E390'
+.TRAPS   ANOP
+&PSWA    TRAP64 PSW=&PSWFM,RESTART='YES'
+         AIF    (&ARCHLVL LT 8).NOZPSW
+         TRAP128
+.NOZPSW  ANOP
+.DONE    MEND

@@ -1,0 +1,73 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   DWAIT &PGM=1,&CMP=0,&CODE=BAD,&LOAD=NO
+.* This macro creates a disabled wait PSW with the following instruction address format
+.* and loads it if requested
+.*   PPXRRR  where
+.*     PP =>  A program identifier.  00 is reserved for SATK
+.*     X  =>  A program component identifier
+.*     RRR => A reason code
+.*  If defaulted the instruction address is: X'010BAD'
+.* Optional Parameter Usage:
+.*  &LABEL Symbol associated with the loading of the PSW or of the PSW itself
+.*  &PGM   Two-position hexadecimal program identifier.  If omitted, defaults to 01.
+.*  &CMP   One-position hexadecimal component identifier.  If omitted, defaults to 0.
+.*  &CODE  Three-position hexadecimal reason code.
+.*  &LOAD  Specify 'YES' to cause the PSW to be loaded.  Otherwise just the PSW is
+.*         created without it being loaded by the macro.  Use of LOAD=YES causes the
+.*         macro to generate inline instructions instead of a PSW loaded by some other
+.*         instructions.
+         GBLA  &ARCHLVL   Current architecture level
+.* Symbols provided by the ARCHIND macro
+.*         GBLA  &ARCHASZ   Size of an address constant in bytes
+.*         GBLA  &ARCHIRB   Size of an IRB in full words
+.*         GBLA  &ARCHORB   Size of an ORB in full words
+.*         GBLA  &ARCHORX   Size of an extended ORB in full words
+.*         GBLA  &ARCHSCB   Size of a SCHIB in full words
+         GBLB  &ARCHIND   Whether operator synonyms defined
+.*         GBLC  &ARCHAMK   Address constant mask
+.*         GBLC  &ARCHATP   Address constant type
+.*         GBLC  &ARCHITP   Integer constant type
+         GBLC  &ARCHIPF   IPL PSW format
+         LCLA  &POS
+         LCLC  &P,&C,&CD
+&P       SETC  '00&PGM'
+&POS     SETA  K'&P-1
+&P       SETC  '&P'(&POS,2)
+&C       SETC  '0&CMP'
+&POS     SETA  K'&C
+&C       SETC  '&C'(&POS,1)
+&CD      SETC  '000&CODE'
+&POS     SETA  K'&CD-2
+&CD      SETC  '&CD'(&POS,3)
+.GEN     ANOP
+         AIF   (&ARCHIND).SETLBL
+         MNOTE 1,'DWAIT - REQUIRED ARCHIND MACRO MISSING'
+         MEXIT
+.SETLBL  ANOP
+         AIF   ('&LOAD' NE 'YES').NOLOAD
+         AIF   ('&LABEL' EQ '').GENLPSW
+&LABEL   DS    0H
+.GENLPSW ANOP
+         LPSW  DWAT&SYSNDX
+DWAT&SYSNDX &ARCHIPF 0,0,2,0,X'&P&C&CD'
+         MEXIT
+.NOLOAD  ANOP
+&LABEL   &ARCHIPF 0,0,2,0,X'&P&C&CD'
+         MEND

@@ -1,0 +1,44 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   POINTER &LOC
+.* Generate an architecture indendent address constant
+.* Required Parameter Usage:
+.*   &LOC   The value of the address constant.  May be a symbol, self-defining term or
+.*          an expression using only symbols and deciam self-defining term.
+.* Symbols provided by the ARCHIND macro:
+.*         GBLA  &ARCHASZ   Size of an address constant in bytes
+.*         GBLA  &ARCHIRB   Size of an IRB in full words
+.*         GBLA  &ARCHORB   Size of an ORB in full words
+.*         GBLA  &ARCHORX   Size of an extended ORB in full words
+.*         GBLA  &ARCHSCB   Size of a SCHIB in full words
+         GBLB  &ARCHIND   Whether operator synonyms defined
+.*         GBLC  &ARCHAMK   Address constant mask
+         GBLC  &ARCHATP   Address constant type
+.*         GBLC  &ARCHITP   Integer constant type
+.*         GBLC  &ARCHIPF   IPL PSW format
+         AIF   ('&LOC' NE '').LOCGOOD
+         MNOTE 1,'POINTER - REQUIRED POSITIONAL PARAMETER LOC MISSING'
+         MEXIT
+.LOCGOOD ANOP
+         AIF   (&ARCHIND).ARKGOOD
+         MNOTE 1,'POINTER - REQUIRED ARCHIND MACRO MISSING'
+         MEXIT
+.ARKGOOD ANOP
+&LABEL   DC    &ARCHATP.(&LOC)
+         MEND

@@ -1,0 +1,74 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   SIGCPU &PAIR,&CPUR,&ORDER=0,&CPUADDR=,&SUCCESS=,&FAIL=
+.* Signal this CPU with in-line logic.
+.*  &PAIR      Even/odd register pair used by the SIGNAL PROCESSOR instruction
+.*  &CPUR      A different register containing the CPU address of the CPU being
+.*             signaled
+.*  &ORDER     The SIGNAL PROCESSOR order being issued
+.*  &CPUADDR   A half-word containing the CPU address of the CPU being signaled.
+.*             It is the source for contents of the &CPUR register parameter.
+.*             If ommitted, this CPU's address is saved in a half-word provided by
+.*             the macro before loading &CPUR forcing a signaling of the running CPU.
+.*  &SUCCESS   A label to which control is passed upon a successful signaling
+.*  &FAIL      A label to which control is passed upon a failed signaling
+.* If either &SUCCESS or &FAIL is not provided, control falls through to the next
+.* instruction following the macro.
+.* If the order requires a parameter in the odd register of the even/odd pair, it
+.* must be set before issueing the macro.
+         GBLA  &ARCHLVL   Current architecture level
+         LCLA  &BRS
+.* Check for required parms
+         AIF   ('&PAIR' NE '').PAIROK
+         MNOTE 1,'SIGCPU - EVEN/ODD REGISTER PAIR MISSING, REQUIRED'
+         MEXIT
+.PAIROK  ANOP
+         AIF   ('CPUR' NE '').CPUOK
+         MNOTE 1,'SIGCPU - CPU ADDRESS REGISTER MISSING, REQUIRED'
+         MEXIT
+.CPUOK   ANOP
+         AIF   (&ARCHLVL GE 2).GEN
+         MNOTE *,'SIGCPU - WARNING: ARCHITECTURE LEVEL LESS THAN 2 - &ARCHLVL'
+.GEN     ANOP
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H
+.NOLBL   ANOP
+         AIF   ('&CPUADDR' NE '').NOSAVE
+         STAP  CPU&SYSNDX           Save this CPU's address
+         LH    &CPUR,CPU&SYSNDX     Establish the CPU's address
+         AGO   .SIGNAL
+.NOSAVE  ANOP
+         LH    &CPUR,&CPUADDR       Establish the CPU's address
+.SIGNAL  ANOP
+         SIGP  &PAIR,&CPUR,&ORDER   SIGNAL the processor
+         AIF   ('&SUCCESS' EQ '').NOSUC
+         BC    B'1000',&SUCCESS           SIGNAL PROCESSOR succeeded
+&BRS     SETA  &BRS+1
+.NOSUC   ANOP
+         AIF   ('&FAIL' EQ '').NOFAIL
+         BC    B'0111',&FAIL              SIGNAL PROCESSOR failed
+&BRS     SETA  &BRS+1
+.NOFAIL  ANOP
+         AIF   ('&CPUADDR' NE '').NOSA
+         AIF   (&BRS EQ 2).NOBR
+         B     CPU&SYSNDX+2         Continue execution
+.NOBR    ANOP
+CPU&SYSNDX DC  H'0'
+.NOSA    ANOP
+         MEND

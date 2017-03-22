@@ -1,0 +1,42 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   SMMGRB &START
+.* This macro generates the fields used by the Static Memory Manager (SMMGR) for
+.* managing allocations.
+.* Required Parameter Usage:
+.*  &START   Location of the memory location available to SMMGR.  Any assemlbed
+.*           locations following this location are subject to overlay due to storage
+.*           allocation.
+.* Optional Parameter Usage:
+.*  &LABEL   Symbol associated with the SMMBRB fields.
+         GBLA  &ARCHLVL   Current architecture level
+.* Symbolic variables supplied by ARCHIND
+         GBLB  &ARCHIND   Whether operator synonyms defined
+         GBLC  &ARCHATP   Address constant type
+         GBLC  &ARCHITP   Integer constant type
+         AIF   ('&START' NE '').STARTOK
+         MNOTE 1,'SMMGRB - REQUIRED START PARAMETER MISSING'
+         MEXIT
+.STARTOK ANOP
+         AIF   (&ARCHIND).GEN
+         MNOTE 1,'SMMGRB - REQUIRED ARCHIND MACRO OPERATOR SYNONYMS UNDEFINED'
+         MEXIT
+.GEN     ANOP
+&LABEL   DC    &ARCHATP.(&START),&ARCHITP'-1'
+         MEND

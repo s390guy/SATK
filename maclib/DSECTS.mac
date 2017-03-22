@@ -1,0 +1,219 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         DSECTS &PRINT=,&NAME=
+.* Generates various DSECTs based upon architecture level, or name
+.*   1. Sets the PRINT ON or OFF option if requested
+.*   3. Sets the XMODE PSW setting if requested (driving the next step)
+.*   4. Creates DSECTS based upon various format generating macros
+.* Any of the parameters may be omitted, disabling that steps actions.  When using
+.* the SATK macro the first statement of the assembly should be a COPY 'satk.mac'
+.* statement making the macros of this file available.
+.* SATK may be repeated any number of times at various places within the assembly.
+.* If the PRINT ON or OFF setting is modified, the user must restore a previous
+.* setting if desired.
+.* Optional Parameter Usage:
+.*  &PRINT  Specify the setting of PRINT assembler directive used by the DSECTS macro.
+.*          PRINT settings are restored to the state before the macro.
+.*          If omitted, the current PRINT setting is used without change
+.*  &NAME   A single or sublist of DSECT names to be created.  If no names supplied
+.*          Current architecture level drives the selected DSECTS
+         GBLA  &ARCHLVL   Current architecture level
+.* Number of sub-parameters
+         LCLA  &NUMDS
+         LCLA  &NDXDS
+.* Requested DSECTS
+         LCLB  &NASA,&NASAH,&NCCW,&NCCW0,&NCCW1,&NCHAN,&NCS,&NCSW,&NFRAME,&NIO
+         LCLB  &NIOCB,&NIRB,&NORB,&NPSW,&NSCHIB,&NSCSW,&NTBL
+.* Other local variables
+         LCLB  &NEWPR Whether PRINT options have been pushed.
+         LCLB  &NOPR  Whether PUSH/POP/PRINT actually printed
+         LCLC  &CPY   Current COPY parameter/sub-parameter
+         LCLC  &DS    Current DS parameter/sub-parameter
+.* Process DSECT parameter
+&NUMDS   SETA  N'&NAME
+&NDXDS   SETA  1
+         AIF   (&NUMDS GT 0).DSLOOP
+         AIF   ('&NAME' EQ '').NODSECT
+&DS      SETC  '&NAME'
+         AGO   .DSTEST
+.DSLOOP  ANOP
+&DS      SETC  '&NAME(&NDXDS)'
+.DSTEST  ANOP
+         AIF   ('&DS' EQ 'ASA').SETASA     Assigned Storage Locations
+         AIF   ('&DS' EQ 'ASAZ').SETASAZ   Assigned Storage Locations High
+         AIF   ('&DS' EQ 'CCW').SETCCW     CCW0 and CCW1
+         AIF   ('&DS' EQ 'CCW0').SETCCW0   CCW0
+         AIF   ('&DS' EQ 'CCW1').SETCCW1   CCW1
+         AIF   ('&DS' EQ 'CHAN').SETCHN    Channel I/O DSECTS
+         AIF   ('&DS' EQ 'CS').SETCS       Channel Subsystem I/O DSECTS
+         AIF   ('&DS' EQ 'CSW').SETCSW     Channel Status Word
+         AIF   ('&DS' EQ 'FRAME').SETFRM   Function Stack Frame
+         AIF   ('&DS' EQ 'IO').SETIO       All I/O DSECTS not already generated
+         AIF   ('&DS' EQ 'IOCB').SETIOCB   Raw I/O control block
+         AIF   ('&DS' EQ 'IRB').SETIRB     Interruption-Response Block
+         AIF   ('&DS' EQ 'ORB').SETORB     Operation-Reqeust Block
+         AIF   ('&DS' EQ 'PSW').SETPSW     Architecture level PSW
+         AIF   ('&DS' EQ 'SCHIB').SETSCH   Subchannel-Information Block
+         AIF   ('&DS' EQ 'SCSW').SETSCSW   Subchannel-Status Word
+         AIF   ('&DS' EQ 'TABLE').SETTBL   table.mac table definition structure
+         MNOTE *,'DSECTS - UNRECOGNIZED DSECT PARAMETER IGNORED - &DS'
+         AGO   .NEXTDS
+.* Set specific switches for DSECTs
+.SETASA  ANOP
+&NASA    SETB  1
+         AGO   .NEXTDS
+.SETASAZ ANOP
+&NASAH   SETB  1
+         AGO   .NEXTDS
+.SETCCW  ANOP
+&NCCW    SETB  1
+         AGO   .NEXTDS
+.SETCCW0 ANOP
+&NCCW0   SETB  1
+         AGO   .NEXTDS
+.SETCCW1 ANOP
+&NCCW1   SETB  1
+         AGO   .NEXTDS
+.SETCHN  ANOP
+&NCHAN   SETB  1
+         AGO   .NEXTDS
+.SETCS   ANOP
+&NCS     SETB  1
+         AGO   .NEXTDS
+.SETCSW  ANOP
+&NCSW    SETB  1
+         AGO   .NEXTDS
+.SETFRM  ANOP
+&NFRAME  SETB  1
+         AGO   .NEXTDS
+.SETIO   ANOP
+&NIO     SETB  1
+         AGO   .NEXTDS
+.SETIOCB ANOP
+&NIOCB   SETB  1
+         AGO   .NEXTDS
+.SETIRB  ANOP
+&NIRB    SETB  1
+         AGO   .NEXTDS
+.SETORB  ANOP
+&NORB    SETB  1
+         AGO   .NEXTDS
+.SETPSW  ANOP
+&NPSW    SETB  1
+         AGO   .NEXTDS
+.SETSCH  ANOP
+&NSCHIB  SETB  1
+         AGO   .NEXTDS
+.SETSCSW ANOP
+&NSCSW   SETB  1
+         AGO   .NEXTDS
+.SETTBL  ANOP
+&NTBL    SETB  1
+         AGO   .NEXTDS
+.* Adjust index for next DSECT in the list
+.NEXTDS  ANOP
+&NDXDS   SETA  &NDXDS+1
+         AIF   (&NDXDS LE &NUMDS).DSLOOP
+         AGO   .DOPR
+.* Select DSECTS by architecture level
+.NODSECT ANOP
+&NPSW    SETB  1
+&NIOCB   SETB  1
+         AIF   (&ARCHLVL LE 4).NEEDCH
+&NCS     SETB  1
+         AGO   .DOPR
+.NEEDCH  ANOP
+&NCHAN   SETB  1
+.* Process the PRINT parameter
+.DOPR    ANOP
+         AIF   ('&PRINT' EQ '').NOPRINT
+         AIF   ('&PRINT' EQ 'ON').DOON
+         AIF   ('&PRINT' EQ 'OFF').DOOFF
+.DOON    ANOP
+         PUSH  PRINT
+&NEWPR   SETB  1,    Remember to restore previous setting
+         PRINT ON
+         AGO   .NOPRINT
+.DOOFF   ANOP
+         PUSH  PRINT,NOPRINT
+&NEWPR   SETB  1,   Remember to restore previous setting
+         PRINT OFF,NOPRINT
+&NOPR    SETB  1,   Remember that we did not print PUSH/PRINT (so dont print POP/PRINT)
+.NOPRINT ANOP
+.* Process the individual DSECTs
+         AIF   (NOT &NASA).NOASA
+ASA      ASAREA DSECT=YES
+.NOASA   ANOP
+         AIF   (NOT &NASAH).NOASAH
+ASAZ     ASAZAREA DSECT=YES
+.NOASAH  ANOP
+         AIF   (NOT &NCCW).NOCCW
+         IOFMT DSECT=CCW
+.NOCCW   ANOP
+         AIF   (NOT &NCCW0).NOCCW0
+         IOFMT DSECT=CCW0
+.NOCCW0  ANOP
+         AIF   (NOT &NCCW1).NOCCW1
+         IOFMT DSECT=CCW1
+.NOCCW1  ANOP
+         AIF   (NOT &NCHAN).NOCHAN
+         IOFMT DSECT=(CCW0,CSW)
+.NOCHAN  ANOP
+         AIF   (NOT &NCS).NOCS
+         IOFMT DSECT=(CCW,IRB,ORB,SCHIB,SCSW)
+.NOCS    ANOP
+         AIF   (NOT &NCSW).NOCSW
+         IOFMT DSECT=CSW
+.NOCSW   ANOP
+         AIF   (NOT &NFRAME).NOFRM
+         FRAME
+.NOFRM   ANOP
+         AIF   (NOT &NIRB).NOIRB
+         IOFMT DSECT=IRB
+.NOIRB   ANOP
+         AIF   (NOT &NORB).NOORB
+         IOFMT DSECT=ORB
+.NOORB   ANOP
+         AIF   (NOT &NIO).NOIO
+         IOFMT DSECT=ALL
+.NOIO    ANOP
+         AIF   (NOT &NIOCB).NOIOCB
+         IOCBDS
+.NOIOCB  ANOP
+         AIF   (NOT &NPSW).NOPSW
+         PSWFMT
+.NOPSW   ANOP
+         AIF   (NOT &NSCHIB).NOSCHIB
+         IOFMT DSECT=SCHIB
+.NOSCHIB ANOP
+         AIF   (NOT &NSCSW).NOSCSW
+         IOFMT DSECT=SCSW
+.NOSCSW  ANOP
+         AIF   (NOT &NTBL).NOTBL
+         TBLDS
+.NOTBL   ANOP
+.* Restore PRINT options after DSECTS created
+.PRREST  ANOP
+         AIF   (NOT &NEWPR).DONE
+         AIF   (&NOPR).POPNPR
+         POP   PRINT
+         MEXIT
+.POPNPR  ANOP
+         POP   PRINT,NOPRINT
+.DONE    MEND

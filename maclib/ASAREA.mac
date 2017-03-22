@@ -1,0 +1,201 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   ASAREA &DSECT=NO,&SCANOUT=0
+.* The LC360 macro generates assigned storage areas for the first 128+ locations as
+.* used by System/360.  It may be used within either a CSECT or DSECT or generates a
+.* new one.
+.*    &LABEL   if provided specifies the name of a CSECT or DSECT to be initiated
+.*             before assigned storage locations are defined.  &DSECT controls which
+.*             is initiated.
+.*    &DSECT=  NO  - Causes the &LABEL variable, if provided, to initiate a CSECT.
+.*                   Default.
+.*             YES - Causes the &LABEL variable, if provided, to initiate a DSECT
+.*    &SCANOUT Size of the System/360 diagnostic scan out area in bytes. Defaults to 0
+         LCLB  &NOTRAPS   Flag is True if trap PSW's are NOT being generated
+.* Initiate CSECT/DSECT if specified
+         AIF   ('&LABEL' EQ '').NOSECT
+         AIF   ('&DSECT' EQ 'YES').DODSECT
+         AIF   ('&DSECT' EQ 'NO').DOCSECT
+         MNOTE *,'DSECT VALUE NEITHER "YES" NOR "NO" INVALID, DEFAULTING TO "NO"'
+.DOCSECT ANOP
+&LABEL   CSECT
+         AGO   .NOSECT
+.DODSECT ANOP
+&LABEL   DSECT
+.NOSECT  ANOP
+ASBEGIN  EQU   *                   Start of absolute/real assigned storage areas
+IPLPSW   DC    FD'0'        000 A  Initial Program Load Program Status Word
+IPLCCW1  DC    FD'0'        008 A  Initial Program Load first Channel Command Word
+IPLCCW2  DC    FD'0'        010 A  Initial program Load second Channel Command Word
+* RESTART RELATED PROGRAM STATUS WORDS
+         ORG   ASBEGIN
+RSTNPSW  DC    FD'0'        000 R  Restart New PSW
+RSTOPSW  DC    FD'0'        008 R  Restart Old PSW
+UA0      DC    FD'0'        010 R  Unassigned Area 0
+* INTERRUPTION OLD PROGRAM STATUS WORD SAVE AREAS
+EXTOPSW  DC    FD'0'        018 R  External Interrupt Old PSW
+SVCOPSW  DC    FD'0'        020 R  Supervisor Call Old PSW
+PGMOPSW  DC    FD'0'        028 R  Program Old PSW
+MCKOPSW  DC    FD'0'        030 R  Machine Check Old PSW
+IOOPSW   DC    FD'0'        038 R  Input/Output Old PSW
+* System/360 or System/370 Basic Control Mode INTERRUPTION INFORMATION
+         ORG   EXTOPSW+2
+BCEXTCOD DC    H'0'         01A R  External Interuption Code
+         ORG   SVCOPSW+2
+BCSVCCOD DC    H'00'        022 R  Supervisor Call Interruption Code
+         ORG   PGMOPSW+2
+BCPGMCOD DC    H'0'         02A R  Program Interruption Code
+         ORG   MCKOPSW+2
+BCMCKCOD DC    H'0'         032 R  Machine Check Interruption Code
+         ORG   IOOPSW+2
+BCIOCOD  DC    H'0'         03A R  Input/Output Interruption Code (Device CCUU)
+         ORG   *+4
+* CHANNEL-BASED INPUT/OUTPUT INTERRUPT RELATED
+CSW      DC    FD'0'        040 R  Channel Status Word
+CAW      DC    0F'0'        048 R  Channel Address Word
+CAWKEY   DC    X'00'        048 R  Channel Storage Key (bits 0-3)
+CAWSUSP  EQU   X'08'        048 R  Suspend Control (bit 4)
+CAWADDR  DC    AL3(0)       049 R  Channel Command Address
+UA1      DC    F'0'         04C R  Unassigend Area 1
+* MISCELANEOUS AREAS
+TIMER    DC    F'0'         050 R  System/360 and System/370 Interval Timer
+TTDES    DC    F'0'         054 R  System/370 Trace-Table-Designation
+* INTERRUPTION NEW PROGRAM STATUS WORD AREAS
+EXTNPSW  DC    FD'0'        058 R  External New PSW
+SVCNPSW  DC    FD'0'        060 R  Supervisor Call New PSW
+PGMNPSW  DC    FD'0'        068 R  Program New PSW
+MCKNPSW  DC    FD'0'        070 R  Machine Check New PSW
+IONPSW   DC    FD'0'        078 R  Input/Output New PSW
+* System/360 Diagnostic Scanout Area
+SCANOUT  DS    &SCANOUT.X   080 A  System/360 Diagnostic Scanout Area
+SCANOUTL EQU   *-SCANOUT           System/360 Diagnostic Scanout Area Length
+* EXTERNAL INTERRUPTION INFORMATION
+         ORG   ASBEGIN+X'80'
+EXTIPARM DC    F'0'         080 R  External-interruption Parameter
+EXTCPUAD DC    H'0'         084 R  External-interruption CPU Address
+EXTICODE DC    H'0'         086 R  External-interruption Code
+* SUPERVISOR CALL INTERRUPTION INFORMATION
+SVCIID   DC    0F'0'        088 R  Supervisor-Call Interuption Identification
+         DC    X'00'        088 R  not-used - zeros stored
+SVCIILC  DC    X'00'        089 R  Supervisor-Call instruction length code
+SVCIILCM EQU   B'00001100'         Supervisor-Call ILC mask, zeros stored in other bits
+SVCICODE DC    H'0'         08A R  Supervisor-Call Interruption Code
+* PROGRAM INTERRUPTION INFORMATION
+PGMIID   DC    0F'0'        08C R  Program-interruption identification
+         DC    X'00'        08C R  not-used - zeros stored
+PGMIILC  DC    X'00'        08D R  Program instruction lengh code
+PGMIILCM EQU   B'00001100'         Progrtam ILC mask, zeros stored in other bits
+PGMICODE DC    H'0'         08E R  Program Interruption Code
+PGMDXC   DC    0F'0'        090 R  Data-Exception Code
+PGMTRX   DC    F'0'         090 R  Translation-Exception Identification
+MONCLS   DC    0H'0'        094 R  Monitor-Class Number
+         DC    X'00'        094 R  not-used - zeros stored
+MONNUMBR DC    X'00'        095 R  Monitor-Class Number stored
+PERCODE  DC    X'00'        096 R  Program-Event-Recording Code
+PERCODMK EQU   B'11110000'         Program-Event-Recordind Code mask in bits 0-3
+         DC    X'00'        097 R  PER Code not used - zeros stored
+PERADDR  DC    F'0'         098 R  PER Address
+MONCODE  DC    F'0'         09C R  Monitor Event Code in bytes 1-3, zeros in byte 0
+PGMACCID DC    X'00'        0A0 R  Exception accress identification
+PERACCID DC    X'00'        0A1 R  PER access identification
+MPGACCID DC    X'00'        0A2 R  MOVE PAGE Operand access identification
+SSARCHMD DC    0X'00'       0A3 A  Store Status Architectural Mode Identification
+MKARCHMD DC    X'00'        0A3 R  Machine-Check Architectural Mode Identification
+UA2      DC    F'0'         0A4 R  Unused area
+* z/Architecture PROGRAM INTERRUPTION INFORMATION
+ZPGMTRX  DC    FD'0'        0A8 R  Translation Exception information
+ZMONCODE DC    FD'0'        0B0 R  Monitor Code
+* System/370 CHANNEL INPUT/OUTPUT INFORMATION
+         ORG   ASBEGIN+X'A8'
+CHANID   DC    F'0'         0A8 R  System/370 STORE CHANNEL ID location
+IOELADDR DC    F'0'         0AC R  System/370 I/O Extended Logout Address
+LCHANLOG DC    F'0'         0B0 R  System/370 Limited Channel Logout Area
+UA3      DC    F'0'         0B4 R  unused by System/370
+UA4      DC    X'00'        0B8 R  unused by System/370
+MEASUREB DC    X'00'        0B9 R  System/370 Measurement Byte
+IOICODE  DC    H'0'         0BA R  System/370 Input/Output Interruption Device Address
+* CHANNEL SUBSYSTEM INPUT/OUTPUT INFORMATION
+         ORG   ASBEGIN+X'B8'
+IOSSID   DC    F'0'         0B8 R  Channel subsystem-identification word
+IOIPARM  DC    F'0'         0BC R  Channel subsystem I/O Interruption parameter
+IOIID    DC    F'0'         0C0 R  Channel subsystem I/O Interruption Identification
+PCFETO   DC    A(0)         0C4 R  ESA/390 PROGRAM CALL FAST Entry Table Origin
+STFLDATA DC    F'0'         0C8 R  STORE FACILITY LIST storage area
+UA5      DC    XL8'00'      0CC R  unused area
+* MACHINE-CHECK INTERRUPTION INFORMATION
+MKXSAA   DC    F'0'         0D4 R  Machine-Check Extended Save Area Address
+MKCPUTIM DC    FD'0'        0D8 R  Machine-Check CPU timer save area
+MKCLKCMP DC    FD'0'        0E0 R  Machine-Check clock comparator save area
+MKICODE  DC    F'0'         0E8 R  Machine-Check interruption code
+UA6      DC    XL8'00'      0EC R  unused area
+MKDMGCOD DC    F'0'         0F4 R  Machine-Check external damage code
+ZMKFAILA DC    0FD'0'       0F8 R  Machine-Check failing storage address
+MKFAILA  DC    F'0'         0F8 R  Machine-Check failing storage address
+MKMODEL  DC    F'0'         0FC R  Machine-Check model dependent information
+MKLOGOUT DC    4F'0'        100 R  ESA machine-check fixed logout area
+         ORG   ASBEGIN+X'100'
+ZEMONCTR DC    AD(0)        100 R  Enhanced-Monitor Counter-Array Origin
+ZEMONSIZ DC    F'0'         108 R  Enhanced-Monitor Counter-Array Size
+ZEMONCNT DC    F'0'         10C R  Enhanced-Monitor Exception Count
+ZBRKADDR DC    AD(0)        110 R  Breaking-Event Address
+UA7      DC    FD'0'        118 R  unused area
+MKARS    DC    16F'0'       120 R  Machine-Check access register save area
+         ORG   ASBEGIN+X'100'
+MCKLOG   DC    24F'0'       100 R  System/370, 370-XA machine-Check fixed logout area.
+MKFPRS   DC    4D'0'        160 R  Machine-Check floating point register save area
+NKGRS    DC    16F'0'       180 R  Machine-Check general register save area
+MKCRS    DC    16F'0'       1C0 R  Machine-Check control register save area
+* STORE/STATUS SAVE AREAS
+         ORG   ASBEGIN+X'D4'
+SSXSAA   DC    A(0)         0D4 A  Store Status Extended Save Area Address
+SSCPUTIM DC    FD'0'        0D8 A  CPU Timer save area
+SSCLKCMP DC    FD'0'        0E0 A  Clock-Comparator save area
+         ORG   ASBEGIN+X'100'
+SSPSW    DC    FD'0'        100 A  Program-Status Word save area
+SSPREFIX DC    F'0'         108 A  Prefix save area
+SSMODEL  DC    F'0'         10C A  Model-dependent save area
+         ORG   ASBEGIN+X'120'
+SSARS    DC    16F'0'       120 A  Access-register save area
+SSFPRS   DC    4D'0'        160 A  Floating-point register save area
+SSGRS    DC    16F'0'       180 A  General register save area
+SSCRS    DC    16F'0'       1C0 A  Control register save area
+* z/Architecture OLD PROGRAM STATUS WORDS
+         ORG   ASBEGIN+X'120'
+ZRSTOPSW DC    XL16'00'     120 R  Restart Old PSW
+ZEXTOPSW DC    XL16'00'     130 R  External Old PSW
+ZSVCOPSW DC    XL16'00'     140 R  Supervisor-Call Old PSW
+ZPGMOPSW DC    XL16'00'     150 R  Program Old PSW
+ZMCKOPSW DC    XL16'00'     160 R  Machine-Check Old PSW
+ZIOOPSW  DC    XL16'00'     170 R  Input-Output Old PSW
+UA8      DC    XL32'00'     180 R  z/Architecture unused area
+* z/Architecture NEW PROGRAM STATUS WORD AREAS
+ZRSTNPSW DC    XL16'00'     1A0 R  Restart New PSW
+ZEXTNPSW DC    XL16'00'     1B0 R  External New PSW
+ZSVCNPSW DC    XL16'00'     1C0 R  Supervisor-Call New PSW
+ZPGMNPSW DC    XL16'00'     1D0 R  Program New PSW
+ZMCKNPSW DC    XL16'00'     1E0 R  Machine-Check New PSW
+ZIONPSW  DC    XL16'00'     1F0 R  Input/Output New PSW
+.ZPSWDON ANOP
+ZSASDISP EQU   X'11C0'   Displacement to save areas defined by ASAZAREA macro
+.GENEND  ANOP
+ASEND    EQU   *                   End of absolute/real assigned storage areas
+ASLENGTH EQU   ASEND-ASBEGIN       Length of absolute/real assigned storage area
+* LOGICAL ADDRESS USAGE
+CPUID    EQU   *+X'11B'     31B L  System/370 CPU Identity used during DAS tracing
+         MEND

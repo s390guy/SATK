@@ -1,0 +1,176 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   APROB &HERC=NO,&S360=NO,&S380=NO,&REG=1
+.* The APROB macro generates in-line code detecting the running-architecture.
+.* The identified register is set to the detected architecture level.  PGM and SVC
+.* new PSWs are restored to their states before the probe occurred.
+.*
+.* Optional Parameter Usage:
+.*  LABEL   Provides a label for the in-line architecture probe code
+.*  HERC    Specify 'YES' to restrict tests to Hercules standard architectures.
+.*          Otherwise all standard architectures are tested.
+.*  S360    Specify 'YES" to include test for S/360 architecture.  Otherwise S/360
+.*          will be recognized erroneously as S/370 in BC-mode.  Defautls to 'NO'.
+.*  S380    Specify 'YES' to include test for Hercules S/380 architecture.  Otherwise
+.*          S/380 (level 4) will be recognized erroneously as 370-XA (level 5).
+.*          Defaults to 'NO'.  Registers 1-3 are altered by this test
+.*  REG     Specifies the register into which the macro places the run-time detected
+.*          architecture level as a hexadecimal digit.  Defaults to '1'.  This must
+.*          be changed if S380=YES to a register other than 1-3, inclusive.
+.*
+.* Register Usage:
+.*   Register specified by REG parameter is set to the detected architecture level.
+.*   Must not be 1-3 if the S/380 test is included.
+.*   A base register is required and must not be 1-3 if the S/380 test is included.
+.*
+.* Side Effects:
+.* Some interruption codes may be stored.  Condition code is unpredictable.
+.* Addressing mode is the highest supported by the architecture.
+         LCLB  &S360Y
+         LCLB  &S380Y
+         LCLB  &NO5OR6
+&S360Y   SETB  '&S360' EQ 'YES' AND '&HERC' NE 'YES'
+&S380Y   SETB  '&S380' EQ 'YES'
+&NO5OR6  SETB  '&HERC' EQ 'YES'
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H  Detect major architecture groups
+.NOLBL   ANOP
+         MVC   APSZ&SYSNDX.(16),X'1D0'  Save current 128-bit SVC PSW
+         MVC   APSS&SYSNDX.(8),X'060'   Save current 64-bit SVC PSW
+         MVC   APSP&SYSNDX.(8),X'068'   Save current 64-bit PGM PSW
+         MVC   X'1D0'(16,0),AP64&SYSNDX Set up 128-bit SVC New PSW
+         MVC   X'060'(8,0),AP31&SYSNDX  Set up 64-bit SVC New PSW
+         MVC   X'068'(8,0),AP24&SYSNDX  Set up 64-bit PGM New PSW
+         SR    &REG,&REG                Make sure result register is zero
+         SVC   0   NOW DO THE PROBE
+* Control never falls through here.  An interruption takes control elsewhere.
+         SPACE 1
+* Data used by APROB
+AP64&SYSNDX PSWZ  0,0,0,0,IS64&SYSNDX,64     64-bit architecture detected
+         AIF   (NOT &S380Y).NO38
+AP31&SYSNDX PSWXA 0,0,0,0,IS31&SYSNDX,31     31-bit architecture detected
+         AGO   .AP24
+.NO38    ANOP
+AP31&SYSNDX PSW380 0,0,0,0,IS31&SYSNDX,31    31-bit architecture detected
+.AP24    ANOP
+         AIF   (NOT &S360Y).NO360
+AP24&SYSNDX PSW360 0,0,0,0,IS24&SYSNDX,24    24-bit architecture detected
+WH24&SYSNDX PSWBC 0,0,0,0,APDN&SYSNDX,24     24-bit tests complete
+         AGO   .WH31
+.NO360   ANOP
+AP24&SYSNDX PSWEC 0,0,0,0,IS24&SYSNDX,24     24-bit architecture detected
+.WH31    ANOP
+WH31&SYSNDX PSW380 0,0,0,0,APDN&SYSNDX,31    31-bit tests complete
+         AIF   (NOT &S360Y).SETBC
+STEC&SYSNDX PSWEC 0,0,0,0,ISEC&SYSNDX,24     Restores EC-mode for S/370 when detected
+.SETBC   ANOP
+STBC&SYSNDX PSWBC 0,0,0,0,APDN&SYSNDX,24     Restores BC-mode for S/370 when detected
+APSZ&SYSNDX DC    FD'0,0'                    128-bit SVC PSW save area
+APSS&SYSNDX DC    FD'0'                      64-bit SVC PSW save area
+APSP&SYSNDX DC    FD'0'                      64-bit PGM PSW save area
+         AIF   (NOT &S360Y).NO360D
+APCR&SYSNDX DC    F'0'                       Storage area for S/370 CR
+.NO360D  ANOP
+         AIF   (NOT &S380Y).NO380D
+* Data used for S/380 detection
+APRS&SYSNDX DC  A(*),F'0',A(*)    CFC test registers 1-3
+.NO380D  ANOP
+         AIF   (&NO5OR6).NOXAD
+* Data used for 370-XA detection
+APXA&SYSNDX DC  F'0'     STAM test for access register
+.NOXAD   ANOP
+         SPACE 1
+IS64&SYSNDX DS  0H   64-bit architecture found
+*        LGHI  &REG,9  Use of LGHI ensures all high-order bits in 64-bit reg. are 0
+         DC    AL1(X'47',&REG*16+9),HL2'9'
+         B     APDN&SYSNDX   64-bit tests are done
+         SPACE 1
+IS31&SYSNDX DS 0H    31-bit architecture found
+* Detect which 31-bit architecture
+         MVC   X'068'(8,0),WH31&SYSNDX     Set up 31-bit trap PSW
+* A failure on the test instruction causes immediate end to any testing
+* Therefore, the level detected by the failure is set before the test instruction
+* is executed.
+         AIF   (NOT &S380Y).NOHERC
+* Level 4 - Detect Hercules S/380 architecture
+         LA    &REG,4   Set level to 4 (lowest 31-bit architecture)
+         LM    1,3,APRS&SYSNDX
+*        CFC   0                 CFC available on 370-XA but not Hercules S/380
+         DC    XL4'B21A0000'     coded in hex to be independent of target
+.NOHERC  ANOP
+         AIF   (&NO5OR6).NOXA
+* Level 5 - Detect 370-XA architecture
+         LA    &REG,5            Set level to 5 (370-XA)
+*        STAM  0,0,APXA&SYSNDX  STAM available on ESA/370 but not 370-XA
+         DC    X'9B00',S(APXA&SYSNDX)
+* Level 6 - Detect ESA/370 architecture
+         LA    &REG,6            Set level to 6 (ESA/370)
+*        CHI   0,0               CHI  available on ESA/390 but not ESA/370
+         DC    X'A70E0000'
+.NOXA    ANOP
+* Level 7 - Detect native ESA/390
+         LA    &REG,7           Set level to 7 (native ESA/390)
+*        STFL  0(0)             STORE FACILITY LIST
+         DC    X'B2B10000'
+* An operation exception definitely implies native ESA/390
+* Depending upon the platform STFL might actually work.  Test the STFL bits then.
+         TM    200,X'40'        Is z/Architecture installed?
+         BZ    APDN&SYSNDX      ..No, this is a native ESA/390 environment
+*                               ..Yes, ESA/390 on z was detected
+         LA    &REG,8           Set level to 8 (ESA/390 on z)
+         B     APDN&SYSNDX      31-bit tests are done
+         SPACE 1
+* Detect which 24-bit architecture mode is actually running
+IS24&SYSNDX DS 0H    24-bit architecture found
+.* If S/360 is being tested, we must leave the probe in "BC-mode".
+.* If S/370 only is being tested, we leave the probe in "EC-mode" as the most likely
+.* to be the detected mode.
+         AIF   (&S360Y).YES360
+.* Only S/370 mode so the mode
+         LA    &REG,3           Set level to 3 (assume S/370-EC mode)
+         TM    X'29',X'08'      Is EC-mode enabled in old-PSW?
+         BO    APDN&SYSNDX      ..Yes, already in EC-mode, so done
+         LA    &REG,2           ..No, set level to 2 (S/370-BC mode)
+         LPSW  STBC&SYSNDX      Restore BC-mode operation
+         AGO   .DONE
+.YES360  ANOP
+.* Both S/360 an S/370 being tested
+         LA    &REG,1           Set level to 1 (lowest 24-bit architecture)
+.TESTBC  ANOP
+         CLI   X'2B'(0),X'00'     Does the program old PSW have an interrupt code?
+         BZ    IS37&SYSNDX        ..No, zeros means EC mode WAS running
+* BC-mode was running but is it S/360 or S/370 in basic-control mode?
+         LA    &REG,1            Set level to 1 (lowest 24-bit architecture)
+         MVC   X'068'(8,0),WH24&SYSNDX
+*        STCTL 0,0,APCR&SYSNDX     Try to do a STCTL.
+         DC    X'B600',S(APCR&SYSNDX)   Coded with hex in case target is S/360
+* Is S/370 but was running in BC-mode
+         LA    &REG,2           Set level to 2 (System/370 BC-mode)
+         B     APDN&SYSNDX
+IS37&SYSNDX DS OH   EC-mode was running means S/370, but test interrupt forced BC-mode
+         LPSW  STEC&SYSNDX         Restore EC-mode
+ISEC&SYSNDX DS 0H   EC-mode restored
+         LA    &REG,3           Set level to 3 (System/370)
+.DONE    ANOP
+         SPACE 1
+APDN&SYSNDX DS 0H   Level found, restore previous new PSW's
+         MVC   X'1D0'(16,0),APSZ&SYSNDX   Restore previous 128-bit SVC PSW
+         MVC   X'060'(8,0),APSS&SYSNDX    Restore previous 64-bit SVC PSW
+         MVC   X'068'(8,0),APSP&SYSNDX    Restore previous 64-bit PGM PSW
+         MEND

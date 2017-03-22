@@ -1,0 +1,96 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   ASAIPL &IMSK=0,&KEY=0,&SYS=0,&PGM=0,&IA=,&AM=
+.* Places an IPL PSW in the assigned storage area.  Required for all bare-metal
+.* program entries whether by IPL or a restart interruption.
+.* Required Parameter Usage:
+.*   &LABEL   Identifies the
+.*   &IA      Instruction address identifying program entry
+.* Optional Parameter Usage:
+.*   &LABEL   Label associated with the IPL PSW in the ASALOAD control section
+.*   &IMSK    Interruption mask.  Defaults to 0.
+.*   &KEY     Storage key.  Defaults to 0.
+.*   &SYS     System Mask.  Defaults to 0.
+.*   &PGM     Program Mask.  Defaults to 0.
+.*   &AM      Address mode.  Defaults to 24 for architecture levels 1-4.  Defaults to
+.*            31 for architectures 5-9.  Any other value is invalid.
+.* Assembly Considerations:
+.*   The ASALOAD macro must precede this macro in the assembly.  The ASA control
+.*   must be created before using this macro.
+         GBLA  &ARCHLVL   Current architecture level
+.* Symbols provided by the ARCHIND macro
+.*         GBLA  &ARCHASZ   Size of an address constant in bytes
+.*         GBLA  &ARCHIRB   Size of an IRB in full words
+.*         GBLA  &ARCHORB   Size of an ORB in full words
+.*         GBLA  &ARCHORX   Size of an extended ORB in full words
+.*         GBLA  &ARCHSCB   Size of a SCHIB in full words
+         GBLB  &ARCHIND   Whether operator synonyms defined
+.*         GBLC  &ARCHAMK   Address constant mask
+.*         GBLC  &ARCHATP   Address constant type
+.*         GBLC  &ARCHITP   Integer constant type
+         GBLC  &ARCHIPF   IPL PSW format
+.* Symbols supplied by ASALOAD macro
+         GBLC  &SATKACS   ASALOAD control section
+         LCLA  &AMODE     Amode setting
+         LCLB  &OK31      31 bit addressing is allowed.
+         LCLB  &DIFSECT   Whether called in a different control section
+         LCLC  &PSWFM     PSW format
+         LCLC  &SECT      Control section we are in before moving to ASA CSECT
+         AIF   (&ARCHIND).ARKGOOD
+         MNOTE 1,'ASAIPL - PRECEDING ARCHIND MACRO MISSTING'
+         MEXIT
+.ARKGOOD ANOP
+         AIF   ('&SATKACS' NE '').ASAGOOD
+         MNOTE 1,'ASAIPL - PRECEDING ASALOAD MACRO MISSING'
+         MEXIT
+.ASAGOOD ANOP
+         AIF   ('&IA' NE '').IAGOOD
+         MNOTE 1,'ASAIPL - REQUIRED IA KEYWORD PARAMETER MISSING'
+.IAGOOD  ANOP
+&OK31    SETB  &ARCHLVL GE 5
+.* Determine address mode
+         AIF   ('&AM' EQ '').DFTAM
+         AIF   ('&AM' EQ '24').DFTAM
+         AIF   ('&AM' EQ '31').AM31
+         AIF   ('&AM' EQ '64').BADAM
+.DFTAM   ANOP
+&AMODE   SETA  24
+         AGO   .SETDS
+.AM31    ANOP
+         AIF   (NOT &OK31).BADAM
+.SET31   ANOP
+&AMODE   SETA  31
+         AGO   .SETDS
+.BADAM   ANOP
+         MNOTE 1,'ASAIPL - AM PARAMETER INVALID - &AM'
+         MEXIT
+.* Enter ASALOAD area
+.SETDS   ANOP
+&DIFSECT SETB  ('&SYSECT' EQ '&SATKACS')
+         AIF   (NOT &DIFSECT).NOSECT
+&SECT    SETC  '&SYSECT'
+&SATKACS CSECT
+.NOSECT  ANOP
+         ORG   &SATKACS
+.* Establish the IPL PSW
+&LABEL   &ARCHIPF &IMSK,&KEY,&SYS,&PGM,&IA,&AMODE
+         ORG   &SATKACS+512     Reset CSECT to end of assigned storage area
+         AIF   (NOT &DIFSECT).DONE
+&SECT    CSECT
+.DONE    MEND

@@ -1,0 +1,39 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   ZEROLH &REG,&BITS
+.* This macro sets the high-order bits starting at bit 32 of a 64-bit register to
+.* zero.  On 32-bit register systems this is equivalent to ZEROH
+.* Reguired Parameter Usage:
+.*   &REG   The register whose high-order bits are being set to 0
+.*   &BITS  The number of high-order bits being set
+         GBLA  &ARCHLVL   Current architecture level
+         AIF   ('&REG' NE '').REGOK
+         MNOTE 1,'ZEROLH - FIRST REQUIRED POSITIONAL PARAMETER REG MISSING'
+         MEXIT
+.REGOK   ANOP
+         AIF   ('&BITS' NE '').BITSOK
+         MNOTE 1,'ZEROLH - SECOND REQUIRED POSITIONAL PARAMETER BITS MISSING'
+         MEXIT
+.BITSOK  ANOP
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H
+.NOLBL   ANOP
+         SLL   &REG,&BITS
+         SRL   &REG,&BITS
+         MEND

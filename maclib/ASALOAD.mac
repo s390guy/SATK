@@ -1,0 +1,71 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   ASALOAD &REGION=ASAREGN,&ZARCH=LEVEL,&PSW=
+.* Create a Region in which the assigned storage location CSECT is initialized
+.* Following the ASALOAD macro the ASA control section is the active section.
+.* Use the ASAIPL macro after the ASALOAD macro to place an IPL PSW into the ASA
+.* image.  This macro always creates a section 256 bytes in length.
+.* Required Parameter Usage:
+.*   &LABEL   Control section name within the initiated region.  Always starts at
+.*            address 0.
+.* Optional Parameter Usage:
+.*   &REGION  Region name into which the control section is created.  Defaults to
+.*            region name ASAREGN.
+.*   &ZARCH   Determines how 128-bit PSW's are handled
+.*            Specify 'YES' to force 128-bit PSW's regardless of architecture level
+.*            Specify 'NO' to inhibit 128-bit PSW's regardless of architecture level
+.*            Specify 'LEVEL' to determine if 128-bit PSW's needed for the current
+.*            architecture level.  Defaults to 'LEVEL'.
+.*   &PSW     Used to explicitly specify a 64-bit PSW format, otherwise the current
+.*            XMODE PSW setting is used.
+         GBLA  &ARCHLVL   Current architecture level
+         GBLC  &SATKACS   ASALOAD control section
+         LCLB  &NEED128   Whether 128-bit PSW's needed
+         LCLC  &SECT      Control section before entering the macro
+.* Determine whether 128 bit PSW's required
+         AIF   ('&ZARCH' EQ 'NO').NEWRGN
+         AIF   ('&ZARCH' EQ 'YES' OR '&ZARCH' EQ 'LEVEL').TEST
+         MNOTE 1,'ASALOAD - INVALID ZARCH PARAMETER - &ZARCH'
+         MEXIT
+.TEST    ANOP
+&NEED128 SETB  &ARCHLVL GE 8 OR '&ZARCH' EQ 'YES'
+.* Start the ASA content area
+.NEWRGN  ANOP
+         AIF   ('&SATKACS' EQ '').DONEW
+.* Attempt to continue the ASALOAD section
+         MNOTE 1,'ASALOAD - ASA CONTROL SECTION ALREADY STARTED - &SATKACS'
+         MEXIT
+.DONEW   ANOP
+         AIF   ('&LABEL' NE '').LBLGOOD
+         MNOTE 1,'ASALOAD - REQUIRED LABEL PARAMETER MISSING'
+         MEXIT
+.LBLGOOD ANOP
+&LABEL   START 0,&REGION
+&SATKACS SETC  '&LABEL'    Remember the ASA control section for other macros
+.TRAPS   ANOP
+         TRAP64 RESTART=ONLY,PSW=&PSW
+         ORG   &LABEL+X'058'
+         TRAP64 PSW=&PSW
+         AIF   (NOT &NEED128).FILL
+         ORG   &LABEL+X'1A0'
+         TRAP128
+         MEXIT
+.FILL    ANOP
+         ORG   &LABEL+512
+         MEND
