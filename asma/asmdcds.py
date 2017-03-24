@@ -47,7 +47,6 @@ DCSTRING=asmtokens.DCDS_String_Type()
 DCTYPE=asmtokens.DCDS_Types_Type()
 EOO=asmtokens.EoOperType()
 EOS=asmtokens.EOSType()
-LABEL=asmtokens.LabelType()
 LATTR=asmtokens.LabelAttrType()
 LPAREN=asmtokens.LParenType()
 RPAREN=asmtokens.RParenType()
@@ -260,10 +259,9 @@ class DCDS_Parser(asmbase.AsmCtxParser):
     # Initialize the lexical contexts used by the parser.
     def init_context(self):
         self.ctx("addr",   lexctx="addrexpr",ccls=asmbase.AsmFSMScope)
-        #self.ctx("addradj",lexctx="addradj", ccls=asmtokens.AsmFSMScope)
         self.ctx("dcnum",  lexctx="dcnum",   ccls=asmbase.AsmFSMScope)
         self.ctx("dup",    lexctx="dupbeg",  ccls=asmbase.AsmFSMScope)
-        self.ctx("dupexpr",lexctx="absexpr", ccls=asmbase.AsmFSMScope)
+        self.ctx("dupexpr",lexctx="addrexpr", ccls=asmbase.AsmFSMScope)
         self.ctx("dcbin",  lexctx="dcbin",   ccls=asmbase.AsmFSMScope)
         self.ctx("dcchr1", lexctx="dcchr1",  ccls=asmbase.AsmFSMScope)
         self.ctx("dcchr2", lexctx="dcchr2",  ccls=asmbase.AsmFSMScope)
@@ -274,7 +272,7 @@ class DCDS_Parser(asmbase.AsmCtxParser):
         self.ctx("lpb",    lexctx="lenpbeg", ccls=asmbase.AsmFSMScope)
         self.ctx("lqb",    lexctx="lenqbeg", ccls=asmbase.AsmFSMScope)
         self.ctx("length", lexctx="lenbeg",  ccls=asmbase.AsmFSMScope)
-        self.ctx("lenexpr",lexctx="absexpr", ccls=asmbase.AsmFSMScope)
+        self.ctx("lenexpr",lexctx="addrexpr", ccls=asmbase.AsmFSMScope)
         self.ctx("lpren",  lexctx="lpren",   ccls=asmbase.AsmFSMScope)
         self.ctx("opernxt",lexctx="dccont",  ccls=asmbase.AsmFSMScope)
         self.ctx("quote",  lexctx="quote",   ccls=asmbase.AsmFSMScope)
@@ -292,7 +290,7 @@ class DCDS_Parser(asmbase.AsmCtxParser):
 
         # Completes the duplication factor parenthesized expression
         dup_expr=fsmparser.PState("dupexpr")
-        dup_expr.action([AOPER,SDBIN,SDHEX,SDCHR,SDDEC,LABEL],self.ACT_Add_Token)
+        dup_expr.action([AOPER,SDBIN,SDHEX,SDCHR,SDDEC,LATTR],self.ACT_Add_Token)
         dup_expr.action([LPAREN,],self.ACT_LPAREN)
         dup_expr.action([RPAREN,],self.ACT_Dup_RPAREN)
         dup_expr.error(self.ACT_Expected_Dup_Expr)
@@ -331,7 +329,7 @@ class DCDS_Parser(asmbase.AsmCtxParser):
 
         # Recognize a length modifier's expression.
         len_expr=fsmparser.PState("lenexpr")
-        len_expr.action([AOPER,SDBIN,SDHEX,SDCHR,SDDEC,LABEL],self.ACT_Add_Token)
+        len_expr.action([AOPER,SDBIN,SDHEX,SDCHR,SDDEC,LATTR],self.ACT_Add_Token)
         len_expr.action([LPAREN,],self.ACT_LPAREN)
         len_expr.action([RPAREN,],self.ACT_Len_RPAREN)
         len_expr.error(self.ACT_Expected_Len_Expr)

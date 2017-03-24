@@ -116,6 +116,7 @@ class CSLA(lexer.CSLA):
         return self
 
     # Define the absolute expression context
+    # Note: only used by START_Parser.
     def init_abs_expr(self,ldebug=False,tdebug=False):
         c="absexpr"
         self.ctx(c,debug=ldebug)
