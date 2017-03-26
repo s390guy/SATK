@@ -1,0 +1,112 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   RAWAIT &REG,&FAIL=,&IOSAVE='YES',&CHAN=X'FE'
+.* Performs an inline wait for an unsolicited interuption using a control block
+.* based upon the current I/O architecture as implied by the assembly time
+.* architecture level.   Unsolicited interruptions from any device other than the
+.* device identified by the control block are ignored.
+.*
+.* Assembly Requirements:
+.* The macro requires an established base register and addressability to the control
+.* block using the IOCB DSECT and the area defined by ASAREA.
+.*
+.* Run-time Requirements:
+.* General register 1 contains the device identifier:
+.*   - a channel/unit address for channel based I/O or
+.*   - a subchannel subsystem ID for subchannel-based operations.
+.* Required Parameter Usage:
+.*   &FAIL   Control passes here for a failure receive expected interrupt (required).
+.*   &REG    Channel subsystem structure addressing.  Required for subchannel
+.*           operations.  Ignored if provided for channel-based operations.
+.* Optional Parameter Usage:
+.*   &LABLE  Label assigned to start of in-line logic.
+.*   &IOSAVE IOSAVE parameter for CPUWAIT macro.  See CPUWAIT for usage.  Defaults
+.*           to 'YES'.
+.*   &CHAN   PSW channel interruption mask.  Ignored for channel subystem or
+.*           channel I/O system not operating as a System/360 or System/370 in
+.*           BC-mode.  Defaults to X'FE'.
+.*
+.* Depends upon:
+.*   ARCHLVL macro ininitialized &ARCHLVL symbolic variable
+.*   ARCHIND macro in satk.mac for dynamic instruction selection
+.*   ASAREA macro in satk.mac
+.*   CPUWAIT macro in satk.mac
+         LCLB  &BC    Whether basic control mode in use
+         LCLB  &CS    Whether channel subsystem or not
+&BC      SETB  &ARCHLVL EQ 1 OR &ARCHLVL EQ 2
+&CS      SETB  &ARCHLVL GE 5
+         AIF   ('&REG' NE '' OR &ARCHLVL LT 5).DEVGOOD
+         MNOTE 1,'RAWAIT - REQUIRED REG PARAMETER MISSING'
+         MEXIT
+.DEVGOOD ANOP
+         AIF   ('&FAIL' NE '').FALGOOD
+         MNOTE 1,'RAWAIT - REQUIRED FAIL PARAMETER MISSING'
+         MEXIT
+.FALGOOD ANOP
+         AIF   (&ARCHIND).GEN
+         MNOTE 1,'RAWAIT - REQUIRED ARCHIND MACRO OPERATOR SYNONYMS UNDEFINED'
+         MEXIT
+.GEN     ANOP
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H
+.NOLBL   ANOP
+         L     1,IOCBDID             Remember the device ID with which I am working
+         SPACE 1
+* Wait for I/O operation to present status via an interruption
+IOWT&SYSNDX DS 0H  Wait for I/O to complete
+.*         CPUWAIT IO=YES,IOSAVE=&IOSAVE,CHAN=&CHAN
+         CPUWAIT IO=YES,CHAN=&CHAN
+         AIF   (&ARCHLVL GE 5).CKIRB
+         SPACE 1
+* Validate interruption is for the expected device
+         AIF   (&BC).TSTBCDV
+         CH    1,IOICODE             Is this the device for which I am waiting?
+         AGO   .MYIO
+.TSTBCDV ANOP
+         CH    1,BCIOCOD             Is this the device for which I am waiting?
+.MYIO    ANOP
+         BNE   IOWT&SYSNDX           ..No, continue waiting for it
+* Accumulate interruption information from CSW
+         MVC   IOCBST,CSW+CSWUS      ..Yes, retrieve unit and channel status
+         AGO   .CHECK
+.CKIRB   ANOP
+* Validate interruption is for the expected subchannel
+         CL    1,IOSSID              Is this the device for which I am waiting?
+         $BNE  IOWT&SYSNDX           ..No, ignore it and continue waiting
+* Accumulate interruption information from IRB
+         $L    &REG,IOCBIRB          Locate where to store the IRB
+         USING IRB,&REG              Make it addressable
+         TSCH  0(&REG)               Retrive interrupt information
+         $BC   B'0101',&FAIL         CC1,CC3 (not operational or no status), error
+*                                    CC0 (status was pending), accumulate the status
+         TM    IOCBSC+SCSW2,SCSWADA  Is this an unsolicited interruption?
+         $BO   &FAIL                 ..No, device active means solicited
+         MVC   IOCBST,IRBSCSW+SCSWUS Retrieve device and channel status
+.CHECK   ANOP
+         CLI   IOCBCS,X'00'          Any channel status?
+         $BNE  &FAIL                 ..Yes, channel status unexpected, fail
+         MVC   IOCBUT,IOCBWAIT       Get the expected unsolicited device status
+         XI    IOCBUT,X'FF'          Flip the bits to test for unexpected status
+         NC    IOCBUT,IOCBUS         Test for any unexpected device status?
+         $BNZ  &FAIL                 ..Yes, unexpected unsollicited status, fail
+         MVC   IOCBUT,IOCBUS         Get the original unit/device status
+         NC    IOCBUT,IOCBWAIT       Any expected unsollicited unit status?
+         $BZ   &FAIL                 ..No expected status either also fail
+* Expected unsollicited status found
+         MEND

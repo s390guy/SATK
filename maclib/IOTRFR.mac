@@ -1,0 +1,64 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   IOTRFR &REG
+.* Calculates the number of bytes transfered in an I/O using the device IOCB
+.* following a successful RAWIO operation.
+.* Required Parameter Usage:
+.*   &REG    The register containing the number of transferred bytes
+.* Optional Parameter Usage:
+.*   &LABLE  A symbol associated with the IOTRFR macro
+.* Assembly requirements:
+.*  Local base register addressability
+.*  Addressability to the IOCB of the device whose I/O transfer is being calculated
+.*
+         GBLA  &ARCHLVL Used by ARCHLVL macro to communicate the detected level
+         LCLB  &MAKEF8   Whether the macro needs to create the F8 field
+         LCLA  &CNT      Count displacement in CCW
+&MAKEH8  SETB  &ARCHLVL LT 7
+         AIF   ('&SYSCCW' EQ 'CCW1').CCW1CNT
+&CNT     SETA  6
+         AGO   .FIND
+.CCW1CNT ANOP
+&CNT     SETA  2
+.FIND    ANOP
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H
+.NOLBL   ANOP
+         AIF   (&ARCHLVL EQ 9).USE64
+         L     &REG,IOCBSCCW
+         AIF   (&ARCHLVL GE 7).USEAHI
+         SH    &REG,IOTR&SYSNDX  Locate the CCW for which residual count applies
+         AGO   .FETCH
+.USEAHI  ANOP
+         AHI   &REG,-8           Locate the CCW for which residual count applies
+.FETCH   ANOP
+         LH    &REG,&CNT(&REG)   Retrieve original CCW count
+.CALC    ANOP
+         ZEROH &REG,16           Make sure CCW count is unsigned
+         SL    &REG,IOCBSCNT     Calculate the actual bytes transfered
+         AIF   (NOT &MAKEH8).DONE
+         B     *+IOTR&SYSNDX+2
+IOTR&SYSNDX DC H'8'
+.DONE    MEXIT
+.USE64   ANOP
+         LGF   &REG,IOCBSCCW     Locate the I/O status CCW
+         AGHI  &REG,-8           Find the CCW for which residual count applies
+         LLGH  &REG,&CNT(&REG)   Fetch its count
+         SL    &REG,IOCBSCNT     Calculate the actual bytes transfered
+         MEND

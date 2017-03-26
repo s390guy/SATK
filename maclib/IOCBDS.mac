@@ -1,0 +1,50 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         IOCBDS
+.* Assemble the IOCB control block definition - 8 full words
+.* This structure is used by both channel-based and channel subsystem based operations.
+         GBLB  &SATKIOB Whether the control block DSECT has been generated
+         AIF   (&SATKIOB).DONE
+IOCB     DSECT
+*     Field usage by: CH SC Description (R->program read-only, X->program read/write)
+IOCBDID  DS    0F  +0     R  Device Identifier - Subsystem ID for channel subsystem
+         DS    H   +0  R       reserved - must be zeros
+IOCBDV   DS    H   +2  R       Channel Unit Device address of I/O operation
+IOCBDEV  DS    H   +4  X  X  Device address or device number (R after ENADEV)
+IOCBZERO DS    H   +6  R  R  Must be zeros
+IOCBUM   DS    X   +8  X  X  Unit status test mask
+IOCBCM   DS    X   +9  X  X  Channel status test mask
+IOCBST   DS    0H  +10 X  X  Input/Output unit and channel status accumulation
+IOCBUS   DS    X   +10 R  R  Accumulated unit status
+IOCBCS   DS    X   +11 R  R  Accumulated channel status
+IOCBUT   DS    X   +14 R  R  Used to test unit status
+IOCBCT   DS    X   +13 R  R  Used to test channel status
+IOCBSC   DS    X   +14    R  Accumulted subchanel status control
+IOCBWAIT DS    X   +15 X  X  Recognized unsolicited interruption unit status events
+IOCBSCCW DS    A   +16 R  R  I/O status CCW address
+IOCBSCNT DS    0F  +20 R  R  I/O status residual count as a positive full word
+         DS    H   +20 R     reserved must be zeros
+IOCBRCNT DS    H   +22 R     I/O status residual count as an unsigned halfword
+IOCBCAW  DS    0A  +24 X     Channel Address word
+IOCBORB  DS    AD  +24    X  Address of the ORB for channel subsystem I/O
+IOCBIRB  DS    AD  +32    X  Channel subsystem IRB address
+IOCBSIB  DS    AD  +40    X  Channel subsystem SCHIB address
+IOCBL    EQU   *-IOCB  Length of IOCB control block (48) without embedded structures
+&SATKIOB SETB  1
+.DONE    MEND

@@ -1,0 +1,192 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   IOCB  &DEV,&CERR=,&UERR=,&WAIT=,&CCW=0,&KEY=0,&SCHIB=,&IRB=,&ORB=,&FLAG=
+.* Assebles a control block on a word boundary for use with RAWIO macro.
+.* Required Parameter Usage:
+.*   DEV    Self-defining term or symbol equated to the device address or device
+.*          number in CCUU format.
+.* Optional Parameter Usage:
+.*   CERR   Channel error status mask.  If ommitted the following channel status
+.*          conditions are considered errors (default mask is X'3F'):
+.*             -  x'20' - Program check
+.*             -  X'10' - Protection check
+.*             -  X'08' - Channel-data check
+.*             -  X'04' - Channel-control check
+.*             -  X'02' - Interface-control check
+.*             -  X'01' - Chaining check
+.*   UERR   Unit error status mask.  If omitted the following unit status
+.*          conditions are considered errors (default mask is X'D3'):
+.*             -  X'80' - Attention
+.*             -  X'40' - Status Modifier
+.*             -  X'10' - Busy
+.*             -  X'02' - Unit check
+.*             -  X'01' - Unit exception
+.*          This parameter must be consistent with expected error detection
+.*          used by the corresponding IOSC macro.  If unit check is treated as an
+.*          error, control will never pass to the SENSE parameter label.  If unit
+.*          exception is treated as an error, control will never pass to the EOF
+.*          parameter label.
+.*   WAIT   Recognized unit status unsolicited interruption conditions.  If omitted
+.*          the following unit status condition IS recognized (default is X'80'):
+.*             -  X'80' - Attention
+.*   CCW    Label of the first CCW address.  Used by channel or an embedded ORB.
+.*          Defaults to 0.  Otherwise supplied within the ORB for the channel-
+.*          subsystem or initialized by the program in the IOCBCAW field before
+.*          using the RAWIO macro.
+.*   KEY    Storage key used by channel or embedded ORB.  Specify a self-defining
+.*          term or symbol value between 0 and 15, inclusieve.  Defaults to 0.
+.*          Otherwise supplied within the external ORB for the channel-subsystem.
+.* Channel Subsystem I/O Optional Parameters:
+.*   SCHIB  Address where the Subchannel-Information Block is stored.  If SCHIB and
+.*          IRB are both omitted, an area is provided for this purpose by the IOCB
+.*          macro.  Otherwise a value of 0 is used requiring the IOCBSIB field to be
+.*          initialized by the program before the subchannel is enabled by ENADEV.
+.*          Ignored by channel I/O.
+.*   IRB    Address where the Interrupt-Response Block is stored.  If ORB and SCHIB
+.*          are both omitted, an area is provided for this purpose by the IOCB
+.*          macro.  Otherwise a value of 0 is used requiring the IOCBIRB field to be
+.*          initialized by the program before either RAWIO or RAWAIT are used with
+.*          the subchannel.    Ignored by channel I/O.
+.*   ORB    Address of the Operation-Request Block for the operation.  If omitted,
+.*          an ORB will be embedded in the control block.  Specify 0 if the address
+.*          of the ORB is determined at run-time by a program supplied value in the
+.*          IOCBORB field.  Ignored by channel I/O.
+.*   FLAG   ORB flag settings to be used by embedded ORB.  If omitted, the F flag
+.*          will be set if the current XMODE CCW setting is CCW1.  Ignored by channel
+.*          I/O.
+         GBLA  &ARCHLVL Current architecture level
+.* Symbols provided by the ARCHIND macro
+.*         GBLA  &ARCHASZ   Size of an address constant in bytes
+         GBLA  &ARCHIRB   Size of an IRB in full words
+.*         GBLA  &ARCHORB   Size of an ORB in full words
+.*         GBLA  &ARCHORX   Size of an extended ORB in full words
+.*         GBLA  &ARCHSCB   Size of a SCHIB in full words
+         GBLB  &ARCHIND   Whether operator synonyms defined
+.*         GBLC  &ARCHATP   Address constant type
+.*         GBLC  &ARCHITP   Integer constant type
+         LCLB  &CSREQ     Whether channel subsystem based I/O is in use
+         LCLB  &EMBORB    Whether an embedded ORB is being created
+         LCLB  &CSBLK     Whether an embeeded area is used for SCHIB and IRB
+         LCLB  &IS64      Whether 64-bit addresses required
+         LCLC  &FLG       ORB flag setting
+         LCLC  &ORBL      Location of the ORB
+         LCLC  &SCHIBL    Location of the SCHIB
+         LCLC  &IRBL      Location of the IRB
+         AIF   ('&DEV' NE '').DEVGOOD
+         MNOTE 1,'IOCB - REQUIRED DEV PARAMETER MISSING'
+         MEXIT
+.DEVGOOD ANOP
+&CSREQ   SETB  &ARCHLVL GE 5
+&IS64    SETB  &ARCHLVL EQ 9
+&EMBORB  SETB  &CSREQ AND '&ORB' EQ ''
+&CSBLK   SETB  &CSREQ AND '&SCHIB' EQ '' AND '&IRB' EQ ''
+&LABEL   DC    A(0)            +0 Device Identifier (supplied by ENADEV macro)
+         DC    AL2(&DEV)       +4 Device address or device number
+         DC    H'0'            +6 Must be zeros
+         AIF   ('&UERR' EQ '').DERRDFT
+         DC    AL1(&UERR)      +8 Detected unit errors
+         AGO   .DOCERR
+.DERRDFT ANOP
+         DC    AL1(X'D3')      +8 Default detected unit errors
+.DOCERR  ANOP
+         AIF   ('&CERR' EQ '').CERRDFT
+         DC    AL1(&CERR)      +9 Detected channel errors
+         AGO   .DSREM
+.CERRDFT ANOP
+         DC    AL1(X'3F')      +9 Default detected channel errors
+.DSREM   ANOP
+         DC    HL2'0'          +10 Accumulated unit and channel errors
+         DC    HL2'0'          +12 Tested unit and channel status
+         DC    XL1'00'         +14 Accumulated subchannel status control from SCSW
+         AIF   ('&WAIT' EQ '').WAITDFT
+         DC    AL1(&WAIT)      +15 Unsolicited wait condition
+         AGO   .ADDRCNT
+.WAITDFT ANOP
+         DC    XL1'80'         +15 Default unsoliticed wait condition
+.ADDRCNT ANOP
+.* Generate I/O status CCW address and residual count fields
+         DC    F'0'            +16 I/O status CCW address
+         DC    F'0'            +20 residual count
+         AIF   (&CSREQ).CSBLKS
+.* Generate channel-I/O fields
+         DC    AL1(&KEY*16),AL3(&CCW)  +24 Channel Address Word
+         DC    F'0'            +28 reserved for channel subsystem ORB address
+         DC    FD'0'           +32 reserved for channel subsystem IRB address
+         DC    FD'0'           +40 reserved for channel subsystem SCHIB address
+         MEXIT
+.CSBLKS  ANOP
+.* Locate channel-subsystem fields
+         AIF   (NOT &EMBORB).USEORB
+&ORBL    SETC  'IORB&SYSNDX'
+         AGO   .SETIRB
+.USEORB  ANOP
+&ORBL    SETC  '&ORB'
+.SETIRB  ANOP
+         AIF   (NOT &CSBLK).USEPARM
+&IRBL    SETC  'IIRB&SYSNDX'
+&SCHIBL  SETC  'IIRB&SYSNDX'
+         AGO   .GENORBA
+.USEPARM ANOP
+         AIF   ('&IRB' EQ '').USEIRB0
+&IRBL    SETC  '&IRB'
+         AGO   .SETSIB
+.USEIRB0 ANOP
+&IRBL    SETC  '0'
+.SETSIB  ANOP
+         AIF   ('&SCHIB' EQ '').USESIB0
+&SCHIBL  SETC  '&SCHIB'
+         AGO   .GENORBA
+.USESIB0 ANOP
+&SCHIBL  SETC  '0'
+.* Generate channel-subsystem fields
+.GENORBA ANOP
+         AIF   (&IS64).ORBAD
+         DC    A(&ORBL)        +24  Address where ORB is located
+         DC    A(0)            +28  reserved
+         AGO   .CKIRB
+.ORBAD   ANOP
+         DC    ADL8(&ORBL)     +24  Address where ORB is located
+.CKIRB   ANOP
+         AIF   (&IS64).IRBAD
+         DC    A(&IRBL)        +32 Address where IRB stored
+         DC    A(0)            +36 reserved
+         AGO   .CKSCHIB
+.IRBAD   ANOP
+         DC    ADL8(&IRBL)     +32 Address where IRB stored
+.CKSCHIB ANOP
+         AIF   (&IS64).IRBGAD
+         DC    A(&SCHIBL)      +40 Address where SCHIB stored
+         DC    A(0)            +44 reserved
+         AGO   .DOBLK
+.IRBGAD  ANOP
+         DC    ADL8(&SCHIBL)   +40 Address where SCHIB stored
+.DOBLK   ANOP
+         AIF   (NOT &CSBLK).CKORB
+IIRB&SYSNDX DC &ARCHIRB.F'0'       Embedded shared IRB and SCHIB area
+.CKORB   ANOP
+         AIF   (NOT &EMBORB).DONE
+         AIF   ('&FLAG' NE '').USEFLG
+         AIF   ('&SYSCCW' NE 'CCW1').NOFLAG
+&FLG     SETC  'F'
+         AGO   .NOFLAG
+.USEFLG  ANOP
+&FLG     SETC  '&FLAG'
+.NOFLAG  ANOP
+IORB&SYSNDX ORB CCW=&CCW,FLAG=&FLG,KEY=&KEY  Embedded ORB
+.DONE    MEND

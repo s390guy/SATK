@@ -1,0 +1,116 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   ENADEV &READY,&FAIL,&REG=,&CLS=,&CSNS=NO
+.* Supplies the device identifier for the IOCB device and makes the device ready for
+.* I/O operations.
+.* Required Parameter Usage:
+.*   READY  Symbol to which control is passed after the device has been made ready
+.*   FAIL   Sybmol to which control is passed if device not made ready.
+.* Optional Subchannel Device Usage:
+.* If provided these parameters are ignore for channel-based devices.
+.*   REG    Register used to address channel subsystem SCHIB.
+.*   CLS    A register containing the interruption sub-class in bits 26-28 or 58-60
+.*          of the register.  If ommitted the sub-class of zero is used.
+.*          Note: LA &CLS,class*8 will load the register, where 'class' is a
+.*          self-defining term between 0 and 7 inclusive.
+.*   CSNS   Specify 'YES' to enable use of concurrent sense.
+.*
+.* Assembly Requirements:
+.* Established local base register and addressability to the IOCB DSECT.
+.*
+.* Run-time Requirements:
+.*   Register 1 is used by the macro to address the I/O device or subchannel.
+.*
+.* Depends upon:
+.*   ARCHLVL macro in satk.mac ininitialized &ARCHLVL symbolic variable
+.*   ARCHIND macro in satk.mac for operator synonyms and other symbols
+.*   IOCBDS macro in rawio.mac for IOCB DSECT
+.*   IOFMT DSECT=SCHIB in struct.mac for access to channel subsystem structure
+         GBLA  &ARCHLVL Current architecture level
+.* Symbols provided by the ARCHIND macro
+.*         GBLA  &ARCHASZ   Size of an address constant in bytes
+         GBLB  &ARCHIND   Whether operator synonyms defined
+         GBLA  &ARCHIRB   Size of an IRB in full words
+.*         GBLA  &ARCHORB   Size of an ORB in full words
+.*         GBLA  &ARCHORX   Size of an extended ORB in full words
+.*         GBLA  &ARCHSCB   Size of a SCHIB in full words
+.*         GBLB  &ARCHIND   Whether operator synonyms defined
+.*         GBLC  &ARCHATP   Address constant type
+.*         GBLC  &ARCHITP   Integer constant type
+         AIF   ('&REG' NE '' OR &ARCHLVL LT 5).REGOOD
+         MNOTE 1,'ENADEV - REQUIRED REG PARAMETER MISSING'
+         MEXIT
+.REGOOD  ANOP
+         AIF   ('&READY' NE '').REDYOK
+         MNOTE 1,'ENADEV - REQUIRED READY PARAMETER MISSING'
+         MEXIT
+.REDYOK  ANOP
+         AIF   ('&FAIL' NE '').FAILOK
+         MNOTE 1,'ENADEV - REQUIRED FAIL PARAMETER MISSING'
+         MEXIT
+.FAILOK  ANOP
+         AIF   (&ARCHLVL GE 5).DOCS
+.* Do channel device status clearing to make it ready
+&LABEL   MVC   IOCBDV,IOCBDEV     Supply device identifier for channel-based device
+         L     1,IOCBDID          Prepare for status clearing
+         TIO   0(1)               Clear any pending status
+         BC    B'1100',&READY     If available or status cleared, ready to use it
+         B     &FAIL              Otherwise, device not ready to use.
+         MEXIT
+.DOCS    ANOP
+         AIF   (&ARCHIND).GENCS
+         MNOTE 1,'ENADEV - REQUIRED ARCHIND MACRO OPERATOR SYNONYMS UNDEFINED'
+         MEXIT
+.GENCS   ANOP
+.* Do channel subsystem subchannel enable process
+&LABEL   L     1,FIND&SYSNDX
+         $L    &REG,IOCBSIB       Locate where the SCHIB is to be stored
+         USING SCHIB,&REG
+FINL&SYSNDX DS 0H   Retrieve Subchannel Information Block for desired device number
+         STSCH 0(&REG)            Store the SCHIB for first subchannel
+         $BC   B'0111',&FAIL      Subchannel does not exist and device number not found
+         TM    PMCW1_8,PMCWV      Is the subchannel device number valid?
+         $BZ   FINN&SYSNDX        ..No, check the next subchannel
+         CLC   PMCWDNUM,IOCBDEV   Is this the device number being sought?
+         $BNE   FINN&SYSNDX       ..No, check the next subchannel
+* Subchannel found!
+         ST    1,IOCBDID          Remember the subchannel so I/O can be done to it.
+         AIF   ('&CSNS' NE 'YES').NOSNS
+         OI    PMCWEXC,PMCWS      Enable concurrent sense with the subchannel
+.NOSNS   ANOP
+         AIF   ('&CLS' EQ '').NOCLS
+         N     &CLS,FINM&SYSNDS   Make sure the bits that must be zero are zero
+         $STC  &CLS,4(&REG)       Set the Subchannel interrupt-mask
+.NOCLS   ANOP
+         OI    PMCW1_8,PMCWE      Make sure it is enabled so I/O requests accepted
+         MSCH  0(&REG)            Enable the subchannel to the channel sub-system
+         $BC   B'1000',&READY     CC0 (SCHIB updated), device is ready.
+         $B    &FAIL              CC1,CC2,CC3 (SCHIB update failed), quit
+FINN&SYSNDX DS 0H  Advance to next subchannel
+         LA    1,1(0,1)           Advance to next subchannel
+         CL    1,FINM&SYSNDX      Beyond maximum subchannel
+         $BNH  FINL&SYSNDX        ..No, examine the next subchannel
+         $BH   &FAIL              ..Yes, failed to enable the device
+         DROP  &REG               Forget SCHIB addressing
+         AIF   ('&CLS' EQ '').NOMSK
+FINM&SYSNDX DC A(X'00000038')     Subchannel interrupt-class mask
+.NOMSK   ANOP
+FIND&SYSNDX DC A(X'00010000')     First subchannel subsystem ID
+FINM&SYSNDX DC A(X'0001FFFF')     Last subchannel subsystem ID
+         MEND

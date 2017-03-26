@@ -1,0 +1,342 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   CPUWAIT  &EXT=,&EPSW=,&ESA=YES,&IO=,&IPSW=,&ISA=YES,&AM=,&REG=1,&RELO=NO,&CHAN=254
+.* Causes the CPU to enter an enabled wait state for either or both external and
+.* input/output interruptions.  The location to which control is passed is expected
+.* to immediately follow the CPUWAIT macro, although other options exist.
+.*
+.* The following steps are performed:
+.*   1.  Relocate internal PSWs if requested.
+.*   2.  If &ESA is not 'NO' and/or &ISA is not 'NO', the current new PSW
+.*       is preserved.
+.*   3.  An external and/or I/O new PSW is established
+.*   4.  A wait PSW is introduced to perform the synchronous wait.
+.*   5.  Then either or both preserved new PSWs are restored.
+.*   6.  Control is passed as specified.
+.*
+.*   &LABEL   Identifies the start of the wait macro
+.*   &EXT     Causes a synchronous wait for an external interrupt.  Control is
+.*            passed following restoration of the external new PSW as specified
+.*            by the &ESA and/or &ISA parameters.
+.*            YES - Control falls through upon the occurrence of the interrupt.
+.*                  Condition code set to 1 indicating an external interruption if
+.*                  needed to differentiate between an external and input/output
+.*                  interruption.
+.*            NEW - Control is passed by introduction of the &EPSW PSW as the
+.*                  current PSW.  Condition code set by the new PSW
+.*            label - Control is passed to this location upon an external interruption.
+.*   &EPSW    Defines handling of the external new PSW dependent upon the EXT
+.*            parameter.
+.*            For EXT=NEW, specify the the label associated with the PSW used to
+.*            pass ontrol upon an external interruption.
+.*   &ESA     YES - Causes the external new PSW preceding the wait to be restored from
+.*                  an in-line area.  Default is YES.
+.*            NO - Causes the external new PSW to remain in-place following the wait.
+.*            label - Causes the external now PSW preceding the wait to be saved at
+.*                  and restored from this location.
+.*   &IO      Causes a synchronous wait for an I/O interrupt.  Control is
+.*            passed following restoration of the the new PSWs as specified
+.*            by the &ESA and/or &ISA parameters.
+.*            YES - Control falls through upon the occurrence of the interrupt.
+.*                  Condition code set to 2 indicating an input/output interruption if
+.*                  needing to differentiate between an external and input/output
+.*                  interruption.
+.*            NEW - Control is passed by introduction of the &IPSW PSW as the
+.*                  current PSW.  Condition code set by the new PSW
+.*            label - Control is passed to this location upon an I/O interruption.
+.*   &IPSW    Defines handling of the I/O new PSW dependent upon the IO parmaeter
+.*            For IO=NEW, specify the label associated with the PSW used to pass
+.*            control upon an external interruption
+.*   &ISA     YES - Causes the I/O new PSW preceding the wait to be restored from
+.*                  an in-line area.  Default is YES.
+.*            NO - Causes the I/O new PSW to remain in-place following the wait.
+.*            label - Causes the external now PSW preceding the wait to be saved at
+.*                  and restored from this location.
+.*   &AM      Address mode used by PSWs created by the macro.  If omitted the
+.*            address mode defaults to 24.
+.*   &REG     A register available for use by the macro when RELO=YES.
+.*            Must not be 0.  Defaults to 1.
+.*   &RELO    Specify 'YES' to cause PSW IA relocation the first time the
+.*            macro is used.  Otherwise, no relocation is performed.  Defaults to
+.*            'NO'.
+.*   &CHAN    I/O Channel Mask.  Used for System/360 and System/370 BC-mode. Defaults
+.*            to 254 (X'FE').  Allows modification of the channel I/O mask.  Ignored
+.*            by other architectures.
+.*
+.* The &EXT and &IO parameters influence the state of the PSW introduced as the
+.* current PSW performing the enabled wait.
+.*
+.* The &ESA and &ISA parameters allow the sharing of the same save areas between
+.* multiple uses of the CPUWAIT macro.  The new PSW save areas in intended to preserve
+.* the interruption state before and after the CPUWAIT macro.  Because CPUWAIT
+.* removes the need for sophisticated interrupt handlers, default trap macros are
+.* likely in use when the CPUWAIT macro is not in use.
+.*
+.* The &EPSW and &IPSW PSWs provide a mechanism allowing tailoring of the new
+.* PSW introduced when the interruption is recognized. The PSW identified by the
+.* these parameters supply a template allowing the default new PSWs to be changed.
+.* By default new PSWs use zeros for all except the enabled interruption(s) with the
+.* exception of format requirements.  Addressing mode is always 24-bit.  Following
+.* restoration of any previous new PSWs, the PSW as supplied by either of these
+.* parameters is then introduced as the new PSW to which control is passed.
+.*
+.* If the program is using self-relocation, either or both &EXT and &IO must be set
+.* NEW.  The PSW located by the &EPSW or &IPSW parameters must be relocated
+.* prior to using this macro.
+.*
+.* Dependencies:
+.*   ARCHLVL macro in satk.mac
+         GBLA &ARCHLVL     Architecture level
+.* Symbols provided by the ARCHIND macro
+         GBLA  &ARCHASZ   Size of an address constant in bytes
+         GBLB  &ARCHIND   Whether operator synonyms defined
+.*         GBLC  &ARCHATP   Address constant type
+.*         GBLC  &ARCHITP   Integer constant type
+         LCLA &AMODE       PSW amode operand
+         LCLA &WAITMSK     Wait PSW system mask
+         LCLA &PSWADR      Disp. from the start of the PSW to the IA field
+         LCLA &PSWAL       Length of the PSW instruction address field
+         LCLA &PSWDIS      Disp. from the start of the PSW to the address itself
+         LCLA &PSWLEN      Length of the PSW
+         LCLA &IONADR      Address of the I/O new PSW
+         LCLA &EXTNADR     Address of the External New PSW
+         LCLA &EXTCC,&IOCC       New PSW condition code
+         LCLB &EXTWAIT,&IOWAIT   Whether wait is enabled
+         LCLB &EXTINLN,&IOINLN   Whether in-line new PSW used
+         LCLB &EXTRST,&IORST     Whether the new PSW needs restoring after interrupt
+         LCLB &EXTSA,&IOSA       Whether an in-line save area is required
+.*         LCLB &AMASK       Whether a 31-bit address mask is needed.
+         LCLB &BYPASS      Bypass I/O interupt handler after external handler
+.*         LCLB &USECC       Set condition code in new PSW for interrupt type
+.*         LCLB &WRKCLR      Whether work register was cleared
+         LCLC &EXTSAV      Symbol where to save EXT New PSW ('' means no saving)
+         LCLC &EXTNEWL     Symbol where to locate EXT New PSW
+         LCLC &IOSAV       Symbol where to save IO New PSW ('' means no saving)
+         LCLC &IONEWL      Symbol where to locate IO New PSW
+.* Determine for which interruption classes to wait
+&EXTWAIT SETB  ('&EXT' NE '')
+&EXTINLN SETB  ('&EXT' EQ 'YES')
+&IOWAIT  SETB  ('&IO' NE '')
+&IOINLN  SETB  ('&IO' EQ 'YES')
+         AIF   (&EXTWAIT OR &IOWAIT).START
+         MNOTE 1,'CPUWAIT -EITHER EXT OR IO PARAMETER OR BOTH MUST BE SPECIFIED'
+         MEXIT
+.START   ANOP
+.* Establish PSW related values for moving and setup
+         AIF   (&ARCHLVL LT 9).PSW64
+&PSWLEN  SETA  16
+&PSWADR  SETA  8
+&PSWDIS  SETA  8
+&PSWAL   SETA  8
+&IONADR  SETA  496
+&EXTNADR SETA  432
+         AGO   .AMODE
+.PSW64   ANOP
+&PSWLEN  SETA  8
+&PSWADR  SETA  4
+&PSWDIS  SETA  4
+&PSWAL   SETA  4
+&IONADR  SETA  120
+&EXTNADR SETA  88
+         AIF   (&ARCHLVL GT 2).AMODE
+&PSWADR  SETA  0
+&PSWDIS  SETA  1
+&PSWAL   SETA  3
+.* Setup the PSW amode
+.AMODE   ANOP
+         AIF   ('&AM' EQ '').SETAM
+&AMODE   SETA  &AM
+         AGO   .SETUP
+.SETAM   ANOP
+&AMODE   SETA  24
+.* Setup for External interruption
+.SETUP   ANOP
+         AIF   (NOT &EXTWAIT).SETUPIO
+&EXTCC   SETA  16
+         AIF   ('&ESA' EQ 'NO').EXTNEW
+         AIF   ('&ESA' EQ 'YES').EXTINLN
+&EXTSAV  SETC  '&ESA'
+&EXTRST  SETB  1
+         AGO   .EXTNEW
+.EXTINLN ANOP
+&EXTSAV  SETC  'EXTS&SYSNDX'
+&EXTRST  SETB  1
+&EXTSA   SETB  1
+.EXTNEW  ANOP
+         AIF   ('&EPSW' EQ '').EXTNIL
+&EXTNEWL SETC  '&EPSW'
+         AGO   .SETUPIO
+.EXTNIL  ANOP
+&EXTNEWL SETC  'EXTN&SYSNDX'
+.* Setup for Input/Output interruption
+.SETUPIO ANOP
+         AIF   (NOT &IOWAIT).SETUPMS
+&IOCC    SETA  32
+         AIF   ('&ISA' EQ 'NO').IONEW
+         AIF   ('&ISA' EQ 'YES').IOSNLIN
+&IOSAV   SETC  '&ISA'
+&IORST   SETB  1
+         AGO   .IONEW
+.IOSNLIN ANOP
+&IOSAV   SETC  'IOS&SYSNDX'
+&IORST   SETB  1
+&IOSA    SETB  1
+.IONEW   ANOP
+         AIF   ('&IPSW' EQ '').IONNLIN
+&IONEWL  SETC  '&IPSW'
+         AGO   .SETUPMS
+.IONNLIN ANOP
+&IONEWL  SETC  'ION&SYSNDX'
+.* Determine wait PSW system mask
+.SETUPMS ANOP
+         AIF   (NOT &EXTWAIT).SETIOM
+&WAITMSK SETA  1
+.SETIOM  ANOP
+         AIF   (NOT &IOWAIT).GEN
+         AIF   (&ARCHLVL LE 2).BCMSKS
+&WAITMSK SETA  &WAITMSK+2
+         AGO   .GEN
+.BCMSKS  ANOP
+&WAITMSK SETA  &WAITMSK+&CHAN
+.* Generate the in-line logic
+.GEN     ANOP
+         AIF   (&ARCHIND).DOGEN
+         MNOTE 1,'CPUWAIT - REQUIRED ARCHIND MACRO OPERATOR SYNONYMS UNDEFINED'
+         MEXIT
+.DOGEN   ANOP
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H
+.NOLBL   ANOP
+         AIF   ('&RELO' NE 'YES').SAVPSWS
+CPUE&SYSNDX $NOP CPUS&SYSNDX
+         OI     CPUE&SYSNDX+1,X'F0'   Bypass relocation on future uses
+         AIF   (NOT &EXTINLN).RELOIO
+         AIF   (&ARCHLVL EQ 9).NOEL
+         $L    &REG,EXTN&SYSNDX+&PSWADR
+.NOEL    ANOP
+         $LA   &REG,ERST&SYSNDX
+         $ST   &REG,EXTN&SYSNDX+&PSWADR
+.RELOIO  ANOP
+         AIF   (NOT &IOINLN).SAVPSWS
+         AIF   (&ARCHLVL EQ 9).NOIL
+         $L    &REG,ION&SYSNDX+&PSWADR
+.NOIL    ANOP
+         $LA   &REG,IRST&SYSNDX
+         $ST   &REG,ION&SYSNDX+&PSWADR
+CPUS&SYSNDX DS  0H
+.*
+.* Save current New PSW's
+.SAVPSWS ANOP
+.* Save EXT NEW PSW
+         AIF   (NOT &EXTWAIT).SAVEIO
+         AIF   ('&EXTSAV' EQ '').SAVEIO
+         MVC   &EXTSAV.(&PSWLEN),&EXTNADR.(0)  Save External new PSW
+&EXTRST  SETB  1
+.* Save I/O NEW PSW
+.SAVEIO  AIF   (NOT &IOWAIT).SETNEW
+         AIF   ('&IOSAV' EQ '').SETNEW
+         MVC   &IOSAV.(&PSWLEN),&IONADR.(0)    Save Input/Output new PSW
+&IORST   SETB  1
+.SETNEW  ANOP
+         AIF   (NOT &EXTWAIT).SETIO
+.* Instantiate the External New PSW
+         MVC   &EXTNADR.(&PSWLEN,0),&EXTNEWL  Establish External new PSW
+         AIF   ('&EXT' EQ 'YES').SETIO
+.* EXT=NEW - uses the external new PSW as model
+         NI    &EXTNADR.(0),255-&WAITMSK      Make sure interrupts are disabled
+         MVC   &EXTNADR+&PSWDIS.(&PSWAL,0),EXTN&SYSNDX+&PSWDIS
+.SETIO   ANOP
+         AIF   (NOT &IOWAIT).DOWAIT
+.* Instantiate the I/O New PSW
+         MVC   &IONADR.(&PSWLEN,0),&IONEWL    Establish Input/Ouput new PSW
+         AIF   ('&IO' EQ 'YES').DOWAIT
+.* IO=NEW  use the explicit I/O New PSW as a template
+         NI    &IONADR.(0),255-&WAITMSK       Make sure interrupts are disabled
+         MVC   &IONADR+&PSWDIS.(&PSWAL,0),ION&SYSNDX+&PSWDIS
+.DOWAIT  ANOP
+         $LPSW  WPSW&SYSNDX                   Wait for event
+.GENWAIT ANOP
+WPSW&SYSNDX PSW &WAITMSK,0,2,0,0              Wait for event
+.* Generate External New PSW
+         AIF   (NOT &EXTINLN).TSTIPSW
+EXTN&SYSNDX PSW 0,0,0,&EXTCC,ERST&SYSNDX,&AMODE    Ext New PSW: cc==1
+.* Generate Input/Output New PSW
+.TSTIPSW AIF   (NOT &IOINLN).GENSAS
+ION&SYSNDX PSW 0,0,0,&IOCC,IRST&SYSNDX,&AMODE      I/O New PSW: cc==2
+.* Generate in-line save area if needed
+.GENSAS  ANOP
+         AIF   (NOT &EXTSA).NOEXTSA
+EXTS&SYSNDX DC    XL&PSWLEN'00'
+.NOEXTSA ANOP
+         AIF   (NOT &IOSA).NOIOSA
+IOS&SYSNDX DC    XL&PSWLEN'00'
+.NOIOSA  ANOP
+.* Generate a 31-bit address mask
+.*         AIF   (NOT &AMASK).GENEXT
+.*AMSK&SYSNDX DC X'80000000'                        31-bit address mask
+.* Generate the in-line external interrupt handler
+.GENEXT  ANOP
+         AIF   (NOT &EXTWAIT).GENIRUP
+* Handle external interruption
+.* None of the generated instructions may change the condition code.
+ERST&SYSNDX DS 0H
+         AIF   (NOT &EXTRST).NOEXTR
+         MVC   &EXTNADR.(&PSWLEN,0),&EXTSAV Restore external new PSW
+.NOEXTR  ANOP
+         AIF   (NOT &IORST).PASSEXT
+         MVC   &IONADR.(&PSWLEN,0),&IOSAV   Restore input/output new PSW
+.PASSEXT ANOP
+.* Pass external interruption control
+         AIF   ('&EXT' EQ 'YES').TSTBYP
+         AIF   ('&EXT' EQ 'NEW').USEENEW
+         $B     &EXT                        Process the external interruption
+         AGO   .GENIRUP
+.USEENEW ANOP
+         $LPSW &EXTNEWL                     Process the external interruption
+         AGO   .GENIRUP
+* Process the external interruption...
+.TSTBYP  ANOP
+         AIF   (NOT &IOWAIT).DONE
+         $B     FALL&SYSNDX
+&BYPASS  SETB  1
+.* Generate the in-line input/output interrupt handler
+.GENIRUP ANOP
+         AIF   (NOT &IOWAIT).DONE
+* Handle input/output interruption
+.* None of the generated instructions may change the condition code.
+IRST&SYSNDX DS 0H
+         AIF   (NOT &EXTRST).NOIERST
+         MVC   &EXTNADR.(&PSWLEN,0),&EXTSAV Restore external new PSW
+.NOIERST ANOP
+         AIF   (NOT &IORST).PASSIO
+         MVC   &IONADR.(&PSWLEN,0),&IOSAV   Restore input/output new PSW
+.* Pass input/output interruption control
+.PASSIO  ANOP
+         AIF   ('&IO' EQ 'YES').FALLTHR
+         AIF   ('&IO' EQ 'NEW').USEINEW
+         $B     &IO                        Process the input/output interruption
+         AGO   .DONE
+.USEINEW ANOP
+         $LPSW &IONEWL                     Process the input/output interruption
+         AGO   .DONE
+.FALLTHR ANOP
+* Process the interruption...
+         AIF   (NOT &BYPASS).DONE
+FALL&SYSNDX DS   0H
+.DONE    MEND
