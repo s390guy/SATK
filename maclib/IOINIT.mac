@@ -1,0 +1,57 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   IOINIT &MASK=
+.* Initializes control register for Input/Output operations.
+.* For channel-based I/O: control register 2 controls which channel's interrupts
+.* will be recognized.  Bits 0-31 correspond to the channel address respectively.
+.* For subchannel-based I/O: control register 6 controls which subchannel subclasses
+.* interruptions will be recognized.  Bits 0-7 or 32-39 (depending upon the
+.* architecture) correspond to subclasses 0-7 respectively.
+.* Optional Parmeter Usage:
+.*  LABEL   Specifies the symbol associated with the macro
+.*  MASK    Specifies the hexadecimal mask to be loaded into the control register.
+.*          If omitted all mask bits are set to one.
+.* Depends upon:
+.*   ARCHLVL macro in satk.mac ininitialized &ARCHLVL symbolic variable
+         GBLA  &ARCHLVL Current architecture level
+         LCLC  &MK      Actual mask used
+         AIF   (&ARCHLVL EQ 1).DONE  System/360 has no control registers.
+         AIF   (&ARCHLVL GT 4).USE6
+.* Otherwise assume channel based I/O on a System/370.
+&LABEL   LCTL  2,2,IOMK&SYSNDX     Enable subchannel subclasses for interruptions
+         B     IOMK&SYSNDX+4
+IOMK&SYSNDX DS  0F
+         AIF   ('&MASK' EQ '').DO2ALL
+&MK      SETC  '&MASK.00000000'(1,8)
+         DC    XL4'&MK'             Enabled channels for interruptions
+         MEXIT
+.DO2ALL  ANOP
+         DC    X'FFFFFFFF'        All channels enabled for interruptions
+         MEXIT
+.USE6    ANOP
+&LABEL   LCTL  6,6,IOMK&SYSNDX    Enable subchannel subclasses for interruptions
+         B     IOMK&SYSNDX+4
+IOMK&SYSNDX DS 0F
+         AIF   ('&MASK' EQ '').DO6ALL
+&MK      SETC  '&MASK.00'(1,2)
+         DC    XL1'&MK',XL3'000000'  Enabled subchannel subclases
+         MEXIT
+.DO6ALL  ANOP
+         DC    XL4'FF000000'         All subchannel subclasses enabled
+.DONE    MEND
