@@ -1,0 +1,53 @@
+.* Copyright (C) 2017 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   HRCIPLP &ADDR=X'200',&CLEAR=NO
+.* Saves Hercules IPL parameters supplied in 32-bit R0-R15 at a directly addressable
+.* location.  Instructions are inline.  Because the IPL parameters are placed in the
+.* registers and the parameters are used, this macro will likely be the first statement
+.* of machine instructions thereby freeing the registers for their normal functions.
+.*   &ADDR    Starting address of 64-byte into which the Hercules IPL parameters are
+.*            saved.  Hercule IPL parameters are supplied with the use of the Hercules
+.*            IPL or IPLC command's PARM parameter.  Defaults to
+.*   &CLEAR   Specify 'YES' to cause the clearing of the registers as if a CPU reset
+.*            had been performed.  Default is 'NO'
+.* A directly addressable location is required because the registers are not available
+.* for use until their contents have been saved.  Obviously, the directly addressable
+.* location can be temporary by moving the 64-bytes of data elsewhere.
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H
+.NOLBL   ANOP
+         STM   0,15,&ADDR.(0)   Save IPL parms
+         AIF   ('&CLEAR' NE 'YES').DONE
+         SLR   0,0
+         LR    1,0
+         LR    2,0
+         LR    3,0
+         LR    4,0
+         LR    5,0
+         LR    6,0
+         LR    7,0
+         LR    8,0
+         LR    9,0
+         LR    10,0
+         LR    11,0
+         LR    12,0
+         LR    13,0
+         LR    14,0
+         LR    15,0
+.DONE    MEND
