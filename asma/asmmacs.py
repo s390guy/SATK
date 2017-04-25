@@ -2319,7 +2319,11 @@ class Mac_Symbols(object):
         assert isinstance(value,macsyms.A_Val),\
             "%s 'value' argument must be a macsyms.A_Val object: %s" \
                 % (assembler.eloc(self,"setb",module=this_module),value)
+
         s=self._reference_symbol(symbol,updating=True,implicit=self.defa)
+        if not isinstance(s,macsyms.A_Sym):
+            raise MacroError(invoke=True,msg="SETA can not set a SET%s symbol: %s" \
+                % (s.__class__.__name__[0],s.symbol))
         s.setValue(symbol,value,user=True)
 
     # Set a LCLB or GBLB variable.  Value must be a macsyms.B_Val object
@@ -2327,7 +2331,11 @@ class Mac_Symbols(object):
         assert isinstance(value,macsyms.B_Val),\
             "%s 'value' argument must be a macsyms.B_Val or macsyms.A_Val "\
                 "object: %s" % (assembler.eloc(self,"setb",module=this_module),value)
+
         s=self._reference_symbol(symbol,updating=True,implicit=self.defb)
+        if not isinstance(s,macsyms.B_Sym):
+            raise MacroError(invoke=True,msg="SETB can not set SET%s symbol: %s" \
+                % (s.__class__.__name__[0],s.symbol))
         s.setValue(symbol,value,user=True)
 
     # Set a LCLC or GBLC variable.  Value must be a macsyms.C_Val object
@@ -2335,7 +2343,11 @@ class Mac_Symbols(object):
         assert isinstance(value,macsyms.C_Val),\
             "%s 'value' argument must be a macsyms.C_Val object or string: %s" \
                 % (assembler.eloc(self,"setc",module=this_module),value)
+
         s=self._reference_symbol(symbol,updating=True,implicit=self.defc)
+        if not isinstance(s,macsyms.C_Sym):
+            raise MacroError(invoke=True,msg="SETC can not set a SET%s symbol: %s" \
+                % (s.__class__.__name__[0],s.symbol))
         s.setValue(symbol,value,user=True)
 
 
