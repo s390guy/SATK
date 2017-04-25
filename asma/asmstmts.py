@@ -1587,7 +1587,8 @@ class ModelStmt(ASMStmt):
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
     #attrs="IKLMNOT"   # Attributes supported in expression
-    attrs=None     # Attributes supported in expression
+    #attrs=None     # Attributes supported in expression
+    attrs=A_OC     # Allow the same attributes in model statements as open code
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
