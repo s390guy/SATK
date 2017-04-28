@@ -168,13 +168,16 @@ class Model(object):
         line="%s %s" % (label,self.roper)
         line=line.ljust(max(14,len(line)))
         operands=""
-        for opnd in self.ropnd:
-            operands="%s,%s" % (operands,opnd)
-            if __debug__:
-                if self.debug:
-                    print("%s operands: '%s'" % (cls_str,operands))
-        # Remove the first superfluous comma created by the loop
-        operands=operands[1:]
+        if len(self.ropnd) == 0 and self.comment_pos is not None:
+            operands=", "
+        else:
+            for opnd in self.ropnd:
+                operands="%s,%s" % (operands,opnd)
+                if __debug__:
+                    if self.debug:
+                        print("%s operands: '%s'" % (cls_str,operands))
+            # Remove the first superfluous comma created by the loop
+            operands=operands[1:]
         if __debug__:
             if self.debug:
                 print("%s operands: '%s'" % (cls_str,operands))
