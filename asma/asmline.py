@@ -22,20 +22,20 @@
 # line. Processing these fields result in the creation of an LField object.
 #
 # Operands have further processing requirements depending upon statement format
-# and the nature of the operands themselves.  Three different approaches to 
+# and the nature of the operands themselves.  Three different approaches to
 # operand field processing are possible.  The asmstmts.Stmt subclass associaed with
 # the operation determines how processing is to be done for each physical line
 # in the logical line.  Three class attributes influence the processing:
 #
 #    class.alt    - Indicating normal (False) or alternate (True) statement formats
-#    class.sep    - Whether the entire field is processed (False) as an LOperands 
-#                   object or operands should be separated (True) into LOperand 
+#    class.sep    - Whether the entire field is processed (False) as an LOperands
+#                   object or operands should be separated (True) into LOperand
 #                   objects
-#    class.spaces - Wheher spaces are allowed within an operand (True) or not 
+#    class.spaces - Wheher spaces are allowed within an operand (True) or not
 #                   (False).  This causes LTerm objects to be created.
 #
 # Normal statements may or may not have operands separated.  Alternate statements
-# always separate operands but with 
+# always separate operands but with
 #
 # Cases:
 #   alt=False sep=False spaces=False  --   Some assembler directives
@@ -65,14 +65,14 @@ import asminput    # Access the physical text input handler
 #  +------------------------+
 #  |                        |
 #  |   Logical Line Error   |
-#  |                        | 
+#  |                        |
 #  +------------------------+
 #
 
 class LineError(Exception):
     def __init__(self,source=None,msg="",maclib=False):
         self.msg=msg         # Text associated with the error
-        self.maclib=maclib   # Whether error created by MACLIBProcessor 
+        self.maclib=maclib   # Whether error created by MACLIBProcessor
         self.source=source   # Input source
         if source is not None:
             string="%s: %s" % (self.source,self.msg)
@@ -85,7 +85,7 @@ class LineError(Exception):
 #  +-------------------------------------------+
 #  |                                           |
 #  |   Logical Line Label or Operation Field   |
-#  |                                           | 
+#  |                                           |
 #  +-------------------------------------------+
 #
 
@@ -110,7 +110,7 @@ class LField(asmbase.ASMString):
         #  'B' -> A single sysmbolic variable without a subscript or an attribute
         #  'L' -> A normal label
         #  'M' -> A macro model statement label
-        #  'S' -> A symbolic variable with 
+        #  'S' -> A symbolic variable with
         #  'Q' -> A sequence symbol
         #  'U' -> unrecognized
         self.typ="U"         # Unrecognized type
@@ -127,7 +127,7 @@ class LField(asmbase.ASMString):
 
     # This performs a rudimentary check for invalid chars.  The actual contextual
     # validation occurs using the validate() method driven by the Stmt subclass.
-    # 
+    #
     # Note: This is used as a sanity check on the operation field.
     def char_ck(self,debug=False):
         for c in "*~`!^_[]{}:;?\|=":
@@ -140,7 +140,7 @@ class LField(asmbase.ASMString):
         char=self.text[0]   # Get the first character for a quick sanity check
 
         for typ in types:
-            
+
             if typ=="S":
                 if char=="&":
                     # call back to the statement to do a full symbolic reference parse
@@ -154,7 +154,7 @@ class LField(asmbase.ASMString):
                 else:
                     continue
             elif typ=="Q" and char!=".":
-                continue 
+                continue
 
             ltyp=LField.types[typ]
 
@@ -193,12 +193,12 @@ class LField(asmbase.ASMString):
             self.amp = self.token.groups()[1] is not None
 
         return
-        
+
 #
 #  +------------------------------------------------------+
 #  |                                                      |
 #  |   Logical Line Complete Operand and Comment Fields   |
-#  |                                                      | 
+#  |                                                      |
 #  +------------------------------------------------------+
 #
 
@@ -237,7 +237,7 @@ class LOperands(asmbase.ASMString):
         assert pline.operand_start is not None,\
             "%s 'pline.operand_start' must not be None" \
                 % assembler.eloc(self,"__init__",module=this_module)
-                
+
         loc=asmbase.ASMPLoc(source=pline.source,pndx=pline.operand_start)
         text=pline.text[pline.operand_start:]
         self.newloc(loc)
@@ -249,7 +249,7 @@ class LOperands(asmbase.ASMString):
 #  +-------------------------------------------+
 #  |                                           |
 #  |   Logical Line Individual Operand Entry   |
-#  |                                           | 
+#  |                                           |
 #  +-------------------------------------------+
 #
 
@@ -279,14 +279,14 @@ class LOperand(asmbase.ASMString):
 #  +----------------------------------------+
 #  |                                        |
 #  |   Logical Line Individual Term Entry   |
-#  |                                        | 
+#  |                                        |
 #  +----------------------------------------+
 #
 
 # NOTE: LTerm IS NOT USED!!!
 
-# This object represents a single term in an operand present in an operand field 
-# consisting of multiple operands and complex terms.  A list of these objects is 
+# This object represents a single term in an operand present in an operand field
+# consisting of multiple operands and complex terms.  A list of these objects is
 # constructed when a statement class has the class attribute sep=True and
 # spaces=True.
 class LTerm(asmbase.ASMString):
@@ -310,7 +310,7 @@ class LTerm(asmbase.ASMString):
 #  +----------------------------------------+
 #  |                                        |
 #  |   Logical Line Operand Field Parsers   |
-#  |                                        | 
+#  |                                        |
 #  +----------------------------------------+
 #
 
@@ -328,6 +328,9 @@ class cstate(fsm.FSMState):
         super().__init__(name,fsm=True)
 
 class cfsm(fsm.FSM):
+
+    find_cmt=re.compile(" *")
+
     def __init__(self,trace=False):
         super().__init__(trace=trace)
         self.initialize()       # Create states and actions
@@ -410,12 +413,12 @@ class cfsm(fsm.FSM):
         # quote will look like the start of a string.  Enter the attr state for this
         # Which attribute characters are recognized is actually controlled by the
         # parse() method's attrs argument.
-        
+
         # Use the global attribute characters from asmtokens
         for c in asmtokens.ATTR:
             init.action(c,self.ACT_Attr)
 
-        # a stand alone (not part of an attribute) single quote will indicate 
+        # a stand alone (not part of an attribute) single quote will indicate
         # the start of a string.  Enter the instr state for this case
         init.action("'",self.ACT_String_Begin)
 
@@ -530,10 +533,10 @@ class cfsm(fsm.FSM):
             # Test for the case of a comma followed by a space indicating
             # comments are present on a statement without operands.
             opnd=self.cndx
-            
+
             # Note: the physical line object removes trailing blanks, so we
             # have to treat just a comma with nothing after it as if it had a space.
-            # We also have to check for the normal case where a comma followed by 
+            # We also have to check for the normal case where a comma followed by
             # a space indicates no operands.  In this case there may be a comment.
             if len(self.text)==opnd+1 and self.text[opnd]==",":
                 if __debug__:
@@ -550,6 +553,31 @@ class cfsm(fsm.FSM):
                             "returning: []"\
                                 % (assembler.eloc(self,"parse",module=this_module),\
                                     self.text[opnd:]))
+                # Locate a comment following ', ' in the pline
+                mo=cfsm.find_cmt.match(self.text,opnd+2)
+
+                if mo is not None:
+                    cmt=mo.end()
+
+                    # This should not occur.  If the right-hand spaces have been
+                    # stripped, then we should never get this far for a physical
+                    # line that has no operands.  Throw the exception so this
+                    # case can be researched if it ever happens.
+                    assert cmt < len(self.text),\
+                        "%s unexpected empty comment, logline:\n%s\n" \
+                            % (assembler.eloc(self,"parse",module=this_module),\
+                                logline)
+
+                    # Set the start of the comment in the physical line.  Without
+                    # this a model statement will lose the comment in the generated
+                    # statement.
+                    self.pline.comment_start=cmt
+                    if not self.altfmt:
+                        # If not using alternate statement format, then any
+                        # continued physical lines must also be treated as comments
+                        for pline_ndx in range(self.pndx,len(self,plines),1):
+                            pl=self.plines[pline_ndx]
+                            pl.comment=True
                 return []
 
         # Use FSM to parse operands
@@ -686,7 +714,7 @@ class cfsm(fsm.FSM):
 #  +-------------------------+
 #  |                         |
 #  |   Single Logical Line   |
-#  |                         | 
+#  |                         |
 #  +-------------------------+
 #
 
@@ -748,7 +776,7 @@ class LogLine(object):
         #   - operand parsing
         #   - operand interpretation
         self.fields(pline)
-   
+
     def __str__(self):
         m=c=r=" "
         if self.comment:
@@ -767,7 +795,7 @@ class LogLine(object):
             % (first.source,r,m,c,self.T,self.label_fld,self.oper_fld,\
                 first.operand_start)
         if len(self.operands)==0:
-            return "%s %s" % (string,self.opnd_fld) 
+            return "%s %s" % (string,self.opnd_fld)
         for opnd in self.operands:
             if opnd is None:
                 string="%s\n    %s" % (string,opnd)
@@ -1073,7 +1101,7 @@ class LineMgr(object):
                 if debug:
                     print("%s logline.opnd_fld: %s" % (cls_str,logline.opnd_fld))
 
-    # Returns a logical line to the assembler or None if no more input.  
+    # Returns a logical line to the assembler or None if no more input.
     def getLogical(self,debug=False):
         if self._bend:
             raise asminput.BufferEmpty
@@ -1081,7 +1109,7 @@ class LineMgr(object):
         if logical is None:
             raise asminput.BufferEmpty
         return logical
-        
+
     # Return input file's absolute path
     def InputPath(self):
         return self.LB.InputPath()
@@ -1093,11 +1121,11 @@ class LineMgr(object):
     # Invoke a macro as a new statement source
     def newMacro(self,exp,stmtno=None):
         self.LB.newMacro(exp,stmtno=stmtno)
-        
+
     # Insert literals from a pool for assembly
     def newPool(self,pool,genlvl=None,debug=False):
         self.LB.newPool(pool,genlvl=genlvl,debug=debug)
 
-    
+
 if __name__ == "__main__":
     raise NotImplementedError("%s - intended for import use only" % this_module)
