@@ -1159,7 +1159,6 @@ class SETA(SETx):
             else:
                 v=macsyms.A_Val(0)
         elif isinstance(value,macsyms.C_Val):
-            #v=value.sdterm(state.exp.pm,excp=False,debug=debug)
             v=value.sdterm(excp=False,debug=debug)
             if v is None:
                 raise MacroError(invoke=True,\

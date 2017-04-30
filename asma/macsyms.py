@@ -36,7 +36,7 @@ import asmtokens
 # to be passed in the call to an arithmetic overloading method, for example __add__,
 # because the method arguments are dictated by Python.  To make this object
 # available to the Mac_Val subclasses, the MacroLanguage object, when it is
-# instantiated by the assemlber, reaches into this module and sets the module
+# instantiated by the assembler, reaches into this module and sets the module
 # attribute.  See asmmacs.MacroLanguage.__init__() method.
 pm=None
 
@@ -163,7 +163,6 @@ class Mac_Val(object):
     # Exception:
     #   pratt3.PEvaluationError raised if string is not a self-defining term when
     #   excp is specified as True.
-    #def _parse_sdterm(self,pm,string,excp=False):
     def _parse_sdterm(self,string,excp=False):
         assert isinstance(string,str),\
             "%s 'string' argument must be a string: %s" \
@@ -174,7 +173,6 @@ class Mac_Val(object):
                     msg="empty string not a self-defining term")
             return None
         try:
-            #sdscope=parsers.Parsers.sdterm.parse(string)
             sdscope=pm.parse_sdterm(string)
         except assembler.AsmParserError as mpe:
             if excp:
@@ -237,6 +235,7 @@ class MacroParm(object):
         #  Keyword parameter:     Actual value or default (str)
         #  SYSLIST:               List of LString, LString subclass or None
         if syslist is not None:
+            # syslist argument not used.  This may be eliminated
             raise NotImplementedError("SYSLIST support to be developed")
             # Creating SYSLIST
             self.value=Parm_Val(ndx=0,sylist=syslist)
@@ -634,9 +633,6 @@ class MacroOperands(object):
     keyword=re.compile("%s=" % assembler.label)
     parm=re.compile("(&%s)(=)?" % assembler.label)
     def __init__(self,trace=False):
-        # Parse parameters from parse() method
-        #self.spaces=False       # Whether spaces may be in operands
-
         # Parse specific attributes. Reset by parse() method
         self.keyword=None       # Keyword of keyword macro parameter
         self.value=None         # Keyword or positional parameter value
@@ -696,16 +692,12 @@ class MacroOperands(object):
         # argument 'operands' is a list of asmline.LOperand objects derived from
         # parsers.parse_sep() method
 
-        #print("%s operands: %s" \
-        #    % (assembler.eloc(self,"parse_operands",module=this_module),operands))
         opnds=[]
         for n,opnd in enumerate(stmt.operands):
             if opnd is None:
                 opnds.append(None)
                 continue
-            #print('parsing: "%s"' % opnd.text)
             parm=self.parse(opnd,proto=proto)
-            #print(parm)
             if isinstance(parm,MacroParm):
                 opnds.append(parm)
             else:
@@ -1329,7 +1321,6 @@ class C_Val(Mac_Val):
         if not self._sdparse:
             self._sdvalue=None
             self._sdparse=True
-            #self._sdvalue=self._parse_sdterm(pm,self._value,excp=excp)
             self._sdvalue=self._parse_sdterm(self._value,excp=excp)
         if excp and self._sdvalue is None:
             raise pratt3.PEvaluationError(\
