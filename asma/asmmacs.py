@@ -469,10 +469,15 @@ class Macro(object):
             # and create omitted entries for remaining prototype positionals.
             for ndx in range(posn):
                 if ndx<poss:
-                    pval=Parm_Val(value=stmt_pos[ndx].value)
+                    val=stmt_pos[ndx]
+                    if val is None:
+                        pval=Parm_Val()   # Ommitted positional parameter
+                    else:
+                        pval=Parm_Val(value=stmt_pos[ndx].value)
                     if self.syslist:
                         sysl.append(pval)
                 else:
+                    # Positional parameters not present at all in statement
                     pval=Parm_Val()
                 self.__initparm(proto_pos[ndx].positional,pval,lcls)
 
@@ -604,6 +609,11 @@ class MacroEngine(object):
                 newme=state.exp.error(op,me.msg)
                 #print("macro engine: newme: %s" % newme)
                 raise newme from None
+            except Exception as exp:
+                print("INTERNAL ERROR in macro %s, %s operation line: %s" \
+                    % (self.name,op.__class__.__name__,op.lineno))
+                #raise exp
+                raise
 
             # next being None indicates the macro has ended.
             if loc is None:
@@ -1149,7 +1159,8 @@ class SETA(SETx):
             else:
                 v=macsyms.A_Val(0)
         elif isinstance(value,macsyms.C_Val):
-            v=value.sdterm(state.exp.pm,excp=False,debug=debug)
+            #v=value.sdterm(state.exp.pm,excp=False,debug=debug)
+            v=value.sdterm(excp=False,debug=debug)
             if v is None:
                 raise MacroError(invoke=True,\
                     msg="SETA operand %s requires arithmentic result, character "
@@ -1752,6 +1763,9 @@ class MacroLanguage(object):
         self.asm=asm           # The assembler
         self.case=asm.case     # Inherits the case sensitivity option
         self.parsers=asm.PM    # parsers.ParserMgr object
+        # Make the parser manager available to macro symbol value objects,
+        # subclasses of macsyms.Mac_Val.
+        macsyms.pm=self.parsers
 
         # Macro processing state:
         #  0 ==> not processing macro definitions

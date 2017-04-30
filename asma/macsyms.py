@@ -31,6 +31,14 @@ import assembler
 import asmbase
 import asmtokens
 
+# To recognize the value of a SETC variable as a self-defining term requires
+# access to the parser manager.  No mechanism exists to allow this object instance
+# to be passed in the call to an arithmetic overloading method, for example __add__,
+# because the method arguments are dictated by Python.  To make this object
+# available to the Mac_Val subclasses, the MacroLanguage object, when it is
+# instantiated by the assemlber, reaches into this module and sets the module
+# attribute.  See asmmacs.MacroLanguage.__init__() method.
+pm=None
 
 # This excpetion is used when a user when symbolic variable related errors occur.
 #
@@ -155,7 +163,8 @@ class Mac_Val(object):
     # Exception:
     #   pratt3.PEvaluationError raised if string is not a self-defining term when
     #   excp is specified as True.
-    def _parse_sdterm(self,pm,string,excp=False):
+    #def _parse_sdterm(self,pm,string,excp=False):
+    def _parse_sdterm(self,string,excp=False):
         assert isinstance(string,str),\
             "%s 'string' argument must be a string: %s" \
                 % (assembler.eloc(self,"_parse_sdterm",module=this_module),string)
@@ -1315,11 +1324,13 @@ class C_Val(Mac_Val):
     #   an integer corresponding to the value of the self-defining term
     # Exception:
     #   PEvaluationError if symbol is not set to a valid self-defining term.
-    def sdterm(self,pm,excp=False,debug=False,trace=False):
+    #def sdterm(self,pm,excp=False,debug=False,trace=False):
+    def sdterm(self,excp=False,debug=False,trace=False):
         if not self._sdparse:
             self._sdvalue=None
             self._sdparse=True
-            self._sdvalue=self._parse_sdterm(pm,self._value,excp=excp)
+            #self._sdvalue=self._parse_sdterm(pm,self._value,excp=excp)
+            self._sdvalue=self._parse_sdterm(self._value,excp=excp)
         if excp and self._sdvalue is None:
             raise pratt3.PEvaluationError(\
                 msg="SETC symbol not a self-defining term: '%s'" % self._value)

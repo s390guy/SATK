@@ -1545,7 +1545,9 @@ class MacroStmt(ParmStmt):
         key_parms={}
 
         for parm in parms:
-            if parm.keyword:
+            if parm is None:
+                pos_parms.append(None)
+            elif parm.keyword:
                 # This is a keyword parm
                 name=parm.keyword
                 if not case:
