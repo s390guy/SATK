@@ -1412,7 +1412,7 @@ class Storage(Operand):
         return "unexpected index register (error=%s)" % self.source
 
     def value_error(self):
-        return "explicit base register must be an integer (error=%s)" \
+        return "explicit base register must be an integer (error=%s): %s" \
             % (hex(self.fields),self.values[2])
 
 # This class supports a single statement operand that takes the form of a full
