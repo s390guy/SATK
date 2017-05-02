@@ -331,7 +331,7 @@ class Parm_Val(Mac_Val):
             "%s 'indices' argument must be a list: %s" \
                 % (assembler.eloc(self,"fetch",module=this_module),indices)
         if __debug__:
-            if debug:
+            if debug or True:
                 print("%s indices:%s depth:%s" \
                     % (assembler.eloc(self,"fetch",module=this_module),\
                         indices,depth))
@@ -344,10 +344,20 @@ class Parm_Val(Mac_Val):
             raise SymbolError(msg="too many sublist subscripts: %s" % depth)
 
         this=ndxs[depth]
+        print("%s this: %s minimum: %s" \
+            % (assembler.eloc(self,"fetch",module=this_module),this,self.minimum))
         if len(self.sublists)==0:
             # The requested sublist does not exist, so return an empty C_Val
             return C_Val()
-        val=self.sublists[this-self.minimum]
+        print("%s sublists: %s" \
+            % (assembler.eloc(self,"fetch",module=this_module),self.sublists))
+        for s in self.sublists:
+            print(s)
+        pndx=this-self.minimum
+        if pndx>len(self.sublists):
+            return C_Val()
+        #val=self.sublists[this-self.minimum]
+        val=self.sublists[pndx]
         if depth==len(ndxs)-1:
             # Last requested index so return the retrieved sublist's C_Val object
             return val.value()
