@@ -284,6 +284,13 @@ class Parm_Sym(Mac_Sym):
 # This object represents recognized macro prototype or statement parameters.
 # Instance Arguments:
 #   value   A string that is the parameter's value or default
+#   onum    The operand number of this parameter in the macro statement
+#   ndx     A value by which the index is adjusted.  MAY BE OBSOLETE.
+#   minimum Minimum sublist subscript value for this parmater.  1 for macro
+#           statement positional or keyword parameters, and 0 for top &SYSLIST
+#           Parm_Val object.  Defaults to 1.
+#   syslist If this Parm_Val object is part of &SYSLIST, then this argument is
+#           the Python list of its sublist entries.
 class Parm_Val(Mac_Val):
     attrs="KkNnTt"
     def __init__(self,value=None,onum=None,ndx=1,minimum=1,syslist=None):
@@ -297,8 +304,16 @@ class Parm_Val(Mac_Val):
             self.cval=C_Val(value)
         self._value=self.cval
 
-        #print("MacroParmValue: %s" % self.value)
-        self.ndx=ndx            # Index adjustment
+        self.ndx=ndx            # Index adjustment  THIS MIGHT BE OBSOLETE
+
+        # When a Parm_Val object contains a sublist, the context of the sublist
+        # influences the minimum value of the sublit index.  For normal macro
+        # parameters, regardless of whether the parameter is positional or a keyword
+        # parameter, the minimum sublist index is 1, default of the minimum
+        # instatiation argument.
+        #
+        # When dealing with &SYSLIST, it can have an index of 0.  &SYSLIST(0) refers
+        # to the macro's label field content.
         self.minimum=minimum    # Minimum index
 
         if self.syslist:
@@ -307,8 +322,10 @@ class Parm_Val(Mac_Val):
             self.sublists=[]
             self.sublist(trace=False)       # This provides recursion for sublists
 
-        # Set the N attribute
+        # Set the N attribute, the number of sublist entries
         self["N"]=len(self.sublists)
+        # Set the K attribute, the length of the parameter or parameter sublist
+        # in characters
         self["K"]=self.cval["K"]
 
     def display(self,indent="",string=False):
@@ -331,7 +348,7 @@ class Parm_Val(Mac_Val):
             "%s 'indices' argument must be a list: %s" \
                 % (assembler.eloc(self,"fetch",module=this_module),indices)
         if __debug__:
-            if debug or True:
+            if debug:
                 print("%s indices:%s depth:%s" \
                     % (assembler.eloc(self,"fetch",module=this_module),\
                         indices,depth))
@@ -344,19 +361,16 @@ class Parm_Val(Mac_Val):
             raise SymbolError(msg="too many sublist subscripts: %s" % depth)
 
         this=ndxs[depth]
-        print("%s this: %s minimum: %s" \
-            % (assembler.eloc(self,"fetch",module=this_module),this,self.minimum))
         if len(self.sublists)==0:
             # The requested sublist does not exist, so return an empty C_Val
             return C_Val()
-        print("%s sublists: %s" \
-            % (assembler.eloc(self,"fetch",module=this_module),self.sublists))
-        for s in self.sublists:
-            print(s)
         pndx=this-self.minimum
         if pndx>len(self.sublists):
+            # If the requested sublist entry exceeds the actual entries present
+            # in the Python list, return an empty string.  This works the same as
+            # normal SETC symbols when requesting a indexed symbol, but whose
+            # requested index does not exist in the array.
             return C_Val()
-        #val=self.sublists[this-self.minimum]
         val=self.sublists[pndx]
         if depth==len(ndxs)-1:
             # Last requested index so return the retrieved sublist's C_Val object
