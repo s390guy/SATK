@@ -772,7 +772,23 @@ class Mac_Sym_Array(Mac_Sym):
             self._ck_symid(symbol)       # AssertionError
             #self._ck_sub(symbol.sub)     # SymbolError
             self._ck_sub(symbol)         # SymbolError
-        return self.value[symbol.sub]
+        sub=symbol.sub
+        if isinstance(sub,A_Val):
+            sub=A_Val.value()            # Get the integer from the A_Val object
+        elif isinstance(sub,(B_Val,C_Val)):
+            raise SymbolError(\
+                msg="array subscript can not be a SET%s symbol" \
+                    % sub.__class__.__name__[0])
+        elif isinstance(sub,Mac_Sym_Array):
+            raise SymbolError(\
+                msg="array subscript can not be a SET%s array" \
+                    % sub.__class__.__name__[0])
+        else:
+            raise ValueError(\
+                "%s %s SET%s array subscript is an unexpected value: %s" \
+                    % (assembler.eloc(self,"getValue",module=this_module),\
+                        symbol,self.__class__.__name__[0],sub))
+        return self.value[sub]
 
     # Sets a value in the unsubscripted symbol based upon SymbolID object
     # Exceptions:
@@ -897,6 +913,11 @@ class SymbolID(object):
 
         if len(indices)==1:
             self.sub=indices[0]
+            #assert isinstance(sub,int),\
+            #   "%s subscript must be an integer: %s" \
+            #       % (assembler.eloc(self,"__init__",module=this_module),sub)
+            #self.sub=indices[0]
+            #self.sub=sub
 
     def __str__(self):
         return "%s(variable=%s,subscipt=%s,indices=%s)" \
@@ -1313,7 +1334,7 @@ class C_Val(Mac_Val):
         if isinstance(other,(A_Val,B_Val)):
             return other.value()
         raise pratt3.PEvaluationError(\
-            msg="comparisonoperation not supported between a character value and %s" \
+            msg="comparis onoperation not supported between a character value and %s" \
                 % other)
 
     def __setK(self):

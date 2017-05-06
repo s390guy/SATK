@@ -609,7 +609,9 @@ class MacroEngine(object):
                 newme=state.exp.error(op,me.msg)
                 #print("macro engine: newme: %s" % newme)
                 raise newme from None
-            except Exception as exp:
+            except (AssertionError,Exception):
+                
+            #except Exception:
                 print("INTERNAL ERROR in macro %s, %s operation line: %s" \
                     % (self.name,op.__class__.__name__,op.lineno))
                 #raise exp
@@ -2331,10 +2333,13 @@ class Mac_Symbols(object):
     def seta(self,symbol,value,user=True):
         assert isinstance(value,macsyms.A_Val),\
             "%s 'value' argument must be a macsyms.A_Val object: %s" \
-                % (assembler.eloc(self,"setb",module=this_module),value)
+                % (assembler.eloc(self,"seta",module=this_module),value)
 
         s=self._reference_symbol(symbol,updating=True,implicit=self.defa)
-        if not isinstance(s,macsyms.A_Sym):
+        #print("%s s: %s" % (assembler.eloc(self,"seta",module=this_module),s))
+        if not isinstance(s,(macsyms.A_Sym,macsyms.A_Sym_Array)):
+            #print("%s raising macro error" \
+            #    % assembler.eloc(self,"seta",module=this_module))
             raise MacroError(invoke=True,msg="SETA can not set a SET%s symbol: %s" \
                 % (s.__class__.__name__[0],s.symbol))
         s.setValue(symbol,value,user=True)
@@ -2347,7 +2352,7 @@ class Mac_Symbols(object):
 
         s=self._reference_symbol(symbol,updating=True,implicit=self.defb)
         if not isinstance(s,macsyms.B_Sym):
-            raise MacroError(invoke=True,msg="SETB can not set SET%s symbol: %s" \
+            raise MacroError(invoke=True,msg="SETB can not set a SET%s symbol: %s" \
                 % (s.__class__.__name__[0],s.symbol))
         s.setValue(symbol,value,user=True)
 
