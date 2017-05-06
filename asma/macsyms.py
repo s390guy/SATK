@@ -775,14 +775,16 @@ class Mac_Sym_Array(Mac_Sym):
         sub=symbol.sub
         if isinstance(sub,A_Val):
             sub=A_Val.value()            # Get the integer from the A_Val object
-        elif isinstance(sub,(B_Val,C_Val)):
-            raise SymbolError(\
-                msg="array subscript can not be a SET%s symbol" \
-                    % sub.__class__.__name__[0])
+        elif isinstance(sub,B_Val):
+            raise SymbolError(msg="array subscript can not be a SETB symbol")
+        elif isinstance(sub,C_Val):
+            sub=sub.sdterm()
+            if sub is None:
+                raise SymbolError(\
+                    msg="array subscript SETC symbol not a self-defining term")
         elif isinstance(sub,Mac_Sym_Array):
             raise SymbolError(\
-                msg="array subscript can not be a SET%s array" \
-                    % sub.__class__.__name__[0])
+                msg="array subscript can not be an array")
         else:
             raise ValueError(\
                 "%s %s SET%s array subscript is an unexpected value: %s" \
