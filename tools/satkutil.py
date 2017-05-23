@@ -19,21 +19,41 @@
 # This module contains a set of useful functionality that does not easily fit
 # elsewhere.
 #
-# The mdoule includes the following classes:
+# The module includes a group of classes for simple management of individual file
+# content and useful generic functions:
+#  Functions:
+#
+#  Classes:
+#   File         The base class of the group
+#   FileError    An exception for delivering error information related to the group.
+#   BinFile      Manages binary file content as bytes sequence
+#   TextFile     Manages text file content as a string
+#   TextLines    Manages text file content as a list of strings.
+# Note: none of these object are enabled for use of environment path strings.
+#
+# The mdoule includes the following individual classes:
 #   dir_tree     Class useful in managing directory trees.
+#   DTYPES       A class providing various mainframe device types for various
+#                families of devices.
+#   Path         Manages the parts of a path.
 #   DM           A Debug Manager that interfaces with the argparse class.
 #   PathMgr      Manages one or more environment variables each of which defines
-#                a directory search order using the native platforms path conventions
-#                for locating relative paths to files, opening the file when found.
-#   TextPrint    Simple utility for printing multiple lines of text with line numbers.
+#                a directory search order using the native platforms path
+#                conventions for locating relative paths to files, opening the file
+#                when found.
+#   Text_Print   Simple utility for printing multiple lines of text with line
+#                numbers.
 #
 # The module includes the following functions:
 #   byte2str     Converts a bytes list or bytearray into a string without encoding
+#   eloc         Standardizes reporting of error locations
 #   pythonpath   A function that allows management of the PYTHONPATH from within a
 #                module.
 #   satkdir      Determines the absolute path to an SATK directory
 #   satkroot     Determines the absolute path to the SATK root directory
 #
+
+this_module="satkutil.py"
 
 # Python imports
 import os
@@ -42,6 +62,437 @@ import re
 import sys
 
 # SATK imports: none
+
+
+#
+# +----------------------------+
+# |                            |
+# |   File Management Tools    |
+# |                            |
+# +----------------------------+
+#
+
+
+# Return an absolute path
+# Method Argument:
+#   filepath   a relative or absolute file path
+# Returns
+#   an absolute path relative to the current working directory or
+#   for an absolute path, simply returns it unchanged.
+
+def abspath(filepath):
+    if os.path.isabs(filepath):
+        return filepath
+    return os.path.abspath(filepath)
+
+
+# Query the operating system whether a file path exists.
+def file_exists(filepath):
+    assert isinstance(filepath,str) and len(filepath)>0,\
+        "%s File.exists() - 'filepath' argument must be a non-empty string: %s" \
+            % (this_module,filepath)
+
+    return os.path.isfile(filepath)
+
+
+# Read a binary or text file.
+# Function Argument:
+#   filepath   a non-empty string of file's path being opened for reading
+#   binary     Whether a text file (False) or a binary (True) file is being read.
+# Returns:
+#   a string from a text file or bytes sequence from a binary file's contents.
+# Exception:
+#   FileError if an error occurs during reading of the file.
+
+def file_read(filepath,binary=False):
+    assert isinstance(filepath,str) and len(filepath)>0,\
+        "%s File.file_read() - 'filepath' argument must be a non-empty string: %s" \
+             % (this_module,filepath)
+
+    if binary:
+        fmode="rb"
+        mode="binary"
+    else:
+        fmode="rt"
+        mode="text"
+
+    try:
+        action="opening"
+        fo=open(filepath,fmode)
+        action="reading"
+        data=fo.read()
+        action="closing"
+        fo.close()
+    except IOError as ioe:
+        raise FileError(msg="I/O error while %s %s file '%s'\n%s   " \
+            % (action,mode,filepath,ioe))
+
+    return data
+
+
+# Write a file's contents.  If the file already exists it is truncated before
+# writing occurs.
+# Function Arguments:
+#   filepath   the path to the file whose contents are being written
+#   data       A string or bytes sequence.  A string causes a text file to be
+#              written.  A bytes sequence causes a binary file to be written.
+# Exeption:
+#   FileError if a problem occurs during writing of the content
+
+def file_write(filepath,data):
+    assert isinstance(filepath,str) and len(filepath)>0,\
+        "%s File.file_write() - 'filepath' argument must be a non-empty string: %s" \
+            % (this_module,filepath)
+
+    if isinstance(data,str):
+        fmode="wt"
+        mode="text"
+    elif isinstance(data,(bytes,bytearray)):
+        fmode="wb"
+        mode="binary"
+    else:
+        raise ValueError(\
+            "%s - file_write() - 'data' argument must be a string "\
+                "or bytes sequence: %s" % (this_module,data))
+
+    try:
+        action="opening"
+        fo=open(filepath,fmode)
+        action="writing"
+        fo.write(data)
+        action="closing"
+        fo.close()
+    except IOError as ioe:
+        raise FileError(msg="I/O error while %s %s file '%s'\n%s   " \
+           % (action,mode,filepath,ioe))
+
+# Joins together a directory and file name and an optional extension into a
+# complete file path inserting path separator between the directory and
+# filename.
+# Method Arguments:
+#   directory  a string of the directory, absolute or relative
+#   filename   the file name with or without an extension
+#   ext        the file name's extenstion if not part of the filenamt.
+#              Defaults to an empty string.  ext should default of the file
+#              name already contains the extension.
+# Returns:
+#   the complete path as a string
+
+def path_join(directory,filename,ext=""):
+    if len(ext)>0:
+        if ext[0]==os.extsep:
+            the_file="%s%s" % (filename,ext)
+        else:
+            the_file="%s%s%s" % (filename,os.extsep,ext)
+    else:
+        the_file=filename
+    return os.path.join(directory,the_file)
+
+
+# Separates the file's path into its constituent parts and returns them as
+# a tuple.
+# Function Arguments:
+#   filepath  the path being separated
+#   ext       Whether a file name extension is separated (True) or not (False).
+#             Defaults to False
+# Returns a tuple of two elements (
+#   tuple[0]  the directory of the file
+#   tuple[1]  the name of the file without the extension
+# If ext=True:
+#   tuple[2]  the extention beginning with a dot or empty if it does not exist
+
+def path_sep(filepath,ext=False):
+    directory,filename=os.path.split(filepath)
+    if ext:
+        filename,ext=os.path.splitext(filename)
+        return (directory,filename,ext)
+    return (diretory,filename)
+
+
+# This object represents a generic file independent of its contents.  A subclass
+# of this object manages the actual content.  Only subclasses of File may be
+# directly instantiated.
+#
+# The static methods may be used without instantiating the object.
+#
+# Instance Arguments:
+#   filepath   A string of the path to the file's content
+class File(object):
+
+    # Separates the file's path into its constituent parts and returns them as
+    # a tuple:
+    #   tuple[0]  the directory of the file
+    #   tuple[1]  the name of the file without the extension
+    #   tuple[2]  the extention beginning with a dot or empty if it does not exist
+    #@staticmethod
+    #def path_sep(filepath):
+    #    directory,filename=os.path.split(filepath)
+    #    filename,ext=os.path.splitext(filename)
+    #    return (directory,filename,ext)
+    
+    @classmethod
+    def _ck_path(cls,path):
+        if isinstance(path,Path):
+            return path
+        if isinstance(path,str):
+            assert len(path)>0,\
+                "%s - %s._ck_path() - 'path' argument must not be an empty string" \
+                    % (this_module,cls.__name__)
+        else:
+            raise ValueError(\
+                "%s - %s._ck_path() - 'path' argument must be a string or "\
+                    "Path object: %s" % (this_module,cls.__name__),path)
+
+        return Path(filepath=path)
+
+
+    # Read a file and return the file's content as a subclass object of File
+    # This method must be called from a subclass that manages the file content.
+    @classmethod
+    def read(cls,filepath,binary=False):
+        path=File._ck_path(filepath)
+        path=path.absolute()
+        data=file_read(path.filepath,binary=binary)
+        return cls(filepath=path,data=data)
+
+    def __init__(self,filepath):
+        if filepath is None:
+            self.po=None
+        else:
+            self.po=self.__class__._ck_path(filepath)
+
+    def append(self,line):
+        raise NotImplementedError("%s class %s does not suppor the append method()"\
+            % (eloc(self,"append"),self.__class__.__name__))
+
+    # Determines whether the current file path exists as a file.
+    # Returns:
+    #   False if the current file path does not exist (as a file)
+    #   None if the current file path is None
+    #   True if the current file past does exist.
+    # Note: Within a Python if statement, None is treated as False.
+    def exists(self):
+        return self.po.exists()
+
+    # Write data to the current file path
+    # Method Argument:
+    #   data   string of the data being written to the file
+    # Exception:
+    #   FileError if the file's path is unavailable or an error occurs during
+    #              writing.
+    def write(self,data):
+        file_write(self.po.filepath,data)
+
+
+# This excpetion is used when an error occurs relating to a file management
+# operation.
+#
+# Instance Arguments:
+#   msg     The nature of the error.  Defaults to an empty string
+class FileLError(Exception):
+    def __init__(self,msg=""):
+        self.msg=msg     # Nature of the error.
+        super().__init__(self.msg)
+
+
+# This class manages a binary file as a list of binary bytes.
+class BinFile(File):
+
+    # Read a binary file and retun a BinFile object of the file's content
+    @classmethod
+    def read(cls,filepath):
+        return super().read(filepath,binary=True)
+
+    # Create an object representing a binary file.
+    # Method Arguments:
+    #   filepath   The path to the binary content.  Defaults to None.
+    #   data       The binary content of the file represented by this object.
+    #              Must be a bytes sequence or None.
+    def __init__(self,filepath=None,data=None):
+        assert isinstance(data,(bytes,bytearray)) or data is None,\
+            "%s 'data' argument must be bytes sequence: %s" \
+                % (eloc(self,"__init__"),data)
+
+        super().__init__(filepath)
+        self._binary=data
+
+    # Print or return as a string the binary content in dump format.
+    # Method Arguments:
+    #   indent   a string that is the indent of each dump line.  Defaults to "".
+    #   string   returns the formatted dump as a string (True) or prints the
+    #            formatted dump (False)
+    # Returns:
+    #   if string=True returns formatted dump as a string
+    #   if string=False returns None after printing the formatted dump
+    def display(self,indent="",string=False):
+        str_data=dump(self._binary,indent=indent)
+        if string:
+            return str_data
+        print(str_data)
+
+    # Writes the binary contents to the file.  If the current content is None,
+    # the file is truncated with nothing being written to it.
+    # Method Argument:
+    #   filepath   Change the current file path of this object to this path forcing
+    #              this object to write the content to this new path rather than
+    #              the path from which the file was read.
+    def write(self,filepath=None):
+        if filepath is not None:
+            self.po=self.__class__._ck_path(filepath)
+        if self._binary is None:
+            data=bytes()
+        else:
+            data=self._binary
+        super().write(data)
+
+
+# This class manages a text file a single string with embedded line ends
+class TextFile(File):
+
+    # Read a text file and retun a TextFile object of the file's content
+    @classmethod
+    def read(cls,filepath):
+        return super().read(filepath,binary=False)
+
+    def __init__(self,filepath=None,data=None):
+        assert isinstance(data,str) or data is None,\
+            "%s 'data' argument must be a string: %s" % (eloc(self,"__init__"),data)
+
+        super().__init__(filepath)
+        self._text=data         # Text file data as string
+
+    # Print the text or return the file content without formating.
+    # Method Argument:
+    #   string   Return the file content string (True) or print the file content
+    #            (False).  Defaults to False.
+    # Returns:
+    #   if string=True returns the text file content without formatting
+    #   if string=False returns None after printing the file content without
+    #   formatting.
+    def display(self,string=False):
+        if string:
+            return self._text
+        print(self._text)
+
+    # Write a text file.  If the file already exists, the file is truncated before
+    # writing begins.
+    # Method Argument:
+    #   filepath   the file's path to which the contents of the text file are
+    #              written.
+    def write(self,filepath=None):
+        if filepath is not None:
+            self.po=self.__class__._ck_path(filepath)
+        if self._text is None:
+            data=""
+        else:
+            data=self._text
+        super().write(data)
+
+
+# This class manages a text file as a list of lines without line ends.
+class TextLines(TextFile):
+
+    # This method converts a list of strings into a single string where each string
+    # element contains a line end.  This method
+    # Method Arguments:
+    #   lst   the list of strings being joined with line ends
+    #   strip Remove trailing white space (True) or not (False) before joining the
+    #         strings in the list.  Defaults to False
+    #   end   Ensure the last line has a line end (True) or not (False).  Defaults
+    #         to False.
+    # Returns
+    #   a single string composed of the joined elements of the list.
+    @staticmethod
+    def list2str(lst,strip=False,end=False):
+        if strip:
+            str_list=[]
+            for l in lst:
+                str_list.append(l.rstrip())
+        else:
+            str_list=lst
+        string="\n".join(str_list)
+        if end and string[-1] != "\n":
+            string=string+"\n"
+        return string
+
+    # Converts a string into a list of individual lines without line ends
+    # Method Arguments:
+    #   string   the string being split
+    #   strip    Whether to remove trailing white space (True) or not (False) from.
+    #            each line.  Defaults to False.
+    @staticmethod
+    def str2list(string,strip=False):
+        assert isinstance(string,str),\
+            "%s - TextFile.str2list() - 'string' argument must be a string: %s" \
+                % (this_module.data)
+
+        # Split text into a list of strings without line ends
+        lst=string.splitlines()
+
+        if strip:
+            strip_list=[]
+            for l in lst:
+                strip_list.append(l.rstrip())
+            return strip_list
+        return lst
+
+    # Read a text file and retun a TextLines object of the file's content
+    @classmethod
+    def read(cls,filepath):
+        return super().read(filepath)
+
+    def __init__(self,filepath=None,data=None):
+        assert isinstance(data,str) or data is None,\
+            "%s 'data' argument must be a string: %s" % (eloc(self,"__init__"),data)
+
+        super().__init__(filepath=filepath,data=data)
+        self._lines=[]          # Text file lines as a list of lines
+        if self._text is not None:
+            self._lines=TextLines.str2list(self._text)
+
+    def append(self,line):
+        if isinstance(line,str):
+            if len(line)==0:
+                lst=["",]
+            else:
+                lst=TextLines.str2list(line)
+        elif isinstance(line,list):
+            lst=line
+        else:
+            raise ValueError("%s 'line' argument unexpected: %s" \
+                % (eloc(self,"append"),line))
+        self._lines.extend(lst)
+
+    # Convert the lines into a numbered sequence of lines and joined as strings
+    # Method Arguments:
+    #   indent    A string represeting the amount of indent of the line.
+    #             Defaults to "".
+    #   string    Whether to return the numbered list as a string (True) or to
+    #             print the string (False).  Defaults to False.
+    # Returns:
+    #   If string=True, the numbered lines as a string of
+    #   if string=False, None after printing the lints
+    def display(self,indent="",string=False):
+        to=Text_Print(self._lines)
+        str_data=to.print(indent=indent,string=True)
+        if string:
+            return str_data
+        print(str_data)
+
+    def write(self,filepath=None):
+        if filepath is not None:
+            self.po=self.__class__._ck_path(filepath)
+        self._text=TextLines.list2str(self._lines,strip=True,end=True)
+        super().write()
+
+
+#
+# +------------------------------+
+# |                              |
+# |  Useful Individual Classes   |
+# |                              |
+# +------------------------------+
+#
 
 # This class gathers directory and file lists recursively from within a root
 # directory.  The class allows inclusion or exclusion of hidden files and
@@ -446,6 +897,198 @@ class DM(object):
         for x in skeys:
             string="%s    %s=%s\n" % (string,x,self.flags[x])
         print(string[:-1])
+
+
+#
+# +----------------------------------+
+# |                                  |
+# |  Mainframe Device Type Manager   |
+# |                                  |
+# +----------------------------------+
+#
+
+# This class encapsulates mainframe device types for a number of families of devices.
+# No instance arguments are required.
+class DTYPES(object):
+    def __init__(self):
+        self.types={}
+        self.families=[]
+        self.dtype("CON","3215-C",["1052","3215","1052-C","3215-C","3270"])
+        self.dtype("CKD","3330",\
+            ["2306","2311","2314","3330","3340","3350","3380","3390","9345"])
+        self.dtype("FBA","3310",\
+            ["0671","0671-04","3310","3370","3370-2","9332","9332-600","9313",\
+            "9335","9336","9336-20"])
+        self.dtype("GRAF","3270",["3270",])
+        self.dtype("PRT","1403",["1403","3211"])
+        self.dtype("PUN","2525",["2525",])
+        self.dtype("RDR","2501",["1442","2501","3505"])
+        self.dtype("TAPE","3420",
+            ["3410","3420","3422","3430","3480","3490","3590","8809","8347"])
+
+    # Return a tuple for a device type family:
+    #   tupple[0]  The default device model for the family, a string
+    #   tupple[1]  A list of all device models supported by the family, a list of
+    #              strings.
+    def __getitem__(self,family):
+        return self.types[family]
+
+    # Define an alias family name for an existing family
+    def alias(self,new_name,old_name):
+        try:
+            fam=self[new_name]
+            raise ValueError(\
+                "%s - %s.alias() - device family already defined: %s" \
+                    % (this_module,self.__class__.__name__,new_name))
+        except KeyError:
+            self.types[new_name]=self[old_name]
+
+    # Define device numbers and a default for a family of devices.
+    # Allows creation of a new family of devices.
+    # Method Arguments:
+    #   family   a string defining the name of the family being defined
+    #   default  the device type of the family's default device type.  Can be None.
+    #   devices  a list of strings defining the device types belonging to the
+    #            family.
+    def dtype(self,family,default,devices):
+        try:
+            fam=self.types[family]
+            raise ValueError("%s - %s.dtype() - device family already defined: %s" \
+                % (this_module,self.__class__.__name__,family))
+        except KeyError:
+            self.types[family]=(default,devices)
+            self.families.append(family)
+
+     # Identify the device type family in which a device type belongs.
+     # Note: alias names are not recognized by this process, only base family names.
+     # Method Argument:
+     #   dtype   A string of the device type being recognized
+     # Returns:
+     #   a string of the device type's family name
+     # Exceptions:
+     #   KeyError if device type can not be located
+    def family(self,dtype):
+        for f in self.families:
+            default,lst=self.types[f]
+            if dtype in lst:
+                return f
+        # Device type not in any family, so raise KeyError
+        raise KeyError
+
+
+#
+# +------------------------------------+
+# |                                    |
+# |   Generic Path Part Manipulation   |
+# |                                    |
+# +------------------------------------+
+#
+
+# Manages parts of a file path
+# The Path class may be used to breakdown a complete absolute or relative path
+# into its consituent parts by using:
+#   Path(filepath=the_path)
+# or from a set of parts, create a full absolute or relative path by using:
+#   Path(directory=dir,filename=name,ext=extension)
+class Path(object):
+    def __init__(self,filepath=None,directory=None,filename=None,ext=None):
+        self.filepath=None       # The full file path
+        self.directory=None      # The directory part of the file path
+        self.filename=None       # The file name without an extension
+        self.filenamex=None      # The file name with an extension
+        self.ext=None            # The file's extension
+        
+        # Whether the path is absolute (True) or relative (False)
+        self.isabs=None
+        
+        if filepath:
+            self.isabs=os.path.isabs(filepath)
+            self.filepath=filepath
+            self.directory,self.filenamex=os.path.split(filepath)
+            self.filename,self.ext=os.path.splitext(self.filenamex)
+            return
+
+        assert filename is not None,\
+            "%s 'filename' argument is required when filepath is ommtted" \
+                % eloc(self,"__init__")
+
+        try:
+            filename.index(os.extsep)
+            assert ext is None,\
+                "%s 'filename' argument with an extension may not exist with 'ext'"\
+                " argument" % eloc(self,"__init__")
+            self.filename,self.ext=os.path.splitext(self.filename)
+            self.filenamex=filename
+        except ValueError:
+            # Extension is not present
+            self.filename=filename
+            self.ext=ext
+            if ext:
+                self.filenamex="%s%s%s" % (filename,os.extsep,ext)
+            else:
+                self.filenamex=filename
+
+        if directory:
+            self.filepath=os.path.join(directory,self.filenamex)
+        else:
+            self.filepath=self.filenamex
+
+        self.isabs=os.path.isabs(self.filepath)
+        
+    def __str__(self):
+        return "Path - %s - dir:%s  file:%s  ext:%s" \
+            % (self.filepath,self.directory,self.filename,self.ext)
+        
+    # Make this relative path absolute or return the already absolute path
+    # Method Argument:
+    #   reldir   the absolute directory path to which this relative path is made
+    #            absolute.
+    # Returns:
+    #   If this path is already absolute, returns self,
+    #   otherwise, a Path object for the created absolute path is returned
+    def absolute(self,reldir=None):
+        if self.isabs:
+            return self
+        if reldir is None:
+            d=os.getcwd()
+        else:
+            assert isinstance(reldir,str) and len(reldir)>0,\
+                "%s 'reldir' arbument must be a non-empty string: %s" \
+                    % (eloc(self,"absolute"),reldir)
+            assert os.path.isabs(reldir),\
+                "%s 'reldir' argument must be an absolute path: %s" \
+                    % (eloc(self,"absolute"),reldir)
+            d=reldir
+        abspath=os.path.join(d,self.filepath)
+        return Path(filepath=abspath)
+
+    def exists(self):
+        return file_exists(self.filepath)
+
+    # Convert this absolute path into a path relative to another absolute path
+    # Method Argument:
+    #   reldir    the absolute path
+    # Returns:
+    #   the Path object for the recognized relative path
+    # Exception:
+    #   ValueError if this path is not absolute or relative to the supplied path
+    def relative(self,reldir):
+        assert isinstance(reldir,str) and len(reldir)>0,\
+            "%s 'reldir' arbument must be a non-empty string: %s" \
+                % (eloc(self,"relative"),reldir)
+        assert os.path.isabs(reldir),\
+            "%s 'reldir' argument must be an absolute path: %s" \
+                % (eloc(self,"relative"),reldir)
+        if not self.isabs:
+            raise ValueError("%s file path must be absolute: %s" \
+                % (eloc(self,"relative"),self.filepath))
+
+        common=os.path.commonprefix(reldir,self.filepath)
+        if common != self.filepath[:len(common)]:
+            raise ValueError("%s this path is not relative to:\n    %s\n    %s" \
+                % (eloc(self,"relative"),self.filepath,reldir))
+        relpath=self.filepath[len(common)+1:]
+        return Path(filepath=relpath)
 
 
 #
@@ -893,7 +1536,7 @@ class Text_Print(object):
     #    string    Specify 'True' to have the formatted text returned as a string.
     #              Specify 'False' to have the method do the printing itself.
     #              Defaults to 'False',
-    def print(self,string=False):
+    def print(self,indent="",string=False):
         print_lines=self.cleanends()   # Clean up any trailing whitespace
 
         # Determine how big the line numbers are, allow space for '[',']' and ' '
@@ -905,7 +1548,7 @@ class Text_Print(object):
         for line in print_lines:
             number="[%s]" % line_number
             number=number.ljust(size)
-            s="%s%s%s\n" % (s,number,line)
+            s="%s%s%s%s\n" % (s,indent,number,line)
             line_number+=1
         if len(s)==0:
             s="[1]"       # If there were no lines pretend the first was empty
@@ -915,6 +1558,14 @@ class Text_Print(object):
             return s      # string=True so just return the formatted text
         print(s)          # string=False so print the string here
 
+
+#
+# +--------------------+
+# |                    |
+# |  Useful Functions  |
+# |                    |
+# +--------------------+
+#
 
 # Convert a list of integers, bytes or bytesarray into a string independent of
 # encoding.
@@ -978,6 +1629,27 @@ def dump(barray,start=0,mode=24,indent=""):
     return string[:-1]
 
 
+# This function returns a standard identification of an error's location.
+# It is expected to be used like this:
+#
+#     cls_str=assembler.eloc(self,"method")
+# or
+#     cls_str=assembler.eloc(self,"method",module=this_module)
+#     raise Exception("%s %s" % (cls_str,"error information"))
+#
+# It results in a Exception string of:
+#     'module - class_name.method_name() - error information'
+#
+# Use of this function outside of satkutil requires use of the module argument.
+# Otherwise the module will be erroneously reported as this module.
+def eloc(clso,method_name,module=None):
+    if module is None:
+        m=this_module
+    else:
+        m=module
+    return "%s - %s.%s() -" % (m,clso.__class__.__name__,method_name)
+
+
 # For the supplied method object, returns a tuple: method's class name, method name)
 def method_name(method):
     io=method.__self__   # Get the instance object from the method object
@@ -1039,4 +1711,4 @@ def satkroot():
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
 
 if __name__ == "__main__":
-    raise NotImplementedError("satkutil.py - intended for import only")
+    raise NotImplementedError("%s - intended for import only" % this_module)
