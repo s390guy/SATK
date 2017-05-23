@@ -16,14 +16,14 @@
 .*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
          MACRO
-&LABEL   SMMGR &PAIR,&PAIR1,&W,&BLOCK=9,&RETURN=
+&LABEL   SMMGR &PAIR,&PAIRW,&W,&BLOCK=9,&RETURN=
 .* Generates an inline algorithm for a serially re-usable Static Memory Manager.
 .* Allocations are performed sequentially from lower to higher addresses.  Allocations
 .* are permanent.
 .* Required Parameter Usage:
 .*  &PAIR     Input register pair containing allocation size (register &PAIR) and
 .*            alignment (register &PAIR+1)
-.*  &PAIR1    Work register pair
+.*  &PAIRW    Work register pair
 .*  &W        A single additional work register
 .* Optional Parameter Usage:
 .*  &LABEL    The symbol associated with the routine
@@ -42,10 +42,12 @@
 .* A base register other than those used below if relative branches are not supported.
 .* Register pointing to SMMGRB control fields (&BLOCK)
 .*  &PAIR1    &R6  Alignment factor
-.*  &PAIR1+1  &R7  Next address to allocate
-.*  &W        &W   Allocation size
+.*  &PAIRW+1  &R7  Next address to allocate
+.*  &W        &R8  Allocation size
 .* Output:
 .*  &PAIR     &R2  Start of permanently allocated area
+.*  &PAIRW+1  &R7  The address following the allocated area
+.*  &W        &R8  Requested allocation size
 .*
 .* NOTE: This macro does not generate a routine or function, but rather an incline
 .* algorithm.
@@ -77,7 +79,7 @@
          MNOTE 1,'SMMGR - REQUIRED FIRST REGISTER PAIR MISSING'
          MEXIT
 .POK     ANOP
-         AIF   ('&PAIR1' NE '').P1OK
+         AIF   ('&PAIRW' NE '').P1OK
          MNOTE 1,'SMMGR - REQUIRED SECOND REGISTER PAIR MISSING'
          MEXIT
 .P1OK    ANOP
@@ -87,9 +89,9 @@
 .WORKOK  ANOP
 .* Set up register symbols
 &R2      SETC  '&PAIR'
-&R3      SETC  '&PAIR+1'
-&R6      SETC  '&PAIR1'
-&R7      SETC  '&PAIR1+1'
+&R3      SETC  '(&PAIR)+1'
+&R6      SETC  '&PAIRW'
+&R7      SETC  '(&PAIRW)+1'
 &R8      SETC  '&W'
          AIF   (&ARCHIND).GEN
          MNOTE 1,'SMMGR - REQUIRED ARCHIND MACRO OPERATOR SYNONYMS UNDEFINED'

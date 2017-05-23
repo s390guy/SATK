@@ -119,6 +119,7 @@ $BP      OPSYN JP
 $BXLE    OPSYN JXLE
 $BZ      OPSYN JZ
 $CHI     OPSYN CHI
+$LHI     OPSYN LHI
          AIF   (&ARCHLVL LT 8).DEFINED   ESA/390 native complete
 .* Define ESA/390 on z
 &ARCHIRB SETA  24
@@ -133,6 +134,7 @@ $CH      OPSYN CGH
 $CHI     OPSYN CGHI
 $L       OPSYN LG
 $LH      OPSYN LGH
+$LHI     OPSYN LGHI
 $LM      OPSYN LMG
 $LPSW    OPSYN LPSWE
 $LR      OPSYN LGR
