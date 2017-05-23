@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (C) 2012,2013 Harold Grovesteen
+# Copyright (C) 2012, 2013, 2017 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -26,7 +26,7 @@ iml()
         # -h hercbin  HERCULES       required    Hercules binary
         # -c conf     HERCULES_CNF   required    Hercules configuration file
         # -r rc_file  HERCULES_RC    optional    Hercules run command file
-        # -l logfile  HERCULES_LOG   optional    Herucles logfile
+        # -l logfile  HERCULES_LOG   optional    Hercules logfile
         # -v                                     verbose logging (Hyperion only)
         hercbin=""    
         hercconf=""
@@ -100,7 +100,11 @@ herc_env()
 {    # Update paths for your environment
      case $1 in
         rel) herc_path="${HOME}/Herc/hercules-3.07/bin" ;;
-        hyp) herc_path="${HOME}/herchypi/bin"         ;;
+        #hyp) herc_path="${HOME}/herchypi/bin"         ;;
+        hyp) # Execute out of the hyperion build directory
+             herc_path="${HOME}/herchyp/x86_64/hyperion"
+             export LD_LIBRARY_PATH=${herc_path}:${LD_LIBRARY_PATH}
+             ;;
         *)  echo "invalid hercules environment: $1" ; exit 1 ;;
      esac
      hercules=${herc_path}/hercules
