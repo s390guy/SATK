@@ -203,7 +203,7 @@ asma_env()
             then 
                 asma_env reset nest
             else
-                asma_nest="${2}"
+                asma_nest=" --nest ${2}"
             fi
             ;;
         "oper")
