@@ -773,7 +773,9 @@ class Mac_Sym_Array(Mac_Sym):
             #self._ck_sub(symbol.sub)     # SymbolError
             self._ck_sub(symbol)         # SymbolError
         sub=symbol.sub
-        if isinstance(sub,A_Val):
+        if isinstance(sub,int):
+            pass
+        elif isinstance(sub,A_Val):
             sub=A_Val.value()            # Get the integer from the A_Val object
         elif isinstance(sub,B_Val):
             raise SymbolError(msg="array subscript can not be a SETB symbol")
