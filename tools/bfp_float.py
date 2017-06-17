@@ -50,68 +50,20 @@
 this_module="bfp.py"
 
 # Python imports:
-import re       # Access regular expressions
 import sys      # Access to the system's native byteorder
 # SATK imports:
 # WARNING: Do not change the sequence
 import fp       # Access the generic Floating Point objects
 import bfp      # Access the shared binary floating point objects
-import retest   # Access the regular expression test harness
 
-
-#
-# +-----------------------------------+
-# |                                   |
-# |    Python float Object Support    |
-# |                                   |
-# +-----------------------------------+
-#
 
 # This class processes the hexadecimal literal string produced by a float
 # object's hex() method.
 class BFP_Number(fp.FP_Number):
-    parser=re.compile("(?P<sign>[+-])?(0x)(?P<integer>[0-9a-f]+)"\
-        "(?P<fraction>\.[0-9a-f]*)?(?P<exp>p[+-]?[0-9]+)")
-    signs={"+":0,"-":1,None:0}
-    
-    hex_chars={"0":[0,0,0,0],
-               "1":[0,0,0,1],
-               "2":[0,0,1,0],
-               "3":[0,0,1,1],
-               "4":[0,1,0,0],
-               "5":[0,1,0,1],
-               "6":[0,1,1,0],
-               "7":[0,1,1,1],
-               "8":[1,0,0,0],
-               "9":[1,0,0,1],
-               "A":[1,0,1,0],
-               "a":[1,0,1,0],
-               "B":[1,0,1,1],
-               "b":[1,0,1,1],
-               "c":[1,1,0,0],
-               "D":[1,1,0,1],
-               "d":[1,1,0,1],
-               "E":[1,1,1,0],
-               "e":[1,1,1,0],
-               "F":[1,1,1,1],
-               "f":[1,1,1,1]}
 
     bias=1023   # Bias applied to exponent
 
-    # Converts a string of hexadcimal digits to a binary digits list
-    @staticmethod
-    def hex2bin(string):
-        chars=BFP_Number.hex_chars
-        lst=[]
-        for c in string:
-            lst.extend(chars[c])
-        return lst
-
     def __init__(self,src):
-        self.hx=None      # Hex literal from float conversion
-        self.mo=None      # Regular expression match object from hex literal
-        self.integer=None # Integer from parsed Hex literal
-
         if isinstance(src,float):
             s,e,f=self.float2number(src)
         elif isinstance(src,tuple) and len(src)==3:
@@ -127,45 +79,19 @@ class BFP_Number(fp.FP_Number):
         return "sign:%s integer:%s frac:%s exp:%s" \
             % (self.sign,self.integer,self.frac,self.exp)
 
-    def float2number(self,fpo):
-        self.hx=hx=fpo.hex()
-        self.mo=mo=BFP_Number.parser.match(hx)
-        if mo is None:
-            raise ValueError("unrecognized hex literal: '%s'" % string)
-        mod=mo.groupdict()
-
-        fp_sign=BFP_Number.signs[mod["sign"]]
-        self.integer=mod["integer"]
-
-        frac=mod["fraction"]
-        frac=frac[1:]      # Drop off the leading period of the fraction
-        fp_frac=BFP_Number.hex2bin(frac)
-
-        exp=mod["exp"]
-        if exp is None:
-            fp_exp=0
-        else:
-            fp_exp=int(exp[1:],10)
-
-        if self.integer not in ["1","0"]:
-            raise ValueError("unexpected integer in hex literal: '%s'" \
-                % self.integer)
-
-        return (fp_sign,fp_exp,fp_frac)
-
-    def to_bytes(self,length=None,byteorder="big"):
-        fmt = self.sign << 63
-        fmt = fmt | ( ( self.exp+BFP_Number.bias ) & 0x7FF ) << 52
-        fmt = fmt | self.frac2int(drop=False) & 0xFFFFFFFFFFFFFF
-        return fmt.to_bytes(8,byteorder=byteorder,signed=False)
-
 
 # This class uses the Python float object to create a BFP value in its interchange
 # format.  Presently only the 64-bit format is supported.
 class BFP(fp.FP):
     Special=bfp.BFP_Special()      # Special object for BFP special values
+    
+    format={4:bfp.BFP_Formatter(4),
+            8:bfp.BFP_Formatter(8),
+            16:bfp.BFP_Formatter(16)}
 
     def __init__(self,string,length=8,rmode=None,debug=False):
+        self.formatter=BFP.format[length]
+        self.attr=self.formatter.attr
         super().__init__(string,length=length,rmode=rmode,debug=debug)
 
   # These methods required by super class.
@@ -173,23 +99,32 @@ class BFP(fp.FP):
     def default(self):
         return (fp.BFP_DEFAULT,None)
 
-    def create(self):
-        return float(self.fpstr)
+    #def create(self):
+    #    data=bfp.FLOAT_Data(self.fpstr,format=self.length*8)
+    #    if __debug__:
+    #        if self.debug:
+    #            print("%s %s" % (fp.eloc(self,"create",module=this_module),\
+    #                data.display(string=True)))
+
+    #    return data
 
     def i_fmt(self,byteorder="big"):
-        return self.number.to_bytes(self.length,byteorder=byteorder)
+        return self.number.to_bytes(byteorder=byteorder)
 
     def to_number(self,fpo):
-        num=BFP_Number(fpo)
-        if __debug__:
-            if self.debug:
-                print("%s BFP_Number - %s" \
-                    % (fp.eloc(self,"number",module=this_module),lit))
-        return num
+        return bfp.BFP_Number(fpo.isign,integer=fpo.integer,fraction=fpo.ibits,\
+            exp=fpo.iexp,rounding=self.rmodeo,format=self.formatter,debug=self.debug)
 
     def rounding(self,num):
         return None
 
 
 if __name__ == "__main__":
-    raise NotImplementedError("%s - intended for import use only" % this_module)
+    #raise NotImplementedError("%s - intended for import use only" % this_module)
+
+    #b=BFP("2r5",length=4,debug=True).to_bytes()
+    #print(b)
+    c=BFP("2r5",length=8,debug=True).to_bytes()
+    print(c)
+    #d=BFP("2r5",length=16,debug=True).to_bytes()
+    #print(c)
