@@ -227,14 +227,19 @@ if __name__ == "__main__":
     # ASMA
     #'(?P<sign>[ +-]+)?(?P<spec>\\( *([Ii] *[Nn] *[Ff] *|[QqSs]? *[Nn] *[Aa] *[Nn] *|[Mm] *[Aa] *[Xx] *|[Dd]? *[Mm] *[Ii] *[Nn] *)\\) *)'
     
-    char="\$@\#_"
-    pattern="[a-zA-Z%s][a-zA-Z0-9%s]*" % (char,char)
+    #char="\$@\#_"
+    #pattern="[a-zA-Z%s][a-zA-Z0-9%s]*" % (char,char)
     #test=retest(pattern,debug=debug)
     #test.match("svc#old")
     
-    pat="&?%s" % pattern
-    test=retest(pat,debug=debug)
-    test.match("&GA")
+    #pat="&?%s" % pattern
+    #test=retest(pat,debug=debug)
+    #test.match("&GA")
 
+    pattern="(\$\{)([_A-Za-z]+)(\})"
+    test=retest(pattern,debug=debug)
+    test.match("${PATH}")
+    test.match("${}")
+    
 
     

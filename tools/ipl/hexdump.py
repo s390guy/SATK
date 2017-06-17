@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2012,2013 Harold Grovesteen
+# Copyright (C) 2012, 2013, 2017 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -387,7 +387,8 @@ class bstruct3(bstruct):
 bstructx=bstruct.init()
 
 def dump(barray,start=0,mode=24,indent=""):
-    isstring=isinstance(barray,type(""))
+    #isstring=isinstance(barray,type(""))
+    isstring=not isinstance(barray,(bytes,bytearray))
     if mode==31:
         format="%s%s%08X %s\n"
     else:
@@ -395,29 +396,30 @@ def dump(barray,start=0,mode=24,indent=""):
            format="%s%s%016X %s\n"
         else:
            format="%s%s%06X %s\n"
-    str=""
+    string=""
     addr=start
     strlen=len(barray)
+    #print("strlen: %s" % strlen)
     strend=strlen-1
     for x in range(0,strlen,16):
-    #print "x=%s" % x
+        #print("x=%s" % x)
         linestr=""
         for y in range(x,x+15,4):
-            #print "y=%s" % y
+            #print("y=%s" % y)
             wordstr=""
             if y>strend:
                 continue
             last=min(y+4,strlen)
             for z in range(y,last,1):
-                #print "z=%s" % z
+                #print("z=%s" % z)
                 if isstring: 
                     wordstr="%s%02X" % (wordstr,ord(barray[z]))
                 else:
                     wordstr="%s%02X" % (wordstr,barray[z])
             linestr="%s %s" % (linestr,wordstr)
-        str=format % (str,indent,addr,linestr)
+        string=format % (string,indent,addr,linestr)
         addr+=16
-    return str[:-1]
+    return string[:-1]
 
 #
 # These methods operate on individual big-endian fields.

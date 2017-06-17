@@ -289,7 +289,7 @@ class File(object):
 #
 # Instance Arguments:
 #   msg     The nature of the error.  Defaults to an empty string
-class FileLError(Exception):
+class FileError(Exception):
     def __init__(self,msg=""):
         self.msg=msg     # Nature of the error.
         super().__init__(self.msg)
@@ -943,6 +943,15 @@ class DTYPES(object):
         except KeyError:
             self.types[new_name]=self[old_name]
 
+    # Returns the default device type of a family
+    # Returns:
+    #   a string of the family's default device type
+    # Exception:
+    #   KeyError if the family name is unrecognized
+    def default(self,family):
+        dft,lst=self.types[family]
+        return dft
+
     # Define device numbers and a default for a family of devices.
     # Allows creation of a new family of devices.
     # Method Arguments:
@@ -959,14 +968,14 @@ class DTYPES(object):
             self.types[family]=(default,devices)
             self.families.append(family)
 
-     # Identify the device type family in which a device type belongs.
-     # Note: alias names are not recognized by this process, only base family names.
-     # Method Argument:
-     #   dtype   A string of the device type being recognized
-     # Returns:
-     #   a string of the device type's family name
-     # Exceptions:
-     #   KeyError if device type can not be located
+    # Identify the device type family in which a device type belongs.
+    # Note: alias names are not recognized by this process, only base family names.
+    # Method Argument:
+    #   dtype   A string of the device type being recognized
+    # Returns:
+    #   a string of the device type's family name
+    # Exceptions:
+    #   KeyError if device type can not be located
     def family(self,dtype):
         for f in self.families:
             default,lst=self.types[f]
@@ -974,6 +983,15 @@ class DTYPES(object):
                 return f
         # Device type not in any family, so raise KeyError
         raise KeyError
+        
+    # Returns a list of a family's recognized device types
+    # Returns:
+    #   a list of strings.  Each string is a recognized device type
+    # Exception:
+    #   KeyError if the family name is unrecognized
+    def types(self,family):
+        dft,lst=self.types[family]
+        return lst
 
 
 #
@@ -1049,11 +1067,11 @@ class Path(object):
     def absolute(self,reldir=None):
         if self.isabs:
             return self
-        if reldir is None:
+        if reldir is None or reldir=="":
             d=os.getcwd()
         else:
-            assert isinstance(reldir,str) and len(reldir)>0,\
-                "%s 'reldir' arbument must be a non-empty string: %s" \
+            assert isinstance(reldir,str),\
+                "%s 'reldir' argument must be a non-empty string: %s" \
                     % (eloc(self,"absolute"),reldir)
             assert os.path.isabs(reldir),\
                 "%s 'reldir' argument must be an absolute path: %s" \

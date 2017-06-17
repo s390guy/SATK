@@ -1,4 +1,4 @@
-#!/usr/bin/python3.3
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #
 # Copyright (c) 2011 Chris Liechti <cliechti@gmx.net>
@@ -6,7 +6,7 @@
 # Simplified BSD License (see LICENSE.txt for full text)
 
 # msp430.py uses the generic framework provided by xforth.py creating a MSP430
-# targeting Forth-based cross-compiler.  It is based upon the MSP430 package 
+# targeting Forth-based cross-compiler.  It is based upon the MSP430 package
 # cross-compiler.
 #
 # The original package can be found at this location:
@@ -50,15 +50,15 @@ class MSP430(xforth.Forth):
     def __init__(self):
         super().__init__( use_ram=False)
         # Include file management
-        # Include search path 
+        # Include search path
         self.include_path = []        # built by function main() from command line
         # Included files (file include recursion not supported)
         self.included_files = []      # Modified by _include() and init() methods
-        
-        # These two sets track words that need compiling 
+
+        # These two sets track words that need compiling
         self.compiled_words = set()      # Track compiled words
         self.not_yet_compiled_words=set()# Track words not yet compiled words
-        
+
         # Inline object usage.  See create_inline() method
         self.inlines={"$LIT":    InlineNumber,
                       '$TEXT':   InlineText,
@@ -73,7 +73,7 @@ class MSP430(xforth.Forth):
 
     def colon_begin(self, name):
         self.compile_mode_begin(self.create_word(name))
-        
+
     def colon_end(self):
         self.compile_mode_end(self.frame, self.namespace)
 
@@ -105,7 +105,7 @@ class MSP430(xforth.Forth):
             self.logger.info('done include %s' % (name,))
             self.included_files.append(name)
 
-        else: 
+        else:
             data=self.include_module(name)
             if data:
                 self.logger.info('processing include %s' % (name,))
@@ -115,7 +115,7 @@ class MSP430(xforth.Forth):
                 self.logger.info('done include %s' % (name,))
                 self.included_files.append(name)
             else:
-                raise ValueError('file not found: %s' % (name,))      
+                raise ValueError('file not found: %s' % (name,))
 
         self.doctree.pop_state() # restore previous chapter and section
 
@@ -143,7 +143,7 @@ class MSP430(xforth.Forth):
 
     def interrupt_begin(self, name, vector):
         self.compile_mode_begin(self.create_interrupt(name, vector))
-        
+
     def interrupt_end(self):
         self.compile_mode_end(self.frame, self.target_namespace)
 
@@ -157,7 +157,7 @@ class MSP430(xforth.Forth):
 
     def native_begin(self, name):
         self.compile_mode_begin(self.create_native(name))
-        
+
     def native_end(self):
         self.compile_mode_end(self.frame, self.target_namespace)
 
@@ -187,7 +187,7 @@ class MSP430_Compiler(xforth.Target):
         super().__init__(forth)
 
         self.label_id = 0             # Sequence number for generated assembly labels
-        
+
         # Used to generate specific assembler labels for compile-only builtins
         self.labels={"$branch":"branch",
                      "$branch0":"branch0",
@@ -349,7 +349,7 @@ class MSP430_Interrupt(xforth.InterruptFrame):
         # the thread for the interrupt handler
         doctree.write(u'%s:\n' % self.create_asm_label(self.name))
         forth.compile_thread(self)
-        
+
     def enter(self, forth, doctree):
         doctree.section(self.name)
         doctree.write(u'.text\n.even\n')
@@ -358,14 +358,19 @@ class MSP430_Interrupt(xforth.InterruptFrame):
         doctree.write(u';%s\n' % ('-'*76))
 
         # interrupt entry code
-        doctree.write(u'__vector_%s:\n' % (self.vector))
-        doctree.write(u'\tsub #4, RTOS     ; prepare to push 2 values on return stack\n')
-        doctree.write(u'\tmov IP, 2(RTOS)  ; save IP on return stack\n')
-        doctree.write(u'\tmov SP, 0(RTOS)  ; save SP pointer on return stack it points to SR on stack\n')
-        doctree.write(u'\tmov #%s, IP      ; Move address of thread of interrupt handler in IP\n'\
+        doctree.write(\
+            u'__vector_%s:\n' % (self.vector))
+        doctree.write(\
+            u'\tsub #4, RTOS     ; prepare to push 2 values on return stack\n')
+        doctree.write(\
+            u'\tmov IP, 2(RTOS)  ; save IP on return stack\n')
+        doctree.write(\
+            u'\tmov SP, 0(RTOS)  ; save SP pointer on return stack it points to SR on stack\n')
+        doctree.write(\
+            u'\tmov #%s, IP      ; Move address of thread of interrupt handler in IP\n'\
             % self.create_asm_label(frame.name))
         doctree.write('\tbr  #%s\n' % self.create_asm_label('DO-INTERRUPT'))
-        
+
     def exit(self, forth, doctree):
         doctree.write('\t.word %s\n\n' % self.create_asm_label('EXIT-INTERRUPT'))
         self.compile_remember('DO-INTERRUPT')
@@ -385,7 +390,7 @@ class MSP430_Native(xforth.NativeFrame):
         # native code blocks are executed. They are expected to print out
         # assembler code
         self(forth)
-    
+
     def enter(self, forth, doctree):
         doctree.chapter(self.chapter)
         doctree.section(self.name)
@@ -393,7 +398,7 @@ class MSP430_Native(xforth.NativeFrame):
         doctree.write(u';%s\n' % ('-'*76))
         doctree.write(u'; compilation of native word %s\n' % frame.name)
         doctree.write(u';%s\n' % ('-'*76))
-   
+
     def exit(self, forth, doctree):
         doctree.write('\n') # get some space between this and next word
 
@@ -459,7 +464,7 @@ class InlineNumber(xforth.Inline):
         doctree.write('\t.word %-6s ; 0x%04x\n' % (self.value, self.value & 0xffff))
 
 
-# Use by builtsins: "    ."
+# Use by builtins: "    ."
 class InlineText(xforth.Inline):
     def __init__(self, value, info=None):
         super().__init__(value, info=info)

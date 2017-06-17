@@ -2324,7 +2324,7 @@ IOMK&SYSNDX DS 0F
 .* Required Parameter Usage:
 .*   &REG    The register containing the number of transferred bytes
 .* Optional Parameter Usage:
-.*   &LABLE  A symbol associated with the IOTRNF macro
+.*   &LABLE  A symbol associated with the IOTRFR macro
 .* Assembly requirements:
 .*  Local base register addressability
 .*  Addressability to the IOCB of the device whose I/O transfer is being calculated

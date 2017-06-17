@@ -1,4 +1,4 @@
-#!/usr/bin/python3.3
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #
 # Copyright (c) 2011 Chris Liechti <cliechti@gmx.net>
@@ -24,10 +24,10 @@
 # 1. The FORTH text-intepreter, class Forth (or subclass)
 # 2. Intermediate representation of the recognized words using class Frame and its
 #    class FrameCell and their subclasses.
-# 3. The Target class drives the compilation creating the final output file.  
+# 3. The Target class drives the compilation creating the final output file.
 #    The Target class must be subclassed tailoring its execution to the target
 #    system's processor and forth threading model.
-# 4. A document manager.  The document manager must be a subclass of DocumentTree. 
+# 4. A document manager.  The document manager must be a subclass of DocumentTree.
 #
 # See module msp430.py for an example of how these classes may be subclassed targeting
 # a specific processor.
@@ -54,7 +54,7 @@
 #    :         namespace  Frame             --       assigned      --
 #    CODE      target     NativeFrame       --       assigned      --
 #    CREATE    namespace  Frame           current    assigned   cre+name
-#    INTERRUPT target     InterruptFrame    --          --         --     
+#    INTERRUPT target     InterruptFrame    --          --         --
 #    VALUE     namespace  Frame             --       assigned   val+name
 #    VARIABLE  namespace  Frame             --       assigned   var+name
 #    cre+name  variable   Frame             --          --         --
@@ -74,7 +74,7 @@
 #       interpreted during Interpretation Phase, all words referenced but not
 #       explicitly identified are also cross-compiled.  The process of compiling
 #       referenced words continues until all referenced words are compiled.
-#       
+#
 #       Cross-compilation causes the subclass of Target to build the output for
 #       the cross-compiler environment.  It is typically expected to be assembler
 #       source statements, but nothing requires that to be the case.
@@ -88,7 +88,7 @@
 #       The output document content is derived during the cross-compilation Phase.
 #       However the sequence of the content is managed by the document manager, a
 #       subclass of the DocumentTree class.  It constructs and outputs the content
-#       to a file.  Content is assigned a named chapter and a named section within 
+#       to a file.  Content is assigned a named chapter and a named section within
 #       the chapter.  Output file content is placed in the output file based upon
 #       the collating sequence of chapter names and within the chapter by the
 #       collating sequence of sections within the chapter.
@@ -123,7 +123,7 @@
 #  Forth subclass methods initializing the target implementation:
 #
 #    R register_builtin   Allows implementation specific handling of builtins
-#    
+#
 #  Forth subclass methods managing file input:
 #
 #    R include        Called by word INCLUDE to locate and access a file
@@ -147,8 +147,8 @@
 #
 #    R colon_begin     Starts a colon thread word definition
 #    R colon_end       Ends a colon thread word definition
-#    R create_inline   Returns an Inline object associated with multi element compiled
-#                      words.
+#    R create_inline   Returns an Inline object associated with multi element
+#                      compiled words.
 #    R interrupt_begin Starts an interrupt thread word
 #    R interrupt_end   Ends an interrupt thread word
 #    R native_begin    Starts a native word definition
@@ -208,7 +208,7 @@
 #    R create_word        Returns a Frame object for word :
 #    R cross_compile_missing   Called by word CROSS-COMPILE-MISSING to cross-compile
 #                         all referenced frames not yet compiled.
-#    R cross_compile_variables  Called by word CROSS-COMPILE-VARIABLES to 
+#    R cross_compile_variables  Called by word CROSS-COMPILE-VARIABLES to
 #                         cross-compile variables.
 #    R init_model         Validates the threading model used during cross-compilation.
 #                         The threading model will influence what is generated
@@ -217,12 +217,12 @@
 #  The Target subclass may also create Frame subclasses not used by the framework
 #  itself.  The Forth subclass will need to provide builtins associated with these
 #  words.
-# 
+#
 #
 #  Replacing the Default Parser
 #  --------- --- ------- ------
 #
-#  The default parser 
+#  The default parser
 
 # Python imports
 import sys
@@ -236,6 +236,32 @@ import re
 from forth_words import definitions   # common host and target Forth words
 
 this_module="xforth.py"
+
+
+#
+# +------------------------------------+
+# |                                    |
+# |    Standardized Error Reporting    |
+# |                                    |
+# +------------------------------------+
+#
+
+# This method returns a standard identification of an error's location.
+# It is expected to be used like this:
+#
+#     cls_str=eloc(self,"method")
+# or
+#     cls_str=eloc(self,"method",module=this_module)
+#     raise Exception("%s %s" % (cls_str,"error information"))
+#
+# It results in a Exception string of:
+#     'module - class_name.method_name() - error information'
+def eloc(clso,method_name,module=None):
+    if module is None:
+        m=this_module
+    else:
+        m=module
+    return "%s - %s.%s() -" % (m,clso.__class__.__name__,method_name)
 
 
 #
@@ -306,7 +332,7 @@ class ForthError(Exception):
 # is an immediate word definition and should be executed (rather than compiled) when
 # encountered during a word definition.
 # If used the immediate decorator must be used before the word decorator.
-# 
+#
 # See Forth.interpret_word() method for how this decorator influences the interpreter.
 def immediate(function):
     function.forth_immediate = True
@@ -317,7 +343,7 @@ def immediate(function):
 # identify its builtin words.  See the Forth.__init__() method for how this tag
 # is used to idenfify builtin word definitions.
 #
-# The programmer's note quoted above applies to the nested definition of the 
+# The programmer's note quoted above applies to the nested definition of the
 # decorate_word() function the wrapper returns.
 #
 # The word decorator wrapper function adds annotates the method with the word's
@@ -396,7 +422,7 @@ class DocumentTree(object):
   #
   # Document subclass supplied method
   #
- 
+
     # Returns a string written out as the chapter header.  Return None if chapter
     # heading is not created.
     # Method Argument:
@@ -428,7 +454,7 @@ class DocumentTree(object):
     def chapter(self, name=' DEFAULT '):
         """Select chapter to put text sections in"""
         self.chapter_name = name
-        
+
         # Create a new chapter or continue the specified chapter.
         # A "chapter" is a named dictionary of sections.
         self.current_chapter = self.chapters.setdefault(name, {})
@@ -469,7 +495,7 @@ class DocumentTree(object):
     #   output   An object that supports the write() method.  Typically a text output
     #            file object.  Required.
     #   newline  Specifies how a universal newline, \\n, is to be handled.  Specify
-    #            None to disable universal newline handling.  Defaults to a real 
+    #            None to disable universal newline handling.  Defaults to a real
     #            universal newline.
     #   tab      Specifies how a tab, \\t, is to be handled. Specify None to disable
     #            tab handling.  Defaults to a real tab.
@@ -515,6 +541,303 @@ class DocumentTree(object):
                 output.write(otext)
 
 
+
+#
+#  +----------------------+
+#  |                      |
+#  |   Forth Data Types   |
+#  |                      |
+#  +----------------------+
+#
+
+# These classes represent the Forth data types. 
+
+
+
+#
+#  +----------------------------------+
+#  |                                  |
+#  |   FORTH Input Source Management  |
+#  |                                  |
+#  +----------------------------------+
+#
+
+# Base class for a Forth input source.  All input sources are interables and
+# must supply the __next__() method.
+class Source(object):
+    def __init__(self,source_id=0,blk=0,text_file=None):
+        self.source_id=None      # Forth SOURCE-ID variable value of this source
+        self.blk=None            # Forth BLK variable value of this source
+        self.text_file=False     # Whether this input source is a text file
+
+        assert isinstance(blk,int) and blk>=0,\
+            "%s 'blk' argument must be an integer >=0: %s" \
+                % (eloc(self,"__init__"),blk)
+
+        if isinstance(text_file,int) and text_file>0:
+            self.source_id = text_file   # Text file SOURCE-ID value
+            self.blk=0                   # Text file BLK value
+            self.text_file = True        # This is a text file
+        elif text_file is None:
+            self.source_id = source_id   # Supplied SOURCE-ID value
+            self.blk=blk                 # Text file BLK value
+        else:
+            raise ValueError(\
+                "%s 'text_file' argument is not None or an integer: %s" \
+                    % (eloc(self,"__init__"),text_file))
+
+        # This input source's input buffer.  Filled by the _read() method
+        # When text is available this is a Parser object from which text may
+        # be selected
+        self.buf=None   # This is an instance of Parser when text is available
+
+    def __iter__(self):
+        return self
+
+    # Returns a string of selected text or when the input source is empty,
+    # raises StopIteration.
+    def __next__(self):
+        raise NotImplementedError("%s subclass %s must provide __next__() method"
+            % (eloc(self,"__next__"),self.__class__.__name__))
+
+    # This is an internal method used by the source to fill its input buffer.
+    # Method Argument:
+    #   comment   This input buffer starts out in a coment.  This argument is
+    #             used by the TextFile handling of comments spanning multiple lines.
+    # Returns:
+    #   an instance of Parser that emulates input source buffer handling and
+    #   text selection.
+    def _read(self,comment=False):
+        raise NotImplementedError("%s subclass %s must provide _read() method" \
+            % (eloc(self,"_read"),self.__class__.__name__))
+
+    def comment(self):
+        raise NotImplementedError("%s subclass %s must provide comment() method" \
+            % (eloc(self,"comment"),self.__class__.__name__))
+
+    def string(self):
+        raise NotImplementedError("%s subclass %s must provide string() method" \
+            % (eloc(self,"string"),self.__class__.__name__))
+
+
+
+class TextFile(Source):
+
+    def __init__(self,buf,sequence,fam=0b0001):
+        super().__init__(file_path,text_file=sequence,)
+        self.fo=open(file_path,"rt")
+        self.eof=False        # True when at end-of-file
+        self.comment=False    # Whether the current text line is part of a comment
+
+    def __next__(self):
+        if self.eof:
+            raise StopIteration    # end the supply of word strings
+        if not self.buf or self.buf.eot():
+            parser=self._read()           # Fill my buffer with a new text line
+            if parser is None:
+                self.eof=True
+                raise StopIteration
+            self.buf=parser
+        word=self.buf.select()
+
+    def _read(self,comment=False):
+        line=self.fo.readline()
+        if len(line)==0:
+            self.buf=None     # Indicate text not available
+            self.eof=True     # and at end-of-file
+            return
+        if line[-1] == "\n":
+            line=line[:-1]
+        return Parser(line,comment=comment)
+
+    # Read and return a possible multi-line comment.  It is up to the caller to
+    # decide what to do with the commnent.
+    def comment(self):
+        # Text file comments may span multiple input lines
+        data=""
+        while True:
+            data+=self.buf.comment()
+            if self.buf.inComment():
+                # The Parser object is only in comment state if it did not find
+                # the terminating left parenthesis in the buffer.  For text file
+                # input sources this means the comment is being continued in the
+                # next input buffer.
+                self.buf=self._read(comment=True)
+                if not self.eof:
+                    continue   # reading comment from the next line
+             break  # Otherwise we are at the end of the comment
+         return data
+
+    def string(self):
+        return self.buf.string()
+
+
+# This class manages all input sources for the cross-compiler.
+class Sources(object):
+
+    # File Access Method values
+    ro= 0b0001   # read/only (text or binary)
+    wo= 0b0010   # write/only (text or binary)
+    rw= 0b0011   # read/write file.  (only binary)
+    bin=0b0100   # binary file access
+
+    def __init__(self):
+        self.current=None        # The current input source
+        self.nested=[]           # Nested input sources
+        self.seq=0               # Included file sequence number
+
+        # File mode family
+        # These attributes are influenced by the words: BIN
+        self.bin=False       # Whether the file is accessed in binary mode or not
+        self.read=False      # Whether the file is read from
+        self.write=False     # whether the file is written to
+
+
+    # Nests a new text file input source
+    def include(self,filepath):
+        pass
+
+    # Nests a new block buffer as the input source
+    def load(self,string):
+        pass
+
+    # Nests a new evaluate string as the input source
+    def evaluate(self,string):
+        pass
+
+
+#
+#  +---------------------------+
+#  |                           |
+#  |   FORTH Language Parser   |
+#  |                           |
+#  +---------------------------+
+#
+
+
+# This object implements the Forth concept of an input buffer or a string evaluator
+# from which words are recognized.
+# Instance Arguments:
+#    string      The input source content
+#    source_id   The Forth SOURCE-ID variable value for this input source
+#    blk         The Forth BLK variable value for this input source
+#    comment     Whether this input source starts off as part of a comment
+#
+# Note: Because an input text file is scan line by line, only an input text file
+# will utilize the comment state from one input source to the next.  Other input
+# sources should not use comment.
+class Parser(object):
+    def __init__(self,string,comment=False):
+        self.ndx=0                 # The current value of '>IN'
+        self.string=string         # The "input buffer"
+
+        self._comment=comment      # This input source starts out in a comment
+
+    # Scans the input source from the next input source character index until
+    # a specific character is encountered.  If the end-of-text condition occurs
+    # before the character is encountered, the selected text starts with the
+    # current index position until the end of the text.  May return an empty
+    # string.
+    def _scan(self,c):
+        beg=ndx=self.ndx
+        string=self.string
+        max=len(string)
+
+        end=None
+        while ndx < max:
+            if string[ndx] == c:
+                end=ndx
+                ndx+=1
+                break
+            ndx+=1
+        if end is None:
+            end=ndx
+
+        self.ndx=ndx
+        return string[beg:end]
+
+    # When the word \ is encountered, the remainder of the "line" or the rest of
+    # the input is ignored.
+    def backslash(self):
+        return self._scan("\n")
+
+    # Start scanning for the end of a comment.  If not found this input source
+    # remains in the comment state.
+    def comment(self):
+        self._comment=True
+        cmt=self._scan(')')
+        if not self.eot():
+            self._comment=False
+        return cmt
+
+    # Returns True if this input source has exhaused all of its characters.
+    def eot(self):
+        return self.ndx >= len(self.string)
+
+    # Returns True if Parser is processing comment text
+    def inComment(self):
+        return self._comment
+
+    # Scans the input source text for a word.
+    # Returns:
+    #   None if no selected text found and the end of the intput source reached
+    #   A string of selected text per the Forth parsing rules.
+    def select(self):
+        if self._comment:
+            cmt=self.comment()
+            if cmt is None:
+                return None
+
+        start=ndx=self.ndx
+        beg=end=None
+        string=self.string
+        max=len(string)
+
+        # This bypasses delimiters that may preceed the selected text
+        while ndx < max:
+            c=ord(string[ndx])
+            ndx+=1
+            if (c != "\n") and (c>0x20 and c<=0x7e):
+                beg=ndx-1   # Remember where the selected text begins
+                break       # Now figure out where selected text ends
+
+        if beg is None:
+            if ndx>=max:
+                # End of the input source reached but no text selected
+                self.ndx=max
+                return None
+            else:
+                raise ValueError("no text selected, but not at end of input: "\
+                    "scan starts at: %s\n    '%s'" % (start,string[start:]))
+
+        # ndx now points to the character that follows the first selected character
+        while ndx < max:
+            c=ord(string[ndx])
+            if c == "\n" or c<=0x20 or c>0x7e:
+                # Found the first delimiter following selected text
+                end=ndx
+                # The next scan will begin with the character following the
+                # delimiter
+                ndx+=1
+                break
+            ndx+=1
+
+        self.ndx=ndx
+
+        if end is None:
+            end=ndx
+
+        return self.string[beg:end]
+
+    # Scans for the end of an string.  If the end-of-string character is not
+    # encountered, the remainder of the input source is considered part of the
+    # string.
+    # Returns:
+    #   the recognized string
+    def string(self):
+        return self._scan('"')
+
+
 #
 #  +--------------------------------+
 #  |                                |
@@ -536,7 +859,7 @@ class DocumentTree(object):
 # Host word search order:
 #    1. builtins           @word decorated methods
 #    2. namespace          : word definitions
-# Target word search order: 
+# Target word search order:
 #    1. target             CODE word definitions
 #    2. namespace          : word definitions (same as on host)
 #
@@ -547,18 +870,18 @@ class DocumentTree(object):
 # tool chain that can be utilized to build a Forth application for the target system.
 # This object assumes use of the MSP430 toolchain provided by the MSP430 package.
 #
-# Interpreted numbers conform to Python integer or float literal conventions.  See the
-# _interpret_word() method.
+# Interpreted numbers conform to Python integer or float literal conventions.  See
+# the _interpret_word() method.
 #
 # The Forth data stack is the Forth object itself (a subclass of the Python list)
-# The Forth return stack is the Python interpreter stack.  Executed words are called. 
+# The Forth return stack is the Python interpreter stack.  Executed words are called.
 # This is why namespace Frame objects contain sequences of executables (interspersed
 # with a few other elements recognized by the "internal" words).
 
 class Forth(list):
     # Regular expresssion for removal of line comments
     m_comment = re.compile('(#.*$)', re.UNICODE)
-    
+
     # Generator supporting annotates the word's location before providing it to
     # the user of the iterator of Word objects.
     # Function arguments:
@@ -632,8 +955,8 @@ class Forth(list):
     @staticmethod
     def word_parser(line):
         return Forth.m_comment.sub('', line).split()
-    
-    # Word object generator.  Words are identified from a file.  Backslash line 
+
+    # Word object generator.  Words are identified from a file.  Backslash line
     # comments are removed before words are recognized.  Each word is annotated with
     # the filename and its line number (relative to 1) and the original line of text
     # from which the word was identifed.
@@ -674,7 +997,7 @@ class Forth(list):
 
     # Initializes the Forth interpreter
     # Method arguments:
-    #   use_ram    Specifies the initial setting for memory type targets.  To 
+    #   use_ram    Specifies the initial setting for memory type targets.  To
     #              target ROM, specify False.  To target RAM, specify True.
     #              Defaults to False (or ROM).  The target compiler determines how
     #              the two settings are actually used to target the different memory
@@ -721,7 +1044,7 @@ class Forth(list):
         self.variables = {}
 
         # Interpreter compilation state:
-        self.compiling = False        # Current Forth interpreter mode       
+        self.compiling = False        # Current Forth interpreter mode
         self.frame = None             # Current Frame being compiled
         self.use_ram = use_ram        # Current target memory type - see RAM and ROM
 
@@ -747,7 +1070,7 @@ class Forth(list):
     def _nie(self,method):
         return "%s - %s.%s - subclass must provide %s method" \
             % (this_module,self.__class__.__name__,method,method)
-            
+
     # Returns the ForthError message when interpretation semantics are not defined
     def _nis(self,word):
         return "interpretation semantics not defined for word %s" % word
@@ -762,7 +1085,7 @@ class Forth(list):
     #   name    Name of the word being defined
     def colon_begin(self, name):
         raise NotImplementedError(self._nie("colon_begin()"))
-        
+
     # Required: Terminates a colon word definition
     def colon_end(self):
         raise NotImplementedError(self._nie("colon_end()"))
@@ -780,8 +1103,8 @@ class Forth(list):
 
     # Requried: This method returns an instantiated compiler based upon the supplied
     # threading string.  The actual string and its meaning to the target compiler
-    # are specific to the capabilities of the targeted implementation.  Forth supplied
-    # assist methods should be called by the subclass in this method.
+    # are specific to the capabilities of the targeted implementation.  Forth
+    # supplied assist methods should be called by the subclass in this method.
     def cross_compiler(self, *args, **kwds):
         raise NotImplementedError(self._nie("cross_compiler()"))
 
@@ -813,7 +1136,7 @@ class Forth(list):
         raise NotImplementedError(self._nie("include_path()"))
 
     # Required: Supplied the interpreter text parser.
-    # The default is Forth.word_parser() staticmathe and should be returned if a 
+    # The default is Forth.word_parser() staticmathe and should be returned if a
     # replacement parser is not available.
     # Returns: A generator that parses the words in a line of text.
     def init_parser(self, *args, **kwds):
@@ -832,7 +1155,7 @@ class Forth(list):
     #   name    Name of the word being defined
     def interrupt_begin(self, name, vector):
         raise NotImplementedError(self._nie("interrupt_begin()"))
-        
+
     # Required: Terminates an interrupt thread definition
     def interrupt_end(self):
         raise NotImplementedError(self._nie("interrupt_end()"))
@@ -845,7 +1168,7 @@ class Forth(list):
     # "Memory" as defined by the implementation is implied when word @ encounters
     # an integer on the stack instead of a Variable object.
     # Method Argument:
-    #   address   An implementation understood "memory" location 
+    #   address   An implementation understood "memory" location
     def memory_fetch(self, address):
         raise NotImplementedError(self._nie("memory_fetch()"))
 
@@ -863,7 +1186,7 @@ class Forth(list):
     #   name    Name of the word being defined
     def native_begin(self, name):
         raise NotImplementedError(self._nie("native_begin()"))
-        
+
     # Required: Terminates a native word definition
     def native_end(self):
         raise NotImplementedError(self._nie("native_end()"))
@@ -898,7 +1221,7 @@ class Forth(list):
     #   out   The output file object or codec used to write output file
     def render(self, out):
         raise NotImplementedError(self._nie("render()"))
- 
+
     # Required: Track a word that is compiled
     # Method Argument:
     #   word   The word that is compiled and being tracked
@@ -1025,11 +1348,11 @@ class Forth(list):
     # Drives cross compilation of a word's thread body.
     # Called by the cross-compiler when a thread body needs compiling.
     def compile_thread(self, frame):
-        next = iter(frame).next 
-        ndx=0    # cell being compiled 
+        next = iter(frame).next
+        ndx=0    # cell being compiled
 
         try:
-            while True:  
+            while True:
                 # Fetch the thread cell being cross-compiled
                 entry = next()
 
@@ -1112,7 +1435,7 @@ class Forth(list):
     # This is the string recognizer that should be used with the default parser.
     # The subclass supplied recognize_string() method should call this method
     # if the default parser is in use and return the results of this method.
-    # 
+    #
     # This method read individual strings until it encounters one that ends with
     # a double-quote.  It then joins each string with an intervening space.  The
     # effect of the default parser operation and this method is that spaces following
@@ -1135,8 +1458,8 @@ class Forth(list):
         text = ' '.join(words)
         return text
 
-    # Initialize the interpreter by 
-    #   1. establishing the text parser 
+    # Initialize the interpreter by
+    #   1. establishing the text parser
     #   2. the Target cross-compiler and
     #   3. compiling core words (from forth_words.py)
     # Method Arguments
@@ -1149,7 +1472,7 @@ class Forth(list):
         name=self.__class__.__name__
         self.logger.info('%s.init() processing' % name)
         self.parser=self.init_parser()
-        
+
         error=False
         # Initialize the document handler
         doc=self.document()
@@ -1164,7 +1487,7 @@ class Forth(list):
         compiler=self.cross_compiler()
         if isinstance(compiler,Target):
             self.compiler=compiler
-            # Validate requested threading model and allow compiler to turn on 
+            # Validate requested threading model and allow compiler to turn on
             # interpreter assists
             if not self.compiler.init_model(self):
                 msg="%s compiler does not support requested threading " \
@@ -1231,7 +1554,7 @@ class Forth(list):
         # track what is done
         self.track_compiled(word)
 
-    # This needs to be replaced with a builtin word that corresponds to the 
+    # This needs to be replaced with a builtin word that corresponds to the
     # target implementation.
     def instruction_output_text(self, stack):
         words = stack._frame_iterator.next()
@@ -1345,7 +1668,7 @@ class Forth(list):
     # Method Argument:
     #   name   Specify a string to validate a method as a specific builtin method
     #          decorated with a specific Forth word where @word(name).
-    #          Specify None to validate if the method is generically a builtin. 
+    #          Specify None to validate if the method is generically a builtin.
     #          Default is None
     def isbuiltin(self, method, name=None):
         if hasattr(method, "forth_name"):
@@ -1368,7 +1691,7 @@ class Forth(list):
     # Foundational name space search method.
     # Method Arguements:
     #   name        The Word object or name as a string being accessed
-    #   namespaces  A list of name space dictionaries being searched 
+    #   namespaces  A list of name space dictionaries being searched
     # Returns:
     #   The Frame object or subclass associated with the name
     # Excpetions:
@@ -1402,7 +1725,7 @@ class Forth(list):
     # Used by the __str__() method
     def printer(self, obj):
         """\
-        convert object to string, for floating point numbers, 
+        convert object to string, for floating point numbers,
         use engineering format
         """
         t = type(obj)
@@ -1425,7 +1748,7 @@ class Forth(list):
     #
 
     # Compile-only builtins - interpreted within a frame but not by text interpreter
-    
+
     @word('$BRANCH',co=True)
     def instruction_seek(self, stack):
         """Get offset from sequence and jump to this position."""
@@ -1462,7 +1785,7 @@ class Forth(list):
         text = stack._frame_iterator.next()
         # text is expected to be an instance of Inline
         otext=text.value
-        self.doctree.write(otext) 
+        self.doctree.write(otext)
 
     # Recognized by both text and frame interpreters
 
@@ -2047,7 +2370,7 @@ class Forth(list):
         """
         if not self.compiling: raise ValueError('not allowed in immediate mode')
         if self.frame is None: raise ValueError('not in colon definition')
-        # put conditional branch operation in sequence, remember position of 
+        # put conditional branch operation in sequence, remember position of
         # offset on stack
         self.frame.cell(self.look_up("$BRANCH0"), self)
         stack.push(len(self.frame))
@@ -2210,7 +2533,7 @@ class SeekableIterator(object):
 
 # Decorated method wrapper.  To the interpreter, it looks and acts just like a
 # decorated method, but is writable allowing additional attributes to be added or
-# updated.  
+# updated.
 #
 # If an implementation requires this object, it is recommended it be subclassed for
 # the implementation specific functionality.  The subclass can be instantiated in the
@@ -2219,8 +2542,8 @@ class BUILTIN(object):
     def __init__(self, function):
         # Replicate the decorated method's information here
         self.forth_name=self.name=function.forth_name
-        self.forth_io=function.forth_io
-        self.forth_co=function.forth_co
+        self.forth_io=function.forth_io     # Interpret only
+        self.forth_co=function.forth_co     # Compile only
         self.function=function
         if hasattr(function, "forth_immediate"):
             self.forth_immediate=function.forth_immediate
@@ -2257,7 +2580,7 @@ class Frame(list):
 
     def __repr__(self):
         return '%s[%s]' % (self.__class__.__name__, self.name,)
-    
+
     def _nie(self,method):
         return "%s - %s.%s - subclass must provide %s method" \
             % (this_module,self.__class__.__name__,method,method)
@@ -2270,11 +2593,11 @@ class Frame(list):
     # This method compiles the frame definition
     def cross_compile(self, forth, doctree):
         raise NotImplementedError(self._nie("compile_compile()"))
-    
+
     # This method compiles the frame's entry requirements
     def enter(self, forth, doctree):
         raise NotImplementedError(self._nie("enter()"))
-        
+
     # This method compiles the frame's exit requirements
     def exit(self, forth, doctree):
         raise NotImplementedError(self._nie("exit()"))
@@ -2286,7 +2609,7 @@ class Frame(list):
   #
   # This method may be overriden to provide additional functionality
   #
-  
+
     def cell(self, element, forth):
         self.append(element)
 
@@ -2296,7 +2619,7 @@ class Frame(list):
 # when interpreted.  The purpose of the Inline object is to allow the cross-compiler
 # to tailor inline data generation.  Python builtin's must also understand the
 # Inline object.  The Inline object (a subclass usually) is supplied by the Forth
-# subclass method create_inline() method.  The 
+# subclass method create_inline() method.  The
 class Inline(object):
     def __init__(self, value, info=None):
         self.value=value
@@ -2337,10 +2660,10 @@ class InterruptFrame(Frame):
 class NativeFrame(Frame):
     def __init__(self,name, chapter=None, section=None, ram=False, isword=False):
         super().__init__(name, \
-                         chapter=chapter, section=section, ram=ram, isword=isword)  
+                         chapter=chapter, section=section, ram=ram, isword=isword)
 
 
-# Variable definition used by interpreter.  Not interpreted but may appear in 
+# Variable definition used by interpreter.  Not interpreted but may appear in
 # a frame as inline data.  The Variable object is the Python analogue to an
 # address, but only within a frame.
 class Variable(Inline):
@@ -2355,7 +2678,7 @@ class Variable(Inline):
 
     def __add__(self, other):
         if isinstance(other, Variable):
-            if self.value is not other.value: 
+            if self.value is not other.value:
                 raise ValueError('Variables point to different frames')
             return self.__class__(self.value, info=(self.info + other.info))
         else:
@@ -2502,7 +2825,7 @@ class Target(object):
     # desired assistance functionality.  See the Forth class for supported assist
     # methods.  It is the responsiblity of the subclass of Forth to provide a
     # threading module to the compiler.
-    # 
+    #
     # Returns:
     #   True  if model supported by the target compiler or thread model variations
     #         are not supported.
@@ -2511,6 +2834,190 @@ class Target(object):
         raise NotImplementedError(self._nie("init_model()"))
 
 
-if __name__ == '__main__':
-    raise NotImplementedError("module %s only intended for import" % this_module)
 
+#
+# +----------------------+
+# |                      |
+# |    Host Interfaces   |
+# |                      |
+# +----------------------+
+#
+
+# These classes provide Forth word semantics when interfacing with the underlying
+# host.  They in essence provide the glue between the Forth world of words and
+# stacks and Python interacting with the operating system.  None of these
+# objects are "words" in and of themselves.  They are never compiled or executed
+# directly.
+
+
+#
+# Two Forth paradyms exist for accessing externally stored data:
+#
+#   - Mass Storage Block devices via the Block word set and
+#   - Operating System files via the File-Access word set.
+#
+# Operating system files may also be accessed via the Block word set in binary
+# mode.
+#
+# Mass storage devices have there historical basis in early PC's which provided
+# small (in today's terms) block devices such as diskettes.  Both word sets operate
+# on a host file through Python.  The only difference between the two becomes the
+# set of supported words.  Input sources operate upon these objects.
+
+class HostFile(object):
+
+    # File Access Method values
+    ro= 0b0001   # read/only file (text or binary)
+    wo= 0b0010   # write/only file (text or binary)
+    rw= 0b0011   # read/write file (only binary)
+    bin=0b0100   # binary file access
+
+    def __init__(self,filepath,fam):
+        pass
+
+
+# This class provides the interface to all file system files managed by the
+class ForthFiles(object):
+    def __init__(self,msspath=None):
+        # List of HostFile objects.  Accessed by index
+        self.fileids=[None,]
+
+        # Mass Storage HostFile object
+        if msspath is not None:
+            self.mss=HostFile(msspath,HostFile.rw+HostFile.bin)
+        else:
+            self.mss=None
+
+    # BIN
+    def binary_access(self,fam):
+        return fam | HostFile.bin
+
+    # CLOSE-FILE
+    def close_file(self,fileid):
+        pass
+
+    # CREATE-FILE
+    def create_file(self,filepath,fam):
+        pass
+
+    # DELETE-FILE
+    def delete_file(self,string):
+        pass
+
+    # FILE-POSITION
+    def file_position(self,fileid):
+        pass
+
+    # FILE-SIZE
+    def file_size(self,fileid):
+        pass
+
+    # FILE-STATUS
+    def file_status(self,filepath):
+        pass
+
+    # FLUSH-FILE
+    def flush_file(self,fileid):
+        pass
+
+    # INCLUDE-FILE
+    def include_file(self,fileid):
+        pass
+
+    # INCLUDED
+    def included(self,filepath):
+        pass
+
+    # OPEN-FILE
+    def open_file(self,filepath,fam):
+        pass
+
+    # R/O
+    def read_only(self):
+        return HostFile.ro
+
+    # R/W
+    def read_write(self):
+        return HostFile.rw
+
+    # READ-FILE
+    def read_file(self,fileid,bytes):
+        pass
+
+    # READ-LINE
+    def read_line(self,fileid):
+        pass
+
+    # RENAME-FILE
+    def rename_file(self,newname,oldname):
+        pass
+
+    # REPOSITION-FILE
+    def reposition_file(self,fileid):
+        pass
+
+    # RESIZE-FILE
+    def resize_file(self,fileid,size):
+        pass
+
+    # W/O
+    def write_only(self):
+        return HostFile.wo
+
+    # WRITE-FILE
+    def write_file(self,fileid,string):
+        pass
+
+    # WRITE-LINE
+    def write_line(self,fileid,string):
+        pass
+
+
+
+if __name__ == '__main__':
+    #raise NotImplementedError("module %s only intended for import" % this_module)
+
+    src=Parser("parse these words")
+    #src=Parser("           ")
+    #src=Parser("   now   parse   these   words")
+    #src=Parser("")
+    #src=Parser('." this is my data "   ')
+    #src=Parser(" a word ( this is a comment ) more words")
+    #src=Parser('." this is my data \'   ')
+    src=Parser("  is word (  this is a comment without a left parenthesis ")
+    while True:
+        wd=src.select()
+        if wd is None:
+            print("end of input source")
+            break
+        if wd[-1]=='"':
+            data=src.scan('"')
+            print("data: '%s'" % data)
+        if wd == '(':
+            data=src.scan(')')
+            print("comment: '%s'" % data)
+        print("wd: '%s'" % wd)
+
+    lns=[" this is a line with a comment start ( now the comment",\
+         " this is more of the comment  ",\
+         " now the comment ends ) this is not a comment"]
+
+    comment=False
+    for n,ln in enumerate(lns):
+        print("[%s] line '%s'" % (n,ln))
+        l=Parser(ln,comment=comment)
+        if l._comment:
+            c="C"
+        else:
+            c=" "
+        print("[%s] %s line '%s'" % (n,c,ln))
+        while True:
+            wd=l.select()
+            if wd is None:
+                print("[%s] end of input" % n)
+                break
+
+            print("[%s] wd: %s" % (n,wd))
+            if wd == "(":
+                l.comment()
+        comment=l._comment

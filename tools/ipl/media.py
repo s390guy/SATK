@@ -204,6 +204,10 @@ class device(object):
                 self.devcls,self.dtype,last=last.recid,comp=comp)
         else:
             dev_size=self.handler.size(self.devcls,self.dtype)
+        if __debug__:
+            if debug:
+                print("media.py: debug: device size: %s" % dev_size)
+
         self.media=self.handler.media(self.devcls,size=dev_size,\
             progress=progress)
         self.handler.initialize(self.sequence,debug=debug)

@@ -606,7 +606,7 @@ class IPLTOOL(object):
             self.program=IMAGE(self.source,load=load)
             self.program.loadable()
             if len(self.program.load_list)==0:
-                self.error("IPL image contain no loadable content")
+                self.error("IPL image contains no loadable content")
 
         else:
             # Note: this should not occur, the argparser will recognize the
@@ -1996,7 +1996,8 @@ def parse_args():
 
   # Input arguments:
 
-    # Source input file (Note: attribute source in the parser namespace will be a list)
+    # Source input file (Note: attribute source in the parser namespace will be
+    # a list)
     parser.add_argument("source",nargs=1,metavar="FILEPATH",\
         help="input source path for --in argument")
 
@@ -2081,7 +2082,7 @@ def parse_args():
 
     # Bootstrap loader record length
     parser.add_argument("-r","--recl",metavar="SIZE",type=int,
-        help="bootstrap loader record syze in bytes. If omitted, default size "
+        help="bootstrap loader record size in bytes. If omitted, default size "
              "suported by the selected bootstrap loader used.")
 
     # Enables verbose messages

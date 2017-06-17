@@ -20,7 +20,7 @@ program creates it).
 XXX Currently under development - not all useful words are yet defined!
 """
 
-# This module, forth.py, is based upon python-msp430-tools found at 
+# This module, forth.py, is based upon python-msp430-tools found at
 # https://pypi.python.org/pypi/python-msp430-tools/0.6
 #
 # The majority of the MSP430 package is designed to cross-compile a Forth application
@@ -42,12 +42,12 @@ XXX Currently under development - not all useful words are yet defined!
 #      interpreter class.  rpn.py is used by MSP430 as a text parser in other
 #      contexts.  For the objectives of this project a single forth.py module was
 #      preferred.
-#   4. Mixin word definition classes rpn.RPNBitOps and rpn.RPNLogicOps and 
-#      class RPN eliminated.  The RPN class was replaced by the Forth class. 
+#   4. Mixin word definition classes rpn.RPNBitOps and rpn.RPNLogicOps and
+#      class RPN eliminated.  The RPN class was replaced by the Forth class.
 #   4. Mixin word definition classes have all been merged into the Forth class.
 #   5. The file __init__.forth has been converted into the module forth_words.py.
 #      It has been kept separate due to its public domain licensing.
-#   6. Functions eval(), python_function() and rpn_function() are commented out due to 
+#   6. Functions eval(), python_function() and rpn_function() are commented out due to
 #      lack of usage.  They are preserved as comments solely to document them in case
 #      their is an unperceived need for them.
 #   6. Non-functional coding style changes mostly related to method or class
@@ -55,13 +55,13 @@ XXX Currently under development - not all useful words are yet defined!
 #   7. Comments relating to the design and structure of the interpreter.
 #
 # The following corrections or functional changes have been made:
-#   1. Word \n in forth_words.py eliminated because it just will not compile with 
+#   1. Word \n in forth_words.py eliminated because it just will not compile with
 #      the utf-8 codecs correctly.  The original file coded it as '\n'.  The resulting
 #      word name included the quotes.  Any elimination of the quotes caused a utf8
 #      codec error.
 #   2. Word CR in forth_words.py changed to use ASCII carriage-return character
 #      explicitly rather than the eliminated \n word.
-#   3. Forth._include() method usage of the words_in_file function changed to 
+#   3. Forth._include() method usage of the words_in_file function changed to
 #      include_newline=True.  With include_newline=False (the default) included
 #      files were not compiled.  The use of line comments requires
 #      include_newline=True, otherwise a line comment will never terminate.
@@ -311,7 +311,7 @@ def words_in_file(filename, fileobj=None, include_newline=False):
 # is an immediate word definition and should be executed (rather than compiled) when
 # encountered during a word definition.
 # If used the immediate decorator must be used before the word decorator.
-# 
+#
 # See Forth.interpret_word() method for how this decorator influences the interpreter.
 def immediate(function):
     """\
@@ -326,7 +326,7 @@ def immediate(function):
 # identify its builtin words.  See the Forth.__init__() method for how this tag
 # is used to idenfify builtin word definitions.
 #
-# The programmer's note quoted above applies to the nested definition of the 
+# The programmer's note quoted above applies to the nested definition of the
 # decorate_word() function the wrapper returns.
 #
 # The word decorator wrapper function takes one argument:
@@ -390,7 +390,7 @@ class DocumentTree(object):
         self._state = []
         # output is buffered in memory first. this allows to group commands and
         # to output in alphabetical order
-        
+
         self.chapters = {}               # Chapter dictonary
         self.chapter_name = None         # Current chapter name
         self.current_chapter = None      # Current chapter dictionary
@@ -405,7 +405,7 @@ class DocumentTree(object):
     def chapter(self, name=' DEFAULT '):
         """Select chapter to put text sections in"""
         self.chapter_name = name
-        
+
         # Create a new chapter or continue the specified chapter.
         # A "chapter" is a named dictionary of sections.
         self.current_chapter = self.chapters.setdefault(name, {})
@@ -485,7 +485,7 @@ class DocumentTree(object):
 # Host word search order:
 #    1. builtins           @word decorated methods
 #    2. namespace          : word definitions
-# Target word search order: 
+# Target word search order:
 #    1. target             CODE word definitions
 #    2. namespace          : word definitions (same as on host)
 #
@@ -500,7 +500,7 @@ class DocumentTree(object):
 # _interpret_word() method.
 #
 # The Forth data stack is the Forth object itself (a subclass of the Python list)
-# The Forth return stack is the Python interpreter stack.  Executed words are called. 
+# The Forth return stack is the Python interpreter stack.  Executed words are called.
 # This is why namespace Frame objects contain sequences of executables (interspersed
 # with a few other elements recognized by the "internal" words).
 #
@@ -541,7 +541,7 @@ class Forth(list):
         self.variables = {}
 
         # Interpreter compilation state
-        self.compiling = False        # Current Forth interpreter mode       
+        self.compiling = False        # Current Forth interpreter mode
         self.frame = None             # Current Frame being compiled
         self.use_ram = False          # Current target memory type - see RAM and ROM
         self.label_id = 0             # Sequence number for generated assembly lables
@@ -549,13 +549,13 @@ class Forth(list):
         self.not_yet_compiled_words = set()  # Track uncompiled but referenced words
 
         # Include file management
-        # Include search path 
+        # Include search path
         self.include_path = []        # built by function main() from command line
         # Included files (file include recursion not supported)
         self.included_files = []      # Modified by _include() and init() methods
-        
+
         self.logger = logging.getLogger('forth')  # Python logger.
-        
+
         # Output document tree
         self.doctree = DocumentTree()
 
@@ -943,7 +943,7 @@ class Forth(list):
     # Used by the __str__() method
     def printer(self, obj):
         """\
-        convert object to string, for floating point numbers, 
+        convert object to string, for floating point numbers,
         use engineering format
         """
         t = type(obj)
@@ -1754,10 +1754,10 @@ class Forth(list):
 # so they may participate in the indirect word table or the table allowing conversion
 # of a token to its word address.
 #
-# The compilation design as implemented follows essentially a single pass approach.  
+# The compilation design as implemented follows essentially a single pass approach.
 # Some of these more complex threading models require multiple passes before the
 # final assembler code can be generated for output.
-# 
+#
 # In summary, some separation is required between the definition phase and the output
 # stage.  This is needed for the option of supporting multiple architectures and
 # multiple threading models.  A mechansim that sits between the forth interpreter
@@ -1854,7 +1854,7 @@ class Variable(object):
 
     def __add__(self, other):
         if isinstance(other, Variable):
-            if self.frame is not other.frame: 
+            if self.frame is not other.frame:
                 raise ValueError('Variables point to different frames')
             return Variable(self.frame, self.offset + other.offset)
         else:

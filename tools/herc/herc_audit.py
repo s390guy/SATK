@@ -31,7 +31,8 @@ import functools        # Used to aid in sorting complex compares
 import os
 import os.path
 # SATK Imports:
-from listing import *   # Access the listing generator tools 
+from listing import *   # Access the listing generator tools
+#import retest           # Re-use regular expression test module
 import satkutil         # Access the generic path manager object
 # ASMA Imports:
 import msldb            # Access an MSL database
@@ -62,6 +63,7 @@ def eloc(clso,method_name,module=None):
 #  |                                  |
 #  +----------------------------------+
 #
+
 
 # opcode.c table entry
 # Instance Arguments:
@@ -215,6 +217,16 @@ class CLine(object):
 
     def __str__(self):
         return "[%s] %s" % (self.lineno,self.line)
+        
+    # Tests whether the line starts with a given string
+    # Returns
+    #   False  If the line is shorter than string or it doesn't start with the string
+    #   True   If the line does start with the test string
+    def starts_with(self,string):
+        line=self.line.rstrip()
+        if len(line)>=len(string):
+            return line[:len(string)]==string
+        return False
 
 
 # Base class for a Hercules C language source module.  Subclasses understand
@@ -368,6 +380,247 @@ class CTable_S37X(object):
             print(entry)
 
 
+class CUndef(object):
+    def __init__(self,feature):
+        self.feature=feature      # feature to which function belongs
+        self.functions={}         # CFunction objects that are undefined
+
+    def __str__(self):
+        string="%s (%s instructions):" % (self.feature,len(self.functions))
+        for f in self.functions:
+            string="%s\n    %s" % (string,f)
+        return string
+        
+    def function(self,name,lineno):
+        #if name in self.functions:
+        #    raise ValueError("%s function already undefined: %s" \
+        #        % (eloc(self,"function"),name))
+        try:
+            self.functions[name]
+            raise ValueError("%s function already undefined: %s" \
+                % (eloc(self,"function"),name))
+        except KeyError:
+            self.functions[name]=CFunction(name,lineno)
+
+
+class CFunction(object):
+    def __init__(self,name,lineno):
+        self.name=name         # Function name from undefined function
+        self.lineno=lineno     # Opcode.c line number where function is undefined
+        self.hfeature=None     # HFeature object associated with the CFunction
+        
+    def __str__(self):
+        if self.hfeature :
+            feat=self.hfeature.name
+        else:
+            feat=self.hfeature
+        return "%s function, opcode.c[%s], in %s" \
+            % (self.name,self.lineno,feat)
+        
+    def add_feature(self,hfeature):
+        assert isinstance(hfeature,HFeature),\
+            "%s 'hfeature' argument must be a HFeature object: %s" \
+                % (eloc(self,"add_feature"),hfeature)
+
+        self.hfeature=hfeature # Point back to HFeature owner
+
+
+# Objects for processing of the Hercules featxxx.h modules
+class CFeature(CSource):
+    def __init__(self,module):
+        super().__init__(module)
+        self.features={}
+
+    def define(self,cline):
+        if cline.empty or cline.starts_with("//"):
+            return False
+        if not cline.starts_with("#define "):
+            return False
+
+        # Remove any trailing comments on the line
+        line=cline.line.lstrip()  # and ignore any beginning spaces
+        try:
+            # Some lines have #define FEATURE_XXXX    /* a comment */
+            # We remove the comment and any preceding spaces here
+            line=line[:line.index("/*")]
+            line=line.rstrip()
+        except ValueError:
+            pass
+        items=line.split()
+        if len(items)==2:
+            # #define has no value
+            # Found: #define FEATURE_XXXXX...
+            return items[1]   # Return defined feature
+        return False
+
+    def new_feature(self,name):
+        try:
+            self.features[name]
+            raise ValueError("%s feature already defined: %s" \
+                % (eloc(self,"new_feature"),name))
+        except KeyError:
+            self.features[name]=[]
+
+    def parse(self):
+        for cline in self.clines:
+            name=self.define(cline)
+            if name:
+                self.new_feature(name)
+
+    def summary(self):
+        feats=sorted(self.features.keys())
+        print("%s Features: %s" \
+            % (self.__class__.__name__[-3:],len(feats)))
+        for f in feats:
+            print("    %s" % f)
+
+
+class CFeat370(CFeature):
+    def __init__(self):
+        super().__init__("feat370.h")
+
+
+class CFeat390(CFeature):
+    def __init__(self):
+        super().__init__("feat390.h")
+
+
+class CFeat900(CFeature):
+    def __init__(self):
+        super().__init__("feat900.h")
+
+
+# This object gathers from multiple sources, feature related information
+# The foundation is the parsed feat370.h, feat390.h and feat900.h source modules
+# Instruction functions for a given feature is added from the feature UNDEF
+# statements in the opcode.c source module.
+class HFeature(object):
+    archs=["370","390","900"]
+    def __init__(self,name):
+        self.name=name     # Feature name
+        self.archs=[False,False,False]  # Whether arch supports the feature
+        
+        # Instruction functions used by this feature.  The key is the function
+        # name.  Initially it is added as a key mapped to None.  Later it will
+        # be updated with instruction operation code information, replacing
+        # None.  See the add_functions method().
+        self.functions={}
+        
+    def __str__(self):
+        archs=HFeature.archs
+        flags=""
+        for n in range(3):
+            if self.archs[n]:
+                flags="%s %s" % (flags,archs[n])
+            else:
+                flags="%s %s" % (flags,"   ")
+        return "%s - %s %s" % (flags,len(self.functions),self.name)
+        
+    def add_functions(self,func):
+        assert isinstance(func,CUndef),\
+            "%s 'func' argument must be a CUndef object: %s" \
+                % (eloc(self,"add_function"),func)
+                
+        # List of instruction functions
+        for f,cf in func.functions.items():
+            assert isinstance(cf,CFunction),\
+                "%s %s function %s cf not a CFunction: %s" \
+                    % (eloc(self,"add_functions"),self.name,f,cf)
+            try:
+                self.functions[f]
+                raise ValueError("%s %s already has function defined: %s" \
+                    % (eloc(self,"add_functions"),self.name,f))
+            except KeyError:
+                # Add the function to the function dictionary
+                cf.add_feature(self)
+                self.functions[f]=cf
+
+
+class HFeatures(object):
+    def __init__(self,s370,s390,s900):
+        assert isinstance(s370,CFeat370),\
+            "%s 's370' argument must be a CFeat370 object: %s" \
+                % (eloc(self,"__init__"),s370)
+        assert isinstance(s390,CFeat390),\
+            "%s 's370' argument must be a CFeat390 object: %s" \
+                % (eloc(self,"__init__"),s390)
+        assert isinstance(s900,CFeat900),\
+            "%s 's370' argument must be a CFeat900 object: %s" \
+                % (eloc(self,"__init__"),s900)
+        
+        self.s370=s370   # S/370 defined features
+        self.s390=s390   # S/390 defined features
+        self.s900=s900   # S/900 defined features
+
+        self.features={}  # Dictionary of HFeature objects by feature name
+        # Dictionary of instruction functions to owning HFeature object
+        self.functions={}
+
+        # Update each HFeature object with the archs that enable it.
+        for n,arch in enumerate([self.s370,self.s390,self.s900]):
+            for feat in arch.features.keys():
+                feature=self.get_feature(feat)
+                feature.archs[n]=True
+
+    # Add instruction function names to the feature.  Function names derived from
+    # opcode.c UNDEF statements.
+    def add_functions(self,undef_list):
+        assert isinstance(undef_list,list),\
+            "%s 'undef_list' argument must be a list: %s" \
+                % (eloc(self,"add_functions"),undef_list)
+
+        for n,u in enumerate(undef_list):
+            assert isinstance(u,CUndef),\
+            "%s udef_list[%s] must be a CUndef object: %s" \
+                % (eloc(self,"add_functions"),n,u)
+
+            feat=self.get_feature(u.feature)
+            # Note: it is possible to encounter features referenced in opcode.c
+            # that are not defined in any of the featxxx.c modules.  This occurs
+            # because the test in opcode.c if for undefined features.  Excluding
+            # them from featxxx.h had the effect of causing the feature to be
+            # undefined, satifying the test.  Features added at this point
+            # will not be enabled for any architecture level, as expected.
+
+            feat.add_functions(u)
+            
+        # Consolidate functions into a single global dictionary
+        for feat in self.features.values():
+            for f,cf in feat.functions.items():
+                # f is the function name as a string
+                # cf is its CFunction object
+                assert isinstance(cf,CFunction),\
+                    "%s %s cf for function %s not a CFunction object: %s" \
+                        % (eloc(self,"add_functions"),feat.name,f,cf)
+                try:
+                    def_func=self.functions[f]
+                    assert isinstance(def_func,CFunction),\
+                        "%s function %s definition not a CFunction object: %s" \
+                            % (eloc(self,"add_functions"),f,def_func)
+                    
+                    raise ValueError(\
+                        "%s %s already defined, "
+                           "can't define by %s: opcode.c[%s]"\
+                                % (eloc(self,"add_functions"),def_func,\
+                                    feat.name,cf.lineno))
+                except KeyError:
+                    self.functions[f]=cf
+
+    def get_feature(self,name):
+        try:
+            feat=self.features[name]
+        except KeyError:
+            feat=HFeature(name)
+            self.features[feat.name]=feat
+        return feat
+        
+    def summary(self):
+        feats=sorted(self.features.keys())
+        for feat in feats:
+            f=self.features[feat]
+            print(f)
+
+
 # Object for processing of the Hercules opcode.c module
 class COpcodes(CSource):
     ignore_tables=["opcode_15__","opcode_18__","opcode_1E__","opcode_1F__",\
@@ -381,7 +634,9 @@ class COpcodes(CSource):
         # Parse state
         #  0 == Looking for start of an opcode table
         #  1 == Within an opcode table
-        self.state=0
+        #  2 == Looking for feature being undefined
+        #  3 == Adds indidivual function names to the UNDEF'ed feature
+        self.state=2
 
         # Parse results
         self.tables={}       # Dictionary of CTable objects by name
@@ -390,13 +645,18 @@ class COpcodes(CSource):
         self.vtbllist=[]     # List of vector CTable objects
 
         self.ignored=[]      # List of ignored tables
+        
+        self.undefined=[]    # List of CUndef objects as found in opcode.c
 
-        # Accumulated data while within an optode definition
+        # Accumulated data while within an opcode definition
         self.start=None      # First line of the opcode table
         self.end=None        # Ending line of the opcode table
         self.table_name=None # Table being extracted
         self.pos=None        # Index in table of definition
         self.opcodes=[]      # Accumulated lines of opcode definitions
+        
+        # Accumulated data while processing undefined features
+        self.undef=None      # Current CUndef object being created
 
         # Correct incorrect comment opcodes
         self.fix_opcode={3335:"B9A4",3708:"E3A4",3729:"E3B9",4487:"EBA4",4508:"EBB9",\
@@ -436,8 +696,15 @@ class COpcodes(CSource):
             elif self.state==1:
                 # processing table entries
                 self.table_entry(cline)
+            elif self.state==2:
+                # Looking for feature being undefined
+                self.undef_begin(cline)
+            elif self.state==3:
+                # Processing UNDEF entries in feature
+                self.undef_function(cline)
             else:
-                raise ValueError("unexpected parse state: %s" % self.state)
+                raise ValueError("%s unexpected parse state: %s" \
+                    % eloc(self,"parse"),self.state)
 
         if not debug:
             return
@@ -491,7 +758,7 @@ class COpcodes(CSource):
         #
         #     static zz_func opcode_table_name[0x100][GEN_MAXARCH] = {
         #     ------ ------- ?????????????????-?????-------------- - -
-        #     [ 0  ]   [1]   [               2                     3 4
+        #     [ 0  ]   [1]   [               2                   ] 3 4
         # 
         # The numbers indicate the index of the split items - five required
         
@@ -653,6 +920,60 @@ class COpcodes(CSource):
         if end_of_table:
             table=CTable(self.table_name,self.start,self.end,entries=self.opcodes)
             self.new_table(table)
+
+    def undef_begin(self,cline):
+        # Look for start of instruction table creation
+        if cline.starts_with("DEF_INST(dummy_instruction)"):
+            self.state=0   # start table processing
+            return
+
+        # Not a new undefined feature so keep looking
+        if not cline.starts_with("#if !defined(FEATURE_"):
+            return
+
+        # Remove a possible comment
+        line=cline.line.lstrip()  # and ignore any beginning spaces
+        try:
+            # Some lines have #define FEATURE_XXXX    /* a comment */
+            # We remove the comment and any preceding spaces here
+            line=line[:line.index("/*")]
+            line=line.rstrip()
+        except ValueError:
+            pass
+        
+        try:
+            rparen=line.index(")")
+        except ValueError:
+            raise ValueError("%s missing right parenthesis: %s" \
+                % (eloc(self,"undef_begin"),cline)) from None
+            
+        feature=line[13:rparen]
+        self.undef=CUndef(feature)
+        self.state=3           # Start adding undef entries
+        
+    def undef_function(self,cline):
+        # Look for end of feature undefines
+        if cline.starts_with("#endif"):
+            print(self.undef)
+            self.undefined.append(self.undef)  # Save CUndef object in list
+            self.undef=None    # Reset the CUndef being built to None
+            self.state=2       # Return to looking for another feature
+            return
+
+        if not cline.starts_with(" UNDEF_INST("):
+            return
+
+        # Extract the function name from the entry
+        line=cline.line.rstrip()
+        try:
+            rparen=line.index(")")
+        except ValueError:
+            raise ValueError("%s missing right parenthesis: %s" \
+                % (eloc(self,"undef_function"),cline)) from None
+
+        function=line[12:rparen]
+        self.undef.function(function,cline.lineno)
+
 
 
 # Object for processing of the Hercules s37x.c module
@@ -1133,17 +1454,25 @@ class HArch(object):
 #   s37x     Information extracted from Hercules s37x.c source module
 #   mslpath  The path to the MSL database.
 class HTables(object):
-    def __init__(self,opcode,s37x,mslpath):
+    def __init__(self,opcode,s37x,mslpath,hfeatures):
         assert isinstance(opcode,COpcodes),\
             "%s 'opcode' argument must be a COpcodes object: %s" \
                 % (eloc(self,"__init__"),opcode)
         assert isinstance(s37x,C37x),\
             "%s 's37x' argument must be a C37x object: %s" \
                 % (eloc(self,"__init__"),s37x)
+        assert isinstance(hfeatures,HFeatures),\
+            "%s 'hfeatures' argument must be a HFeatures object: %s" \
+                % (eloc(self,"__init__"),hfeatures)
 
         # s37x.c Tables (CTable_S37X objects):
         self.s37xd=s37x.tables      # Tables by name
         self.s37xs=s37x.tbllist     # Tables by sequence found
+
+        # Feature tables from featxxx.h and opcode.c
+        self.hfeatures=hfeatures    # Features from featxxx.h
+        # Update features with instruction function information from opcode.c
+        self.hfeatures.add_functions(opcode.undefined)
 
         # opcode.c Tables (CTable objects):
         self.opcd=opcode.tables     # Table by name
@@ -1657,7 +1986,8 @@ class ReportListing(Listing):
 #
 
 class Hercules_Opcodes(object):
-    file_cls=[COpcodes,C37x]   # The classes that process specific modules
+    # The classes that process specific source modules
+    file_cls=[CFeat370,CFeat390,CFeat900,COpcodes,C37x]
     def __init__(self,args,mslpath):
         self.args=args         # argparse Namespace object
         self.mslpath=mslpath   # Root directory of MSL filles
@@ -1682,6 +2012,7 @@ class Hercules_Opcodes(object):
 
         # Hercules source file objects:
         self.source={}   # dictionary of source input files as text strings
+        self.src_seq=[]  # list of source objects in sequence
 
         # Initialize the CTable dictionary that points a CTable to its CTable_S37X
         # table that modifies it.
@@ -1690,6 +2021,7 @@ class Hercules_Opcodes(object):
         # object
 
         # Run-time information
+        self.hfeatures=None
         self.htables=None
 
         # Report
@@ -1698,28 +2030,36 @@ class Hercules_Opcodes(object):
     # Perform the operation code audit
     def run(self,debug=False):
         # Parse Hercules source files:
+        self.src_seq=[]
         for fcls in Hercules_Opcodes.file_cls:
             source=fcls()
             source.getSource(self.herc_dir)
             self.source[source.filename]=source
+            self.src_seq.append(source)
 
         if debug:
-            for f in self.source.keys():
-                csrc=self.source[f]
+            for csrc in self.src_seq:
                 print(csrc)
                 csrc.parse()
                 csrc.summary()
                 print("")
+                
+        # Build the feature comparison information
+        self.hfeatures=HFeatures(\
+            self.source["feat370.h"],
+            self.source["feat390.h"],
+            self.source["feat900.h"])
 
         # Consolidate Hercules tables into one object
         self.htables=HTables(self.source["opcode.c"],self.source["s37x.c"],\
-            self.mslpath)
+            self.mslpath,self.hfeatures)
+        self.hfeatures.summary()
         # At this point the audit against the MSL database has been completed for
         # all of the Hercules architectures.
 
         self.htables.report(self.report)
         print(self.report)
-        # Report detail lines have beem created for output creation
+        # Report detail lines have been created for output creation
 
         # Create the listing
         self.report.listing(filename=self.listing)
