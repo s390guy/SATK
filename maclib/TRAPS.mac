@@ -16,7 +16,7 @@
 .*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
          MACRO
-&LABEL   TRAPS &ENABLE=,&PSW=
+&LABEL   TRAPS &ENABLE=YES,&PSW=
 .* Enable in-line ISR Trap PSWs based upon current architecture level
 .* Optional Parameter Usage:
 .*   &LABEL   Associate a symbol with the in-line enabling instructions
@@ -43,6 +43,8 @@
 .ENAYES  ANOP
 &GEN     SETB  1
 &PSWA    SETC  'TRAP&SYSNDX'
+&ENA     SETB  1
+         AGO   .CKIND
 .ENAONLY ANOP
 &ENA     SETB  1
          AIF   ('&PSW' NE '').PSWGOOD
@@ -71,7 +73,7 @@
 .* Generate in-line PSWs for ENABLE=YES
          AIF   (NOT &GEN).DONE
          AIF   (NOT &ENA).GENPSW
-         AIF   (&ARCHLVL LT 9).JUST64
+         AIF   (&ARCHLVL LT 8).JUST64
          $B    TRAP&SYSNDX+144
          AGO   .GENPSW
 .JUST64  ANOP
