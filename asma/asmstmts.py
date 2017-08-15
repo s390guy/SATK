@@ -1143,6 +1143,11 @@ class SymbolDefine(ASMStmt):
 
         case=asm.case
         for n,sym in enumerate(self.P0_operands):
+            if sym is None:
+                # An empty operand in LCLx or GBLx statements is ignored
+                continue
+
+            # Otherwise must be a symbol reference
             assert isinstance(sym,macopnd.SymbolRef),\
                 "%s [%s] P0_operand[%s] must be a macopnd.SymbolRef object: %s" \
                     % (assembler.eloc(self,"process",module=this_module),\
