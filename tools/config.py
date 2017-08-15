@@ -504,10 +504,12 @@ class Option(object):
     # conversion to a dictionary)
     def cl(self,pargs):
         if self.use_cl:
-            if self.full is None:
-                self._cl=None
-            else:
+            if self.full:
                 self._cl=pargs[self.full]
+            elif self.short:
+                self._cl=pargs[self.short]
+            else:
+                self._cl=None
 
     # Populate the argument from the configuration file
     def cfg(self,cfg,section):
@@ -1733,7 +1735,6 @@ class Tool(object):
     def cli_args(self):
         self.cli_ns=self.arg_parser.parse_args()
         if not self.notice:
-            #print(copyright)
             print(self.spec._tool_copyright)
             self.notice=True
         self.cli=vars(self.cli_ns)   # Convert the Namespace into a dictionary
