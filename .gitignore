@@ -1,0 +1,70 @@
+# PLEASE NOTE:
+
+# There is no need to add temporary files here when adding a new source
+# file as such files (including .dll and .so) are caught by the general
+# rules at the end of this file.
+
+# The only thing you need to add is an executable without extension.
+
+# /
+.directory
+
+# /asma/
+/asma/__pycache__
+/asma/.directory
+/asma/msl/.directory
+
+# /doc/
+/doc/.directory
+/doc/asma/.directory
+/doc/iplelf/.directory
+/doc/macros/.directory
+
+# /lib/
+/lib/.directory
+
+# /maclib/
+/maclib/.directory
+
+# /samples/
+/samples/.directory
+/samples/asma/.directory
+/samples/decklodr/.directory
+/samples/embedded/.directory
+/samples/external/.directory
+/samples/ihandlers/.directory
+/samples/iplelf/.directory
+/samples/textseg/.directory
+
+# /src/
+/src/.directory
+/src/drivers/.directory
+/src/hal/.directory
+/scr/ipl/.directory
+/src/ipl/include/.directory
+/src/storage/.directory
+
+# /srcasm/
+/srcasm/.directory
+
+# /tools/
+/tools/.directory
+/tools/__pycache__
+/tools/herc/.directory
+/tools/herc/__pycache__
+/tools/ipl/.directory
+/tools/ipl/__pycache__
+/tools/lang/.directory
+/tools/lang/__pycache__
+
+# /xforth/
+/xforth/.directory
+/xforth/__pycache__
+
+# Python
+*.pyc
+
+
+# Editors
+*.py~
+*~
