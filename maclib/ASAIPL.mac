@@ -53,7 +53,7 @@
          LCLC  &PSWFM     PSW format
          LCLC  &SECT      Control section we are in before moving to ASA CSECT
          AIF   (&ARCHIND).ARKGOOD
-         MNOTE 1,'ASAIPL - PRECEDING ARCHIND MACRO MISSTING'
+         MNOTE 1,'ASAIPL - PRECEDING ARCHIND MACRO MISSING'
          MEXIT
 .ARKGOOD ANOP
          AIF   ('&SATKACS' NE '').ASAGOOD
