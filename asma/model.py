@@ -264,8 +264,6 @@ class Model(object):
                     print('%s returning[%s]: "%s"' \
                         % (assembler.eloc(self,"create",module=this_module),n,p))
 
-        #print("%s plines: %s" \
-        #    % (assembler.eloc(self,"create",module=this_module),plines))
         return plines
 
     # Returns a list of the normal statement format lines with comments
@@ -280,6 +278,7 @@ class Model(object):
         if __debug__:
             if debug:
                 cls_str=assembler.eloc(self,"find_comment",module=this_module)
+                print("%s [%s] called" % (cls_str,stmt.lineno))
 
         for n,pline in enumerate(stmt.logline.plines):
             if __debug__:
@@ -328,6 +327,11 @@ class Model(object):
 
     # Performs a symbolic replacement parse of the label field
     def parse_label(self,asm,stmt,debug=False):
+        if __debug__:
+            if debug:
+                print("%s [%s] called" % (assembler.eloc(self,"parse_label",\
+                    module=this_module),stmt.lineno))
+
         if not stmt.label_fld:
             self.label_fld=""
             return
@@ -336,15 +340,30 @@ class Model(object):
         self.label_fld=self.prepare_result(stmt,result,"label",debug=debug)
 
     def parse_operands(self,asm,stmt,debug=False):
+        if __debug__:
+            if debug:
+                print("%s [%s] called" % (assembler.eloc(self,"parse_operands",\
+                    module=this_module),stmt.lineno))
+
         for n,opnd in enumerate(stmt.operands):
             if opnd is None:
                 self.operands.append("")
                 continue
+            if __debug__:
+                if debug:
+                    print("%s [%s] operand %s: %s" \
+                        % (assembler.eloc(self,"parse_operands",\
+                            module=this_module),stmt.lineno,n,opnd))
             popnd=self.__parse(asm,stmt,opnd,debug=debug)
             popnd=self.prepare_result(stmt,popnd,"opndp%s" % n,debug=debug)
             self.operands.append(popnd)
 
     def parse_operation(self,asm,stmt,debug=False):
+        if __debug__:
+            if debug:
+                print("%s called" % assembler.eloc(self,"parse_operation",\
+                    module=this_module))
+
         result=self.__parse(asm,stmt,stmt.oper_fld,debug=debug)
         self.oper_fld=self.prepare_result(stmt,result,"oper",debug=debug)
 

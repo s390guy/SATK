@@ -1589,20 +1589,21 @@ class ModelStmt(ASMStmt):
     lfld="MLSQ"    # Valid label field content
     ofld="LS"      # Valid operation field content
     alt=True       # Whether the alternate statement format is allowed
-    parser="mopnd" # Operand parser used by statement
+    #parser="mopnd" # Operand parser used by statement
+    parser=None    # Operand parser used by statement (invoked by model.Model)
     sep=True       # Whether operands are to be separated from the logline
     spaces=False   # Whether operand field may have spaces outside of quoted strings
     comma=False    # Whether only a comma forces an end of an operand
-    #attrs="IKLMNOT"   # Attributes supported in expression
-    #attrs=None     # Attributes supported in expression
     attrs=A_OC     # Allow the same attributes in model statements as open code
 
     def __init__(self,lineno,logline=None):
         super().__init__(lineno,logline=logline)
         self.model=None      # model.Model object used for all processing
-        self.syslist=False   # Whethre &SYSLIST required.
+        self.syslist=False   # Whether &SYSLIST required.
+        self.mdebug=False    # Manually change to enable debugging
 
     def Pass0(self,asm,macro=None,debug=False,trace=False):
+        mdebug=self.mdebug=self.mdebug | debug | trace
         indefn=self.ck_in_macro_defn(macro,2,"model")
         m=model.Model(asm,self,debug=debug)
 
@@ -1611,9 +1612,9 @@ class ModelStmt(ASMStmt):
             seq=None
         else:
             self.pre_process(asm)
-            self.parse_line(asm,debug=debug)
+            self.parse_line(asm,debug=mdebug)
             if __debug__:
-                if debug:
+                if mdebug:
                     print("%s stmt label fld: %s" \
                         % (assembler.eloc(self,"Pass0",module=this_module),\
                             self.label_fld))
@@ -1629,16 +1630,16 @@ class ModelStmt(ASMStmt):
 
             seq=self.seqsym(asm.case)
             if __debug__:
-                if debug:
+                if mdebug:
                     print("%s model: '%s'"\
                         % (assembler.eloc(self,"Pass0",module=this_module),model))
 
-            m.parse(asm,self,debug=debug)
+            m.parse(asm,self,debug=mdebug)
 
         self.model=m
 
         indefn._model(\
-            self.lineno,self.model,seq=seq,syslist=self.syslist,debug=debug)
+            self.lineno,self.model,seq=seq,syslist=self.syslist,debug=mdebug)
 
 
 #
