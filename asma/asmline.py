@@ -444,7 +444,7 @@ class cfsm(fsm.FSM):
         attr.action("'",self.ACT_Is_Attr)
         # The possible attribute character isn't an attribute because it was
         # followed by a parenthesis.  In this case we return to normal operand
-        # parsing by count the parenthesis to make sure they are balanced
+        # parsing by counting the parentheses to make sure they are balanced
         attr.action("(",self.ACT_LParen)
         attr.action(")",self.ACT_RParen)
         attr.action(" ",self.ACT_Comment)
@@ -692,6 +692,8 @@ class cfsm(fsm.FSM):
 
     def ACT_Not_Attr(self,value,state,trace=False):
         self.ACT_Add_Char(value,state,trace=trace)
+        if value == "&":
+            self.amp=True
         return "init"
 
     def ACT_RParen(self,value,state,trace=False):
