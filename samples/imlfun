@@ -99,12 +99,16 @@ iml()
 herc_env()
 {    # Update paths for your environment
      case $1 in
-        rel) herc_path="${HOME}/Herc/hercules-3.07/bin" ;;
-        #hyp) herc_path="${HOME}/herchypi/bin"         ;;
-        hyp) # Execute out of the hyperion build directory
-             herc_path="${HOME}/herchyp/x86_64/hyperion"
-             export LD_LIBRARY_PATH=${herc_path}:${LD_LIBRARY_PATH}
-             ;;
+        "rel") # Execute out of a release directory
+               herc_path="${HOME}/Herc/hercules-3.07/bin" ;;
+        "hyp") # Execute out of a CMake install directory
+               herc_path="${HOME}/hyperioni/bin"
+               export LD_LIBRARY_PATH=${herc_path}:${LD_LIBRARY_PATH}
+               ;;
+        "1stop") # Execute out of the 1Stop hyperion build directory
+               herc_path="${HOME}/herchyp/x86_64/hyperion"
+               export LD_LIBRARY_PATH=${herc_path}:${LD_LIBRARY_PATH}
+               ;;
         *)  echo "invalid hercules environment: $1" ; exit 1 ;;
      esac
      hercules=${herc_path}/hercules
