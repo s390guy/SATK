@@ -77,7 +77,7 @@
          $B    TRAP&SYSNDX+144
          AGO   .GENPSW
 .JUST64  ANOP
-         $B    TRAP&SYSNDX+48
+         $B    TRAP&SYSNDX+40
 .GENPSW  ANOP
          AIF   (&ARCHLVL EQ 9).USEEC
 &PSWFM   SETC  '&PSW'
