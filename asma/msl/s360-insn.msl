@@ -341,7 +341,7 @@ inst CR     19   RR             # COMPARE (32)
 inst CVB    4F   RXA            # CONVERT TO BINARY (32)
 inst CVD    4E   RXA            # CONVERT TO DECIMAL (32)
 inst D      5D   RXA            # DIVIDE (32<64)
-inst DIAG   83   RXA     P      # DIAGNOSE
+inst DIAG   83   RSA     P      # DIAGNOSE
 inst DR     1D   RR             # DIVIDE
 inst EX     44   RXA            # EXECUTE
 inst IC     43   RXA            # INSERT CHARACTER

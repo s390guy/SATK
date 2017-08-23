@@ -85,7 +85,7 @@ inst DD     6D   RXA            # DIVIDE (LH)
 inst DE     7D   RXA            # DIVIDE (SH)
 inst DER    3D   RR             # DIVIDE (SH)
 inst DDR    2D   RR             # DIVIDE (LH)
-inst DIAG   83   RXA     P      # DIAGNOSE
+inst DIAG   83   RSA     P      # DIAGNOSE
 inst DP     FD   SSB            # DIVIDE DECIMAL
 inst DR     1D   RR             # DIVIDE
 inst DXR    B22D RRE            # DIVIDE (EH)
