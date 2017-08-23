@@ -16,7 +16,7 @@
 .*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
          MACRO
-&LABEL   HRCCMD &CMD,&CMDL=,&FAIL=,&PSW=
+&LABEL   HRCCMD &CMD,&CMDL=,&FAIL=
 .* Issue a Hercules command usind DIAGNOSE X'8' without a response buffer.
 .* Required Parameter Usage:
 .*  &CMD    The register pointing to command to be issued
@@ -27,42 +27,30 @@
 .*          by the actual command as EBCDIC characters.
 .*  &FAIL   Control is passed to this location if the command fails.  If omitted,
 .*          a disabled wait state with code X'400' is entered.
-.*  &PSW    If a disabled wait state is entered, the PSW format specified is used.
-.*          Otherwise, the current XMODE PSW setting is used.  See DWAIT macro
-.*          description for the usage of this parameter.
 .* Dependency:
 .*  Entering a disabled wait state has a dependency on the DWAIT macro in satk.mac
 .* WARNING: A command length of zero will cause the Hercules CPU to enter the stopped
 .* state!
-         LCLA  &ARCHLVL Current architecture level
+         GBLA  &ARCHLVL Current architecture level
          LCLB  &CLIMP   Switch indicating the length is implied.
          LCLC  &CLREG   Command length register
-         LCLC  &BNZ,&BZ,&LH,&SLR
+.*         LCLC  &BNZ,&BZ,&LH,&SLR
          AIF   ('&CMD' NE '').CMDOK
          MNOTE 1,'HRCCMD - INITIAL COMMAND LENGTH REGISTER PARAMETER MISSING'
          MEXIT
 .CMDOK   ANOP
-&BNZ     SETC  'BNZ '
-&BZ      SETC  'BZ '
-&LH      SETC  'LH '
-&SLR     SETC  'SLR '
-         AIF   (&ARCHLVL LT 7).CKLREG
-&BZ      SETC  'JZ '
-&BNZ     SETC  'JNZ '
-         AIF   (&ARCHLVL NE 9).CKLREG
-&LH      SETC  'LGH'
-&SLR     SETC  'SLGR'
-.CKLREG  ANOP
 &CLIMP   SETB  '&CMDL' EQ ''
          AIF   (&CLIMP).IMPCL
 &CLREG   SETC  '&CMDL'
+         AGO   .CKLBL
 .IMPCL   ANOP
 &CLREG   SETC  '2+(&CMD)'
+.CKLBL   ANOP
          AIF   ('&LABEL' EQ '').NOLBL
 &LABEL   DS    0H
 .NOLBL   ANOP
          AIF   (NOT &CLIMP).DODIAG
-         &SLR  &CLREG,&CLREG             Make sure flags are all zeros
+         $SLR  &CLREG,&CLREG             Make sure flags are all zeros
          ICM   &CLREG,B'0011',0(&CMD)    Fetch the command length
          LA    &CMD,2(0,&CMD)            Point to the actual command
 .DODIAG  ANOP
@@ -71,10 +59,10 @@
 .* does not check for a zero length command.
          DIAG  &CMD,&CLREG,X'008'        Issue the Hercules command
          AIF   ('&FAIL' EQ '').DWAIT
-         &BNZ  &FAIL
+         $BNZ  &FAIL
          MEXIT
 .DWAIT   ANOP
-         BZ    HRCC&SYSDNX
-         DWAIT PGM=0,CODE=400,PSW=&PSW,LOAD=YES
-HRCC&SYSDX DS 0H
+         $BZ    HRCC&SYSNDX
+         DWAIT PGM=0,CODE=400,LOAD=YES
+HRCC&SYSNDX DS 0H
          MEND
