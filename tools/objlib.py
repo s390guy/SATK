@@ -300,6 +300,11 @@ def a2e(string):
     assert isinstance(string,str),\
         "'string' argument must be a string: %s" % string
     return string.encode(EBCDIC)
+    
+def e2a(byt):
+    assert isinstance(byt,(bytes,bytearray)),\
+        "'byt' argument must be a byte sequence: %s" % byt
+    return byt.decode(EBCDIC)
 
 # Converts a lit of two bytes into an signed or unsigned integer
 def hword(binary,signed=False):
@@ -707,9 +712,9 @@ class RLDBLDR(OBJBLDR):
 # [13:16]   14-16     External symbol attribute, varies with type
 class ESDITEM(object):
     types=None    # Defined below after all ESDITEM subclasses defined
-    amodes={64:0x20,31:0x02,24:0x01,True:0x03,None:0x00}
-    amode_flags=[24,24,31,True]    # True implies any
-    rmode_flags=[24,31,64,None]
+    #amodes={64:0x20,31:0x02,24:0x01,True:0x03,None:0x00}
+    #amode_flags=[24,24,31,True]    # True implies any
+    #rmode_flags=[24,31,64,None]
 
     # Template for a new bytearray of an ESD item containing 16 EBCDIC spaces.
     new=[0x40,0x40,0x40,0x40,0x40,0x40,0x40,0x40,\
@@ -788,22 +793,6 @@ class ESDITEM(object):
         assert isinstance(address,int) and address>=0 and address<=0xFFFFFF,\
             "%s %s address must be an integer between 0x0-0xFFFFFF: %s" \
                 % (self.__class__.__name,self.symbol,hex(address))
-
-    # This method checks the alignment argument.
-    # Method Argument:
-    #   align   the ESD item's alignement being validated as an integer
-    # Returns
-    #   the ESD item's type field as an integer for the alignment
-    # Exception:
-    #   AssertionError if the 'align' argument is invalid
-    def _check_alignment(self,align):
-        assert align in [4,8],\
-            "%s %s alignment must be the integers 4 or 8: %s" \
-                % (self.__class__.__name__,self.symbol,align)
-
-        if align==8:
-            return self.__class__.qtyp
-        return self.__class__.typ
 
     # This method checks the bin argument.
     # Method Argument:
@@ -913,6 +902,27 @@ class Area(ESDITEM):
     rsect_flags={True:0x08,False:0x00}
 
     @staticmethod
+    def decode_amode(flag):
+        print("Area.decode_amode() - flag: %02X" % flag)
+        amode_flags = flag & Area.amode_mask
+        print("Area.decode_amode() - amode flags: %02X" % amode_flags)
+        try:
+            return Area.amode_settings[flag & Area.amode_mask]
+        except KeyError:
+            raise ValueError("%s.Area.decode_SDPC_flag() - "\
+                "unrecognized AMODE value: %02X" \
+                    % (this_module, flag & Area.amode_mask)) from None
+
+    @staticmethod
+    def decode_rmode(flag):
+        try:
+            return Area.rmode_settings[flag & Area.rmode_mask]
+        except KeyError:
+            raise ValueError("%s.Area.decode_SDPC_flag() - "\
+                "unrecognized RMODE value: %02X" \
+                    % (this_module,flag & Area.rmode_mask)) from None
+
+    @staticmethod
     def decode_section_alignment(styp):
         if styp in [0x0D,0x0E,0x0F]:
             return 16
@@ -934,20 +944,21 @@ class Area(ESDITEM):
     #              11 - AMODE ANY
     @staticmethod
     def decode_SDPC_flag(flag):
-        try:
+        #try:
+        #    rmode=Area.rmode_settings[flag & Area.rmode_mask]
+        #except KeyError:
+        #    raise ValueError("%s.Area.decode_SDPC_flag() - "\
+        #        "unrecognized RMODE value: %02X" \
+        #            % (this_module,flag & Area.rmode_mask)) from None
+        rmode=Area.decode_rmode(flag)
 
-            rmode=Area.rmode_settings[flag & Area.rmode_mask]
-        except KeyError:
-            raise ValueError("%s.Area.decode_SDPC_flag() - "\
-                "unrecognized RMODE value: %02X" \
-                    % (this_module,flag & Area.rmode_mask)) from None
-
-        try:
-            amode=Area.amode_settings[flag & Area.amode_mask]
-        except KeyError:
-            raise ValueError("%s.Area.decode_SDPC_flag() - "\
-                "unrecognized AMODE value: %02X" \
-                    % (this_module, flag & Area.amode_mask)) from None
+        #try:
+        #    amode=Area.amode_settings[flag & Area.amode_mask]
+        #except KeyError:
+        #    raise ValueError("%s.Area.decode_SDPC_flag() - "\
+        #        "unrecognized AMODE value: %02X" \
+        #            % (this_module, flag & Area.amode_mask)) from None
+        amode=Area.decode_amode(flag)
 
         rsect = flag & 0x08 == 0x08
         return (rmode,amode,rsect)
@@ -964,6 +975,22 @@ class Area(ESDITEM):
         # Dictionary of LD items associated with the area by name
         self.ldict={}         # See add_LD() method
 
+    # This method checks the alignment argument.
+    # Method Argument:
+    #   align   the ESD item's alignement being validated as an integer
+    # Returns
+    #   the ESD item's type field as an integer for the alignment
+    # Exception:
+    #   AssertionError if the 'align' argument is invalid
+    def _check_alignment(self,align):
+        assert align in [8,16],\
+            "%s %s alignment must be the integers 8 or 16: %s" \
+                % (self.__class__.__name__,self.symbol,align)
+
+        if align==16:
+            return self.__class__.qtyp
+        return self.__class__.typ
+
     # This method checks the amode argument.
     # Method Argument:
     #   amode   the ESD item's amode being validated
@@ -972,7 +999,7 @@ class Area(ESDITEM):
     # Exception:
     #   AssertionError if the 'amode' argument is invalid
     def _check_amode(self,amode):
-        assert amode in ESDITEM.rmode_flags,\
+        assert amode in Area.amode_flags,\
             "%s %s amode must be either 24, 31, 64, or True (ANY): %s" \
                % (self.__class__.__name__,self.symbol,amode)
 
@@ -984,7 +1011,7 @@ class Area(ESDITEM):
     # Exception:
     #   AssertionError if the 'rmode' argument is invalid
     def _check_rmode(self,rmode):
-        assert rmode in ESDITEM.rmode_flags,\
+        assert rmode in Area.rmode_flags,\
            "%s %s rmode must be either 24, 31, or 64: %s" \
                % (self.__class__.__name__,self.symbol,rmode)
 
@@ -1025,28 +1052,45 @@ class Area(ESDITEM):
         self._check_bin(bin)
         return self._check_alignment(align)
 
+    # Encode the item's amode flag setting
+    # Returns:
+    #   an integer containing the flag setting for the item's amode
+    # Exception:
+    #   ValueError if the amode value is invalid
+    def _encode_amode(self):
+        try:
+             amode_flag = Area.amode_flags[self.amode]
+             #print("_encode_amode() - amode: %02X" % amode_flag)
+        except KeyError:
+            cls=self.__class__.__name__
+            raise ValueError("%s.%s._encode_amode() - "\
+                "invalid amode value for ESD item %s %s: %s" \
+                    % (this_module,cls,cls,self.symbol,self.amode)) from None
+            
+        return amode_flag
+
+    # Encode the item's rmode flag setting
+    # Returns:
+    #   an integer containing the flag setting for the item's rmode
+    # Exception:
+    #   ValueError if the rmode value is invalid
+    def _encode_rmode(self):
+        try:
+            return Area.rmode_flags[self.rmode]
+            #print("_encode_SDPC_flag rmode: %02X" % rmode_flag)
+        except KeyError:
+            cls=self.__class__.__name__
+            raise ValueError("%s.%s._encode_rmode() - "\
+                "invalid rmode value for ESD item %s %s: %s" \
+                    % (this_module,cls,cls,self.symbol,self.rmode)) from None
+
     # This method encodes the area's rmode, amode and rsect attributes.
     # Returns:
     #   an integer encoding the attributes
     def _encode_SDPC_flag(self):
         flag=0
-        try:
-            rmode_flag = Area.rmode_flags[self.rmode]
-            #print("_encode_SDPC_flag rmode: %02X" % rmode_flag)
-        except KeyError:
-            cls=self.__class__.__name__
-            raise ValueError("%s.%s._encode_SDPC_flag() - "\
-                "invalid rmode value for ESD item %s %s: %s" \
-                    % (this_module,cls,cls,self.symbol,self.rmode)) from None
-
-        try:
-             amode_flag = Area.amode_flags[self.amode]
-             #print("_encode_SDPC_flag amode: %02X" % amode_flag)
-        except KeyError:
-            cls=self.__class__.__name__
-            raise ValueError("%s.%s._encode_SDPC_flag() - "\
-                "invalid amode value for ESD item %s %s: %s" \
-                    % (this_module,cls,cls,self.symbol,self.amode)) from None
+        rmode_flag=self._encode_rmode()
+        amode_flag=self._encode_amode()
 
         try:
             rsect_flag = Area.rsect_flags[self.rsect]
@@ -1144,14 +1188,21 @@ class CM(Area):
     # Returns the decoded CM item
     def decode(esdid,binary):
         name=ESDITEM.decode_symbol(binary[0:8])
+        flag=binary[12]
+        amode=Area.decode_amode(flag)
+        rmode=Area.decode_rmode(flag)
         length=addr(binary[13:16])
         align=Area.decode_section_alignment(binary[8])
-        return CM(name,length=length,align=align,esdid=esdid,bin=binary)
+        return CM(name,length=length,align=align,amode=amode,rmode=rmode,\
+            esdid=esdid,bin=binary)
 
-    def __init__(self,symbol,length=0,align=4,esdid=None,bin=None):
+    def __init__(self,symbol,length=0,align=8,amode=24,rmode=24,esdid=None,\
+                 bin=None):
         # Validate arguments before instantiating superclass
         # These methods may raise an AssertionError
         sym=self._check_name(symbol,empty=True)
+        self._check_amode(amode)
+        self._check_rmode(rmode)
         assert isinstance(length,int) and length>=0,\
             "%s %s length must be an integer >=0: %s" \
                 % (self.__class__.__name__,symbol,length)
@@ -1159,7 +1210,10 @@ class CM(Area):
         self._check_bin(bin)
 
         super().__init__(typ,esdid,sym,None,length,align)
-        self.bin=bin    # Decoded binary content
+        self.bin=bin      # Decoded binary content
+        
+        self.amode=amode  # Default
+        self.rmode=rmode
 
     # Overrides Area superclass method
     # Excpetions:
@@ -1176,12 +1230,13 @@ class CM(Area):
         ebin=self._create_ebin()
         ebin[0:8]  =self._encode_symbol()
         ebin[8]    =self._encode_section_alignment()
-        # Mainframe assemblers set the ESD item address field to 0 in ER items.
+        # Mainframe assemblers set the ESD item address field to 0 in CM items.
         # While there is no documented reason for this, for compatibility
         # the address is also set to 0 here.
         ebin[9:12] =ESDITEM.zero_addr
-        # Mainframe assemblers set the flag byte to zero in CM items
-        ebin[12]   =0
+        # Contrary to documention stating the flag byte is not used by CM,
+        # the CM flag is used to encode the CM item's amode and rmode.
+        ebin[12]   =self._encode_amode() | self._encode_rmode()
         ebin[13:16]=addr2bin(self.length)
         self.ebin=bytes(ebin)
 
@@ -1277,7 +1332,7 @@ class PC(Area):
             rsect=rsect,length=length,align=align,esdid=esdid,bin=binary)
 
     def __init__(self,address,rmode=24,amode=24,rsect=False,length=0,\
-                 align=4,esdid=None,bin=None):
+                 align=8,esdid=None,bin=None):
 
         typ=self._check_section(\
             address,rmode,amode,rsect,length,align,esdid,bin)
@@ -1325,7 +1380,7 @@ class SD(Area):
             length=length,align=align,esdid=esdid,bin=binary)
 
     def __init__(self,symbol,address,amode=24,rmode=24,rsect=0,length=0,\
-                 align=4,esdid=None,bin=None):
+                 align=8,esdid=None,bin=None):
         self.symbol=self._check_name(symbol)
         typ=self._check_section(\
             address,rmode,amode,rsect,length,align,esdid,bin)
@@ -1737,7 +1792,7 @@ class OBJREC(object):
         try:
             cls=OBJREC.types[rtyp]
         except KeyError:
-            raise OBJRecordError("unrecognized record type: %s" % rtyp)
+            cls=PUNCH      # Assume this is a PUNCH'd object record
         #print("OBJREC.decode - %s" % cls)
         obj=cls.decode(binary,recnum=recnum,items=items)
         return obj
@@ -2022,6 +2077,22 @@ class ESD(OBJREC):
             "%s.%s.encode() - ebin not 80 bytes: %s" \
                 % (this_module,self.__class__.__name__,len(ebin))
         self.ebin=bytes(ebin)
+
+
+class PUNCH(OBJREC):
+    ID=None
+
+    # Returns an PUNCH'd object record containing EBCDIC text
+    @classmethod
+    def decode(cls,binary,recnum=None,items=True):
+        return cls(recnum=recnum,bin=binary)
+
+    def __init__(self,recnum=None,bin=None):
+        super().__init__(None,recnum=recnum,ignore=True)
+        self.bin=bin
+
+    def encode(self):
+        self.ebin=self.bin
 
 
 class RLD(OBJREC):
