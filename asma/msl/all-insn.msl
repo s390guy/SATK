@@ -226,6 +226,12 @@ cpu 64             # All instructions with a 64-bit influence
     features s390x-msa-5              # March, 2015
     features s390x-store-hypervisor   # March, 2015          STFLE:74
     features s390x-vector             # March, 2015
+    #features s390x-guarded-storage    # September, 2017
+    #features s390x-msa-8              # September, 2017
+    #features s390x-misc-inst-ext-2    # September, 2017
+    #features s390x-test-ext-intrp     # September, 2017
+    #features s390x-vector-enh-fac-1   # September, 2017
+    #features s390x-vector-packed-1    # September, 2017
     features s390x-vm
     include IPTEE
     rename IPTEE IPTE  # replaces IPTE old syntax with IPTE new syntax
@@ -599,8 +605,8 @@ inst TCXB   ED12 RXE            # TEST DATA CLASS (EB)
 inst THDER  B358 RRE            # CONVERT BHP TO HFP (LH<SB)
 inst THDR   B359 RRE            # CONVERT BHP TO HFP (LH<LB)
 inst TM     91   SI             # TEST UNDER MASK
-inst TMH    A70  RIA            # TEST UNDER MASK HIGH
-inst TML    A71  RIA            # TEST UNDER MASK LOW
+inst TMH    A70  RIAU           # TEST UNDER MASK HIGH
+inst TML    A71  RIAU           # TEST UNDER MASK LOW
 inst TPROT  E501 SSE2    P      # TEST PROTECTION
 inst TR     DC   SSA            # TRANSLATE
 inst TRE    B2A5 RRE            # TRANSLATE EXTENDED
@@ -698,10 +704,10 @@ inst LLGFR  B916 RRE            # LOAD LOGICAL (64<32)
 inst LLGH   E391 RXYA           # LOAD LOGICAL HALFWORD
 inst LLGT   E317 RXYA           # LOAD LOGICAL THIRTY ONE BITS
 inst LLGTR  B917 RRE            # LOAD LOGICAL THIRTY ONE BITS
-inst LLIHH  A5C  RIA            # LOAD LOGICAL IMMEDIATE (HIGH HIGH)
-inst LLIHL  A5D  RIA            # LOAD LOGICAL IMMEDIATE (HIGH LOW)
-inst LLILH  A5E  RIA            # LOAD LOGICAL IMMEDIATE (LOW HIGH)
-inst LLILL  A5F  RIA            # LOAD LOGICAL IMMEDIATE (LOW LOW)
+inst LLIHH  A5C  RIAU           # LOAD LOGICAL IMMEDIATE (HIGH HIGH)
+inst LLIHL  A5D  RIAU           # LOAD LOGICAL IMMEDIATE (HIGH LOW)
+inst LLILH  A5E  RIAU           # LOAD LOGICAL IMMEDIATE (LOW HIGH)
+inst LLILL  A5F  RIAU           # LOAD LOGICAL IMMEDIATE (LOW LOW)
 inst LMD    EF   SSE1           # LOAD DISJOINT
 inst LMG    EB04 RSA2           # LOAD MULTIPLE (64)
 inst LMH    EB96 RSA2           # LOAD MULTIPLE HIGH
@@ -731,16 +737,16 @@ inst MSGFR  B91C RRE            # MULTIPLY SINGLE (64<32)
 inst MSGR   B90C RRE            # MULTIPLY SINGLE (64)
 inst NG     E380 RXYA           # AND (64)
 inst NGR    B980 RRE            # AND (64)
-inst NIHH   A54  RIA            # AND IMMEDIATE (HIGH HIGH)
-inst NIHL   A55  RIA            # AND IMMEDIATE (HIGH LOW)
-inst NILH   A56  RIA            # AND IMMEDIATE (LOW HIGH)
-inst NILL   A57  RIA            # AND IMMEDIATE (LOW LOW)
+inst NIHH   A54  RIAU           # AND IMMEDIATE (HIGH HIGH)
+inst NIHL   A55  RIAU           # AND IMMEDIATE (HIGH LOW)
+inst NILH   A56  RIAU           # AND IMMEDIATE (LOW HIGH)
+inst NILL   A57  RIAU           # AND IMMEDIATE (LOW LOW)
 inst OG     E381 RXYA           # OR (64)
 inst OGR    B981 RRE            # OR (64)
-inst OIHH   A58  RIA            # OR IMMEDIATE (HIGH HIGH)
-inst OIHL   A59  RIA            # OR IMMEDIATE (HIGH LOW)
-inst OILH   A5A  RIA            # OR IMMEDIATE (LOW HIGH)
-inst OILL   A5B  RIA            # OR IMMEDIATE (LOW LOW)
+inst OIHH   A58  RIAU           # OR IMMEDIATE (HIGH HIGH)
+inst OIHL   A59  RIAU           # OR IMMEDIATE (HIGH LOW)
+inst OILH   A5A  RIAU           # OR IMMEDIATE (LOW HIGH)
+inst OILL   A5B  RIAU           # OR IMMEDIATE (LOW LOW)
 inst RLL    EB1D RSA2           # ROTATE LEFT SINGLE LOGICAL (32)
 inst RLLG   EB1C RSA2           # ROTATE LEFT SINGLE LOGICAL (64)
 inst SAM24  010C E              # SET ADDRESSING MODE (24)
@@ -775,10 +781,10 @@ inst STRVG  E32F RXYA           # STORE REVERSED (64)
 inst STRVH  E33F RXYA           # STORE REVERSED (16)
 inst STURG  B925 RRE            # STORE USING REAL ADDRESS (64)
 inst TAM    010B E              # TEST ADDRESSING MODE
-inst TMHH   A72  RIA            # TEST UNDER MASK (HIGH HIGH)
-inst TMHL   A73  RIA            # TEST UNDER MASK (HIGH LOW)
-inst TMLH   A70  RIA            # TEST UNDER MASK (LOW HIGH) same as TMH
-inst TMLL   A71  RIA            # TEST UNDER MASK (LOW LOW) same as TML
+inst TMHH   A72  RIAU           # TEST UNDER MASK (HIGH HIGH)
+inst TMHL   A73  RIAU           # TEST UNDER MASK (HIGH LOW)
+inst TMLH   A70  RIAU           # TEST UNDER MASK (LOW HIGH) same as TMH
+inst TMLL   A71  RIAU           # TEST UNDER MASK (LOW LOW) same as TML
 inst TRACG  EB0F RSA2    P      # TRACE (64)
 inst XG     E382 RXYA           # EXCLUSIVE OR (64)
 inst XGR    B982 RRE            # EXCLUSIVE OR (64)

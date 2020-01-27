@@ -729,10 +729,10 @@ inst SXBR   B34B RRE            # SUBTRACT (EB)
 inst TCDB   ED11 RXE            # TEST DATA CLASS (LB)
 inst TCEB   ED10 RXE            # TEST DATA CLASS (SB)
 inst TCXB   ED12 RXE            # TEST DATA CLASS (EB)
-inst TMH    A70  RIA            # TEST UNDER MASK HIGH
-inst TML    A71  RIA            # TEST UNDER MASK LOW
-inst TMLH   A70  RIA            # TEST UNDER MASK (LOW HIGH) same as TMH
-inst TMLL   A71  RIA            # TEST UNDER MASK (LOW LOW) same as TML
+inst TMH    A70  RIAU           # TEST UNDER MASK HIGH
+inst TML    A71  RIAU           # TEST UNDER MASK LOW
+inst TMLH   A70  RIAU           # TEST UNDER MASK (LOW HIGH) same as TMH
+inst TMLL   A71  RIAU           # TEST UNDER MASK (LOW LOW) same as TML
 inst TP     EBC0 RSLA           # TEST DECIMAL
 inst TRE    B2A5 RRE            # TRANSLATE EXTENDED
 inst TROO   B993 RRE            # TRANSLATE ONE TO ONE

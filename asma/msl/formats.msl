@@ -17,7 +17,7 @@
 
 # Instruction Formats in Machine Specification Language 
 
-# IN FORMAT SEQUENCE
+# Formats are in FORMAT NAME sequence
 
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
@@ -95,6 +95,22 @@ format RIA
     xopcode 12 15
     mach R1 8 11
     mach RI2 16 31 signed
+    source R1 R1
+    source RI2 RI2
+
+
+#     0     4     8     12    16    20    24    28   31
+#     +-----+-----+-----+-----+-----+-----+-----+-----+
+#     |    OP     | R1  | XOP |          RI2          |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# RIAU: MNEMONIC R1,RI2
+#
+format RIAU
+    length 4
+    xopcode 12 15
+    mach R1 8 11
+    mach RI2 16 31
     source R1 R1
     source RI2 RI2
 

@@ -595,8 +595,8 @@ inst LHI    A78  RIA            # LOAD HALFWORD IMMEDIATE
 inst MHI    A7C  RIA            # MULTIPLY HALFWORD IMMEDIATE
 inst MS     71   RXA            # MULTIPLY SINGLE
 inst MSR    B252 RRE            # MULTIPLY SINGLE
-inst TMH    A70  RIA            # TEST UNDER MASK HIGH
-inst TML    A71  RIA            # TEST UNDER MASK LOW
+inst TMH    A70  RIAU           # TEST UNDER MASK HIGH
+inst TML    A71  RIAU           # TEST UNDER MASK LOW
 
 inst BRE    A784 ERIC    E      # BRANCH RELATIVE ON EQUAL             (BRC 8,IMMED)
 inst BRH    A724 ERIC    E      # BRANCH RELATIVE ON HIGH              (BRC 2,IMMED)
