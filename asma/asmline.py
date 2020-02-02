@@ -575,7 +575,7 @@ class cfsm(fsm.FSM):
                     if not self.altfmt:
                         # If not using alternate statement format, then any
                         # continued physical lines must also be treated as comments
-                        for pline_ndx in range(self.pndx,len(self,plines),1):
+                        for pline_ndx in range(self.pndx,len(self.plines),1):
                             pl=self.plines[pline_ndx]
                             pl.comment=True
                 return []
