@@ -1257,11 +1257,12 @@ class SingleRelImed(Operand):
     omitted=[0,None,None]
     def __init__(self,name):
         super().__init__(name)
-        self.relimed=None
+        self.relimed=None   # This is a signed value assigned by self.resolve()
         self.isladdr=True
 
-    # Return operand value for 'RI' type machine fields
+    # Return operand value for 'RELI' type machine fields
     # Results depend upon the resolve() method having completed its work.
+    # This method is used by insbldr.Aoper.fields() method
     def field(self,typ):
         if typ == "RELI":
             return self.relimed
@@ -1292,7 +1293,7 @@ class SingleRelImed(Operand):
                 msg="operand %s (%s) encountered unexpected odd value as relative "
                     "target: %s" % (opn,self.name,relative))
 
-        self.relimed=relative//2
+        self.relimed=relative//2    # This is a signed value
 
     def source_error(self):
         return "unexpected index and/or base register specified (error=%s)" \

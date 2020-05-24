@@ -184,7 +184,7 @@ class Builder(object):
 # machine instruction itself.
 class AOper(object):
     def __init__(self,operand,soper,fixed):
-        self.operand=operand        # Assembler.Operand subclass object
+        self.operand=operand        # asmbase.Operand subclass object
         self.soper=soper            # msldb.soper object
         self.fixed=fixed            # Dictionary of fixed content
 
