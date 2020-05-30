@@ -985,7 +985,8 @@ iset all-extended
 
 iset s390-rel-extended
     mnemonics BRE BRH BRL BRM BRNE BRNH BRNL BRNM BRNO BRNP BRNZ BRO BRP BRU BRZ
-    mnemonics J JAS JCT JE JH JL JM JNE JNH JNL JNM JNO JNOP JNP JNZ JO JP JXH JXLE JZ
+    mnemonics J JAS JCT JCTG JE JH JL JM JNE JNH JNL JNM JNO JNOP JNP JNZ JO JP 
+    mnemonics JXH JXLE JZ
 
 #iset all-channel_subsystem_io
 #    mnemonics CHSC CSCH HSCH MSCH RCHP RSCH SAL SCHM SSCH STCPS STCRW STSCH
