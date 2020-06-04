@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014-2016 Harold Grovesteen
+# Copyright (C) 2014-2017, 2020 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -19,7 +19,8 @@
 # This module provides a command line interface to the ASMA assembler.py module.
 
 this_module="asma.py"
-copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014-2017")
+copyright="%s Copyright (C) %s Harold Grovesteen" \
+    % (this_module,"2014-2017, 2020")
 # When changing this copyright update asma/asmconfig.copyright attribute.
 # That copyright notice is the one actually printed when asma.py is run.
 
