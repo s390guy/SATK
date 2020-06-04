@@ -1,6 +1,6 @@
                            SATK - Stand-alone Tool Kit
 
-Copyright (C) 2012-2016 Harold Grovesteen                     
+Copyright (C) 2012-2016, 2020 Harold Grovesteen                     
 
 SATK is intended to assist in the development of stand-alone, or baremetal,
 programs on mainframe compatible systems.  While targeting the Hercules
@@ -86,9 +86,7 @@ directory is based.
 REQUIREMENTS
 ------------
 Python 3.3 or higher            www.python.org
+Temporarily, anything higher than Python 3.6.0 is not supported
 
 
-Contact the author, Harold Grovesteen, on the hercules-390 Yahoo group or at
-Harold Grovesteen
-2003 Winter Sunday Way
-Arlington, TX, 76012
+Contact the author, Harold Grovesteen, at groups@hercules-390.groups.io
