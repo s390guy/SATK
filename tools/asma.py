@@ -205,7 +205,7 @@ class ASMA(object):
     def sep(self,string,argument,optional=None):
         assert isinstance(string,str) and len(string)!=0,\
             "%s 'string' argument must be a non-empty string: %s" \
-                (assembler.eloc(self,"set",module=this_module),string)
+                % (assembler.eloc(self,"set",module=this_module),string)
 
         seps=string.count("=")
         if optional and seps==0:
