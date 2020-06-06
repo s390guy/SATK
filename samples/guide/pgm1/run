@@ -1,0 +1,93 @@
+#!/bin/sh
+# Copyright (C) 2020 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+usage()
+{
+     echo "Usage: ./run asm      - Assemble program"
+     echo "       ./run helpa    - ASMA command-line help"
+     echo "       ./run med      - Create IPL medium"
+     echo "       ./run ipl      - Run the bare-metal program"
+     echo "       ./run help     - This information"
+}
+
+datetime()
+{
+	sfx=$(date +%Y%m%d.%H%M%S)
+}
+datetime   # set $sfx (the date and time of the run) for later use
+
+# THINGS YOU MUST DO TO RUN THIS SAMPLE
+#   1. Change the first three script variables for your environment
+#   2. Assemble successfully pgm1.
+#   3. Change the Hercules pgm1.rc file for your environment. Place it in
+#      the pgm1 directory.
+#   4. IPL pgm1.
+#   5. Review the Hercules log file: ${GUIDE}/log-mmddyy.hhmmss.txt
+
+# Change these variables for your environment
+REPO=${HOME}/SATKREPO/SATK      # SATK repository from github
+HERCPATH=${HOME}/hyperioni/bin  # Hercules install dirtectory
+
+# These variables are for the authors use.  Just leave them alone
+#CLONE=${HOME}/SATKCLONE         # SATK repository as seen by users
+#SATK_DIR=${CLONE}               # SATK directory not in use
+
+# These should not require change if running on Linux
+PGM="pgm1"                      # Guide program
+
+SATK_DIR=${REPO}                # SATK directory in use
+SATK_TOOLS=${SATK_DIR}/tools    # Where tools reside
+
+# ASMA related script variables
+ASMA=${SATK_TOOLS}/asma.py      # The ASMA tool
+GUIDE=${SATK_DIR}/samples/guide/${PGM} # Guide dir being used. Output goes here
+SOURCE=${GUIDE}/${PGM}.asm      # ASMA source program
+IPL=${GUIDE}/ldipl/${PGM}.txt   # ASMA output LDIPL directory and control file
+LISTING=${GUIDE}/asma-${sfx}.txt  # ASMA output listing
+
+# Hercules related script variables
+HERCULES=${HERCPATH}/hercules   # The Hercules executable file
+CONF=${GUIDE}/${PGM}.conf       # Hercules configuration file
+LOG=${GUIDE}/log-${sfx}.txt     # Hercules log file
+
+# Change the CONTENTS of this file to point to the location of your IPL control
+# file!!!
+HERCRC=${GUIDE}/${PGM}.rc       # Hercules run control file (IPL happens here)
+
+# Analyze the run script's command-line option
+case $1 in
+    "asm")  #export ASMPATH=${GUIDE}
+            ${ASMA} -t s370 -d --stats -g ${IPL} -l ${LISTING} ${SOURCE}
+            ;;
+    "helpa")  ${ASMA} --help ;;
+    "med")  echo "'med' option not implemented for pgm1" ;;
+    "ipl")  export HERCULES_RC=${HERCRC}
+            CUR=${PWD}          # Save the current working directory
+            # Hyperion list-directed IPL on Linux requires a NON-fully
+            # qualified file path in the ipl command.  The easiest way to
+            # do that is to change the working directory to the guide
+            # directory and place the remainder of the path to the control file
+            # in the RC itself.  See pgm1/pgm1.rc.  This is a "feature" of
+            # Linux only.  Fully qualified paths are supported on Windows.
+            cd {$GUIDE}
+            ${HERCULES} -v -f ${CONF}  >> ${LOG}
+            cd ${CUR}   # Restore the previous working directory
+            ;;
+    "help") usage ;;
+    *) echo "Invalid run option: '$1'" ; usage ; exit 1 ;;
+esac

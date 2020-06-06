@@ -1,0 +1,188 @@
+ASMA Ver. 0.2.0                                                                                     06 Jun 2020 09:42:12  Page     1
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+                                               1 * Copyright (C) 2020 Harold Grovesteen
+                                               2 *
+                                               3 * This file is part of SATK.
+                                               4 *
+                                               5 *     SATK is free software: you can redistribute it and/or modify
+                                               6 *     it under the terms of the GNU General Public License as published by
+                                               7 *     the Free Software Foundation, either version 3 of the License, or
+                                               8 *     (at your option) any later version.
+                                               9 *
+                                              10 *     SATK is distributed in the hope that it will be useful,
+                                              11 *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+                                              12 *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+                                              13 *     GNU General Public License for more details.
+                                              14 *
+                                              15 *     You should have received a copy of the GNU General Public License
+                                              16 *     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+                                              17 *
+ASMA Ver. 0.2.0  PGM1 - HELLO WORLD                                                                 06 Jun 2020 09:42:12  Page     2
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+                                              19 * Program Description:
+                                              20 *
+                                              21 * PGM1 is a bare-metal 'Hello World' program.  It does not require any I/O
+                                              22 * to issue the message.  DIAGNOSE X'008' as emulated by Hercules is used for
+                                              23 * the output.  The program is executed by means of Hercules list-directed
+                                              24 * IPL.
+                                              25 *
+                                              26 * Target Architecture: S/370
+                                              27 *
+                                              28 * Program Register Usage:
+                                              29 *   R8   The DIAGNOSE start of command address
+                                              30 *   R9   The DIAGNOSE start of command response address
+                                              31 *   R10  The DIAGNOSE command length (bytes 1-3) and flags (byte 0) on input
+                                              32 *        and return code on output
+                                              33 *   R11  The DIAGNOSE command response length
+                                              34 *   R12  The program base register
+                                              35 *
+                                              36 * DIAGNOSE RX,RY,X'008'
+                                              37 *   Issues a console command to Hercules.  The command being executed is the
+                                              38 *   Hercules MSG command.  It displays a message on the Hercules console.  The
+                                              39 *   instruction sets the condition code:
+                                              40 *      0 - Successful execution by Hercules
+                                              41 *      1 - Unsuccessful execution by Hercules
+                                              42 *   If successful a return code is set in register RY
+                                              43 *      0 - Successful execution
+                                              44 *   Otherwise a non-zero return code is an error.  Note Hercules only returns
+                                              45 *   zero.  However, VM may not.
+                                              46 *
+                                              47 *   Flags are specified in the high-order byte, byte 0, of the RY register:
+                                              48 *     X'80' - Reject password in command (ignored by Hercules)
+                                              49 *     X'40' - Provide command response in the area defined by RX+1 and RY+1
+                                              50 *     X'20' - Prompt for password (ignored by Hercules).
+                                              51 *
+                                              52 *   A program specification exception can be triggered if an invalid register
+                                              53 *   is used, if the command string is too long (256 max on Hercules), if
+                                              54 *   the response area is too short (256 max on Hercules), flags are invalid,
+                                              55 *   or DIAGNOSE X'008' not enabled by Hercules configuration statement:
+                                              56 *       DIAG8CMD enable
+                                              57 *
+                                              58 * Hercules MSG Command
+                                              59 *    The Hercules MSG command emulates the VM MSG command.  The VM MSG command
+                                              60 *    sends a message to the specified user ID.  An asterisk for user ID
+                                              61 *    indicates the message is directed to the issuing user id.  For Hercules
+                                              62 *    this is the executing program.  For this reason, the command is separated
+                                              63 *    into its command portion and the text portion.
+                                              64 *
+                                              65 * Disables Wait State PSW's address field values used by the program:
+                                              66 *    X'0000' - Successful execution of the program
+                                              67 *    X'0028' - Unexpected program interruption occurred. Old program PSW at
+                                              68 *              address X'28'
+                                              69 *    X'DEAD' - Unsuccessful execution of the DIAGNOSE command
+                                              70 *
+ASMA Ver. 0.2.0  PGM1 - HELLO WORLD                                                                 06 Jun 2020 09:42:12  Page     3
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+
+
+                                              72          PRINT DATA            See all object data in listing
+
+                            000000  000007    74 PSWSECT  START 0,IPLPSW        Start the first region for the IPL PSW
+                                              75 * This results in IPLPSW.bin being created in the list directed IPL directory
+000000  00080000 00000300                     76          PSWEC 0,0,0,0,PGMSECT The IPL PSW for this program
+
+                            000300  00036C    78 PGMSECT  START X'300',IPLPGM1  Start a second region for the program itself
+                                              79 * This results in IPLPGM1.bin being created in the list directed IPL directory
+000300  05C0                                  80          BALR  12,0            Establish my base register
+000302                      000302            81          USING *,12            Tell the assembler
+
+                                              83 * Set a trap PSW in case some program interruption occurs
+000302  D207 0068 C026      000068  000328    84          MVC   X'68'(8,0),PGMEX  Set a NEW PSW to trap program interruptions
+                                              85 * Issue the DIAGNOSE instruction that executes a Hercules command
+000308  988A C03E                   000340    86          LM    8,10,DIAGPRMS   Load the DIAGNOSE instruction's registers
+00030C  838A 0008                   000008    87          DIAG  8,10,X'008'     Issue the Hello World message to the console
+
+                                              89 * Analyze results...
+000310  4770 C01C                   00031E    90          BNZ   BADCMD    If a non-zero condition code set, the DIAGNOSE failed
+000314  12AA                                  91          LTR   10,10     Was a non-zero return code set by the DIAGNOSE?
+000316  4770 C01C                   00031E    92          BNZ   BADCMD    ..Yes, abnormal program termination
+00031A  8200 C02E                   000330    93          LPSW  GOOD      ..No, normal program termination
+
+00031E  8200 C036                   000338    95 BADCMD   LPSW  BAD       End with a bad address in PSW field
+
+                                              97 * PSW's used by this program...
+                                              98 * Disabled wait trap PSW for program interruptions
+000328  000A0000 00000028                     99 PGMEX    PSWEC 0,0,2,0,X'28'   Points to the program OLD PSW
+                                             100 * Program termination PSW's
+000330  000A0000 00000000                    101 GOOD     PSWEC 0,0,2,0,0       Successful execution of the program
+000338  000A0000 0000DEAD                    102 BAD      PSWEC 0,0,2,0,X'DEAD' Unsuccessful execution of the program
+
+                                             104 * The DIAGNOSE parameters are placed in these registers.  Note, because no
+                                             105 * response is returned to the program, the RX+1 and RY+1 registers are 0.
+                                             106 *              8          9    10                11
+                                             107 *              RX         RX+1 RY                RY+1
+000340  00000350 00000000                    108 DIAGPRMS DC    A(COMMAND),A(0),X'00',AL3(CMDLEN),A(0)
+000348  0000001D 00000000
+
+                                             110 * Hercules console command being issued.  This command, MSG, simply displays
+                                             111 * a message on the Hercules console.  Just what the Hello World program needs.
+000350  D4E2C740 5C40                        112 COMMAND  DC    C'MSG * '                    VM emulated command
+000356  C8859393 9640C281                    113 MESSAGE  DC    C'Hello Bare-Metal World!'   Message text sent to self
+00035E  998560D4 85A38193
+000366  40E69699 93845A
+                            00001D  000001   114 CMDLEN   EQU   *-COMMAND
+                                             115          END
+ASMA Ver. 0.2.0  PGM1 - HELLO WORLD                                                                 06 Jun 2020 09:42:12  Page     4
+
+     SYMBOL        TYPE  VALUE   LENGTH  DEFN  REFERENCES
+
+BAD                 3    000338       8   102   95
+BADCMD              I    00031E       4    95   90   92
+CMDLEN              U    00001D       1   114  108
+COMMAND             C    000350       6   112  114  108
+DIAGPRMS            A    000340       4   108   86
+GOOD                3    000330       8   101   93
+IMAGE               1    000000     117     0
+IPLPGM1             2    000300     109    78
+IPLPSW              2    000000       8    74
+MESSAGE             C    000356      23   113
+PGMEX               3    000328       8    99   84
+PGMSECT             J    000300     109    78   76
+PSWSECT             J    000000       8    74
+ASMA Ver. 0.2.0  PGM1 - HELLO WORLD                                                                 06 Jun 2020 09:42:12  Page     5
+
+MACRO   DEFN  REFERENCES
+
+No defined macros
+ASMA Ver. 0.2.0  PGM1 - HELLO WORLD                                                                 06 Jun 2020 09:42:12  Page     6
+
+   DESC     SYMBOL  SIZE   POS     ADDR
+
+Entry: 0
+
+Image      IMAGE     117  00-74  000-074
+  Region   IPLPSW      8  00-07  000-007
+    CSECT  PSWSECT     8  00-07  000-007
+  Region   IPLPGM1   109  08-74  300-36C
+    CSECT  PGMSECT   109  08-74  300-36C
+
+
+ ADDR    POS                                OBJECT CONTENT                                         CHARACTER CONTENT
+
+
+Region: IPLPSW
+
+000000   000   00080000 00000300                                                          |........                         |
+
+Region: IPLPGM1
+
+000300   008   05C0D207 0068C026 988AC03E 838A0008  4770C01C 12AA4770 C01C8200 C02E8200   |..K.....q...c... ..........b...b.|
+000320   028   C0360000 00000000 000A0000 00000028  000A0000 00000000 000A0000 0000DEAD   |................ ................|
+000340   048   00000350 00000000 0000001D 00000000  D4E2C740 5C40C885 93939640 C2819985   |...&............ MSG * Hello Bare|
+000360   068   60D485A3 819340E6 96999384 5A                                              |-Metal World!                    |
+ASMA Ver. 0.2.0  PGM1 - HELLO WORLD                                                                 06 Jun 2020 09:42:12  Page     7
+
+   STMT                        FILE NAME
+
+1     /home/harold/SATKREPO/SATK/samples/guide/pgm1/pgm1.asm
+
+
+** NO ERRORS FOUND **
+
+
