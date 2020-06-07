@@ -518,9 +518,15 @@ class Lexer(object):
         
     # This method is used by the iterator (this instance) to return individually
     # recognized tokens.  It is a generator function.  Generators should only
+    #
+    # Note: As of Python 3.6.1, allowing a StopIteration exception to 
+    # propagate outside of the yeilding method causes a RuntimeError.  In as
+    # much as ASMA does not ever catch a StopIteration exception, the
+    # raise StopIteration statements have been replaced by a simple return
     def __next__(self):
         if self.stopped:
-            raise StopIteration
+            #raise StopIteration
+            return
         while True:
             # Determine if iteration is done
             # provide a token if one is in the list of recognized tokens
@@ -538,7 +544,8 @@ class Lexer(object):
                     yield tok
                 self.stopped=True
                 #self._reset()
-                raise StopIteration
+                #raise StopIteration
+                return
             else:    
                self.recognizer()
 
