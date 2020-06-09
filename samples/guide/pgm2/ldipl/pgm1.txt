@@ -1,0 +1,2 @@
+IPLPSW.bin 0x0
+IPLPGM1.bin 0x300
