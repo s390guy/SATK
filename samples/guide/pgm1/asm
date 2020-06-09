@@ -28,10 +28,10 @@ datetime()
 }
 datetime   # set $sfx (the date and time of the run) for later use
 
-# Change this variables for your environment
+# Change this variable for your environment
 REPO=${HOME}/SATKREPO/SATK      # SATK repository from github
 
-# Thid variable is for the author's use.  Just leave it alone
+# This variable is for the author's use.  Just leave it alone
 #REPO=${HOME}/SATKCLONE
 
 # ASMA related script variables
