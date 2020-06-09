@@ -1,0 +1,5 @@
+# This file is intended for use with Hercules Hyperion
+# Comment this statement if you do not want to trace
+t+
+# Perform the FBA based IPL
+ipl 110
