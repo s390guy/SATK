@@ -314,8 +314,17 @@ class OperMgr(asmbase.ASMOperTable):
 
     # Accesses and optionally defines a macro (or macros if more than one) in a 
     # MACLIB file.  Returns the associated ASMOper object of the defined macro.
+    # Note: This method operates under the control of MACLIB processor,
+    # assembler.MACLIBProcessor.  It uses the one instantiated for the 
+    # assembler.
+    #
+    # This is the only place that the assembler seems to know which processor
+    # defined the macro.
+    #
     # Method Arguments:
     #   macname  MACLIB macro file being sought from the search path.
+    #   env      Whether the MACLIB processor or Statement processor are
+    #            driving this process.
     # Returns:
     #   - ASMOper object of newly defined macro or an ASMOper object representing the
     #     macro definition file found in the file; or
@@ -325,11 +334,13 @@ class OperMgr(asmbase.ASMOperTable):
     def getMacLib(self,macname):
         asm=self.asm
 
-        # Actually reading the file so macros will be defined
-        # An asmline.LineError is raised if this fails.  asmline.LineMgr.categorize()
-        # method does the actual trapping of the error.
+        # Actually reading the file so macro will be defined
+        # An asmline.LineError is raised if this fails.
+        # asmline.LineMgr.categorize() method does the actual trapping of 
+        # the error.
         try:
-            asm.MP.run(asm,macname)  # Run the MACROProcessor to define the macro
+            # Run the MACLIBProcessor to define the macro
+            asm.MP.run(asm,macname)
         except assembler.AssemblerError as ae:
             # Fetching of the macro from the macro library failed for some reason
             # We need to treat this as a LineError of the physical line
@@ -337,11 +348,20 @@ class OperMgr(asmbase.ASMOperTable):
 
         # This time the macro should be defined.
         mte=self.macros.get(macname)
+        # mte should be an asmoper.MTE object
         if mte:
+            # The first entry in the XREF list is that of the line in which
+            # the macro is defined in the MACLIB file.  This line has no
+            # meaning in the normal assembly listing and is removed here.
+            mte.undefine()   # Use only references from the assembly listing 
             return mte.oper
         return None
 
     # Returns an ASMOper object (see def_macro() method) or None if not defined
+    #
+    # Method Arguments:
+    #   macname   The macro's name being sought
+    #   macread   Whether a macro may be read from the MACLIB path
     def getMacro(self,macname,macread=False,debug=False):
         try:
             mte=self.macros[macname]
@@ -349,7 +369,7 @@ class OperMgr(asmbase.ASMOperTable):
         except KeyError:
             # Not found - need to try macro libarary paths if actually reading
             if macread:
-                # Try the MACLIB path and definine the macro if found
+                # Try the MACLIB path and define the macro if found
                 oper=self.getMacLib(macname)
                 # If the definition failed oper is None
             else:
@@ -368,7 +388,7 @@ class OperMgr(asmbase.ASMOperTable):
     # Uses the same search as normal operation recognition.
     def get_O_attr(self,name):
         try:
-            oper=self.getOper(name,macread=False,debug=False)
+            oper=self.getOper(name,macread=False,lineno=None,debug=False)
             assert isinstance(oper,asmbase.ASMOper),\
                 "%s getOper did not return an asmbase.ASMOper instance: %s" \
                     % (assembler.eloc(self,"oper",module=this_module),oper)
@@ -396,12 +416,15 @@ class OperMgr(asmbase.ASMOperTable):
     #   opsyn   Specify True for opsyn search or False to disable opsyn searches.
     #           Defaults to True.
     #   lineno  The location of the line.  For logical lines this is its source
+    #           This is NOT a listing line number.
+    #   env     Environment in which this occurs (MACLIB or ASMPATH). May be
+    #           None
     #   debug   Specify True to enable various process messages
     # Returns:
-    #   ASMOper object of the operation
+    #   asmbase.ASMOper object of the operation
     # Exception:
     #   KeyError  if the operation is unrecognized
-    def getOper(self,opname,mbstate=0,macread=False,opsyn=True,lineno=None,\
+    def getOper(self,opname,mbstate=0,macread=False,opsyn=True,lineno=None, \
                 debug=False):
         # Locate the instruction or statement data
         if __debug__:
@@ -488,7 +511,7 @@ class OperMgr(asmbase.ASMOperTable):
                     print("%s DEBUG found existing macro: %s, %s" \
                         % (cls_str,opcode,oper))
             assert isinstance(oper,asmbase.ASMOper),\
-                "%s getMarco returned unexpected value: %s" % (cls_str,oper)
+                "%s getMacro returned unexpected value: %s" % (cls_str,oper)
             return oper
         else:
             if __debug__:
@@ -670,7 +693,11 @@ class MacroTable(object):
         return self.macros[name]
 
     # Define / redefine the macro with this name
-    def define(self,oper):
+    # 
+    # Method Arguments:
+    #   oper  the asmbase.ASMOper object referring to this macro
+    #   env   the environment defining the macro.  Maybe None
+    def define(self,oper,env=None):
         assert isinstance(oper,asmbase.ASMOper),\
             "%s 'oper' argument must be an asmbase.ASMOper object: %s" \
                 % (assembler.eloc(self,"define",module=this_module),oper)
@@ -685,7 +712,8 @@ class MacroTable(object):
             entry.redefine(oper)
         except KeyError:
             # First macro definition with this name
-            self.macros[name]=MTE(oper)
+            mte=MTE(oper,maclib=env=="MACLIB")
+            self.macros[name]=mte
 
     # Emulate dictionary get method
     def get(self,key,default=None):
@@ -697,20 +725,30 @@ class MacroTable(object):
 
 
 # Macro Definition Table Entry
+#
+# Defines a single macro defined in the assembly regardless of source
+#
+# Instance Arguments:
+#   oper    The asmbase.ASMOper object related to this macro.
+#   maclib  Whether this macro was defined from a MACLIB (True) or not (False)
 class MTE(object):
-    def __init__(self,oper):
+    def __init__(self,oper,maclib=False):
+        self.maclib=maclib        # Whether macro is from a MACLIB or not
         self.oper=oper            # ASMOper object of this macro
         self.name=oper.info.name  # Macro name
-
         self.xref=asmbase.XREF()  # Cross-reference object tracks references
-        self.xref.define(oper.info._defined)
+        if not maclib:
+            self.xref.define(oper.info._defined)
         # Allow external users to update this macro refs. via the macro object
         oper.info._xref=self.xref
         # By passing the same XREF object to each definition of macros with the
         # same names, all references and all definitions of the macros are
         # accumulated here.  The listing module uses _this_ to preprare the report.
+        
+    def __str__(self):
+        return "MTE - macro: %s, maclib: %s" % (self.name,self.maclib)
 
-    # Redifine the macro with this entry's name
+    # Redefine the macro with this entry's name
     def redefine(self,oper):
         assert oper.info.name==self.name,\
             "%s macro entry name, '%s' does not match macro definition: '%s'" \
@@ -725,6 +763,12 @@ class MTE(object):
     # Add a reference to this macro
     def reference(self,line):
         self.xref.ref(line)
+        
+    # Removes the definition of the macro (the first reference) from the
+    # XREF object.
+    def undefine(self):
+        self.xref.undefine()
+    
 
 
 if __name__ == "__main__":
