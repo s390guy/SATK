@@ -3618,7 +3618,7 @@ class MNOTE(ASMStmt):
 
         #raise assembler.AssemblerError(line=self.lineno,\
         #    msg="MNOTE %s,%s" % (sev,note),info=info)
-        raise assembler.AssemblerError(line=self.lineno,msg=msg)
+        raise assembler.AssemblerError(line=self.lineno,msg=msg,info=info)
 
 
     def Pass1(self,asm,debug=False,trace=False): pass
