@@ -3616,8 +3616,7 @@ class MNOTE(ASMStmt):
                     % (assembler.eloc(self,"Pass0",module=this_module),\
                         self.lineno,msg))
 
-        #raise assembler.AssemblerError(line=self.lineno,\
-        #    msg="MNOTE %s,%s" % (sev,note),info=info)
+        # This ensures the MNOTE statement appears in the listing
         raise assembler.AssemblerError(line=self.lineno,msg=msg,info=info)
 
 
