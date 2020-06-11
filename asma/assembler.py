@@ -3389,6 +3389,8 @@ class MACLIBProcessor(asmbase.ASMProcessor):
             # Create the asmbase.ASMStmt subclass for the operation
             s=stmtcls(self.lineno,ln)
             self.lineno+=1       # Increment global statement counter
+            # This listing line number is for the MACLIB being defined
+            # This line number must not appear in the MTE._xref
 
             if isinstance(s,asmstmts.StmtError):
                 raise AssemblerError(msg=s.error.msg)
@@ -3409,11 +3411,12 @@ class MACLIBProcessor(asmbase.ASMProcessor):
                 s.Pass0(asm,macro=mb)  # Enter macro definition mode
                 continue
 
-            # Any other ppen code statement found in maclib file is an error
+            # Any other open code statement found in maclib file is an error
             raise AssemblerError(line=s.lineno,\
                 msg="open code operation encountered in MACLIB file: %s" % s.instu)
 
     # Define macro found in the MACLIB
+    # This method is the primary method in this processor's single MACLIB phase
     def MacLib(self,asm,fail=False):
         assert self.MB.indefn is None,\
             "%s macro '%s' definition in progress can not define a macro "\

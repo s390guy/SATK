@@ -925,6 +925,11 @@ class LineMgr(object):
         self._end=False        # Set True when assembler encounters END
         self._bend=False       # When this is set, we cease supplying input
 
+        # The processor environment variable used by this LineMgr object
+        #   - ASMPATH when driven by assembler.STMTProcessor or
+        #   - MACLIB when driven by assembler.MACLIBProcessor.
+        self._env=env
+
         # Physical line source manager
         self.LB=asminput.LineBuffer(depth=depth,env=env,pathmgr=pathmgr)
 

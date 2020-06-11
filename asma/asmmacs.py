@@ -223,7 +223,13 @@ class Prototype(object):
         return string
 
 
-# Base class for all macros
+# Base class for all macros.
+#
+# All macros have this object are created by asmstmts.MacroProto.Pass0
+# 
+# However, in-line macros are part of the 
+#
+# For a macro fetched from MACLIB 
 class Macro(object):
     Arith=asmtokens.ArithEval()   # Arithmetic Evaluator
     Binary=asmtokens.BinaryEval() # Binary Evaluator
@@ -1626,7 +1632,7 @@ class MacroBuilder(object):
         # Switch to debug a macro definition.
         self.ddebug=False   # Set by define() method from MACRO assembler directive.
 
-    # Add a defined macro the the operation management framework
+    # Add a defined macro to the operation management framework
     # Change state if triggered by an MEND directive
     def addMacro(self,mac,mend=False):
         assert isinstance(mac,Macro),\

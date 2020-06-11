@@ -225,7 +225,8 @@ class AsmListing(Listing):
         max_mac=0
         for macname in sorted(macs.keys()):
             mte=macs[macname]
-            # mte is a MacroTable entry object, MTE.  It holds the XREF object
+            # mte is a MacroTable entry object, MTE.  It holds the 
+            # asmbase.XREF object, 1 per defined macro.
             xref=mte.xref
             macent=Mac(mte.name,xref)
             mtes.append(macent)
@@ -1640,7 +1641,7 @@ class Mac(object):
     def __init__(self,name,refs):
         self.name=name          # Macro name
         self.defn=None          # Statement defining the macro
-        refents=refs.sort()     # List of sorted asmoper.xref objects
+        refents=refs.sort()     # List of sorted asmbase.xref objects
         if len(refents)>0:
             self.defn=refents[0].line  # The first xref entry is the first definition
             refents=refents[1:]        # The others go inte REFERENCES area

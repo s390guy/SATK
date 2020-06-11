@@ -1627,7 +1627,7 @@ class ASMProcessor(object):
     #           definition.  This includes method names of the subclass.
     #   method  The bound method of the subclass that processes this phase.
     #           Use self.method not Class.method.  Phase methods are defined with
-    #           this argyment signature:
+    #           this argument signature:
     #               method(asm,fail=False)
     #           where:
     #               asm is the global Assembler object and
@@ -2029,6 +2029,15 @@ class XREF(object):
     # line number of the entry.
     def sort(self):
         return sorted(self.refs,key=XREF.sort_key)
+        
+    # Removes the first entry from the list of references.  The first
+    # entry is the location of the definition.
+    def undefine(self):
+        if not self.refs:
+            # No entries so nothing to undefine
+            return
+        # Remove the first reference to this cross-reference list
+        self.refs=self.refs[1:]
 
 
 # Individual cross-reference entry.  The flag defaults to a space.
@@ -2036,6 +2045,9 @@ class xref(object):
     def __init__(self,line,flag=" "):
         self.line=line
         self.flag=flag
+    
+    def __str__(self):
+        return "xref: line - %s, flag - %s" % (self.line,self.flag) 
 
 
 if __name__ == "__main__":
