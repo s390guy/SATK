@@ -366,6 +366,10 @@ class ASMStmt(object):
     #   AssemblerError if an operand is a literal but not allowed for the operand.
     def ck_for_literals(self,allowed=[]):
         for n,opnd in enumerate(self.operands):
+            if opnd is None:
+                raise assembler.AssemblerError(line=self.lineno,source=self.source,\
+                    msg="%s operation does not permit an empty operand %s" \
+                        % (self.instu,n+1))
             if opnd.isLiteral and (not n in allowed):
                 raise assembler.AssemblerError(line=self.lineno,source=self.source,\
                     msg="%s operation does not permit a literal for operand %s" \
