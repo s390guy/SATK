@@ -1455,7 +1455,7 @@ class PSymRefCAttr_T(PSymRefCAttr):
                 % (assembler.eloc(self,"value",module=this_module),\
                     symid,v))
         # SETC symbol - determine if its value is a self-defining term
-        sdval=cval.sdterm(external.pm,excp=False)
+        sdval=cval.sdterm(excp=False)
         if sdval is not None:
             return "N"
         # Value is not a self-defining term, so maybe it is an assembler label.
