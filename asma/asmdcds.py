@@ -1697,6 +1697,7 @@ class ADCON(object):
     def build(self,asm,parsers,stmt,n,length,trace=False):
         #print("%s trace: %s"
         #    % (assembler.eloc(self,"build",module=this_module),trace))
+        sign=False   # Assume this is an unsigned value
         try:
             value=parsers.evaluate_expr(asm,stmt,self.expr,debug=False,trace=trace)
         except lnkbase.AddrArithError as ae:
@@ -1720,9 +1721,12 @@ class ADCON(object):
                 raise assembler.AssemblerError(line=stmt.lineno,\
                     msg="operand %s address constant did not evaluate to an "\
                         "absolute address: %s" % (n+1,value))
+        else:  # Must be an integer then.  Determine if a sign is required
+            if value < 0:
+                sign=True
 
         # Convert computed address constant to bytes
-        b=value.to_bytes((value.bit_length()//8)+1,byteorder="big",signed=False)
+        b=value.to_bytes((value.bit_length()//8)+1,byteorder="big",signed=sign)
 
         # Perform left truncation/padding
         pad=b'\x00' * length
