@@ -1,0 +1,2 @@
+ASAREGN.bin 0x0
+BOOT4.bin 0x400

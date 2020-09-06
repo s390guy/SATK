@@ -1,0 +1,1089 @@
+ASMA Ver. 0.2.0                                                                                     20 Jul 2020 14:50:49  Page     1
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+                                               1 * Copyright (C) 2020 Harold Grovesteen
+                                               2 *
+                                               3 * This file is part of SATK.
+                                               4 *
+                                               5 *     SATK is free software: you can redistribute it and/or modify
+                                               6 *     it under the terms of the GNU General Public License as published by
+                                               7 *     the Free Software Foundation, either version 3 of the License, or
+                                               8 *     (at your option) any later version.
+                                               9 *
+                                              10 *     SATK is distributed in the hope that it will be useful,
+                                              11 *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+                                              12 *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+                                              13 *     GNU General Public License for more details.
+                                              14 *
+                                              15 *     You should have received a copy of the GNU General Public License
+                                              16 *     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+                                              17 *
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page     2
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+                                              19 * Program Description:
+                                              20 *
+                                              21 * BOOT4 is a FBA boot loader program.  It requires input/output commands to
+                                              22 * the IPL device to load the booted program.  This boot loader is executed by
+                                              23 * means of an IPL from a FBA DASD volume.  Control is passed to the booted
+                                              24 * program by means of a branch instruction.
+                                              25 *
+                                              26 * Target Architecture: S/370
+                                              27 *
+                                              28 * Devices Used:
+                                              29 *   110 - FBA IPL volume containing the booted program
+                                              30 *
+                                              31 * Program Register Usage:
+                                              32 *
+                                              33 *   R0   Base register for access to the ASA.  Required by DSECT usage
+                                              34 *        This is purely an assembler artifact.  R0 available for other uses
+                                              35 *   R1   Device Channel and Unit Addresses for I/O instructions
+                                              36 *   R2   Cumulative size of loaded program
+                                              37 *   R3   Boot loader high water mark (can not write below it)
+                                              38 *   R4   FBA I/O Area address (where a directed record is read)
+                                              39 *   R5   Number of FBA sectors read for each directed record
+                                              40 *   R6   Work register
+                                              41 *   R8   Source address of directed record's content    ---+
+                                              42 *   R9   Length of a directed record's program content     |-- MVCL
+                                              43 *   R10  Destination address of directed record's content  |
+                                              44 *   R11  Length of a directed record's program content  ---+
+                                              45 *   R12  The program base register
+                                              46 *   R13  available
+                                              47 *   R14  available
+                                              48 *   R15  Booted program's entry address
+                                              49 *
+                                              50 * Disabled Wait State PSW's address field values used by the program:
+                                              51 *    X'000000' - Successful execution of the program
+                                              52 *    X'000008' - Unexpected Restart interruption occurred. Old Restart PSW at
+                                              53 *                address X'8'
+                                              54 *    X'000018' - rUnexpected External interruption occurred.  Old External PSW at
+                                              55 *                address X'18'
+                                              56 *    X'000020' - Unexpected Supervisor interruption occurred.  Old Supervisor
+                                              57 *                PSW at address X'20'
+                                              58 *    X'000028' - Unexpected Program interruption occurred. Old Program PSW at
+                                              59 *                address X'28'
+                                              60 *    X'000030' - Unexpected Machine Check interruption occurred.  Old Machine
+                                              61 *                Check PSW at address X'30'
+                                              62 *    X'000038' - Unexpected Input/Output interruption occurred.  Old
+                                              63 *                Input/Output PSW at address X'38'
+                                              64 *    X'040004' - IPL Device X'110' or channel not operational
+                                              65 *    X'040008' - IPL Device X'110' or channel busy
+                                              66 *    X'04000C' - IPL Device X'110' or channel had a problem. See CSW.
+                                              67 *    X'040010' - Unexpected interruption from some other device. See ASA X'BA'
+                                              68 *    X'040014' - IPL device channel error occurred
+                                              69 *    X'040018' - IPL device did not complete the I/O without a problem
+                                              70 *    X'04001C' - Directed record overwriting boot loader
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page     3
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+                                              71 *    X'040020' - Destructive overlap detected by MVCL while loading record
+                                              72 *    X'040024' - Cumulative booted program sizes do not match in LOD1
+                                              73 *    X'040028' - Can not change addressing mode for booted program
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page     4
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+                                              75 * See all object data and macro generated model statements in the listing
+                                              76          PRINT DATA,GEN
+                                              77 * Uncomment the next statement if you do not want the ASA DSECT in the listing
+                                              78 *        PRINT OFF
+
+                                              80 *
+                                              81 * Hardware and Software Assigned Storage Locations
+                                              82 *
+
+                                              84 * This DSECT allows symbolic access to these locations.  The DSECT created is
+                                              85 * named ASA.
+                                              86 ASA      ASAREA DSECT=YES
+                                              87+ASA      DSECT
+                            000000  000001    88+ASBEGIN  EQU   *                   Start of absolute/real assigned storage areas
+000000  00000000 00000000                     89+IPLPSW   DC    FD'0'        000 A  Initial Program Load Program Status Word
+000008  00000000 00000000                     90+IPLCCW1  DC    FD'0'        008 A  Initial Program Load first Channel Command Word
+000010  00000000 00000000                     91+IPLCCW2  DC    FD'0'        010 A  Initial program Load second Channel Command Word
+                                              92+* RESTART RELATED PROGRAM STATUS WORDS
+000018                      000018  000000    93+         ORG   ASBEGIN
+000000  00000000 00000000                     94+RSTNPSW  DC    FD'0'        000 R  Restart New PSW
+000008  00000000 00000000                     95+RSTOPSW  DC    FD'0'        008 R  Restart Old PSW
+000010  00000000 00000000                     96+UA0      DC    FD'0'        010 R  Unassigned Area 0
+                                              97+* INTERRUPTION OLD PROGRAM STATUS WORD SAVE AREAS
+000018  00000000 00000000                     98+EXTOPSW  DC    FD'0'        018 R  External Interrupt Old PSW
+000020  00000000 00000000                     99+SVCOPSW  DC    FD'0'        020 R  Supervisor Call Old PSW
+000028  00000000 00000000                    100+PGMOPSW  DC    FD'0'        028 R  Program Old PSW
+000030  00000000 00000000                    101+MCKOPSW  DC    FD'0'        030 R  Machine Check Old PSW
+000038  00000000 00000000                    102+IOOPSW   DC    FD'0'        038 R  Input/Output Old PSW
+                                             103+* System/360 or System/370 Basic Control Mode INTERRUPTION INFORMATION
+000040                      000040  00001A   104+         ORG   EXTOPSW+2
+00001A  0000                                 105+BCEXTCOD DC    H'0'         01A R  External Interuption Code
+00001C                      00001C  000022   106+         ORG   SVCOPSW+2
+000022  0000                                 107+BCSVCCOD DC    H'00'        022 R  Supervisor Call Interruption Code
+000024                      000024  00002A   108+         ORG   PGMOPSW+2
+00002A  0000                                 109+BCPGMCOD DC    H'0'         02A R  Program Interruption Code
+00002C                      00002C  000032   110+         ORG   MCKOPSW+2
+000032  0000                                 111+BCMCKCOD DC    H'0'         032 R  Machine Check Interruption Code
+000034                      000034  00003A   112+         ORG   IOOPSW+2
+00003A  0000                                 113+BCIOCOD  DC    H'0'         03A R  Input/Output Interruption Code (Device CCUU)
+00003C                      00003C  000040   114+         ORG   *+4
+                                             115+* CHANNEL-BASED INPUT/OUTPUT INTERRUPT RELATED
+000040  00000000 00000000                    116+CSW      DC    FD'0'        040 R  Channel Status Word
+000048                                       117+CAW      DC    0F'0'        048 R  Channel Address Word
+000048  00                                   118+CAWKEY   DC    X'00'        048 R  Channel Storage Key (bits 0-3)
+                            000008  000001   119+CAWSUSP  EQU   X'08'        048 R  Suspend Control (bit 4)
+000049  000000                               120+CAWADDR  DC    AL3(0)       049 R  Channel Command Address
+00004C  00000000                             121+UA1      DC    F'0'         04C R  Unassigend Area 1
+                                             122+* MISCELANEOUS AREAS
+000050  00000000                             123+TIMER    DC    F'0'         050 R  System/360 and System/370 Interval Timer
+000054  00000000                             124+TTDES    DC    F'0'         054 R  System/370 Trace-Table-Designation
+                                             125+* INTERRUPTION NEW PROGRAM STATUS WORD AREAS
+000058  00000000 00000000                    126+EXTNPSW  DC    FD'0'        058 R  External New PSW
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page     5
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+000060  00000000 00000000                    127+SVCNPSW  DC    FD'0'        060 R  Supervisor Call New PSW
+000068  00000000 00000000                    128+PGMNPSW  DC    FD'0'        068 R  Program New PSW
+000070  00000000 00000000                    129+MCKNPSW  DC    FD'0'        070 R  Machine Check New PSW
+000078  00000000 00000000                    130+IONPSW   DC    FD'0'        078 R  Input/Output New PSW
+                                             131+* System/360 Diagnostic Scanout Area
+000080                                       132+SCANOUT  DS    0X           080 A  System/360 Diagnostic Scanout Area
+                            000000  000001   133+SCANOUTL EQU   *-SCANOUT           System/360 Diagnostic Scanout Area Length
+                                             134+* EXTERNAL INTERRUPTION INFORMATION
+000080                      000080  000080   135+         ORG   ASBEGIN+X'80'
+000080  00000000                             136+EXTIPARM DC    F'0'         080 R  External-interruption Parameter
+000084  0000                                 137+EXTCPUAD DC    H'0'         084 R  External-interruption CPU Address
+000086  0000                                 138+EXTICODE DC    H'0'         086 R  External-interruption Code
+                                             139+* SUPERVISOR CALL INTERRUPTION INFORMATION
+000088                                       140+SVCIID   DC    0F'0'        088 R  Supervisor-Call Interuption Identification
+000088  00                                   141+         DC    X'00'        088 R  not-used - zeros stored
+000089  00                                   142+SVCIILC  DC    X'00'        089 R  Supervisor-Call instruction length code
+                            00000C  000001   143+SVCIILCM EQU   B'00001100'         Supervisor-Call ILC mask, zeros stored in other bits
+00008A  0000                                 144+SVCICODE DC    H'0'         08A R  Supervisor-Call Interruption Code
+                                             145+* PROGRAM INTERRUPTION INFORMATION
+00008C                                       146+PGMIID   DC    0F'0'        08C R  Program-interruption identification
+00008C  00                                   147+         DC    X'00'        08C R  not-used - zeros stored
+00008D  00                                   148+PGMIILC  DC    X'00'        08D R  Program instruction lengh code
+                            00000C  000001   149+PGMIILCM EQU   B'00001100'         Progrtam ILC mask, zeros stored in other bits
+00008E  0000                                 150+PGMICODE DC    H'0'         08E R  Program Interruption Code
+000090                                       151+PGMDXC   DC    0F'0'        090 R  Data-Exception Code
+000090  00000000                             152+PGMTRX   DC    F'0'         090 R  Translation-Exception Identification
+000094                                       153+MONCLS   DC    0H'0'        094 R  Monitor-Class Number
+000094  00                                   154+         DC    X'00'        094 R  not-used - zeros stored
+000095  00                                   155+MONNUMBR DC    X'00'        095 R  Monitor-Class Number stored
+000096  00                                   156+PERCODE  DC    X'00'        096 R  Program-Event-Recording Code
+                            0000F0  000001   157+PERCODMK EQU   B'11110000'         Program-Event-Recordind Code mask in bits 0-3
+000097  00                                   158+         DC    X'00'        097 R  PER Code not used - zeros stored
+000098  00000000                             159+PERADDR  DC    F'0'         098 R  PER Address
+00009C  00000000                             160+MONCODE  DC    F'0'         09C R  Monitor Event Code in bytes 1-3, zeros in byte 0
+0000A0  00                                   161+PGMACCID DC    X'00'        0A0 R  Exception accress identification
+0000A1  00                                   162+PERACCID DC    X'00'        0A1 R  PER access identification
+0000A2  00                                   163+MPGACCID DC    X'00'        0A2 R  MOVE PAGE Operand access identification
+0000A3                                       164+SSARCHMD DC    0X'00'       0A3 A  Store Status Architectural Mode Identification
+0000A3  00                                   165+MKARCHMD DC    X'00'        0A3 R  Machine-Check Architectural Mode Identification
+0000A4  00000000                             166+UA2      DC    F'0'         0A4 R  Unused area
+                                             167+* z/Architecture PROGRAM INTERRUPTION INFORMATION
+0000A8  00000000 00000000                    168+ZPGMTRX  DC    FD'0'        0A8 R  Translation Exception information
+0000B0  00000000 00000000                    169+ZMONCODE DC    FD'0'        0B0 R  Monitor Code
+                                             170+* System/370 CHANNEL INPUT/OUTPUT INFORMATION
+0000B8                      0000B8  0000A8   171+         ORG   ASBEGIN+X'A8'
+0000A8  00000000                             172+CHANID   DC    F'0'         0A8 R  System/370 STORE CHANNEL ID location
+0000AC  00000000                             173+IOELADDR DC    F'0'         0AC R  System/370 I/O Extended Logout Address
+0000B0  00000000                             174+LCHANLOG DC    F'0'         0B0 R  System/370 Limited Channel Logout Area
+0000B4  00000000                             175+UA3      DC    F'0'         0B4 R  unused by System/370
+0000B8  00                                   176+UA4      DC    X'00'        0B8 R  unused by System/370
+0000B9  00                                   177+MEASUREB DC    X'00'        0B9 R  System/370 Measurement Byte
+0000BA  0000                                 178+IOICODE  DC    H'0'         0BA R  System/370 Input/Output Interruption Device Address
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page     6
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+                                             179+* CHANNEL SUBSYSTEM INPUT/OUTPUT INFORMATION
+0000BC                      0000BC  0000B8   180+         ORG   ASBEGIN+X'B8'
+0000B8  00000000                             181+IOSSID   DC    F'0'         0B8 R  Channel subsystem-identification word
+0000BC  00000000                             182+IOIPARM  DC    F'0'         0BC R  Channel subsystem I/O Interruption parameter
+0000C0  00000000                             183+IOIID    DC    F'0'         0C0 R  Channel subsystem I/O Interruption Identification
+0000C4  00000000                             184+PCFETO   DC    A(0)         0C4 R  ESA/390 PROGRAM CALL FAST Entry Table Origin
+0000C8  00000000                             185+STFLDATA DC    F'0'         0C8 R  STORE FACILITY LIST storage area
+0000CC  00000000 00000000                    186+UA5      DC    XL8'00'      0CC R  unused area
+                                             187+* MACHINE-CHECK INTERRUPTION INFORMATION
+0000D4  00000000                             188+MKXSAA   DC    F'0'         0D4 R  Machine-Check Extended Save Area Address
+0000D8  00000000 00000000                    189+MKCPUTIM DC    FD'0'        0D8 R  Machine-Check CPU timer save area
+0000E0  00000000 00000000                    190+MKCLKCMP DC    FD'0'        0E0 R  Machine-Check clock comparator save area
+0000E8  00000000                             191+MKICODE  DC    F'0'         0E8 R  Machine-Check interruption code
+0000EC  00000000 00000000                    192+UA6      DC    XL8'00'      0EC R  unused area
+0000F4  00000000                             193+MKDMGCOD DC    F'0'         0F4 R  Machine-Check external damage code
+0000F8                                       194+ZMKFAILA DC    0FD'0'       0F8 R  Machine-Check failing storage address
+0000F8  00000000                             195+MKFAILA  DC    F'0'         0F8 R  Machine-Check failing storage address
+0000FC  00000000                             196+MKMODEL  DC    F'0'         0FC R  Machine-Check model dependent information
+000100  00000000 00000000                    197+MKLOGOUT DC    4F'0'        100 R  ESA machine-check fixed logout area
+000108  00000000 00000000
+000110                      000110  000100   198+         ORG   ASBEGIN+X'100'
+000100  00000000 00000000                    199+ZEMONCTR DC    AD(0)        100 R  Enhanced-Monitor Counter-Array Origin
+000108  00000000                             200+ZEMONSIZ DC    F'0'         108 R  Enhanced-Monitor Counter-Array Size
+00010C  00000000                             201+ZEMONCNT DC    F'0'         10C R  Enhanced-Monitor Exception Count
+000110  00000000 00000000                    202+ZBRKADDR DC    AD(0)        110 R  Breaking-Event Address
+000118  00000000 00000000                    203+UA7      DC    FD'0'        118 R  unused area
+000120  00000000 00000000                    204+MKARS    DC    16F'0'       120 R  Machine-Check access register save area
+000128  00000000 00000000
+000130  00000000 00000000
+000138  00000000 00000000
+000140  00000000 00000000
+000148  00000000 00000000
+000150  00000000 00000000
+000158  00000000 00000000
+000160                      000160  000100   205+         ORG   ASBEGIN+X'100'
+000100  00000000 00000000                    206+MCKLOG   DC    24F'0'       100 R  System/370, 370-XA machine-Check fixed logout area.
+000108  00000000 00000000
+000110  00000000 00000000
+000118  00000000 00000000
+000120  00000000 00000000
+000128  00000000 00000000
+000130  00000000 00000000
+000138  00000000 00000000
+000140  00000000 00000000
+000148  00000000 00000000
+000150  00000000 00000000
+000158  00000000 00000000
+000160  00000000 00000000                    207+MKFPRS   DC    4D'0'        160 R  Machine-Check floating point register save area
+000168  00000000 00000000
+000170  00000000 00000000
+000178  00000000 00000000
+000180  00000000 00000000                    208+NKGRS    DC    16F'0'       180 R  Machine-Check general register save area
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page     7
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+000188  00000000 00000000
+000190  00000000 00000000
+000198  00000000 00000000
+0001A0  00000000 00000000
+0001A8  00000000 00000000
+0001B0  00000000 00000000
+0001B8  00000000 00000000
+0001C0  00000000 00000000                    209+MKCRS    DC    16F'0'       1C0 R  Machine-Check control register save area
+0001C8  00000000 00000000
+0001D0  00000000 00000000
+0001D8  00000000 00000000
+0001E0  00000000 00000000
+0001E8  00000000 00000000
+0001F0  00000000 00000000
+0001F8  00000000 00000000
+                                             210+* STORE/STATUS SAVE AREAS
+000200                      000200  0000D4   211+         ORG   ASBEGIN+X'D4'
+0000D4  00000000                             212+SSXSAA   DC    A(0)         0D4 A  Store Status Extended Save Area Address
+0000D8  00000000 00000000                    213+SSCPUTIM DC    FD'0'        0D8 A  CPU Timer save area
+0000E0  00000000 00000000                    214+SSCLKCMP DC    FD'0'        0E0 A  Clock-Comparator save area
+0000E8                      0000E8  000100   215+         ORG   ASBEGIN+X'100'
+000100  00000000 00000000                    216+SSPSW    DC    FD'0'        100 A  Program-Status Word save area
+000108  00000000                             217+SSPREFIX DC    F'0'         108 A  Prefix save area
+00010C  00000000                             218+SSMODEL  DC    F'0'         10C A  Model-dependent save area
+000110                      000110  000120   219+         ORG   ASBEGIN+X'120'
+000120  00000000 00000000                    220+SSARS    DC    16F'0'       120 A  Access-register save area
+000128  00000000 00000000
+000130  00000000 00000000
+000138  00000000 00000000
+000140  00000000 00000000
+000148  00000000 00000000
+000150  00000000 00000000
+000158  00000000 00000000
+000160  00000000 00000000                    221+SSFPRS   DC    4D'0'        160 A  Floating-point register save area
+000168  00000000 00000000
+000170  00000000 00000000
+000178  00000000 00000000
+000180  00000000 00000000                    222+SSGRS    DC    16F'0'       180 A  General register save area
+000188  00000000 00000000
+000190  00000000 00000000
+000198  00000000 00000000
+0001A0  00000000 00000000
+0001A8  00000000 00000000
+0001B0  00000000 00000000
+0001B8  00000000 00000000
+0001C0  00000000 00000000                    223+SSCRS    DC    16F'0'       1C0 A  Control register save area
+0001C8  00000000 00000000
+0001D0  00000000 00000000
+0001D8  00000000 00000000
+0001E0  00000000 00000000
+0001E8  00000000 00000000
+0001F0  00000000 00000000
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page     8
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+0001F8  00000000 00000000
+                                             224+* z/Architecture OLD PROGRAM STATUS WORDS
+000200                      000200  000120   225+         ORG   ASBEGIN+X'120'
+000120  00000000 00000000                    226+ZRSTOPSW DC    XL16'00'     120 R  Restart Old PSW
+000128  00000000 00000000
+000130  00000000 00000000                    227+ZEXTOPSW DC    XL16'00'     130 R  External Old PSW
+000138  00000000 00000000
+000140  00000000 00000000                    228+ZSVCOPSW DC    XL16'00'     140 R  Supervisor-Call Old PSW
+000148  00000000 00000000
+000150  00000000 00000000                    229+ZPGMOPSW DC    XL16'00'     150 R  Program Old PSW
+000158  00000000 00000000
+000160  00000000 00000000                    230+ZMCKOPSW DC    XL16'00'     160 R  Machine-Check Old PSW
+000168  00000000 00000000
+000170  00000000 00000000                    231+ZIOOPSW  DC    XL16'00'     170 R  Input-Output Old PSW
+000178  00000000 00000000
+000180  00000000 00000000                    232+UA8      DC    XL32'00'     180 R  z/Architecture unused area
+000188  00000000 00000000
+000190  00000000 00000000
+000198  00000000 00000000
+                                             233+* z/Architecture NEW PROGRAM STATUS WORD AREAS
+0001A0  00000000 00000000                    234+ZRSTNPSW DC    XL16'00'     1A0 R  Restart New PSW
+0001A8  00000000 00000000
+0001B0  00000000 00000000                    235+ZEXTNPSW DC    XL16'00'     1B0 R  External New PSW
+0001B8  00000000 00000000
+0001C0  00000000 00000000                    236+ZSVCNPSW DC    XL16'00'     1C0 R  Supervisor-Call New PSW
+0001C8  00000000 00000000
+0001D0  00000000 00000000                    237+ZPGMNPSW DC    XL16'00'     1D0 R  Program New PSW
+0001D8  00000000 00000000
+0001E0  00000000 00000000                    238+ZMCKNPSW DC    XL16'00'     1E0 R  Machine-Check New PSW
+0001E8  00000000 00000000
+0001F0  00000000 00000000                    239+ZIONPSW  DC    XL16'00'     1F0 R  Input/Output New PSW
+0001F8  00000000 00000000
+                            0011C0  000001   240+ZSASDISP EQU   X'11C0'   Displacement to save areas defined by ASAZAREA macro
+                            000200  000001   241+ASEND    EQU   *                   End of absolute/real assigned storage areas
+                            000200  000001   242+ASLENGTH EQU   ASEND-ASBEGIN       Length of absolute/real assigned storage area
+                                             243+* LOGICAL ADDRESS USAGE
+                            00031B  000001   244+CPUID    EQU   *+X'11B'     31B L  System/370 CPU Identity used during DAS tracing
+                                             245          LOD1  ASA=ASA
+                                             246+ASA      DSECT
+000200                      000200  000200   247+         ORG   ASA+X'200'
+000200  00000000 00000000                    248+LODPARMS DS    CL64     Hercules IPL parameters
+000208  00000000 00000000
+000210  00000000 00000000
+000218  00000000 00000000
+000220  00000000 00000000
+000228  00000000 00000000
+000230  00000000 00000000
+000238  00000000 00000000
+                                             249+* Addresses reflect location of LOD1 record when placed in its ASA area
+                                             250+* 000240-00028F.  Fields identified with an asterisk (*) indicate that
+                                             251+* the boot loader supplies the information during execution.
+                            000240  000001   252+LOD1     EQU   *        Start of LOD1 record definition
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page     9
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+000240  00000000                             253+LOD1REC  DS    CL4      000240 - Record ID 'LOD1' in EBCDIC
+
+000244  00                                   255+LOD1DTYP DS    XL1      000244 - IPL Device Type related information
+                            000001  000001   256+LOD1OBJ  EQU   B'00000001'   Booted program is in an object deck
+                            000002  000001   257+LOD1LENF EQU   B'00000010'   Directed record header contains a length field
+                            000004  000001   258+LOD1CARD EQU   B'00000100'   IPL device is a card reader
+                            000008  000001   259+LOD1TAPE EQU   B'00001000'   IPL device is a tape drive
+                            000010  000001   260+LOD1FBA  EQU   B'00010000'   IPL device is a FBA DASD drive
+                            000020  000001   261+LOD1CKD  EQU   B'00100000'   IPL device is a CKD DASD drive
+                            000040  000001   262+LOD1ECKD EQU   B'01000000'   IPL device is a ECKD DASD drive
+
+000245  00                                   264+LOD1BLFL DS    XL1      000245 - Boot loader flags
+                            000080  000001   265+LOD1BLCA EQU   B'10000000'   Change architecture before loading booted program
+                            000040  000001   266+LOD1BL64 EQU   B'01000000'   Set 64-bit address mode before entering program
+                            000020  000001   267+LOD1BLTR EQU   B'00100000'   Set trap new PSW's before entering program
+                            000010  000001   268+LOD1BLF1 EQU   B'00010000'   Use Format-1 CCW's and 31 bit addressing mode
+
+000246  0000                                 270+LOD1MDLN DS    HL2      000246 - Maximum directed record length in bytes
+
+                                             272+* After loading of a booted progrm, these two fields must match.
+                                             273+* Note: not used when loading an absolute object deck.
+000248  00000000                             274+LOD1BPLN DS    FL4      000248 - Length of booted program content on medium
+00024C  00000000                             275+LOD1BPLD DS    FL4    * 00024C - Length of loaded boot program
+000250  00000000                             276+LOD1ENTR DS    FL4      000250 - Booted program's entry address
+
+000254  00                                   278+LOD1CPU  DS    XL1    * 000254 - Boot loader's CPU operating environment
+                            000000  000001   279+LOD1CPNA EQU   B'00000000'   CPU operating enviroment not available
+                            000080  000001   280+LOD1360  EQU   B'10000000'   S/360 in BC mode
+                            000040  000001   281+LOD1370B EQU   B'01000000'   S/370 in BC mode
+                            000020  000001   282+LOD1370E EQU   B'00100000'   S/370 in EC mode
+                            000010  000001   283+LOD1370X EQU   B'00010000'   S/370-XA through ESA/390
+                            000008  000001   284+LOD1ESA  EQU   B'00001000'   ESA/390 on dual z/Arthitecture(R) system
+                            000004  000001   285+LOD1ESAZ EQU   B'00000100'   z/Architecture on a dual z/Architecture system
+                            000002  000001   286+LOD1Z    EQU   B'00000010'   z/Architecture only system
+                            000001  000001   287+LOD1CPIN EQU   B'00000001'   Invalid CPU operating environment
+
+000255  00                                   289+LOD1IO   DS    XL1    * 000255 - Boot loader's I/O architecture and mode
+                            000000  000001   290+LOD1IONA EQU   B'00000000'   I/O architecture and mode not available
+                            000010  000001   291+LOD1IACH EQU   B'00010000'   I/O architecture is channel based
+                            000020  000001   292+LOD1IACS EQU   B'00100000'   I/O architecture is channel subsystem based
+                            0000C0  000001   293+LOD1IAIN EQU   B'11000000'   I/O architecture is invalid
+                            000001  000001   294+LOD1IM24 EQU   B'00000001'   I/O architecture uses CCW Format-0 CCW's
+                            000002  000001   295+LOD1IM31 EQU   B'00000010'   I/O architecture uses CCW Format-0 CCW's
+                            000004  000001   296+LOD1IM64 EQU   B'00000100'   I/O architecture uses CCW1's plus IDAW-2's.
+                            000008  000001   297+LOD1IMIN EQU   B'00001000'   I/O architecture mode is invalid
+                            0000C8  000001   298+LOD1IOIN EQU   LOD1IAIN+LOD1IMIN  I/O architecture or mode invalid
+                            000011  000001   299+LOD1I370 EQU   LOD1IACH+LOD1IM24  S/360 and S/370 I/O
+                            000022  000001   300+LOD1IESA EQU   LOD1IACS+LOD1IM31  370-XA through ESA/390 I/O
+                            000024  000001   301+LOD1IZ   EQU   LOD1IACS+LOD1IM64  z/Architecture I/O
+
+000256  00                                   303+LOD1BLAM DS    XL1    * 000256 - Boot loader's addressing mode when booted
+                                             304+*                                program is entered
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page    10
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+                            000000  000001   305+LOD1AMAN EQU   X'00'         Addressing mode not available
+                            000001  000001   306+LOD1AM24 EQU   X'01'         Addressing mode is 24-bits
+                            000002  000001   307+LOD1AM31 EQU   X'02'         Addressing mode is 31-bits
+                            000003  000001   308+LOD1AM64 EQU   X'03'         Addressing mode is 64-bits
+                            0000FF  000001   309+LOD1AMIN EQU   X'FF'         Addressing mode is invalid
+
+000257  00                                   311+LOD1BLSV DS    XL1    * 000257 - Boot loader's services
+                            000000  000001   312+LOD1BLSN EQU   X'00'         Boot loader services are unavailable
+                                             313+* Meaning of these bits are defined by the boot loader. Not zero implies
+                                             314+* services are available and LOD1BLST is valid.  When zero, LOD1BLST is
+                                             315+* not available.
+
+000258  00000000                             317+LOD1FSEC DS    FL4      000258 - Directed record FBA DASD starting sector
+00025C  0000                                 318+LOD1CCYL DS    HL2      00025C - Directed record CKD DASD starting cylinder
+00025E  0000                                 319+LOD1CTRK DS    HL2      00025E - Directed record CKD DASD starting track
+000260  00                                   320+LOD1CREC DS    XL1      000260 - Directed record CKD DASD starting rec
+000261  00                                   321+LOD1CRTK DS    XL1      000261 - Number of directed records per track
+000262  0000                                 322+LOD1CMCY DS    HL2      000262 - Maximum CKD DASD cylinder number
+000264  0000                                 323+LOD1CMTR DS    HL2      000264 - Maximum CKD DASD track number
+000266  0000                                 324+LOD1DEVN DS    HL2    * 000266 - Device Number of IPL device from CS
+000268  00000000                             325+LOC1DEVI DS    FL4    * 000268 - I/O command device ID (CUU / subchannel num)
+00026C  00000000                             326+LOD1IOA  DS    AL4(0)   00026C - Boot loader I/O area starting address
+000270  00000000                             327+LOD1BLST DS    AL4(0) * 000270 - Boot loader services address.
+
+000274  00000000 00000000                    329+LOD1RSRV DS    7FL4     000274 - RESERVED NOT IN USE
+00027C  00000000 00000000
+000284  00000000 00000000
+00028C  00000000
+                            000050  000001   330+LOD1LEN  EQU   *-LOD1   Length of LOD1 record
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page    11
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+                                             332 * Uncomment this statement if you have disabled printing of the ASA
+                                             333 *        PRINT ON,GEN
+                                             334 * Inform the SATK macros of the architecture being targeted.  Inferred from
+                                             335 * the ASMA -t command-line argument.
+                                             336          ARCHLVL
+                                             338+$AL      OPSYN AL
+                                             339+$ALR     OPSYN ALR
+                                             340+$B       OPSYN B
+                                             341+$BAS     OPSYN BAS
+                                             342+$BASR    OPSYN BASR
+                                             343+$BC      OPSYN BC
+                                             344+$BCTR    OPSYN BCTR
+                                             345+$BE      OPSYN BE
+                                             346+$BH      OPSYN BH
+                                             347+$BL      OPSYN BL
+                                             348+$BM      OPSYN BM
+                                             349+$BNE     OPSYN BNE
+                                             350+$BNH     OPSYN BNH
+                                             351+$BNL     OPSYN BNL
+                                             352+$BNM     OPSYN BNM
+                                             353+$BNO     OPSYN BNO
+                                             354+$BNP     OPSYN BNP
+                                             355+$BNZ     OPSYN BNZ
+                                             356+$BO      OPSYN BO
+                                             357+$BP      OPSYN BP
+                                             358+$BXLE    OPSYN BXLE
+                                             359+$BZ      OPSYN BZ
+                                             360+$CH      OPSYN CH
+                                             361+$L       OPSYN L
+                                             362+$LH      OPSYN LH
+                                             363+$LM      OPSYN LM
+                                             364+$LPSW    OPSYN LPSW
+                                             365+$LR      OPSYN LR
+                                             366+$LTR     OPSYN LTR
+                                             367+$NR      OPSYN NR
+                                             368+$SL      OPSYN SL
+                                             369+$SLR     OPSYN SLR
+                                             370+$SR      OPSYN SR
+                                             371+$ST      OPSYN ST
+                                             372+$STM     OPSYN STM
+                                             373+$X       OPSYN X
+                                             374+         MNOTE *,'ARCHLVL - ARCHITECTURE LEVEL SET - 3'
+        ** [374] MNOTE *,ARCHLVL - ARCHITECTURE LEVEL SET - 3
+                                             375 * Ensure interrupt traps are loaded by iplasma.py before program execution
+                                             376 * begins.  This macro will create the memory region that will also contain
+                                             377 * the IPL PSW.  The region name defaults to ASAREGN.  iplasma.py knows how
+                                             378 * to deal with this situation.
+                                             379 ASASECT  ASALOAD
+                            000000  0001FF   380+ASASECT  START 0,ASAREGN
+000000  000A0000 00000008                    382+         PSW   0,0,2,0,X'008'      64-bit Restart ISR Trap New PSW
+000008                      000008  000058   383+         ORG   ASASECT+X'058'
+000058  000A0000 00000018                    385+         PSW   0,0,2,0,X'018'      64-bit External ISR Trap New PSW
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page    12
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+000060  000A0000 00000020                    386+         PSW   0,0,2,0,X'020'      64-bit Supervisor Call ISR Trap New PSW
+000068  000A0000 00000028                    387+         PSW   0,0,2,0,X'028'      64-bit Program ISR Trap New PSW
+000070  000A0000 00000030                    388+         PSW   0,0,2,0,X'030'      64-bit Machine Check Trap New PSW
+000078  000A0000 00000038                    389+         PSW   0,0,2,0,X'038'      64-bit Input/Output Trap New PSW
+000080                      000080  000200   390+         ORG   ASASECT+512
+                                             391          ASAIPL IA=PGMSTART    Define the bare-metal program's IPL PSW
+                            000000  0001FF   392+ASASECT  CSECT
+000200                      000200  000000   393+         ORG   ASASECT
+000000  00080000 00000400                    394+         PSW   0,0,0,0,PGMSTART,24
+000008                      000008  000200   395+         ORG   ASASECT+512      Reset CSECT to end of assigned storage area
+                            000000  0001FF   396+ASASECT  CSECT
+
+
+                                             398 *
+                                             399 *  Commonly used FBA Values
+                                             400 *
+
+                                             402 * CCW Commands
+                            000003  000001   403 NOP      EQU   X'03'     No operation CCW Command
+                            000063  000001   404 DEFN_EXT EQU   X'63'     Define Extent CCW Command
+                            000043  000001   405 LOC_DATA EQU   X'43'     Locate CCW Command (within a defined extent)
+                            000042  000001   406 READ     EQU   X'42'     Read located data CCW Command
+                                             407
+                                             408 * CCW Flags
+                            000040  000001   409 CC       EQU   X'40'     CCW Command chaining
+                                             410
+                                             411 *
+                                             412 * FBA Boot Loader Program
+                                             413 *
+
+                            000400  0005DF   415 PGMSECT  START X'400',BOOT4    Start a second region for the loader itself
+                                             416 * This results in BOOT4.bin being created in the list directed IPL directory
+000400                      000000           417          USING ASA,0           Give me instruction access to the ASA and LOD1
+000400  900F 0200                   000200   418 PGMSTART STM   0,15,LODPARMS   Preserve Hercules IPL parameters, if any.
+                                             419 * This must happen before any register is altered!
+000404  05C0                                 420          BALR  12,0            Establish my base register
+000406                      000406           421          USING *,12            Tell the assembler
+
+                                             423 * Ensure program is not re-entered by a Hercules console initiated restart.
+                                             424 * Address 0 changed from its absolute storage role (IPL PSW) to its real
+                                             425 * storage role (Restart New PSW) after the IPL.
+                                             426 * Change from the IPL PSW at address 0 to a Restart New PSW trap
+000406  D207 0000 C162      000000  000568   427          MVC   RSTNPSW,PGMRS
+
+                                             429 * Prepare for use of the IPL device by the boot loader
+00040C  D201 C126 00BA      00052C  0000BA   430          MVC   IPLDEV,IOICODE    Save the address of the IPL device
+000412  B722 C11E                   000524   431          LCTL  2,2,CR2     Enable only channel 1 for I/O interruptions
+                                             432 * The IPL device must be available for use because we successfully got here.
+
+                                             434 * Initialize the static portions of the I/O related data
+000416  1B22                                 435          SR    2,2          Clear cumulative size of loaded program to zero
+000418  1892                                 436          LR    9,2          Clear size of data being moved from record
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page    13
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+00041A  1B62                                 437          SR    6,2          Clear work register
+00041C  BF63 0246                   000246   438          ICM   6,B'0011',LOD1MDLN   Fetch from LOD1 the maximum directed length
+000420  4060 C148                   00054E   439          STH   6,FBACCW3+6  CCW - Will always read the same number of bytes
+000424  8860 0009                   000009   440          SRL   6,9(0)             Convert bytes into sectors.
+000428  4060 C15C                   000562   441          STH   6,LOCSECS    LOC - Will always read the same number of sectors
+00042C  1856                                 442          LR    5,6                Save the number of sectors (updates extent)
+00042E  0660                                 443          BCTR  6,0                And the logical end of the extent is constant
+000430  5060 C156                   00055C   444          ST    6,ENDLSEC    EXT - Set it in the FBA extent data
+                                             445 * R6 is now available for other uses
+000434  5840 026C                   00026C   446          L     4,LOD1IOA          Remeber where to find a directed record
+000438  BE47 C143                   000549   447          STCM  4,B'0111',FBACCW3+1   CCW - Where the loader read's its data
+00043C  D203 C14E 0258      000554  000258   448          MVC   FRSTPSEC,LOD1FSEC     EXT - Set starting sector of first record
+                                             449 * Initialize the static portions of record loading
+000442  4184 0006                   000006   450          LA    8,6(4)       Locate start of directed record's content
+000446  4130 C1DA                   0005E0   451          LA    3,HWM        Directed records may not overwrite me!
+
+                                             453 * Prepare for I/O with the IPL device
+00044A  D207 0048 C122              000528   454          MVC   CAW(8),CCWADDR    Identify in ASA where first CCW resides
+000450  4810 C126                   00052C   455          LH    1,IPLDEV          R1 contains the IPL device CUU address
+
+                                             457 * Read a directed record from the IPL device
+000454                                       458 READLOOP DS    0H
+000454  D201 C128 C12A      00052E  000530   459          MVC   STATUS,STATCLR    Clear accumulated status
+00045A  9C00 1000                   000000   460          SIO   0(1)     Request IPL device channel program to start, did it?
+00045E  4740 C0F0                   0004F6   461          BC    B'0100',DEVNOAVL  ..No, CC=1 don't know why, but tell someone.
+000462  4720 C0F4                   0004FA   462          BC    B'0010',DEVBUSY   ..No, CC=2 console device or channel is busy
+000466  4710 C0F8                   0004FE   463          BC    B'0001',DEVCSW    ..No, CC=3 CSW stored in ASA at X'40'
+                                             464 * IPL device is now sending to the CPU a directed record (CC=0)
+
+                                             466 * Wait for an I/O interruption
+00046A  D207 0078 C172              000578   467 DOWAIT   MVC   IONPSW(8),CONT  Set up continuation PSW for after I/O interrupt
+000470  8200 C16A                   000570   468          LPSW  WAIT       Wait for I/O interruption and CSW from channel
+                            000474  000001   469 IODONE   EQU   *          The bare-metal program continues here after I/O
+000474  D207 0078 C17A              000580   470          MVC   IONPSW(8),IOTRAP     Restore I/O trap PSW
+
+                                             472 * I/O results can now be checked.
+                                             473 *   Did the interruption come from the console device?
+00047A  4910 C126                   00052C   474          CH    1,IPLDEV            Is the interrupt from the IPL device?
+00047E  4770 C0FC                   000502   475          BNE   DEVUNKN             ..No, end program with an error
+                                             476 *   Yes, check the CSW conditions to determine if the I/O worked
+000482  D601 C128 0044      00052E  000044   477          OC    STATUS,CSW+4        Accummulate Device and Channel status
+000488  9500 C129                   00052F   478          CLI   STATUS+1,X'00'      Did the channel have, a problem?
+00048C  4770 C100                   000506   479          BNE   CHNLERR             ..Yes, end with a channel error
+000490  91F3 C128                   00052E   480          TM    STATUS,X'F3'        Did the unit encounnter a problem?
+000494  4770 C104                   00050A   481          BNZ   UNITERR             ..No, end with a unit error
+000498  910C C128                   00052E   482          TM    STATUS,X'0C'        Did both channel and unit end?
+00049C  47E0 C064                   00046A   483          BNO   DOWAIT              Wait again for both to be done
+                                             484 * Both channel and unit have ended
+
+                                             486 * Move the directed record to its residence address
+0004A0  58A4 0000                   000000   487          L     10,0(4)           Destination address of record's content
+0004A4  153A                                 488          CLR   3,10              Will data from record overwrite boot loader?
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page    14
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+0004A6  4720 C108                   00050E   489          BH    OVRWRITE          ..Yes, HWM higher than load address, quit now!
+0004AA  BF93 4004                   000004   490          ICM   9,B'0011',4(4)    Size of record being loaded
+0004AE  18B9                                 491          LR    11,9              Same size to the receiving location
+0004B0  1869                                 492          LR    6,9               Increment for cumulative program loaded
+0004B2  0EA8                                 493          MVCL  10,8              Move directed record
+0004B4  4710 C10C                   000512   494          BC    B'0001',DESTRT    Destructive overlap detected (CC=3), quit
+0004B8  5E60 024C                   00024C   495          AL    6,LOD1BPLD        Increment loaded program size
+0004BC  5060 024C                   00024C   496          ST    6,LOD1BPLD        Update the cumulative program size in LOD1
+
+                                             498 * Determine if last record has been loaded
+0004C0  9180 4000                   000000   499          TM    0(4),X'80'        Bit 0 of destination address one?
+0004C4  4710 C0D0                   0004D6   500          BO    CKSIZE            ..Yes, check if correct amount loaded
+0004C8  1865                                 501          LR    6,5               Fetch the number of sectors read
+0004CA  5E60 C14E                   000554   502          AL    6,FRSTPSEC        Update starting sector for the next extent
+0004CE  5060 C14E                   000554   503          ST    6,FRSTPSEC  EXT - Update the FBA extent with new starting sector
+0004D2  47F0 C04E                   000454   504          B     READLOOP          Read the next record.
+
+                                             506 * Total bytes loaded should match what LOD1 says is the booted program size
+0004D6  D503 0248 024C      000248  00024C   507 CKSIZE   CLC   LOD1BPLN,LOD1BPLD  Do the cumulative sizes match in LOD1
+0004DC  4770 C110                   000516   508          BNE   CUMERROR           ..No, something went wrong, quit
+
+
+                                             510 * Enter the boot loaded program...
+0004E0  9180 0250                   000250   511          TM    LOD1ENTR,X'80'     Is 31-bit addressing set in address?
+0004E4  4710 C114                   00051A   512          BO    AMERROR            ..Yes, can not do that, so quit
+0004E8  9101 0250                   000250   513          TM    LOD1ENTR,X'01'     Is 64-bit addressing set in address?
+0004EC  4710 C114                   00051A   514          BO    AMERROR            ..Yes, can not do that either, quit
+0004F0  58F0 0250                   000250   515          L     15,LOD1ENTR        Fetch entry point for booted program from LOD1
+0004F4  07FF                                 516          BR    15                 Enter the booted program
+
+
+                                             518 * End the bare-metal program with an error indicated in PSW
+0004F6  8200 C18A                   000590   519 DEVNOAVL LPSW  NODEV     Code 004 End console device is not available
+0004FA  8200 C192                   000598   520 DEVBUSY  LPSW  BUSYDEV   Code 008 End because device is busy (no wait)
+0004FE  8200 C19A                   0005A0   521 DEVCSW   LPSW  CSWSTR    Code 00C End because CSW stored in ASA
+000502  8200 C1A2                   0005A8   522 DEVUNKN  LPSW  NOTCON    Code 010 End unexpected device caused I/O interruption
+000506  8200 C1AA                   0005B0   523 CHNLERR  LPSW  CHERROR   Code 014 End because console channel error occurred
+00050A  8200 C1B2                   0005B8   524 UNITERR  LPSW  DVERROR   Code 018 End because console device error occurred
+00050E  8200 C1BA                   0005C0   525 OVRWRITE LPSW  OVERWRIT  Code 01C Overwriting boot loader
+000512  8200 C1C2                   0005C8   526 DESTRT   LPSW  DESTOVLP  Code 020 Destructive overlap detected by MVCL
+000516  8200 C1CA                   0005D0   527 CUMERROR LPSW  BADSIZE   Code 024 Cumulative booted program sizes do no match
+00051A  8200 C1D2                   0005D8   528 AMERROR  LPSW  NOAMCHNG  Code 028 Can not change addressing mode for booted pgm
+
+                                             530 * General Constants:
+000520  00000001                             531 ONE      DC    F'1'      The constant 'one'.
+
+                                             533 * Control Register 2 - Enables channels for interruptions
+000524  40000000                             534 CR2      DC    XL4'40000000'  Enable channel 1 where IPL device is connected
+
+                                             536 * I/O related information
+000528  00000538                             537 CCWADDR  DC    A(FBACCW1)  Address of first CCW to be executed by IPL device.
+00052C  0000                                 538 IPLDEV   DC    XL2'0000'   IPL device address from I/O interrupt information
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page    15
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+00052E  0000                                 539 STATUS   DC    XL2'0000'   Used to accumulate unit and channel status
+000530  0000                                 540 STATCLR  DC    XL2'0000'   Clears the STATUS field for each new read
+
+
+                                             542 *
+                                             543 * FBA CCW chain used by the boot loader to read a directed record
+                                             544 *
+000538  63000550 40000010                    545 FBACCW1  CCW0  DEFN_EXT,EXTENT,CC,EXTENTL   Define extent for the read
+000540  43000560 40000008                    546 FBACCW2  CCW0  LOC_DATA,LOCATE,CC,LOCATEL   Establish location for read
+000548  42000000 00000000                    547 FBACCW3  CCW0  READ,0,0,0                   Read the directed record
+                                             548 *         CCW0  NOP,0,0,1                    ..then a NOP.
+                                             549 * If the preceding NOP CCW command is enabled, then the FBACCW3 must set
+                                             550 * command chaining in the flag byte, setting the third operand to X'40'
+
+                                             552 * FBA extent used for reading a directed record.  Unlike typical operations
+                                             553 * where the extent is constant and the locate data changes, when reading
+                                             554 * directed boot loader records, the extent changes and the locate information
+                                             555 * remains unchanged.
+000550  40000000                             556 EXTENT   DC    XL4'40000000'   Extent file mask: Inhibit all writes
+000554  00000000                             557 FRSTPSEC DC    FL4'0'       ** Physical first sector of the extent
+000558  00000000                             558 FRSTLSEC DC    FL4'0'          First logical sector of the extent, always 0
+                                             559 * Last logical sector of the extent, always the same based upon record length
+00055C  00000000                             560 ENDLSEC  DC    FL4'0'
+                            000010  000001   561 EXTENTL  EQU   *-EXTENT        Length of an FBA extent (16 bytes)
+                                             562 * ** This field is adjusted for each read of a directed record.
+
+                                             564 * FBA locate used for reading a directed record
+000560  06                                   565 LOCATE   DC    XL1'06'         Read sector operation being performed
+000561  00                                   566          DC    XL1'00'         Replication count ignored for read sector
+000562  0000                                 567 LOCSECS  DC    HL2'0'          Number of sectors being read
+000564  00000000                             568          DC    FL4'0'          First sector (relative to the extent), always 0
+                            000008  000001   569 LOCATEL  EQU   *-LOCATE        Length of the FBA locate information (8 bytes)
+
+
+                                             571 * PSW's used by the boot loader
+                                             572 PGMRS    DWAIT CODE=008     Restart New PSW trap.  Points to Restart Old PSW
+000568  000A0000 00010008                    573+PGMRS    PSW   0,0,2,0,X'010008'
+000570  020A0000 00000000                    574 WAIT     PSWEC 2,0,2,0,0    Causes CPU to wait for I/O interruption
+000578  00080000 00000474                    575 CONT     PSWEC 0,0,0,0,IODONE   Causes the CPU to continue after waiting
+000580  000A0000 00000038                    576 IOTRAP   PSWEC 0,0,2,0,X'38'    I/O trap New PSW (restored after I/O)
+
+                                             578 * PSW's terminating program execution
+                                             579 DONE     DWAITEND              Successful execution of the program
+000588  000A0000 00000000                    581+DONE     PSW   0,0,2,0,X'000000'
+                                             582 NODEV    DWAIT PGM=04,CMP=0,CODE=004  IPL device not available
+000590  000A0000 00040004                    583+NODEV    PSW   0,0,2,0,X'040004'
+                                             584 BUSYDEV  DWAIT PGM=04,CMP=0,CODE=008  IPL device busy
+000598  000A0000 00040008                    585+BUSYDEV  PSW   0,0,2,0,X'040008'
+                                             586 CSWSTR   DWAIT PGM=04,CMP=0,CODE=00C  CSW stored in ASA
+0005A0  000A0000 0004000C                    587+CSWSTR   PSW   0,0,2,0,X'04000C'
+                                             588 NOTCON   DWAIT PGM=04,CMP=0,CODE=010  Unexpected interruption from other device
+0005A8  000A0000 00040010                    589+NOTCON   PSW   0,0,2,0,X'040010'
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page    16
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+                                             590 CHERROR  DWAIT PGM=04,CMP=0,CODE=014  IPL channel error occurred
+0005B0  000A0000 00040014                    591+CHERROR  PSW   0,0,2,0,X'040014'
+                                             592 DVERROR  DWAIT PGM=04,CMP=0,CODE=018  IPL device error occurred
+0005B8  000A0000 00040018                    593+DVERROR  PSW   0,0,2,0,X'040018'
+                                             594 OVERWRIT DWAIT PGM=04,CMP=0,CODE=01C  Trying to overwrite boot loader
+0005C0  000A0000 0004001C                    595+OVERWRIT PSW   0,0,2,0,X'04001C'
+                                             596 DESTOVLP DWAIT PGM=04,CMP=0,CODE=020  Destructive overlap detected by MVCL
+0005C8  000A0000 00040020                    597+DESTOVLP PSW   0,0,2,0,X'040020'
+                                             598 BADSIZE  DWAIT PGM=04,CMP=0,CODE=024  Cumulative booted program sizes mismatch
+0005D0  000A0000 00040024                    599+BADSIZE  PSW   0,0,2,0,X'040024'
+                                             600 NOAMCHNG DWAIT PGM=04,CMP=0,CODE=028  Can not change booted program's AMODE
+0005D8  000A0000 00040028                    601+NOAMCHNG PSW   0,0,2,0,X'040028'
+                            0005E0  000001   602 HWM      EQU   *    Can not load any directed record lower than here
+                                             603          END
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page    17
+
+     SYMBOL        TYPE  VALUE   LENGTH  DEFN  REFERENCES
+
+AMERROR             I    00051A       4   528  512  514
+ASA                 4    000000     656    87  247  417
+ASAREGN             2    000000     512   380
+ASASECT             J    000000     512   380  383  390  393  395
+ASBEGIN             U    000000       1    88   93  135  171  180  198  205  211  215  219  225  242
+ASEND               U    000200       1   241  242
+ASLENGTH            U    000200       1   242
+BADSIZE             3    0005D0       8   599  527
+BCEXTCOD            H    00001A       2   105
+BCIOCOD             H    00003A       2   113
+BCMCKCOD            H    000032       2   111
+BCPGMCOD            H    00002A       2   109
+BCSVCCOD            H    000022       2   107
+BOOT4               2    000400     480   415
+BUSYDEV             3    000598       8   585  520
+CAW                 F    000048       4   117  454
+CAWADDR             R    000049       3   120
+CAWKEY              X    000048       1   118
+CAWSUSP             U    000008       1   119
+CC                  U    000040       1   409  545  546
+CCWADDR             A    000528       4   537  454
+CHANID              F    0000A8       4   172
+CHERROR             3    0005B0       8   591  523
+CHNLERR             I    000506       4   523  479
+CKSIZE              I    0004D6       6   507  500
+CONT                3    000578       8   575  467
+CPUID               U    00031B       1   244
+CR2                 X    000524       4   534  431
+CSW                 F    000040       8   116  477
+CSWSTR              3    0005A0       8   587  521
+CUMERROR            I    000516       4   527  508
+DEFN_EXT            U    000063       1   404  545
+DESTOVLP            3    0005C8       8   597  526
+DESTRT              I    000512       4   526  494
+DEVBUSY             I    0004FA       4   520  462
+DEVCSW              I    0004FE       4   521  463
+DEVNOAVL            I    0004F6       4   519  461
+DEVUNKN             I    000502       4   522  475
+DONE                3    000588       8   581
+DOWAIT              I    00046A       6   467  483
+DVERROR             3    0005B8       8   593  524
+ENDLSEC             U    00055C       4   560  444
+EXTCPUAD            H    000084       2   137
+EXTENT              X    000550       4   556  561  545
+EXTENTL             U    000010       1   561  545
+EXTICODE            H    000086       2   138
+EXTIPARM            F    000080       4   136
+EXTNPSW             F    000058       8   126
+EXTOPSW             F    000018       8    98  104
+FBACCW1             W    000538       8   545  537
+FBACCW2             W    000540       8   546
+FBACCW3             W    000548       8   547  439  447
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page    18
+
+     SYMBOL        TYPE  VALUE   LENGTH  DEFN  REFERENCES
+
+FRSTLSEC            U    000558       4   558
+FRSTPSEC            U    000554       4   557  448  502  503
+HWM                 U    0005E0       1   602  451
+IMAGE               1    000000     992     0
+IODONE              U    000474       1   469  575
+IOELADDR            F    0000AC       4   173
+IOICODE             H    0000BA       2   178  430
+IOIID               F    0000C0       4   183
+IOIPARM             F    0000BC       4   182
+IONPSW              F    000078       8   130  467  470
+IOOPSW              F    000038       8   102  112
+IOSSID              F    0000B8       4   181
+IOTRAP              3    000580       8   576  470
+IPLCCW1             F    000008       8    90
+IPLCCW2             F    000010       8    91
+IPLDEV              X    00052C       2   538  430  455  474
+IPLPSW              F    000000       8    89
+LCHANLOG            F    0000B0       4   174
+LOC1DEVI            U    000268       4   325
+LOCATE              X    000560       1   565  569  546
+LOCATEL             U    000008       1   569  546
+LOCSECS             U    000562       2   567  441
+LOC_DATA            U    000043       1   405  546
+LOD1                U    000240       1   252  330
+LOD1360             U    000080       1   280
+LOD1370B            U    000040       1   281
+LOD1370E            U    000020       1   282
+LOD1370X            U    000010       1   283
+LOD1AM24            U    000001       1   306
+LOD1AM31            U    000002       1   307
+LOD1AM64            U    000003       1   308
+LOD1AMAN            U    000000       1   305
+LOD1AMIN            U    0000FF       1   309
+LOD1BL64            U    000040       1   266
+LOD1BLAM            X    000256       1   303
+LOD1BLCA            U    000080       1   265
+LOD1BLF1            U    000010       1   268
+LOD1BLFL            X    000245       1   264
+LOD1BLSN            U    000000       1   312
+LOD1BLST            R    000270       4   327
+LOD1BLSV            X    000257       1   311
+LOD1BLTR            U    000020       1   267
+LOD1BPLD            U    00024C       4   275  495  496  507
+LOD1BPLN            U    000248       4   274  507
+LOD1CARD            U    000004       1   258
+LOD1CCYL            U    00025C       2   318
+LOD1CKD             U    000020       1   261
+LOD1CMCY            U    000262       2   322
+LOD1CMTR            U    000264       2   323
+LOD1CPIN            U    000001       1   287
+LOD1CPNA            U    000000       1   279
+LOD1CPU             X    000254       1   278
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page    19
+
+     SYMBOL        TYPE  VALUE   LENGTH  DEFN  REFERENCES
+
+LOD1CREC            X    000260       1   320
+LOD1CRTK            X    000261       1   321
+LOD1CTRK            U    00025E       2   319
+LOD1DEVN            U    000266       2   324
+LOD1DTYP            X    000244       1   255
+LOD1ECKD            U    000040       1   262
+LOD1ENTR            U    000250       4   276  511  513  515
+LOD1ESA             U    000008       1   284
+LOD1ESAZ            U    000004       1   285
+LOD1FBA             U    000010       1   260
+LOD1FSEC            U    000258       4   317  448
+LOD1I370            U    000011       1   299
+LOD1IACH            U    000010       1   291  299
+LOD1IACS            U    000020       1   292  300  301
+LOD1IAIN            U    0000C0       1   293  298
+LOD1IESA            U    000022       1   300
+LOD1IM24            U    000001       1   294  299
+LOD1IM31            U    000002       1   295  300
+LOD1IM64            U    000004       1   296  301
+LOD1IMIN            U    000008       1   297  298
+LOD1IO              X    000255       1   289
+LOD1IOA             R    00026C       4   326  446
+LOD1IOIN            U    0000C8       1   298
+LOD1IONA            U    000000       1   290
+LOD1IZ              U    000024       1   301
+LOD1LEN             U    000050       1   330
+LOD1LENF            U    000002       1   257
+LOD1MDLN            U    000246       2   270  438
+LOD1OBJ             U    000001       1   256
+LOD1REC             C    000240       4   253
+LOD1RSRV            U    000274       4   329
+LOD1TAPE            U    000008       1   259
+LOD1Z               U    000002       1   286
+LODPARMS            C    000200      64   248  418
+MCKLOG              F    000100       4   206
+MCKNPSW             F    000070       8   129
+MCKOPSW             F    000030       8   101  110
+MEASUREB            X    0000B9       1   177
+MKARCHMD            X    0000A3       1   165
+MKARS               F    000120       4   204
+MKCLKCMP            F    0000E0       8   190
+MKCPUTIM            F    0000D8       8   189
+MKCRS               F    0001C0       4   209
+MKDMGCOD            F    0000F4       4   193
+MKFAILA             F    0000F8       4   195
+MKFPRS              D    000160       8   207
+MKICODE             F    0000E8       4   191
+MKLOGOUT            F    000100       4   197
+MKMODEL             F    0000FC       4   196
+MKXSAA              F    0000D4       4   188
+MONCLS              H    000094       2   153
+MONCODE             F    00009C       4   160
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page    20
+
+     SYMBOL        TYPE  VALUE   LENGTH  DEFN  REFERENCES
+
+MONNUMBR            X    000095       1   155
+MPGACCID            X    0000A2       1   163
+NKGRS               F    000180       4   208
+NOAMCHNG            3    0005D8       8   601  528
+NODEV               3    000590       8   583  519
+NOP                 U    000003       1   403
+NOTCON              3    0005A8       8   589  522
+ONE                 F    000520       4   531
+OVERWRIT            3    0005C0       8   595  525
+OVRWRITE            I    00050E       4   525  489
+PCFETO              A    0000C4       4   184
+PERACCID            X    0000A1       1   162
+PERADDR             F    000098       4   159
+PERCODE             X    000096       1   156
+PERCODMK            U    0000F0       1   157
+PGMACCID            X    0000A0       1   161
+PGMDXC              F    000090       4   151
+PGMICODE            H    00008E       2   150
+PGMIID              F    00008C       4   146
+PGMIILC             X    00008D       1   148
+PGMIILCM            U    00000C       1   149
+PGMNPSW             F    000068       8   128
+PGMOPSW             F    000028       8   100  108
+PGMRS               3    000568       8   573  427
+PGMSECT             J    000400     480   415
+PGMSTART            I    000400       4   418  394
+PGMTRX              F    000090       4   152
+READ                U    000042       1   406  547
+READLOOP            H    000454       2   458  504
+RSTNPSW             F    000000       8    94  427
+RSTOPSW             F    000008       8    95
+SCANOUT             X    000080       1   132  133
+SCANOUTL            U    000000       1   133
+SSARCHMD            X    0000A3       1   164
+SSARS               F    000120       4   220
+SSCLKCMP            F    0000E0       8   214
+SSCPUTIM            F    0000D8       8   213
+SSCRS               F    0001C0       4   223
+SSFPRS              D    000160       8   221
+SSGRS               F    000180       4   222
+SSMODEL             F    00010C       4   218
+SSPREFIX            F    000108       4   217
+SSPSW               F    000100       8   216
+SSXSAA              A    0000D4       4   212
+STATCLR             X    000530       2   540  459
+STATUS              X    00052E       2   539  459  477  478  480  482
+STFLDATA            F    0000C8       4   185
+SVCICODE            H    00008A       2   144
+SVCIID              F    000088       4   140
+SVCIILC             X    000089       1   142
+SVCIILCM            U    00000C       1   143
+SVCNPSW             F    000060       8   127
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page    21
+
+     SYMBOL        TYPE  VALUE   LENGTH  DEFN  REFERENCES
+
+SVCOPSW             F    000020       8    99  106
+TIMER               F    000050       4   123
+TTDES               F    000054       4   124
+UA0                 F    000010       8    96
+UA1                 F    00004C       4   121
+UA2                 F    0000A4       4   166
+UA3                 F    0000B4       4   175
+UA4                 X    0000B8       1   176
+UA5                 X    0000CC       8   186
+UA6                 X    0000EC       8   192
+UA7                 F    000118       8   203
+UA8                 X    000180      32   232
+UNITERR             I    00050A       4   524  481
+WAIT                3    000570       8   574  468
+ZBRKADDR            A    000110       8   202
+ZEMONCNT            F    00010C       4   201
+ZEMONCTR            A    000100       8   199
+ZEMONSIZ            F    000108       4   200
+ZEXTNPSW            X    0001B0      16   235
+ZEXTOPSW            X    000130      16   227
+ZIONPSW             X    0001F0      16   239
+ZIOOPSW             X    000170      16   231
+ZMCKNPSW            X    0001E0      16   238
+ZMCKOPSW            X    000160      16   230
+ZMKFAILA            F    0000F8       8   194
+ZMONCODE            F    0000B0       8   169
+ZPGMNPSW            X    0001D0      16   237
+ZPGMOPSW            X    000150      16   229
+ZPGMTRX             F    0000A8       8   168
+ZRSTNPSW            X    0001A0      16   234
+ZRSTOPSW            X    000120      16   226
+ZSASDISP            U    0011C0       1   240
+ZSVCNPSW            X    0001C0      16   236
+ZSVCOPSW            X    000140      16   228
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page    22
+
+ MACRO     DEFN  REFERENCES
+
+ARCHIND     337
+ARCHLVL     336
+ASAIPL      391
+ASALOAD     379
+ASAREA       86
+DWAIT       572   580   582   584   586   588   590   592   594   596   598   600
+DWAITEND    579
+LOD1        245
+TRAP64      381   384
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page    23
+
+   DESC     SYMBOL  SIZE    POS      ADDR
+
+Entry: 0
+
+Image      IMAGE     992  000-3DF  000-3DF
+  Region   ASAREGN   512  000-1FF  000-1FF
+    CSECT  ASASECT   512  000-1FF  000-1FF
+  Region   BOOT4     480  200-3DF  400-5DF
+    CSECT  PGMSECT   480  200-3DF  400-5DF
+
+
+ ADDR    POS                                OBJECT CONTENT                                         CHARACTER CONTENT
+
+
+Region: ASAREGN
+
+000000   000   00080000 00000400 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000020   020   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000040   040   00000000 00000000 00000000 00000000  00000000 00000000 000A0000 00000018   |................ ................|
+000060   060   000A0000 00000020 000A0000 00000028  000A0000 00000030 000A0000 00000038   |................ ................|
+000080   080   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0000A0   0A0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0000C0   0C0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0000E0   0E0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000100   100   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000120   120   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000140   140   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000160   160   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000180   180   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0001A0   1A0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0001C0   1C0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0001E0   1E0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+
+Region: BOOT4
+
+000400   200   900F0200 05C0D207 0000C162 D201C126  00BAB722 C11E1B22 18921B62 BF630246   |......K...A.K.A. ....A....k......|
+000420   220   4060C148 88600009 4060C15C 18560660  5060C156 5840026C BE47C143 D203C14E   | -A.h-.. -A*...- &-A.. .%..A.K.A+|
+000440   240   02584184 00064130 C1DAD207 0048C122  4810C126 D201C128 C12A9C00 10004740   |...d....A.K...A. ..A.K.A.A...... |
+000460   260   C0F04720 C0F44710 C0F8D207 0078C172  8200C16A D2070078 C17A4910 C1264770   |.0...4...8K...A. b.A¦K...A:..A...|
+000480   280   C0FCD601 C1280044 9500C129 4770C100  91F3C128 4770C104 910CC128 47E0C064   |..O.A...n.A...A. j3A...A.j.A.....|
+0004A0   2A0   58A40000 153A4720 C108BF93 400418B9  18690EA8 4710C10C 5E60024C 5060024C   |.u......A..l ... ...y..A.;-.<&-.<|
+0004C0   2C0   91804000 4710C0D0 18655E60 C14E5060  C14E47F0 C04ED503 0248024C 4770C110   |j. .......;-A+&- A+.0.+N....<..A.|
+0004E0   2E0   91800250 4710C114 91010250 4710C114  58F00250 07FF8200 C18A8200 C1928200   |j..&..A.j..&..A. .0.&..b.A.b.Akb.|
+000500   300   C19A8200 C1A28200 C1AA8200 C1B28200  C1BA8200 C1C28200 C1CA8200 C1D20000   |A.b.Asb.A.b.A.b. A.b.ABb.A.b.AK..|
+000520   320   00000001 40000000 00000538 00000000  00000000 00000000 63000550 40000010   |.... ........... ...........& ...|
+000540   340   43000560 40000008 42000000 00000000  40000000 00000000 00000000 00000000   |...- ...........  ...............|
+000560   360   06000000 00000000 000A0000 00010008  020A0000 00000000 00080000 00000474   |................ ................|
+000580   380   000A0000 00000038 000A0000 00000000  000A0000 00040004 000A0000 00040008   |................ ................|
+0005A0   3A0   000A0000 0004000C 000A0000 00040010  000A0000 00040014 000A0000 00040018   |................ ................|
+0005C0   3C0   000A0000 0004001C 000A0000 00040020  000A0000 00040024 000A0000 00040028   |................ ................|
+ASMA Ver. 0.2.0  BOOT4 - S/370 FBA Boot Loader                                                      20 Jul 2020 14:50:49  Page    24
+
+   STMT                         FILE NAME
+
+1     /home/harold/SATKREPO/SATK/samples/guide/pgm4/boot4.asm
+
+
+** NO ERRORS FOUND **
+
+[374] MNOTE *,ARCHLVL - ARCHITECTURE LEVEL SET - 3
+
