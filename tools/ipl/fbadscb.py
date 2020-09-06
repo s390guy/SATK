@@ -240,8 +240,9 @@ class VOL1(structure):
     id=     ( 0,  4,  4, "C")  # Volume Label Identification
     volser= ( 4, 10,  6, "C")  # Volume serial number
     sec=    (10, 11,  1, "B")  # Security Byte - 0xC0
-    vtocsec=(11, 15,  4, "U")  # Physical sector number of the Volume Table of Contents
-    sp1=    (15, 21,  6, "C")  # EBCDIC spaces - 0x40
+    zero1=  (11, 12,  1, "B")  # Binary zero - 0x00
+    vtocsec=(12, 16,  4, "U")  # Physical sector number of the Volume Table of Contents
+    sp1=    (16, 21,  5, "C")  # EBCDIC spaces - 0x40
     cisize= (21, 25,  4, "U")  # VTOC control interval size
     cisecs= (25, 29,  4, "U")  # Number of sectors per control interval
     cislots=(29, 33,  4, "U")  # Number of DSCB record slots per control interval
@@ -253,7 +254,7 @@ class VOL1(structure):
     def from_bytes(cls,byts):
         return VOL1(bin=byts)
 
-    def __init__(self,bin=None,volser="SYSTEM",sector=2,cisize=512,owner=None,\
+    def __init__(self,bin=None,volser="SATK",sector=2,cisize=512,owner=None,\
                  debug=False):
         super().__init__(bin=bin,debug=debug)
 
@@ -269,7 +270,9 @@ class VOL1(structure):
         self.insert("volser",volser)
         self.serial=volser.rstrip()
 
-        self.insert("sec",b'\xC0')
+        self.insert("sec",b"\xC0")
+        
+        self.insert("zero1",b"\x00")
 
         if sector is not None:
             self.insert("vtocsec",sector)
