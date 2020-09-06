@@ -42,8 +42,10 @@
 $AL      OPSYN AL
 $ALR     OPSYN ALR
 $B       OPSYN B
+         AIF   (&ARCHLVL EQ 1).NBAS
 $BAS     OPSYN BAS
 $BASR    OPSYN BASR
+.NBAS  ANOP
 $BC      OPSYN BC
 $BCTR    OPSYN BCTR
 $BE      OPSYN BE
@@ -62,9 +64,11 @@ $BP      OPSYN BP
 $BXLE    OPSYN BXLE
 $BZ      OPSYN BZ
 $CH      OPSYN CH
+$CLR     OPSYN CLR
 $L       OPSYN L
 $LH      OPSYN LH
 $LM      OPSYN LM
+$LNR     OPSYN LNR
 $LPSW    OPSYN LPSW
 $LR      OPSYN LR
 $LTR     OPSYN LTR
@@ -84,7 +88,7 @@ $X       OPSYN X
 &I       SETC  'C'
 &S       SETC  'F'
          AIF   (&ARCHLVL NE 1).NOT360
-.* Define S/560 instructions as selectable
+.* Define S/S60 instructions as selectable
 $BAS     OPSYN BAL
 $BASR    OPSYN BALR
          AGO   .DEFINED                   S/360 complete
@@ -132,10 +136,12 @@ $BCTR    OPSYN BCTGR
 $BXLE    OPSYN JXLEG
 $CH      OPSYN CGH
 $CHI     OPSYN CGHI
+$CLR     OPSYN CLGR
 $L       OPSYN LG
 $LH      OPSYN LGH
 $LHI     OPSYN LGHI
 $LM      OPSYN LMG
+$LNR     OPSYN LNGR
 $LPSW    OPSYN LPSWE
 $LR      OPSYN LGR
 $LTR     OPSYN LTGR
