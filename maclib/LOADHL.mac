@@ -1,0 +1,33 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   LOADHL &REG,&STG
+.* This macro emulates ICM B'0011',STORAGE used to load a half word without
+.* sign extention.  This is required for S/360 that lacks the ICM instruction
+         GBLA  &ARCHLVL
+         AIF   (&ARCHLVL GT 0).ARCHOK
+         MNOTE 1,'LOADHL - ARCHLVL MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   (&ARCHLVL EQ 1).NOICM
+&LABEL   ICM   &REG,B'0011',&STG    Load halfword without sign extention
+         MEXIT
+.NOICM   ANOP
+&LABEL   LH    &REG,&STG            Load halfword with sign extention
+         ZEROH &REG,16              Clear high-order half word to remove sign
+         MEND

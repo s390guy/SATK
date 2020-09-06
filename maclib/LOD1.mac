@@ -1,0 +1,142 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+.*
+.* NOTICES:
+.*
+.* z/Architecture is a registered trademark of International Business Machines
+.* Corporation.
+.*
+.* Note: when using this macro within a program, the program must replicate
+.* the above notice within the source program to ensure proper notification
+.* within the resulting assembly that contains this macro.  The above
+.* notice is strictly for this source file and does not extend to a
+.* resulting assembly.
+
+         MACRO
+&LABEL   LOD1  &ASA=
+.* Defines the boot loader LOD1 record assigned storage area within a DSECT.
+.* Required Parameter Usage: None
+.* Optional Parameter Usage:
+.*   &LABEL   Assign a label to the macro start.
+.*   &ASA     Specify the DSECT name of the ASA being extended by this macro.
+         AIF   ('&ASA' EQ '').NODS
+.* Extending an already existent ASA DSECT
+&ASA     DSECT
+         ORG   &ASA+X'200'
+LODPARMS DS    CL64     Hercules IPL parameters
+.NODS    ANOP
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   EQU   *
+.NOLBL   ANOP
+.LOD1    ANOP
+.* Define the LOD1 Record fields now
+* Addresses reflect location of LOD1 record when placed in its ASA area
+* 000240-00028F.  Fields identified with an asterisk (*) indicate that
+* the boot loader supplies the information during execution.
+LOD1     EQU   *        Start of LOD1 record definition
+LOD1REC  DS    CL4      000240 - Record ID 'LOD1' in EBCDIC
+         SPACE 1
+LOD1DTYP DS    XL1      000244 - IPL Device Type related information
+LOD1OBJ  EQU   B'00000001'   Booted program is in an object deck
+LOD1LENF EQU   B'00000010'   Directed record header contains a length field
+LOD1CARD EQU   B'00000100'   IPL device is a card reader
+LOD1TAPE EQU   B'00001000'   IPL device is a tape drive
+LOD1FBA  EQU   B'00010000'   IPL device is a FBA DASD drive
+LOD1CKD  EQU   B'00100000'   IPL device is a CKD DASD drive
+LOD1ECKD EQU   B'01000000'   IPL device is a ECKD DASD drive
+         SPACE 1
+LOD1BLFL DS    XL1      000245 - Boot loader flags
+LOD1BLCA EQU   B'10000000'   Change architecture before loading booted program
+LOD1BL64 EQU   B'01000000'   Set 64-bit address mode before entering program
+LOD1BLTR EQU   B'00100000'   Set trap new PSW's before entering program
+LOD1BLF1 EQU   B'00010000'   Use Format-1 CCW's and 31 bit addressing mode
+         SPACE 1
+LOD1MDLN DS    HL2      000246 - Maximum directed record length in bytes
+         SPACE 1
+* After loading of a booted progrm, these two fields must match.
+* Note: not used when loading an absolute object deck.
+LOD1BPLN DS    FL4      000248 - Length of booted program content on medium
+LOD1BPLD DS    FL4    * 00024C - Length of loaded boot program
+LOD1ENTR DS    FL4      000250 - Booted program's entry address
+         SPACE 1
+LOD1CPU  DS    XL1    * 000254 - Boot loader's CPU running architecture
+LOD1CPNA EQU   X'00'         CPU architecture not available
+LOD1360  EQU   X'01'         S/360 in BC mode
+LOD1370B EQU   X'02'         S/370 in BC mode
+LOD1370E EQU   X'03'         S/370 in EC mode
+LOD1380  EQU   X'04'         S/380
+LOD1370X EQU   X'05'         370-XA through ESA/390
+LOE1E370 EQU   X'06'         ESA/370
+LOD1E390 EQU   X'07'         ESA/390
+LOD1S390 EQU   X'08'         ESA/390 on dual z/Arthitecture(R) system
+LOD1ESAZ EQU   X'09'         z/Architecture on a dual z/Architecture system
+LOD1Z    EQU   X'0A'         z/Architecture only system
+LOD1CPIN EQU   X'FF'         Invalid CPU operating environment
+         SPACE 1
+LOD1IO   DS    XL1    * 000255 - Boot loader's I/O architecture and mode
+LOD1IONA EQU   B'00000000'   I/O architecture and mode not available
+LOD1IACH EQU   B'00010000'   I/O architecture is channel based
+LOD1IACS EQU   B'00100000'   I/O architecture is channel subsystem based
+LOD1IAIN EQU   B'11000000'   I/O architecture is invalid
+LOD1IM24 EQU   B'00000001'   I/O architecture uses CCW Format-0 CCW's
+LOD1IM31 EQU   B'00000010'   I/O architecture uses CCW Format-0 CCW's
+LOD1IM64 EQU   B'00000100'   I/O architecture uses CCW1's plus IDAW-2's.
+LOD1IMIN EQU   B'00001000'   I/O architecture mode is invalid
+LOD1IOIN EQU   LOD1IAIN+LOD1IMIN  I/O architecture or mode invalid
+LOD1I370 EQU   LOD1IACH+LOD1IM24  S/360 and S/370 I/O
+LOD1IESA EQU   LOD1IACS+LOD1IM31  370-XA through ESA/390 I/O
+LOD1IZ   EQU   LOD1IACS+LOD1IM64  z/Architecture I/O
+         SPACE 1
+LOD1BLAM DS    XL1    * 000256 - Boot loader's addressing mode when booted
+*                                program is entered
+LOD1AMAN EQU   X'00'         Addressing mode not available
+LOD1AM24 EQU   X'01'         Addressing mode is 24-bits
+LOD1AM31 EQU   X'02'         Addressing mode is 31-bits
+LOD1AM64 EQU   X'03'         Addressing mode is 64-bits
+LOD1AMIN EQU   X'FF'         Addressing mode is invalid
+         SPACE 1
+LOD1BLSV DS    XL1    * 000257 - Boot loader's services
+LOD1BLSN EQU   X'00'         Boot loader services are unavailable
+* Meaning of these bits are defined by the boot loader. Not zero implies 
+* services are available and LOD1BLST is valid.  When zero, LOD1BLST is
+* not available.
+         SPACE 1
+LOD1FSEC DS    FL4      000258 - Directed record FBA DASD starting sector
+LOD1CCYL DS    HL2      00025C - Directed record CKD DASD starting cylinder
+LOD1CTRK DS    HL2      00025E - Directed record CKD DASD starting track
+LOD1CREC DS    XL1      000260 - Directed record CKD DASD starting rec
+LOD1CRTK DS    XL1      000261 - Number of directed records per track
+LOD1CMCY DS    HL2      000262 - Maximum CKD DASD cylinder number
+LOD1CMTR DS    HL2      000264 - Maximum CKD DASD track number
+LOD1DEVN DS    HL2    * 000266 - Device Number of IPL device from CS
+LOC1DEVI DS    FL4    * 000268 - I/O command device ID (CUU / subchannel num)
+LOD1IOA  DS    AL4(0)   00026C - Boot loader I/O area starting address
+LOD1BLST DS    AL4(0) * 000270 - Boot loader services address.
+LOD1ARCH DS    XL1    * 000274 - Running architecture level at boot loader entry
+LOD1RSV2 DS    XL3      000275 - RESERVED NOT IN USE
+LOD1RTN  DS    A(0)   * 000278 - Address returning to service caller
+         SPACE 1
+LOD1RSRV DS    5FL4     00027C - RESERVED NOT IN USE
+LOD1LEN  EQU   *-LOD1   Length of LOD1 record
+.* Addresses 000290-0003FF are reserved for a booted program's use.  The
+.* booted program must provide the definitions and ability to address the
+.* fields in this area.
+.*
+.* This macro leaves the assembly in the DSECT in which these definitions
+.* are placed.  Extension by the booted program can occur by simply adding 
+.* its use following this macro.
+         MEND

@@ -1,0 +1,35 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   LTEST &REG,&STG
+.* This macro emulates ICM B'1111',STORAGE used to load and test a full word
+.* value with the one instruction.  S/360 lacks the ICM instruction so this
+.* macro provides an alternative with the instructions actually available
+.* with a S/360.
+         GBLA  &ARCHLVL
+         AIF   (&ARCHLVL GT 0).ARCHOK
+         MNOTE 1,'LTEST - ARCHLVL MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   (&ARCHLVL EQ 1).NOICM
+&LABEL   ICM   &REG,B'1111',&STG    Load fullword and test the value
+         MEXIT
+.NOICM   ANOP
+&LABEL   L     &REG,&STG          Load fullword
+         LTR   &REG,&REG          Set condition code by testing loaded value
+         MEND

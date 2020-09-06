@@ -1,0 +1,52 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   STCCWADR &REG,&CCW
+.* This macro stores a register's contents into a CCW format as indicated
+.* by the ARCHLVL of the assembly.  This macro is intended for use with 
+.* a CCW created via the ASMA CCW directive not CCW0 or CCW1.
+         GBLA  &ARCHLVL
+         AIF   (&ARCHLVL GT 0).ARCHOK
+         MNOTE 1,'STCCWADR - ARCHLVL MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   (&ARCHLVL GE 5).CCW1
+         AIF   (&ARCHLVL EQ 1).NOSTCM
+&LABEL   STCM  &REG,B'0111',&CCW+1    Store address into a Format 0 CCW
+         MEXIT
+.NOSTCM  ANOP
+.* This logic emulates in S/360 instructions the operation of a STCM
+.* instruction using STC and SRL to store the data and then SLL and IC to
+.* restore the contents of the source register.
+&LABEL   STC   &REG,&CCW+3            Store bits 24-31 of reg into address
+         SRL   &REG,8                 Move bits 16-23 of reg for storing
+         STC   &REG,&CCW+2            Store bits 16-23 of reg into address
+         SRL   &REG,8                 Move bits 8-15 of reg for storing
+         STC   &REG,&CCW+1            Store bits 8-15 of reg into address
+.* Because the register's content is unchanged by STCM, restore the register's
+.* contents.  In some cases restoration may not be necessary, but it is
+.* logically consistent with STCM.
+         SLL   &REG,8                 Move bits 24-31 of reg to bits 16-23
+         IC    &REG,&CCW+2            Restore bits 16-23 of reg
+         SLL   &REG,8                 Move bits 16-23 of reg to bits 8-15
+         IC    &REG,&CCW+3            Restore bits 24-31 of reg
+         MEXIT
+.CCW1    ANOP
+&LABEL   ST    &REG,&CCW+4            Store address into a Format 1 CCW
+         NI    &CCW+4,X'7F'           Make sure high-order bit is 0
+         MEND
