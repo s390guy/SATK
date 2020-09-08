@@ -1,0 +1,108 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   AARCH &RUNNING=LOD1ARCH,&RC=1
+.* This macro adjusts the running architecture when it can or returns a 
+.* return code indicating how it should be adjusted.  Only Hercules supported
+.* architectures are tested.
+.*   &LABEL   A symbol identifying the start of the macro's instructions
+.*   &RUNNING The location at which the running CPU architecture returned by
+.*            APROB has been stored.  Defaults to LOD1ARCH.
+.*   &FAILURE Where control is passed if architecture adjustment fails.
+.* Programming Requirements:
+.*   1. Internally only S/360 instructions may be used.  These are the only
+.*      instructions universally available.
+.*   2. A local base register must be established before this code is executed.
+.*   3. Register 0 must be set as the base register for the assigned storage
+.*      area used by the LOD1 record.
+.*   4. A return code indicates the result.  It uses a register that defaults
+.*      to 1.
+.*  Return Codes used by this macro:
+.*    0  The running architecture is compatible with the assembled architecture
+.*  All additional return codes indicate otherwise.
+.*    4  Change to 64-bit architecture mode
+.*    8  Change to 31-bit architecture mode
+.*   12  Architectures incompatible
+         GBLA  &ARCHLVL
+         AIF   (&ARCHLVL NE 0).ARCHOK
+         MNOTE 1,'AARCHS - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   ('&RUNNING' NE '').RUNOK
+         MNOTE 1,'TARCH - ''RUNNING'' PARAMETER REQUIRED'
+         MEXIT
+.RUNOK   ANOP
+         AIF   ('&LABEL' EQ '').NOLABEL
+&LABEL   DS    0H
+.NOLABEL ANOP
+         SLR   &RC,&RC                  Clear the return code
+         AIF   (&ARCHLVL EQ 1).S360
+         AIF   (&ARCHLVL EQ 2).S360
+         AIF   (&ARCHLVL EQ 3).S370
+         AIF   (&ARCHLVL EQ 4).DONE
+         AIF   (&ARCHLVL EQ 5).CKE390
+         AIF   (&ARCHLVL EQ 6).CKE390
+         AIF   (&ARCHLVL EQ 7).CKE390
+         AIF   (&ARCHLVL EQ 8).CKE390Z
+         AIF   (&ARCHLVL EQ 9).CKZ
+         MNOTE 1,'AARCH - UNEXPECTED ARCHLVL VALUE - &ARCHLVL'
+         MEXIT
+.S360    ANOP
+         CLI   &RUNNING,2            Is running architecture S/370-BC?
+         BE    AARX&SYSNDX           ..Yes, architectures are compatible
+         CLI   &RUNNING,3            Is running architecture S/370-EC?
+         BNE   AARI&SYSNDX           ..No, not compatible
+         LPSW  AARB&SYSNDX           ..Yes, adjust to BC-mode
+AARB&SYSNDX DS 0D
+         PSWBC 0,0,0,0,AARX&SYSNDX
+         AGO   .DONE
+.S370    ANOP
+         CLI   &RUNNING,3            Is running architecture S/370-EC?
+         BE    AARX&SYSNDX           ..Yes, architectures are compatible
+         CLI   &RUNNING,2            Is running architecture S/370-BC?
+         BNE   AARI&SYSNDX           ..No, not compatible
+         LPSW  AARE&SYSNDX           ..Yes, adjust to EC-mode
+AARE&SYSNDX DS 0D
+         PSWEC 0,0,0,0,AARX&SYSNDX
+         AGO   .DONE
+.CKE390  ANOP
+         CLI   &RUNNING,7            Is running architecture ESA/390?
+         BE    AARX&SYSNDX           ..Yes, architectures are compatible
+         CLI   &RUNNING,8            Is running architecture ESA/390 on z?
+         BE    AARX&SYSNDX           ..Yes, architectures are compatible
+         AGO   .DONE
+.CKE390Z ANOP
+         CLI   &RUNNING,8            Is running architecture ESA/390 on z?
+         BE    AARX&SYSNDX           ..Yes, architectures are compatible
+         CLI   &RUNNING,9            Is running architecture z?
+         BNE   AARI&SYSNDX           ..No, not compatible
+         LA    &RC,8                 ..Yes, downgrade architecture mode
+         B     AARX&SYSNDX           Bypass setting RC to 12
+         AGO   .DONE
+.CKZ     ANOP
+         CLI   &RUNNING,9            Is running architecture z?
+         BE    AARX&SYSNDX           ..Yes, architectures are compatible
+         CLI   &RUNNING,8            Is running architectre ESA/390 on z?
+         BNE   AARI&SYSNDX           ..No, not compatible
+         LA    &RC,4                 ..Yes, upgrade architecture
+         B     AARX&SYSNDX           Bypass setting RC to 12
+.DONE    ANOP
+AARI&SYSNDX DS 0H
+         LA    &RC,12                Set incompatible architectures return code
+AARX&SYSNDX DS 0H
+         MEND

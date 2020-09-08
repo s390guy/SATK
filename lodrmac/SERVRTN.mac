@@ -1,0 +1,45 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   SERVRTN
+.* Returns from a service to the Boot Loader Framework for return to caller.
+.* Assumes addressability to the ASA already exists.
+         GBLA  &ARCHLVL    Assembly time architecture level
+         GBLC  &BLSDSN     Name of savea area dsect used at assembly time
+         GBLC  &BLSDSP     Save area field prefix name
+         AIF   (&ARCHLVL GT 0).ARCHOK
+         MNOTE 1,'SERVRTN - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   ('&BLSDSP' NE '').PFXOK
+         MNOTE 1,'SERVRTN - SERVS MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.PFXOK   ANOP
+         USING &BLSDSN,13    On return, service points to its save area
+&LABEL   $L    13,&BLSDSP.BCK Restore caller's save area address from service
+* R13 now points to the caller's registers
+         AIF   (&ARCHLVL GE 9).LLGT
+         L     15,LOD1RTN      Return to the framework for the return
+         AGO   .RETURN
+.LLGT    ANOP
+         LLGT  15,LOD1RTN      Return to the framework for the return
+.RETURN  ANOP
+         DROP 0                Forget ASA
+         DROP 13               Forget any save area addressing as we leave
+         BR   15               Return now to the framework...
+         MEND

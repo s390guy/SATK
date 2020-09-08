@@ -1,0 +1,68 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         BLCOMMON
+         GBLA  &ARCHLVL
+         GBLA  &ISLOADR
+         AIF   (&ISLOADR).OK
+         MNOTE 1,'BLCOMMON - MACRO INTERNAL TO BOOT LOADER - MAY NOT BE USED'
+         MEXIT
+.OK      ANOP
+         LCLB  &ISCS      Whether channel subsystem being used or not
+         AIF   (&ARCHLVL NE 0).ARCHOK
+         MNOTE 1,'BLCOMMON - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+* End-of-Boot-Loader Address used to identify if caller is the boot loader
+.* Used by SERVICE macro to determine if the booted program is calling the
+.* service, when SERVICE keyword parameter is BOOTED=NO.
+EOBLA    DC    A(EOBL)      Boot Loader's ending address
+         AIF   (&ARCHLVL LE 3 OR &ARCHLVL GE 9).NOCALLR
+CALLERA  DC    A(0)         Caller's return address
+.NOCALLR ANOP
+* IPL Device I/O Table Address
+IPLDEVTA DC    A(0)     Returned by IOINIT service. Established upon return
+         SPACE 1
+* ENADEV service uses this to determine if the table is full.  The field
+* is initialized in the assembly to the total length of the I/O Table and
+* converted to an address by the IOINIT service.
+IOTMAX   DC    A(IOTDEVS*BLSIOEL)   The byte following the I/O Table.
+         SPACE 1
+* These values may be used by a BXLE.  The first entry is pointed to by the
+* initial 'sum' register value.  If the table entry fails, use BXLE to
+* point to the next entry.  The entire table has been examined when the
+* branch is not taken.  The IOINIT service adds the IPL device to the table.
+* So there is always at least one device in the table
+IOTBLBA  DC    A(0)    Set by IOINIT service               BXLE R1   sum
+IOTBLI   DC    A(BLSIOEL)   Entry length (increment)       BXLE R3   even
+IOTBLEA  DC    A(0)    Set by IOINIT service (comparand)   BXLE R3+1 odd
+         SPACE 1
+* Latest interruption source is the primary or secondary device
+INTSRC   DC    X'00'    Interruption source
+INTPRI   EQU   X'01'    Interruption source is the primary device
+INTSEC   EQU   X'02'    Interruption source is the secondary device
+         AIF   (&ARCHLVL LT 5).EXIT
+         SPACE 1
+* What is in CSBLOCKS location - Used for debugging
+CSSTRUCT DC    X'00'   Last stored structure from channel subsystem
+CSSSCHIB EQU   X'01'   CHSSBLK contains an SCHIB
+CSSIRB   EQU   X'02'   CHSSBLK contains an IRB
+         SPACE 1
+* Where channel subsystem blocks are stored.  Initialized by IOINIT service
+CSBLOCKS DC    A(0)
+.EXIT    MEND

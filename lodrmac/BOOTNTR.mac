@@ -1,0 +1,64 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         BOOTNTR
+         GBLA  &ARCHLVL
+         GBLB  &ISLOADR
+         AIF   (&ISLOADR).OK
+         MNOTE 1,'BOOTNTR - MACRO INTERNAL TO BOOT LOADER - MAY NOT BE USED'
+         MEXIT
+.OK      ANOP
+         AIF   (&ARCHLVL GT 0).ARCHOK
+         MNOTE 1,'BOOTNTR - ARCHLVL MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   (&ARCHLVL LT 5).TSTAM24
+         AIF   (&ARCHLVL LT 9).TSTAM31
+.* &ARCHLVL GE 9 - Can do AM 24, 31, or 64
+         LLGT  15,LOD1ENTR        Fetch the entry address from LOD1
+*                                 Clears bit 32, AM 31 flag, in the address
+         NILL  15,X'FFFE'         Clear bit 63, AM 64 flag, in the address
+         TM    LOD1ENTR,X'80'     Is AM 31 requested?
+         $BO   SETAM31            ..Yes, set AM to 31
+         TM    LOD1ENTR+3,X'01'   Is AM 64 requensted? 
+         $BO   SETAM64            ..Yes, set AM to 64
+         SAM24                    ..No, so setting AM to 24
+         BR   15                  Enter the booted program with AM 24
+         SPACE 1
+SETAM31  SAM31                    Set AM to 31
+         BR   15                  Enter the booted program with AM 31
+         SPACE 1
+SETAM64  SAM64                    Set AM to 64
+         BR   15                  Enter the booted program with AM 64
+         MEXIT
+.* Can only do AM 24...
+.TSTAM24 ANOP
+         TM    LOD1ENTR,X'80'     Is 31-bit addressing set in address?
+         BO    AMERROR            ..Yes, can not do that, so quit
+         TM    LOD1ENTR+3,X'01'   Is 64-bit addressing set in address?
+         BO    AMERROR            ..Yes, can not do that either, quit
+         L     15,LOD1ENTR        Fetch entry point for booted program from LOD1
+         BR    15                 Enter the booted program
+         MEXIT
+.TSTAM31 ANOP
+.* Can do AM 24 or 31
+         TM    LOD1ENTR+3,X'01'   Is 64-bit addressing set in address?
+         BO    AMERROR            ..Yes, can not do that, quit 
+         L     15,LOD1ENTR        Fetch entry point for booted program from LOD1
+         BSM   0,15               Enter the booted program
+         MEND

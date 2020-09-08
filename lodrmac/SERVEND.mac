@@ -1,0 +1,30 @@
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   SERVEND
+         GBLB  &ISLOADR
+         AIF   (&ISLOADR).OK
+.* Silently ignore this macro if not building a boot loader.  Means we are
+.* just creating equates for a booted program that uses the services.
+         MEXIT
+.OK      ANOP
+         GBLA  &BLSNUM
+         AIF   ('&LABEL' NE '').GENEQU
+         MNOTE 1,'SERVEND - LABEL REQUIRED'
+         MEXIT
+.GENEQU  ANOP
+&LABEL   EQU   &BLSNUM     Number of defined services
+         MEND

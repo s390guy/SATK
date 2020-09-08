@@ -1,0 +1,104 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         SERVIOIN
+         GBLA  &ARCHLVL
+         GBLA  &ISLOADR
+         AIF   (&ISLOADR).OK
+         MNOTE 1,'SERVIOIN - MACRO INTERNAL TO BOOT LOADER - MAY NOT BE USED'
+         MEXIT
+.OK      ANOP
+         LCLB  &ISCS      Whether channel subsystem being used or not
+         AIF   (&ARCHLVL NE 0).ARCHOK
+         MNOTE 1,'SERVIOIN - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+.* SERVIOIN SERVICE IOINIT,IOINSAVE,BOOTED=IOINRTN4
+SERVIOIN SERVICE IOINIT,IOINSAVE
+* Move input option to INTHND SPB for call
+         $LR   4,1              Need to free up R1 for I/O commands
+         DROP  1
+         USING SPB,4            Set new register for addressing input SPB
+         SPACE 1
+.* Initialize the I/O table and add IPL Device to it
+IOIA&SYSNDX DS 0H    Add IPL Device to the I/O Table
+         LA    6,EOBL+(IOTBL-DMEMORY)   Locate the start of the I/O table
+         ST    6,IOTBLBA                Set up BXLE sum register
+         L     5,IOTMAX                 Fetch the length of the table
+         ALR   5,6                      Calculate the byte following the table
+         ST    5,IOTMAX                 Replace length with addresss
+         USING BLSIOT,6                 Point to the first entry.
+* Add the IPL device to the I/O Table
+         AIF   (&ARCHLVL GE 5).CHSYS    Do channel subsystem init
+         $LH   5,IOICODE                Fetch the IPL device address
+         STH   5,BLSDEV                 Add the channel/unit address to IOTE
+         ST    5,BLSHDW                 Make it the hardware address too
+         MVC   BLSTYP,SPBSI             Set device type from SPB SI
+         SPACE 1
+* Generate the IPL device status error mask
+         BLSERR
+         ST    6,SPBIOTA                Return to caller the IPL device's IOTA
+         DROP  6                        Done with the table for now
+         LA    7,BLSIOEL-1(,6)          Add the entry length -1
+         ST    7,IOTBLEA                Set up the BXLE comparand register
+         AIF   (&ARCHLVL LE 2).BCMODE    Generate the BC-mode environment
+.* Channel I/O initialization
+         LCTL  2,2,INTMASK
+.BCMODE  ANOP
+         MVI   SPBSI,X'01'          Indicate CCW Format 0 in use
+         B     IOINRTN0             Return to my caller
+         AGO   .RETURN
+.CHSYS   ANOP
+         LCTL  6,6,INTMASK
+         MVI   SPBSI,X'02'          Indicate CCW Format 1 in use
+         LA    7,EOBL+(CHSSBLK-DMEMORY) Locate where to store subchannel blocks
+         ST    7,CSBLOCKS           Where SCHIB or IRB is stored
+         L     1,IOSSID             Retrieve the SIW of IPL device from ASA
+         STSCH 0(7)                 Retrieve the IPL device's SCHIB
+         $BC   B'1000',CSSAVED      The SCHIB was saved
+         DC    H'0'                 If not saved, something bad happened
+CSSAVED  DS    0H    SCHIB in the CS block area
+         MVI   CSSTRUCT,CSSSCHIB    Indicate the SCHIB is in the block
+         USING SCHIB,7              Address the SCHIB just fetched
+         MVC   BLSDEV,PMCWDNUM      Set the device number in the IOT entry
+         ST    1,BLSHDW             Set the IPL device SIW in the IOT
+         MVC   BLSTYP,SPBSI         Set device type from SPB SI
+         SPACE 1
+* Generate the device status error mask for the IPL device
+         BLSERR
+         ST    6,SPBIOTA         Return to caller the IPL device's IOT address
+         DROP  6                 Done with the table entry
+         LA    7,BLSIOEL-1(,6)   Add the entry length -1
+         DROP  7                 Forget the address of the SCHIB
+         ST    7,IOTBLEA         Set up the BXLE comparand register
+         $B    IOINRTN0          Return with RC==0
+.RETURN  ANOP
+IOINRTN4 LA    0,4               Set return code 4 from service
+         $B    IOINRTN           Return to caller
+IOINRTN0 $SR   0,0               Set return code from service
+         DROP  4                 Forget input SPB
+IOINRTN  SERVRTN
+         SPACE 1
+         DS    0F      Make sure interruption mask is on a fullword boundary
+         AIF   (&ISCS).CHFLDS
+INTMASK  DC    X'FFFFFFFF'      Enable all channels for interruptions
+         AGO   .EXIT
+.CHFLDS  ANOP
+INTMASK  DC    X'FF000000'      Enable all interruption sub classes
+.EXIT    ANOP
+         MEND

@@ -1,0 +1,326 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   SERVEXCP
+SERVEXCP SERVICE EXCP,EXCPSAVE
+         GBLA  &ARCHLVL
+         GBLA  &ISLOADR
+         AIF   (&ISLOADR).OK
+         MNOTE 1,'SERVEXCP - MACRO INTERNAL TO BOOT LOADER - MAY NOT BE USED'
+         MEXIT
+.OK      ANOP
+         LCLB  &BCMODE       BC-mode target
+         LCLB  &CHAN         Channel-based I/O
+         LCLB  &CS           Channel subsystem I/O
+         LCLB  &Z            On z
+         AIF   (&ARCHLVL NE 0).ARCHOK
+         MNOTE 1,'SERVEXCP - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+.*  Set architecture related symbols
+&BCMODE  SETB  &ARCHLVL LE 2
+&CHAN    SETB  &ARCHLVL LT 5
+&CS      SETB  &ARCHLVL GE 5
+&Z       SETB  &ARCHLVL GE 9
+         DROP  1
+         $LR   4,1     Free up R1 for I/O commands and preserve SPB
+         USING SPB,4
+         $SLR  0       Set the return code to 0, optimistically
+         SPACE 1
+*
+* Validate the ORB
+*
+         CLC   SPBEORBT,IOTBLBA     Is the I/O Table address below table?
+         $BL   EXCP16RC             ..Yes, not a valid address
+         CLC   SPBEORBT,IOTBLEA     Is the address beyond the table?
+         $BH   EXCP16RC             ..Yes, not a valid address
+         TM    SPBEORBT+3,X'03'     Is the address on a full word?
+         $BNZ  EXCP16RC             ..No, not a valid address
+         TM    SPBEORBK,SPBEORBR    Are bits 4-7 of the key field zeros?
+         $BNZ  EXCP16RC             ..No, not valid for an ORB
+         AIF   (&CS).CKFLAG
+         CLI   SPBEORB1,X'00'       Is the F flag zero (and the rest zeros)?
+         AGO   .BADFLAG
+.CKFLAG  ANOP
+         CLI   SPBEORB1,X'80'       Is the F flag set (and the rest zeros)?
+.BADFLAG ANOP
+         $BNE  EXCP16RC             ..No, not a valid flag setting
+.CKBYT3  ANOP
+         CLI   SPBEORB2,X'00'       Is byte 3 of word 1 zero?
+         $BNE  EXCP16RC             ..No, not valid for an ORB
+         SPACE 3
+*
+* STEP 1 - Start I/O operations for the device
+*
+         MVC   PDEVENDS,SPBECTL     Move the SPB SI control mask
+         NI    PDEVENDS,PDEVENDM    Isolate channel end and device end bits
+* This mask will be used to determine when the primary device is done
+         SPACE 1
+         TM    SPBECTL,SPBEBY1      Is the channel program bypassed?
+         $BO   EXCPDOWT             ..Yes, go to step 2, waiting
+         AIF   (&CS).CK31
+         CLC   SPBEORBP,EXCPZERO    Is channel program address missing?
+         AGO   .BADCCW
+.CK31    ANOP
+         CLC   SPBEORBC,EXCPZERO    Is channel program address missing?
+.BADCCW  ANOP  
+         $BE   EXCP16RC             ..Yes, not valid for this ORB
+         SPACE 1
+         L     5,SPBEORBT           Fetch the I/O Table entry address from ORB
+         USING BLSIOT,5             Address the entry
+         AIF   (&CS).SSCH
+* NEED TO CHECK FOR BUSY STATE
+         MVC   CAWKEY,SPBEORBK      Move the key to the CAW in ASA
+         MVC   CAWADDR,SPBEORBP     Move the CCW address to the CAW in ASA
+         MVC   BLSUNCH,EXCPZERO     Clear the status field to zeros
+         L     1,BLSHDW             Fetch the device's hardware address
+         SPACE 1
+* Try to start the I/O at the primary device
+         SIO   0(1)     Request device channel program to start, did it?
+         BC    B'0100',EXCP12RC     ..No, CC=1 device not available
+         BC    B'0010',EXCP12RC     ..No, CC=2 device or channel is busy
+         BC    B'0001',EXCP08RC     ..No, CC=3 CSW stored in ASA at X'40'
+         AGO   .BUSY
+.SSCH    ANOP
+         L     1,BLSHDW               Fetch the device's hardware address
+         LA    6,SPBEORB              Point to the ORB in the SPB
+         SSCH  0(6)                   Was request accepted?
+         $BC    B'1000',EXCPDOWT      ..Yes, CC=0 wait for results...
+         $BC    B'0010',EXCP12RC      ..No, CC=2 subchannel is busy
+*                                     It has a previous start, halt or clear
+*                                     function in progress.  Should not happen
+         $BC    B'0001',EXCP12RC      ..No, CC=3 device not available
+*                                     Should not happen.  Device was enabled
+*        $BC    B'0100',FALL THROUGH  ..No, CC=1 subchannel has pending status?
+*  This could be unsolicited status.  Check if device will do that.
+         TM    BLSTYP,BLSUNSOL        Does the device generate unsolicited ATTN?
+         $BNO  EXCP08RC               ..No, so an error state
+         $B    EXCPDOWT               ..Do the wait, but not busy with my work
+* It does, so fall through and wait for an interrupt (SSCH did not start!)
+.BUSY    ANOP
+* I/O Started - busy with my work.  Indicate the device is busy...
+         MVI   BLSTATUS,BLSBUSY     ..and clear other status bits
+         SPACE 3
+*
+* STEP 2 - Wait for I/O Operation to complete with an interruption
+*
+EXCPDOWT DS    0H   Wait for an interrupt from a device
+         AIF   (&Z).ZWAIT
+.* Use 64-bit PSW's
+         MVC   IONPSW(8),EXCPCONT   Set up new PSW for after I/O interrupt
+         $LPSW EXCPWAIT   Wait for I/O interruption and CSW from channel
+EXCPDONE EQU   *          EXCP continues here after I/O interruption
+         MVC   IONPSW(8),EXCPTRAP   Restore I/O trap PSW
+         AGO   .WAITDON
+.ZWAIT   ANOP
+.* Use 128-bit PSW's
+         MVC   ZIONPSW(16),EXCPCONT     Set up new PSW for after I/O interrupt
+         $LPSW EXCPWAIT                 Wait for I/O interruption
+EXCPDONE EQU   *          EXCP continue here after I/O interruption
+         MVC   ZIONPSW(16),EXCPTRAP     Restore I/O trap PSW
+.WAITDON ANOP
+         AIF   (&CHAN).CHANINT
+.*  Channel subsystem processing of interruption
+*
+* Fetch the interruption information for the interrupting device
+* 
+         L     7,IOIPARM        Fetch the IOT entry address of device
+         CL    7,SPBEORBT       Is this from the primary device?
+         $BE   EXCPSPR          ..Yes, proceed by getting the interruption
+         MVI   INTSRC,INTSEC    ..No, remember this is a secondary device
+         $B    EXCPSRS          and move it to its IOT entry
+         USING BLSIOT,7         Point to IOT entry from SPB
+         SPACE 1
+EXCPSPR  DS    0H    Fetch the interruption information
+         MVI   INTSRC,INTPRI    Remember this is the primary device
+EXCPSRS  DS    0H
+         L     1,IOSSID         Fetch this device IRB (used by TSCH)
+         L     2,CSBLOCKS       This is where the IRB goes in memory
+         TSCH  0(2)             Fetch the IRB
+         $BC    B'1000',EXCPIRB  IRB has been stored with status
+         DC    H'0'             Die if something else occurs
+         SPACE 1
+EXCPIRB  DS    0H   IRB stored
+         MVI   CSSTRUCT,CSSIRB  Remember which block is stored
+         USING IRB,2            Point to the IRB
+         MVC   BLSSW(12),IRBSCSW   Copy the SCSW from IRB to IOT entry
+         OC    BLSUNCH,BLSSW+(SCSWUS-SCSW)  Accumulate status
+         OI    BLSTATUS,BLSTATS       BLSUNCH has status
+         DROP  2                Do not need the IRB any longer
+         AGO   .STEP2DN         Move on to Step 3 (status analysis)
+.CHANINT ANOP
+.* Channel-based I/O processing of the interruption
+* Determine if an unexpected interrupt occurred
+         AIF   (NOT &BCMODE).CKICODE
+         MVC   IOICODE,IOOPSW+2   Move BC-mode interrupt code to ASA from PSW
+.CKICODE ANOP
+         AIF   (&ARCHLVL EQ 1).NOCLM
+         CLM   1,B'0011',IOICODE   Is the interrupt from the primary device?
+         AGO   .HAVECLM
+.NOCLM   ANOP
+         CH    1,IOICODE     Is the interrupt from the primary device?
+.HAVECLM ANOP
+         BNE   EXCPFIND       ..No, find the secondary device's IOT entry
+         MVI   INTSRC,INTPRI  ..Yes, remember it is the primary device
+         LR    7,5            Set up R7 for IOT entry base, as used below
+         B     EXCPMVST       Move it to the primary device IOT entry
+         DROP  5
+         SPACE 1
+*
+* Locate the secondary interrupting device IOT entry from its hardware address
+*
+EXCPFIND LM    7,9,IOTBLBA         Initialize the search registers
+         USING BLSIOT,7
+*Same logic as in QIOT service, except looking for hardware address
+EXCPQIOT DS    0H
+         CLC   IOICODE,BLSHDW+2     Is this the primary device?
+         $BE   EXCPFNDS             ..Yes, found the secondary device
+         $BXLE 7,8,EXCPQIOT         ..No, try another device
+* Did not find the device in the table, so can not be the expected device
+* Only devices in the table are processable here, so ignore unknown device
+         MVI   INTSRC,X'00'   From an unknown device
+         $B    EXCPDOWT       Try for an interrupt from the primary device
+EXCPFNDS MVI   INTSRC,INTSEC  Remember the interrupt is from a secondary device
+         SPACE 1
+EXCPMVST DS    0H    Move the status to the found IOT entry
+* Clear unused bytes
+         MVC   BLSSW+1(4),EXCPZERO
+* Move the CSW flag
+         MVC   BLSSW+(SCSWFLAG-SCSW)(L'SCSWFLAG),CSW+(CSWFLAG-CSWFMT)
+* Move the CSW CCW address, status, and residual count fields
+         MVC   BLSSW+(SCSWCCW+SCSW)+1(7),CSW+(CSWCCW-CSWFMT)  
+         space 1
+* Accumulate the status for this device
+         OC    BLSUNCH,BLSSW+(SCSWUS-SCSW)
+         OI    BLSTATUS,BLSTATS       BLSUNCH has status
+.STEP2DN ANOP
+         SPACE 3
+*
+* STEP 3 - Analyze Status (from either expected or unexpected device)
+*
+EXCPANAL DS    0H   Analyze status in the IOT entry
+         TM    BLSTATUS,BLSTATS    Status in the IOT entry?
+         $BO   *+6                 ..Yes, keep going
+         DC    H'0'                ..No, should have status here.  DIE!
+         SPACE 1
+* Determine if unsolicited status normal for this device
+         TM    BLSTYP,BLSUNSOL     Does the device generate unsolicited ATTN?
+         $BNO  EXCPSOL             ..No, so solicited status
+         TM    BLSUNIT,BLSATTN     ..Yes, so is this an ATTN?
+         BNO   EXCPSOL     ..No, so assume solicited status for primary device
+         MVI   BLSACT,BLSREAD      ..Yes, indicate this device needs a read
+         OI    BLSTATUS,BLSTATO    There is a pending action for this device
+         MVI   SPBPEND,SPBPENDG    Tell the program some device needs action
+         $CLR  5,7                 Is this the primary device?
+         $BNE  EXCPDOWT            ..No, try for another interrupt
+         SPACE 1
+* Primary device sent Attention status.  So, return code is 0
+         DROP  7                   Forget interrupting device entry
+         B     EXCP00RC            Return code 0
+         SPACE 1
+EXCPSOL  DS    0H      Determine primary device's state
+         USING BLSIOT,5
+         CLI   BLSCH,X'00'         Did a channel error occur?
+         $BNE  EXCP08RC            ..Yes, indicate an error condition
+         IC    3,BLSERR            Fetch the error mask for the device
+         EX    3,EXCPDERR          ..Did a general device error occur?
+         $BNZ  EXCP08RC            ..Yes, return with 8 as return code
+         SPACE 1
+         TM    BLSUNIT,SCSWUC      Did a Unit Check occur?
+         $BNO  EXCPSOLE            ..No, check for possible EOF condition
+         MVI   BLSACT,BLSRDSN      ..Yes, indicate this device has sense data
+         MVI   SPBPEND,SPBPENDG    Tell the program some device needs action
+         OI    BLSTATUS,BLSTATO    There is a pending action for this device
+         $B    EXCP08RC            Also indicate the primary device has error.
+         SPACE 1
+EXCPSOLE DS    0H     Determine if ending status is good
+* Determine if the device ended as expected
+* Checking termination settings from input SPBSI
+         IC    3,PDEVENDS          Fetch the ending mask for the operation
+         EX    3,EXCPDERR          Did device end?
+         $BNO  EXCPDOWT            ..No, wait for another interrupt
+         TM    BLSTYP,BLSPEOF      Does device detect physcial end-of-file?
+         $BNO  EXCP00RC            ..No, return code 0
+         TM    BLSUNIT,SCSWUX      Did Unit Exception occur?
+         $BO   EXCP04RC            ..Yes, return code 4
+         USING BLSIOT,5            Return to the caller with return code 0
+*
+* Return to service caller with primary device return code
+*
+EXCP00RC DS    0H   Primary device successful
+         NI    BLSTATUS,X'FF'-BLSBUSY    Turn off busy flag
+         $SLR  0,0               Set return code to 0
+         $B    EXCPRCAL
+         SPACE 1
+EXCP04RC DS    0H   Primary device detected physical end-of-file condition
+         NI    BLSTATUS,X'FF'-BLSBUSY    Turn off busy flag
+         LA    0,4                Set return code to 4
+         $B    EXCPRCAL
+EXCP08RC DS    0H   Primary device is in an error condition
+         NI    BLSTATUS,X'FF'-BLSBUSY    Turn off busy flag
+         LA    0,8                Set return code to 8
+         $B    EXCPRCAL
+         SPACE 1
+EXCP12RC DS    0H   Device not available
+         NI    BLSTATUS,X'FF'-BLSBUSY    Turn off busy flag
+         LA    0,12                Set return code to 12
+         $B    EXCPRCAL
+         SPACE 1
+EXCP16RC DS    0H   Return invalid ORB
+         LA    0,16                Set return code to 16
+         SPACE 1
+         DROP  4
+         DROP  5
+         SPACE 1
+*
+* Return to service caller
+*
+EXCPRCAL SERVRTN
+         SPACE 1
+         AIF   (&BCMODE).BCWAIT
+EXCPWAIT PSW   2,0,2,0,0          Causes CPU to wait for I/O interruption
+         AGO   .CONT
+.BCWAIT  ANOP
+EXCPWAIT PSWBC X'FE',0,2,0,0      Causes CPU to wait for I/O interruption
+.CONT    ANOP
+         AIF   (&Z).ZDONE
+         AIF   (&CS).CSDONE
+EXCPCONT PSW   0,0,0,0,EXCPDONE   Causes the CPU to continue after waiting
+         AGO   .TRAP
+.CSDONE  ANOP
+EXCPCONT PSW   0,0,0,0,EXCPDONE,31  Causes the CPU to continue after waiting
+.TRAP    ANOP
+EXCPTRAP PSW   0,0,2,0,X'38'      I/O trap New PSW (restored after I/O)
+         AGO   .CONSTNT
+.ZDONE   ANOP
+EXCPCONT PSW   0,0,0,0,EXCPDONE,31  Causes the CPU to continue after waiting
+EXCPTRAP PSW   0,0,2,0,X'170'     I/O trap New PSW (restored after I/O)
+.CONSTNT ANOP
+EXCPZERO DC    F'0'               A constant of zeros
+EXCPONE  DC    H'1'               A constant of one
+         SPACE 1
+* These two locations detect device errors for a specific device type
+* The device type implies the EXCPDEMK content.
+         USING BLSIOT,5    Set addressing for executed instruction
+EXCPDERR TM    BLSUNIT,0   Executed to detect device errors or ending status
+         DROP  5
+         SPACE 1
+* Successful primary device unit status mask (driven by EXCP SPB SI data)
+PDEVENDS DC    XL1'00'            Primary unit status mask success
+PDEVENDM EQU   X'0C'    Isolate the Channel End and Device status bits
+         MEND

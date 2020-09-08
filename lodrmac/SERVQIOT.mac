@@ -1,0 +1,52 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         SERVQIOT
+         GBLA  &ARCHLVL
+         GBLA  &ISLOADR
+         AIF   (&ISLOADR).OK
+         MNOTE 1,'SERVQIOT - MACRO INTERNAL TO BOOT LOADER - MAY NOT BE USED'
+         MEXIT
+.OK      ANOP
+         AIF   (&ARCHLVL NE 0).ARCHOK
+         MNOTE 1,'SERVQIOT - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+SERVQIOT SERVICE QIOT,QIOTSAVE
+         $SR   0,0                 Set return code to 0, optimistically
+         AIF   (&ARCHLVL GE 9).INIT64
+         LM    5,7,IOTBLBA         Initialize the search registers
+         AGO   .SEARCH
+.INIT64  ANOP
+         LLGT  5,IOTBLBA           Initialize the BXLE R1 (sum)
+         LLGT  6,IOTBLI            Initialize the BXLE R3 (even reg of pair)
+         LLGT  7,IOTBLEA           Initialize the BXLE R3+1 (odd reg of pair)
+.SEARCH  ANOP
+         USING BLSIOT,5
+QIOTLOOP DS    0H                  Check the table entry device number
+         CLC   SPBSI,BLSDEV         Is this the device being sought?
+         $BE   QIOFOUND             ..Yes, return the entry's address
+         $BXLE 5,6,QIOTLOOP         ..No, try again
+* Did not find the device in the table
+         $LR   5,0                  Prepare to clear the SPBE
+         LA    0,4                  Set return code to 4 (not found)
+QIOFOUND DS    0H      Found the entry
+         ST    5,SPBIOTA     Return the entry address in the SPBE or zero
+         DROP  5
+QIORETRN SERVRTN
+         MEND

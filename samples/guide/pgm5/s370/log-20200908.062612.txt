@@ -1,0 +1,123 @@
+06:26:12 HHC00100I Thread id 00007f706e994b80, prio 5, name 'impl_thread' started
+06:26:12 HHC00100I Thread id 00007f706e892700, prio 4, name 'logger_thread' started
+06:26:12 HHC01413I Hercules version 4.3.9999.0-SDL-g34f4353b (4.3.9999.0)
+06:26:12 HHC01414I (C) Copyright 1999-2020 by Roger Bowler, Jan Jaeger, and others
+06:26:12 HHC01417I ** The SoftDevLabs version of Hercules **
+06:26:12 HHC01415I Build date: Jul  8 2020 at 10:45:38
+06:26:12 HHC01417I Built with: GCC 9.3.0
+06:26:12 HHC01417I Build type: GNU/Linux x86_64 host architecture build
+06:26:12 HHC01417I Modes: S/370 ESA/390 z/Arch
+06:26:12 HHC01417I Max CPU Engines: 128
+06:26:12 HHC01417I Using   shared libraries
+06:26:12 HHC01417I Using   setresuid() for setting privileges
+06:26:12 HHC01417I Using   POSIX threads Threading Model
+06:26:12 HHC01417I Using   Error-Checking Mutex Locking Model
+06:26:12 HHC01417I With    Shared Devices support
+06:26:12 HHC01417I With    Dynamic loading support
+06:26:12 HHC01417I With    External GUI support
+06:26:12 HHC01417I With    IPV6 support
+06:26:12 HHC01417I With    HTTP Server support
+06:26:12 HHC01417I With    sqrtl support
+06:26:12 HHC01417I With    Signal handling
+06:26:12 HHC01417I With    Watchdog monitoring
+06:26:12 HHC01417I With    CCKD BZIP2 support
+06:26:12 HHC01417I With    HET BZIP2 support
+06:26:12 HHC01417I Without ZLIB support
+06:26:12 HHC01417I With    Regular Expressions support
+06:26:12 HHC01417I Without Object REXX support
+06:26:12 HHC01417I Without Regina REXX support
+06:26:12 HHC01417I With    Automatic Operator support
+06:26:12 HHC01417I Without National Language Support
+06:26:12 HHC01417I With    CCKD64 Support
+06:26:12 HHC01417I With    Transactional-Execution Facility support
+06:26:12 HHC01417I Machine dependent assists: cmpxchg1 cmpxchg4 cmpxchg8 cmpxchg16 hatomics=C11
+06:26:12 HHC01417I Running on: harold-ThinkCentre-M800 (Linux-5.4.0-45-generic x86_64) MP=8
+06:26:12 HHC01417I Built with crypto external package version 1.0.0.0
+06:26:12 HHC01417I Built with decNumber external package version 3.68.0.0
+06:26:12 HHC01417I Built with SoftFloat external package version 3.5.0.0
+06:26:12 HHC01417I Built with telnet external package version 1.0.0.0
+06:26:12 HHC00018W Hercules is NOT running in elevated mode
+06:26:12 HHC00007I Previous message from function 'impl' at impl.c(976)
+06:26:12 HHC00150I Crypto module loaded (C) Copyright 2003-2016 by Bernard van der Helm
+06:26:12 HHC00151I Activated facility: Message Security Assist
+06:26:12 HHC00151I Activated facility: Message Security Assist Extension 1, 2, 3 and 4
+06:26:12 HHC00111I Thread CPU Time IS available (_POSIX_THREAD_CPUTIME=0)
+06:26:12 HHC00100I Thread id 00007f706e344700, prio 7, name 'timer_thread' started
+06:26:12 HHC00100I Thread id 00007f706e445700, prio 2, name 'Processor CP00' started
+06:26:12 HHC00811I Processor CP00: architecture mode z/Arch
+06:26:12 HHC00811I Processor CP00: architecture mode S/370
+06:26:12 HHC02204I ARCHLVL        set to S/370
+06:26:12 HHC02204I LPARNUM        set to BASIC
+06:26:12 HHC17003I MAIN     storage is 64K (mainsize); storage is not locked
+06:26:12 HHC02204I NUMCPU         set to 1
+06:26:12 HHC00507I 0:0110 FBA file pgm5.3310: origin 0, blks 9
+06:26:12 HHC02260I Script 1: begin processing file pgm5.rc
+06:26:12 HHC01603I t+00F
+06:26:12 HHC02204I CCW trace for 0:000F set to ON
+06:26:12 HHC01603I t+110
+06:26:12 HHC02204I CCW trace for 0:0110 set to ON
+06:26:12 HHC01603I ipl 110
+06:26:12 HHC01315I 0:0110 CHAN: ccw 02000000 60000018
+06:26:12 HHC00518I 0:0110 FBA file pgm5.3310: read blkgrp 0 cache miss, using cache[0]
+06:26:12 HHC00519I 0:0110 FBA file pgm5.3310: read blkgrp 0 offset 0 len 4608
+06:26:12 HHC01312I 0:0110 CHAN: stat 0C00, count 0000=>00080000 00000400 02002300 40000200 ............ ...
+06:26:12 HHC01315I 0:0110 CHAN: ccw 02002300 40000200
+06:26:12 HHC01312I 0:0110 CHAN: stat 0C00, count 0000=>00080000 00000400 02002300 40000200 ............ ...
+06:26:12 HHC01315I 0:0110 CHAN: ccw 08002318 00000001
+06:26:12 HHC01315I 0:0110 CHAN: ccw 43002348 40000008=>06000004 00000004                   ........
+06:26:12 HHC00520I 0:0110 FBA file pgm5.3310: positioning to 0x800 2048
+06:26:12 HHC01312I 0:0110 CHAN: stat 0C00, count 0000
+06:26:12 HHC01315I 0:0110 CHAN: ccw 42000400 40000800
+06:26:12 HHC01312I 0:0110 CHAN: stat 0C00, count 0000=>900F0200 0DC0D207 0000C2EA 95120244 .....{K...B.n...
+06:26:12 HHC01315I 0:0110 CHAN: ccw 43002350 40000008=>06000001 00000002                   ........
+06:26:12 HHC00520I 0:0110 FBA file pgm5.3310: positioning to 0x400 1024
+06:26:12 HHC01312I 0:0110 CHAN: stat 0C00, count 0000
+06:26:12 HHC01315I 0:0110 CHAN: ccw 42000000 40000200
+06:26:12 HHC01312I 0:0110 CHAN: stat 0C00, count 0000=>00080000 00000400 00000000 00000000 ................
+06:26:12 HHC01315I 0:0110 CHAN: ccw 43002358 40000008=>06000001 00000003                   ........
+06:26:12 HHC00520I 0:0110 FBA file pgm5.3310: positioning to 0x600 1536
+06:26:12 HHC01312I 0:0110 CHAN: stat 0C00, count 0000
+06:26:12 HHC01315I 0:0110 CHAN: ccw 42000200 00000200
+06:26:12 HHC01312I 0:0110 CHAN: stat 0C00, count 0000=>00000000 00000000 00000000 00000000 ................
+06:26:12 HHC02264I Script 1: file pgm5.rc processing ended
+06:26:12 HHC00801I Processor CP00: Specification exception code 0006 ilc 0
+06:26:12 HHC02324I PSW=00080000800004C0 INST=0000         ????? ,                      ?
+06:26:12 HHC02269I GR00=0000073C GR01=00000000 GR02=00000000 GR03=00000000
+06:26:12 HHC02269I GR04=00000000 GR05=00000000 GR06=00000000 GR07=00000000
+06:26:12 HHC02269I GR08=00000000 GR09=00000000 GR10=00000000 GR11=00000000
+06:26:12 HHC02269I GR12=00000406 GR13=00000000 GR14=00000000 GR15=00000000
+06:26:12 HHC01334I 0:0110 CHAN: ORB: IntP:00000000 Key:0 LPM:00 Flags:00000 ............ ........ CCW:000006C0
+06:26:12 HHC01315I 0:0110 CHAN: ccw 630006D8 40000010=>40000000 00000008 00000000 00000000  ...............
+06:26:12 HHC01320I 0:0110 CHAN: start I/O S/370 conversion to asynchronous operation started
+06:26:12 HHC01321I 0:0110 CHAN: start I/O S/370 conversion to asynchronous operation successful
+06:26:12 HHC01315I 0:0110 CHAN: ccw 630006D8 40000010=>40000000 00000008 00000000 00000000  ...............
+06:26:12 HHC01312I 0:0110 CHAN: stat 0C00, count 0000
+06:26:12 HHC01315I 0:0110 CHAN: ccw 430006E8 40000008=>06000001 00000000                   ........
+06:26:12 HHC00520I 0:0110 FBA file pgm5.3310: positioning to 0x1000 4096
+06:26:12 HHC01312I 0:0110 CHAN: stat 0C00, count 0000
+06:26:12 HHC01315I 0:0110 CHAN: ccw 42002360 00000200
+06:26:12 HHC00516I 0:0110 FBA file pgm5.3310: read blkgrp 0 cache hit, using cache[0]
+06:26:12 HHC01312I 0:0110 CHAN: stat 0C00, count 0000=>80002000 00FF18CF 41D0C080 4110C0C8 .........}{...{H
+06:26:12 HHC01316I 0:0110 CHAN: csw 00, stat 0C00, count 0000, ccw 0006D8
+06:26:12 HHC00804I Processor CP00: I/O interrupt code 0:0110 CSW 000006D8 0C000000
+06:26:12 HHC01318I 0:000F CHAN: test I/O: cc=0
+06:26:12 HHC01334I 0:000F CHAN: ORB: IntP:00000000 Key:0 LPM:00 Flags:00000 ............ ........ CCW:000020E0
+06:26:12 HHC01315I 0:000F CHAN: ccw 090020E8 00000017=>C8859393 9640C281 998560D4 85A38193 Hello Bare-Metal
+06:26:12 HHC01320I 0:000F CHAN: start I/O S/370 conversion to asynchronous operation started
+06:26:12 HHC01321I 0:000F CHAN: start I/O S/370 conversion to asynchronous operation successful
+06:26:12 HHC01315I 0:000F CHAN: ccw 090020E8 00000017=>C8859393 9640C281 998560D4 85A38193 Hello Bare-Metal
+06:26:12 /Hello Bare-Metal World!
+06:26:12 HHC01312I 0:000F CHAN: stat 0C00, count 0000
+06:26:12 HHC01316I 0:000F CHAN: csw 00, stat 0C00, count 0000, ccw 0020E8
+06:26:12 HHC00804I Processor CP00: I/O interrupt code 0:000F CSW 000020E8 0C000000
+06:26:12 HHC00809I Processor CP00: disabled wait state 000A0000 00000000
+06:31:26 HHC01603I quit
+06:31:26 HHC01420I Begin Hercules shutdown
+06:31:26 HHC01423I Calling termination routines
+06:31:26 HHC01423I Calling termination routines
+06:31:26 HHC00101I Thread id 00007f706e445700, prio 2, name 'Processor CP00' ended
+06:31:26 HHC01427I Main storage released
+06:31:26 HHC01427I Expanded storage released
+06:31:26 HHC01422I Configuration released
+06:31:26 HHC00101I Thread id 00007f706e344700, prio 7, name 'timer_thread' ended
+06:31:27 HHC00101I Thread id 00007f706e994b80, prio 5, name 'panel_display' ended

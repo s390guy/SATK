@@ -1,0 +1,94 @@
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   SERVICE &SERVID,&SA,&BOOTED=
+.* Defines the start of a service exposed to subroutine callers
+.*    &LABEL    Required to start a new exposed service
+.*    &SERVID   Required for storage eye catcher
+.*    &SA       This service save area address. Required
+.*    &BOOTED   Specify the label where control is passed if called by the
+.*              booted program. Defaults to '' when the booted program may
+.*              call the service.
+         GBLA  &ARCHLVL
+         GBLC  &BLSDSN     Name of savea area dsect used at assembly time
+         GBLC  &BLSDSP     Save area field prefix name
+         AIF   (&ARCHLVL GT 0).ARCHOK
+         MNOTE 1,'SERVICE - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   ('&LABEL' NE '').CKID
+         MNOTE 1,'SERVICE - ''LABEL'' REQUIRED'
+         MEXIT
+.CKID    ANOP
+         AIF   ('&SERVID' NE '').CKDS
+         MNOTE 1,'SERVICE - ''SERVID'' PARAMETER REQUIRED'
+         MEXIT
+.CKDS    ANOP
+         AIF   ('&SA' NE '').SETPFX
+         MNOTE 1,'SERVICE - ''SA'' PARAMETER REQUIRED'
+         MEXIT
+.SETPFX  ANOP
+         AIF   ('&BLSDSP' NE '').GENNTRY
+         MNOTE 1,'SERVICE - SERVS MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.GENNTRY ANOP
+         DS    0F
+         DC    CL3'BLS',AL1(&SERVID)
+&LABEL   DS    0H             Start of service
+         USING &LABEL,12      Establish service addressing
+         USING ASA,0          Address the ASA
+         USING SPB,1          Address the SPB (address from framework)
+         USING &BLSDSN,13     Address caller's save area
+         LA    2,EOBL+(&SA-DMEMORY)   Point to my save area
+         $ST   2,&BLSDSP.FWD  Save my save area address in caller's save area
+         DROP  13             Forget caller's save area
+         USING &BLSDSN,2      Now address MY save area
+         $ST   13,&BLSDSP.BCK Preserve caller's R13 now in my save area
+         AIF   ('&BOOTED' EQ '').NOSAVE
+         $LR   3,13           Save caller's R13 in my R3
+.NOSAVE  ANOP
+         $LR   13,2           Now point save area to MY save area with R13
+         DROP  2
+         USING &BLSDSN,13     Re-establish addressing to my save area with R13
+.* Service can now call another service
+         AIF   ('&BOOTED' EQ '').BOOTOK
+.* Use the caller's return address to figure out if the caller is the booted
+.* program.  If so, fail with a disabled wait state.
+         DROP  13             Temporarily forget service's save area
+         USING &BLSDSN,3      Address caller's save area with R3
+         AIF   (&ARCHLVL LE 3).CHECK24
+         AIF   (&ARCHLVL GE 9).CHECK64
+.* Check 31-bit caller address
+         MVC   CALLERA,&BLSDSP.R14   Fetch the caller's return address
+         NI    CALLERA,X'7F'         Make sure the address mode bit is zero
+         CLC   CALLERA,EOBLA       Is the booted program calling this service?
+         AGO   .NOCALL
+.CHECK24 ANOP
+.* Check 24-bit address if booted program called this service
+         CLC   &BLSDSP.R14+1(3),EOBLA+1
+         AGO   .NOCALL
+.CHECK64 ANOP
+         CLI   &BLSDSP.R14,X'00'   Is the caller's high order byte zero?
+         $BNE  &BOOTED             ..No, then not the boot loader
+         CLC   &BLSDSP.R14(3),&BLSDSP.R14+1  ..Is the rest not zero?
+         $BNE  &BOOTED             ..Yes, then not the boot loader either
+         CLC   &BLSDSP.R14+4(4),EOBLA  Is the address from the booted program?
+.NOCALL  ANOP
+         $BH   &BOOTED        Booted program may not call this service
+         DROP  3
+         USING 13,&BLSDSN     Restore addressing to service's save area
+.BOOTOK  ANOP
+         MEND

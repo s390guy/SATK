@@ -1,0 +1,1281 @@
+ASMA Ver. 0.2.0                                                                                     08 Sep 2020 07:25:44  Page     1
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+                                                                             1 * Copyright (C) 2020 Harold Grovesteen
+                                                                             2 *
+                                                                             3 * This file is part of SATK.
+                                                                             4 *
+                                                                             5 *     SATK is free software: you can redistribute it and/or modify
+                                                                             6 *     it under the terms of the GNU General Public License as published by
+                                                                             7 *     the Free Software Foundation, either version 3 of the License, or
+                                                                             8 *     (at your option) any later version.
+                                                                             9 *
+                                                                            10 *     SATK is distributed in the hope that it will be useful,
+                                                                            11 *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+                                                                            12 *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+                                                                            13 *     GNU General Public License for more details.
+                                                                            14 *
+                                                                            15 *     You should have received a copy of the GNU General Public License
+                                                                            16 *     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+                                                                            17 *
+ASMA Ver. 0.2.0  PGM5Z - HELLO WORLD WITH BOOT LOADER SERVICES ON Z                                 08 Sep 2020 07:25:44  Page     2
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+                                                                            19 * Program Description:
+                                                                            20 *
+                                                                            21 * PGM5Z is a bare-metal 'Hello World' program.  It uses boot loader
+                                                                            22 * services to issue the message.  The program is executed by means of FBA DASD
+                                                                            23 * boot loader also configured for z/Arch operation.
+                                                                            24 *
+                                                                            25 * Target Architecture: z/Arch
+                                                                            26 *
+                                                                            27 * Devices Used:
+                                                                            28 *   00F - Console device (by this program)
+                                                                            29 *   110 - FBA IPL volume (by the boot loader)
+                                                                            30 *
+                                                                            31 * Program Register Usage:
+                                                                            32 *
+                                                                            33 *   R0   Base register for access to the ASA.  Required by DSECT usage
+                                                                            34 *   R12  The program base register
+                                                                            35 *   R13  Save area used by calls to Boot Loader Services
+                                                                            36 *   R15  Used by the boot loader to enter the booted program
+                                                                            37 *        Boot Loader Services return code
+                                                                            38 *
+                                                                            39 * Disabled Wait State PSW's address field values used by the program:
+                                                                            40 *    X'000000' - Successful execution of the program
+                                                                            41 *    X'000008' - Unexpected Restart interruption occurred. Old Restart PSW at
+                                                                            42 *                address X'8'
+                                                                            43 *    X'000018' - Unexpected External interruption occurred.  Old External PSW at
+                                                                            44 *                address X'18'
+                                                                            45 *    X'000020' - Unexpected Supervisor interruption occurred.  Old Supervisor
+                                                                            46 *                PSW at address X'20'
+                                                                            47 *    X'000028' - Unexpected Program interruption occurred. Old Program PSW at
+                                                                            48 *                address X'28'
+                                                                            49 *    X'000030' - Unexpected Machine Check interruption occurred.  Old Machine
+                                                                            50 *                Check PSW at address X'30'
+                                                                            51 *    X'000038' - Unexpected Input/Output interruption occurred.  Old Input/Output
+                                                                            52 *                PSW at address X'38'
+                                                                            53 *    X'041004' - Console Device X'00F' or channel not operational
+                                                                            54 *    X'041008' - Console Device X'00F' or channel busy
+                                                                            55 *    X'04100C' - Console Device X'00F' or channel had a problem. See CSW.
+ASMA Ver. 0.2.0  PGM5Z - HELLO WORLD WITH BOOT LOADER SERVICES ON Z                                 08 Sep 2020 07:25:44  Page     3
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+                                                                            57 * See all object data and macro generated model statements in the listing
+                                                                            58          PRINT DATA,GEN
+
+                                                                            60 * Inform the SATK macros of the architecture being targeted.  Inferred from
+                                                                            61 * the ASMA -t command-line argument.
+                                                                            62          ARCHLVL
+                                                                            64+$AL      OPSYN AL
+                                                                            65+$ALR     OPSYN ALR
+                                                                            66+$B       OPSYN B
+                                                                            67+$BAS     OPSYN BAS
+                                                                            68+$BASR    OPSYN BASR
+                                                                            69+$BC      OPSYN BC
+                                                                            70+$BCTR    OPSYN BCTR
+                                                                            71+$BE      OPSYN BE
+                                                                            72+$BH      OPSYN BH
+                                                                            73+$BL      OPSYN BL
+                                                                            74+$BM      OPSYN BM
+                                                                            75+$BNE     OPSYN BNE
+                                                                            76+$BNH     OPSYN BNH
+                                                                            77+$BNL     OPSYN BNL
+                                                                            78+$BNM     OPSYN BNM
+                                                                            79+$BNO     OPSYN BNO
+                                                                            80+$BNP     OPSYN BNP
+                                                                            81+$BNZ     OPSYN BNZ
+                                                                            82+$BO      OPSYN BO
+                                                                            83+$BP      OPSYN BP
+                                                                            84+$BXLE    OPSYN BXLE
+                                                                            85+$BZ      OPSYN BZ
+                                                                            86+$CH      OPSYN CH
+                                                                            87+$CLR     OPSYN CLR
+                                                                            88+$L       OPSYN L
+                                                                            89+$LH      OPSYN LH
+                                                                            90+$LM      OPSYN LM
+                                                                            91+$LNR     OPSYN LNR
+                                                                            92+$LPSW    OPSYN LPSW
+                                                                            93+$LR      OPSYN LR
+                                                                            94+$LTR     OPSYN LTR
+                                                                            95+$NR      OPSYN NR
+                                                                            96+$SL      OPSYN SL
+                                                                            97+$SLR     OPSYN SLR
+                                                                            98+$SR      OPSYN SR
+                                                                            99+$ST      OPSYN ST
+                                                                           100+$STM     OPSYN STM
+                                                                           101+$X       OPSYN X
+                                                                           102+$AHI     OPSYN AHI
+                                                                           103+$B       OPSYN J
+                                                                           104+$BC      OPSYN BRC
+                                                                           105+$BE      OPSYN JE
+                                                                           106+$BH      OPSYN JH
+                                                                           107+$BL      OPSYN JL
+                                                                           108+$BM      OPSYN JM
+                                                                           109+$BNE     OPSYN JNE
+ASMA Ver. 0.2.0  PGM5Z - HELLO WORLD WITH BOOT LOADER SERVICES ON Z                                 08 Sep 2020 07:25:44  Page     4
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+                                                                           110+$BNH     OPSYN JNH
+                                                                           111+$BNL     OPSYN JNL
+                                                                           112+$BNM     OPSYN JNM
+                                                                           113+$BNO     OPSYN JNO
+                                                                           114+$BNP     OPSYN JNP
+                                                                           115+$BNZ     OPSYN JNZ
+                                                                           116+$BO      OPSYN JO
+                                                                           117+$BP      OPSYN JP
+                                                                           118+$BXLE    OPSYN JXLE
+                                                                           119+$BZ      OPSYN JZ
+                                                                           120+$CHI     OPSYN CHI
+                                                                           121+$LHI     OPSYN LHI
+                                                                           122+$AHI     OPSYN AGHI
+                                                                           123+$AL      OPSYN ALG
+                                                                           124+$ALR     OPSYN ALGR
+                                                                           125+$BCTR    OPSYN BCTGR
+                                                                           126+$BXLE    OPSYN JXLEG
+                                                                           127+$CH      OPSYN CGH
+                                                                           128+$CHI     OPSYN CGHI
+                                                                           129+$CLR     OPSYN CLGR
+                                                                           130+$L       OPSYN LG
+                                                                           131+$LH      OPSYN LGH
+                                                                           132+$LHI     OPSYN LGHI
+                                                                           133+$LM      OPSYN LMG
+                                                                           134+$LNR     OPSYN LNGR
+                                                                           135+$LPSW    OPSYN LPSWE
+                                                                           136+$LR      OPSYN LGR
+                                                                           137+$LTR     OPSYN LTGR
+                                                                           138+$NR      OPSYN NGR
+                                                                           139+$SL      OPSYN SLG
+                                                                           140+$SLR     OPSYN SLGR
+                                                                           141+$SR      OPSYN SGR
+                                                                           142+$ST      OPSYN STG
+                                                                           143+$STM     OPSYN STMG
+                                                                           144+$X       OPSYN XG
+                                                                           145+         MNOTE *,'ARCHLVL - ARCHITECTURE LEVEL SET - 9'
+                  ** [145] MNOTE *,ARCHLVL - ARCHITECTURE LEVEL SET - 9
+                                                                           146 * Ensure interrupt traps are loaded by iplasma.py before program execution
+                                                                           147 * begins.  This macro will create the memory region that will also contain
+                                                                           148 * the IPL PSW.  The region name defaults to ASAREGN.  iplasma.py knows how
+                                                                           149 * to deal with this situation.
+                                                                           150 ASASECT  ASALOAD PSW=E390
+                                      0000000000000000  00000000000001FF   151+ASASECT  START 0,ASAREGN
+0000000000000000  000A0000 00000008                                        153+         PSWE390 0,0,2,0,X'008'    64-bit Restart ISR Trap New PSW
+0000000000000008                      0000000000000008  0000000000000058   154+         ORG   ASASECT+X'058'
+0000000000000058  000A0000 00000018                                        156+         PSWE390 0,0,2,0,X'018'    64-bit External ISR Trap New PSW
+0000000000000060  000A0000 00000020                                        157+         PSWE390 0,0,2,0,X'020'    64-bit Supervisor Call ISR Trap New PSW
+0000000000000068  000A0000 00000028                                        158+         PSWE390 0,0,2,0,X'028'    64-bit Program ISR Trap New PSW
+0000000000000070  000A0000 00000030                                        159+         PSWE390 0,0,2,0,X'030'    64-bit Machine Check Trap New PSW
+0000000000000078  000A0000 00000038                                        160+         PSWE390 0,0,2,0,X'038'    64-bit Input/Output Trap New PSW
+0000000000000080                      0000000000000080  00000000000001A0   161+         ORG   ASASECT+X'1A0'
+00000000000001A0  00020000 00000000                                        163+         PSWZ  0,0,2,0,X'120'     Restart ISR Trap New PSW
+ASMA Ver. 0.2.0  PGM5Z - HELLO WORLD WITH BOOT LOADER SERVICES ON Z                                 08 Sep 2020 07:25:44  Page     5
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+00000000000001A8  00000000 00000120
+00000000000001B0  00020000 00000000                                        164+         PSWZ  0,0,2,0,X'130'     External ISR Trap New PSW
+00000000000001B8  00000000 00000130
+00000000000001C0  00020000 00000000                                        165+         PSWZ  0,0,2,0,X'140'     Supervisor Call ISR Trap New PSW
+00000000000001C8  00000000 00000140
+00000000000001D0  00020000 00000000                                        166+         PSWZ  0,0,2,0,X'150'     Program ISR Trap New PSW
+00000000000001D8  00000000 00000150
+00000000000001E0  00020000 00000000                                        167+         PSWZ  0,0,2,0,X'160'     Machine Check Trap New PSW
+00000000000001E8  00000000 00000160
+00000000000001F0  00020000 00000000                                        168+         PSWZ  0,0,2,0,X'170'     Input/Output Trap New PSW
+00000000000001F8  00000000 00000170
+                                                                           169          ASAIPL IA=PGMSTART    Define the bare-metal program's IPL PSW
+                                      0000000000000000  00000000000001FF   170+ASASECT  CSECT
+0000000000000200                      0000000000000200  0000000000000000   171+         ORG   ASASECT
+0000000000000000  00080000 00002000                                        172+         PSWE390 0,0,0,0,PGMSTART,24
+0000000000000008                      0000000000000008  0000000000000200   173+         ORG   ASASECT+512      Reset CSECT to end of assigned storage area
+                                      0000000000000000  00000000000001FF   174+ASASECT  CSECT
+
+
+                                                                           176 *
+                                                                           177 * The Bare-Metal Hello World Program
+                                                                           178 *
+
+                                      0000000000002000  000000000000214E   180 PGMSECT  START X'2000',BOOTED5 Start a second region for the program itself
+                                                                           181 * This results in BOOTED5.bin being created in the list directed IPL directory
+0000000000002000                      0000000000000000                     182          USING ASA,0           Give me instruction access to the ASA CSECT
+0000000000002000  B904 00CF                                                183 PGMSTART $LR   12,15           Establish my base register
+0000000000002004                      0000000000002000                     184          USING PGMSTART,12     Tell the assembler
+
+                                                                           186 * Ensure program is not re-entered by a Hercules console initiated restart.
+                                                                           187 * Address 0 changed from its absolute storage role (IPL PSW) to its real
+                                                                           188 * storage role (Restart New PSW) after the IPL.
+                                                                           189 * Change from the IPL PSW at address 0 to Restart New PSW trap
+
+                                                                           191 * Enable the console device for operation
+0000000000002004  41D0 C088                             0000000000002088   192          LA    13,SAVEAREA     Locate my save area (used by both calls)
+                                                                           193          BLSCALL SPB=ENASPB
+0000000000002008  4110 C118                             0000000000002118   194+         LA    1,ENASPB
+000000000000200C  E3F0 0270 0017                        0000000000000270   195+         LLGT  15,LOD1BLST
+0000000000002012  0DEF                                                     196+         $BASR 14,15
+0000000000002014  47FF C018                             0000000000002018   197          B     *+4(15)   Use branch table to analyzed return code...
+0000000000002018  A7F4 000C                             0000000000002030   198          $B    ENABLED     0 - Console device is successfully enabled
+000000000000201C  00000004                                                 199          DC    FL4'4'      4 - Console device is already enabled. Bad! Die.
+0000000000002020  A7F4 0027                             000000000000206E   200          $B    DEVSCSW     8 - Console device is in an error state
+0000000000002024  A7F4 001D                             000000000000205E   201          $B    DEVNOAVL   12 - Console device is not available or invalid
+0000000000002028  00000010                                                 202          DC    FL4'16'    16 - I/O Table is full.  Die here.
+000000000000202C  00000014                                                 203          DC    FL4'20'    20 - Device class does not match existing entry. Die.
+                                                                           204 * We are ignoring any interrupt from a secondary device.  Should not happen.
+
+0000000000002030                                                           206 ENABLED  DS    0H    Pass console device IOT entry address to the EXCP service
+0000000000002030  D203 C124 C11C      0000000000002124  000000000000211C   207          MVC   EXCPORB(4),ENAIOTA
+ASMA Ver. 0.2.0  PGM5Z - HELLO WORLD WITH BOOT LOADER SERVICES ON Z                                 08 Sep 2020 07:25:44  Page     6
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+                                                                           209 * Issue the 'Hello World' message...
+                                                                           210          BLSCALL SPB=EXCPSPB
+0000000000002036  4110 C120                             0000000000002120   211+         LA    1,EXCPSPB
+000000000000203A  E3F0 0270 0017                        0000000000000270   212+         LLGT  15,LOD1BLST
+0000000000002040  0DEF                                                     213+         $BASR 14,15
+0000000000002042  47FF C046                             0000000000002046   214          B     *+4(15)   Use branch table to analyzed return code...
+0000000000002046  A7F4 000A                             000000000000205A   215          $B    HURRAY    'Hello World' message successful
+000000000000204A  00000004                                                 216          DC    FL4'4'      4 - Physical end-of-file??  Nope!  Die here.
+000000000000204E  A7F4 0010                             000000000000206E   217          $B    DEVSCSW     8 - Console device is in an error state
+0000000000002052  A7F4 0006                             000000000000205E   218          $B    DEVNOAVL   12 - Console device is in an error state
+0000000000002056  00000010                                                 219          DC    FL4'16'    16 - ORB is invalid.  Die here.
+
+000000000000205A  8200 C078                             0000000000002078   221 HURRAY   LPSW  DONE      Normal program termination
+
+                                                                           223 * End the bare-metal program with an error indicated in PSW
+000000000000205E  9204 C087                             0000000000002087   224 DEVNOAVL MVI   ENDBAD+7,X'04'
+0000000000002062  8200 C080                             0000000000002080   225          LPSW  ENDBAD    Code 004 End console device is not available
+0000000000002066  9208 C087                             0000000000002087   226 DEVBUSY  MVI   ENDBAD+7,X'08'
+000000000000206A  8200 C080                             0000000000002080   227          LPSW  ENDBAD    Code 008 End because device is busy or not available
+000000000000206E  920C C087                             0000000000002087   228 DEVSCSW  MVI   ENDBAD+7,X'0C'
+0000000000002072  8200 C080                             0000000000002080   229          LPSW  ENDBAD    Code 00C End because SCSW stored in IOT entry
+
+                                                                           231 * PSW's terminating program execution
+                                                                           232 DONE     DWAITEND              Successful execution of the program
+0000000000002078  000A0000 00000000                                        234+DONE     PSWE390 0,0,2,0,X'000000'
+                                                                           235 ENDBAD   DWAIT PGM=05,CMP=1,CODE=000  Updated with abend code
+0000000000002080  000A0000 00051000                                        236+ENDBAD   PSWE390 0,0,2,0,X'051000'
+ASMA Ver. 0.2.0  PGM5Z - BOOT LOADER SERVICES PARAMETER BLOCKS                                      08 Sep 2020 07:25:44  Page     7
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+                                                                           238 *
+                                                                           239 * I/O related Boot Loader Service Parameter Blocks and Save Area
+                                                                           240 *
+
+                                                                           242 SAVEAREA SAVEAREA
+0000000000002088  00000000 00000000                                        243+SAVEAREA DC    18FD'0'     64-bit register save area
+0000000000002090  00000000 00000000
+0000000000002098  00000000 00000000
+00000000000020A0  00000000 00000000
+00000000000020A8  00000000 00000000
+00000000000020B0  00000000 00000000
+00000000000020B8  00000000 00000000
+00000000000020C0  00000000 00000000
+00000000000020C8  00000000 00000000
+00000000000020D0  00000000 00000000
+00000000000020D8  00000000 00000000
+00000000000020E0  00000000 00000000
+00000000000020E8  00000000 00000000
+00000000000020F0  00000000 00000000
+00000000000020F8  00000000 00000000
+0000000000002100  00000000 00000000
+0000000000002108  00000000 00000000
+0000000000002110  00000000 00000000
+
+
+
+                                                                           245 * ENADEV Service Paramater Block (See BLS.odt or BLS.pdf for details)
+0000000000002118                                                           246          DS    0F
+0000000000002118  0003                                                     247 ENASPB   DC    Y(ENADEV)    Service ID for ENADEV service (from BLSTABLE)
+000000000000211A  000F                                                     248          DC    XL2'000F'    Input/Output - Console device number
+
+                                                                           250 * Service Parameter Block Extension
+000000000000211C                                                           251 ENAIOTA  DS    0F           Output - Console device I/O Table entry address
+000000000000211C  70                                                       252 ENASPBC  DC    AL1(BLSCON)  Input - Enabling a console device (from BLIOT)
+000000000000211D  000000                                                   253          DC    XL3'00'
+
+
+
+                                                                           255 * EXCP Service Parametger Block (See BLS.odt or BLS.pdf for details)
+
+0000000000002120                                                           257          DS    0F
+0000000000002120  0004                                                     258 EXCPSPB  DC    Y(EXCP)      Service ID for EXCP service (from BLSTABLE)
+0000000000002122  0C                                                       259          DC    AL1(SPBEWDC) EXCP controls (from BLSPB)
+0000000000002123  00                                                       260          DC    XL1'00'      not used
+                                                                           261 EXCPORB  BLSORB CCW=CONCCW
+0000000000002124                                                           263+EXCPORB  DS    0XL12
+0000000000002124  00000000                                                 264+         DC    A(0)                         Word 0 - Interruption Parameter
+0000000000002128  00                                                       265+         DC    AL1((0)*16+B'0000')          Word 1, bits 0-7
+0000000000002129  80                                                       266+         DC    BL1'10000000'                Word 1, bits 8-15
+000000000000212A  FF                                                       267+         DC    AL1(255)                     Word 1, bits 16-23
+000000000000212B  00                                                       268+         DC    BL1'00000000'                 Word 1, bits 24-31
+000000000000212C  00002130                                                 269+         DC    AL4(CONCCW)                  Word 2 - CCW address
+ASMA Ver. 0.2.0  PGM5Z - BOOT LOADER SERVICES PARAMETER BLOCKS                                      08 Sep 2020 07:25:44  Page     8
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+
+
+
+                                                                           271 *
+                                                                           272 * CCW and data used by the program to write the Hello World message
+                                                                           273 *
+
+0000000000002130  09000017 00002138                                        275 CONCCW   CCW   X'09',MESSAGE,0,MSSGLEN      Write Hello World message with CR
+                                                                           276 *         CCW   X'03',0,0,1                   ..then a NOP.
+                                                                           277 * If the preceding NOP CCW command is enabled, then the CONCCW must set
+                                                                           278 * command chaining in the flag byte, setting the third operand to X'40'
+
+0000000000002138  C8859393 9640C281                                        280 MESSAGE  DC    C'Hello Bare-Metal World!'   Data sent to console device
+0000000000002140  998560D4 85A38193
+0000000000002148  40E69699 93845A
+                                      0000000000000017  0000000000000001   281 MSSGLEN  EQU   *-MESSAGE                    Length of Hello World text data
+
+
+
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page     9
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+                                                                           284 *
+                                                                           285 * Boot loader service ID's:
+                                                                           286 *
+
+                                                                           288          BLSTABLE
+                                      0000000000000000  0000000000000001   290+NOOP     EQU   0
+                                      0000000000000001  0000000000000001   292+IOINIT   EQU   1
+                                      0000000000000002  0000000000000001   294+QIOT     EQU   2
+                                      0000000000000003  0000000000000001   296+ENADEV   EQU   3
+                                      0000000000000004  0000000000000001   298+EXCP     EQU   4
+                                      0000000000000005  0000000000000001   300+PNDING   EQU   5
+
+
+
+                                                                           303 *
+                                                                           304 * Service Parameter Block and Extension Usage
+                                                                           305 *
+
+                                                                           307          BLSPB
+                                                                           308+*
+                                                                           309+* Boot Loader Services Parameter Block
+                                                                           310+*
+                                                                           311+SPB      DSECT
+0000000000000000  0000                                                     312+SPBID    DS    H           Service ID of requested service from caller
+0000000000000002  0000                                                     313+SPBSI    DS    H           Service Information provided by caller
+                                      0000000000000004  0000000000000001   314+SPBE     EQU   *           Start of SPB extension used by service
+
+                                                                           316+* This SPBE field is used by IOINIT, QIOT, ENADEV, and PNDING services
+0000000000000004  00000000                                                 317+SPBIOTA  DS    F           I/O Table entry address as service input or output
+
+                                                                           319+* IOINIT SPBE - SERVICE ID 1
+                                                                           320+*   SPB: DC  Y(IOINIT),H'0'
+0000000000000008                      0000000000000008  0000000000000002   321+         ORG   SPBSI
+0000000000000002  00                                                       322+SPBCCWF  DS    X           CCW Format used by boot loader services
+                                      0000000000000001  0000000000000001   323+SPBCCW0  EQU   X'01'       CCW Format 0 used
+                                      0000000000000002  0000000000000001   324+SPBCCW1  EQU   X'02'       CCW Format 1 used
+0000000000000003  00                                                       325+         DS    X
+0000000000000004  00000000                                                 326+         DS    F           Returned address of I/O Table entry
+
+                                                                           328+* QIOT SPBE -   SERVICE ID 2
+                                                                           329+*   SPB: DC  Y(QIOT),H'0',F'0'
+0000000000000008                      0000000000000008  0000000000000004   330+         ORG   SPBE
+0000000000000004  00000000                                                 331+         DS    F           Returned address of I/O Table entry
+
+                                                                           333+* ENADEV SPBE - SERVICE ID 3
+                                                                           334+*   SPB: DC   Y(ENADEV),H'0',AL1(BLSTYP),XL3'000000'
+0000000000000008                      0000000000000008  0000000000000004   335+         ORG   SPBE
+0000000000000004  00                                                       336+SPBDCLS  DS    X           Input Device Class (same values as BLSTYP)
+0000000000000005                      0000000000000005  0000000000000004   337+         ORG   SPBE  (RC==0 or RC==4)
+0000000000000004  00000000                                                 338+         DS    F           Returned address of I/O Table entry
+0000000000000008                      0000000000000008  0000000000000004   339+         ORG   SPBE  (RC==8)
+0000000000000004  00                                                       340+         DS    X           Input Device Class (SPBDCLS)
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    10
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+0000000000000005  00                                                       341+         DS    X           RESERVED
+0000000000000006  00                                                       342+SPBDEVST DS    X           Device status (if available)
+0000000000000007  00                                                       343+SPBCHST  DS    X           Channel status (if available)
+0000000000000008                      0000000000000008  0000000000000004   344+         ORG   SPBE  (RC==12, RC==16, or RC==20)
+0000000000000004  00                                                       345+         DS    X           Input Device Class (SPBDCLS)
+0000000000000005  000000                                                   346+         DS    XL3         RESERVED
+
+
+                                                                           348+* EXCP SPB -    SERVICE ID 4
+                                                                           349+*   SPB: DC   Y(EXCP),H'0'
+                                                                           350+*        BLSORB
+0000000000000008                      0000000000000008  0000000000000002   351+         ORG   SPBSI
+0000000000000002  00                                                       352+SPBECTL  DS    X           EXCP input function control mask
+                                      0000000000000080  0000000000000001   353+SPBEBY1  EQU   X'80'       Bypass Step 1 processing (start I/O)
+                                                                           354+* SPBEBY2  EQU   X'40'       Bypass Step 2 processing (I/O wait)
+                                                                           355+* SPBEBY3  EQU   X'20'       Bypass Step 3 processing (status analysis)
+                                      000000000000000C  0000000000000001   356+SPBEWTM  EQU   X'0C'       Mask to isolate wait conditions
+                                                                           357+*                          Step 2 wait conditions:
+                                      000000000000000C  0000000000000001   358+SPBEWDC  EQU   12            - Wait for both device and channel end
+                                      0000000000000008  0000000000000001   359+SPBEWCO  EQU   8             - Wait for channel end (may also have device end)
+                                      0000000000000004  0000000000000001   360+SPBEWDO  EQU   4             - Wait for device end (may also have channel end)
+                                      0000000000000000  0000000000000001   361+SPBEWNO  EQU   0             - Do not wait for both device and channel end
+                                      000000000000000C  0000000000000001   362+SPBENRM  EQU   SPBEWDC     Usual controls for most I/O actions
+                                      0000000000000080  0000000000000001   363+SPBEATN  EQU   SPBEBY1     Usual controls for ATTN wait
+
+0000000000000003  00                                                       365+SPBPEND  DS    X           EXCP output pending data condition
+                                      0000000000000001  0000000000000001   366+SPBPENDG EQU   X'01'       I/O Table has pending actions for other devices
+                                      0000000000000000  0000000000000001   367+SPBPENDN EQU   X'00'       I/O Table has no pending actions
+
+0000000000000004  00000000 00000000                                        369+SPBEORB  DS    3F          Operational Request Block
+000000000000000C  00000000
+0000000000000010                      0000000000000010  0000000000000004   370+         ORG   SPBEORB
+0000000000000004  00000000                                                 371+SPBEORBT DS    F       +0  Device I/O Table address (Interruption Parameter)
+0000000000000008  00                                                       372+SPBEORBK DS    X       +4  Storage Key field
+                                      00000000000000F0  0000000000000001   373+SPBEORBM EQU   X'F0'       Storage Key mask
+                                      000000000000000F  0000000000000001   374+SPBEORBR EQU   X'0F'       Reserved portion of key field byte
+0000000000000009  00                                                       375+SPBEORB1 DS    X       +5  F flag byte required content
+000000000000000A  00                                                       376+SPBEORBL DS    X       +6  Logical Path Mask
+000000000000000B  00                                                       377+SPBEORB2 DS    X       +7  Required content
+000000000000000C                                                           378+SPBEORBC DS    0XL4    +8  31-bit channel program address
+000000000000000C  00                                                       379+         DS    X       +8  Ignored for early architectures
+000000000000000D  000000                                                   380+SPBEORBP DS    XL3     +9  24-bit channel program address
+
+
+                                                                           382+* PNDGIN SPB -    SERVICE ID 5
+                                                                           383+*   SPB: DC   Y(PNDING),H'0',F'0'
+0000000000000010                      0000000000000010  0000000000000004   384+         ORG   SPBE
+0000000000000004  00000000                                                 385+         DS    F           Returned IOT entry address of pending device
+
+
+
+                                                                           387 *
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    11
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+                                                                           388 * Boot Loader I/O Table Entry
+                                                                           389 *
+
+                                                                           391 BLSIOT   BLSIOT
+                                                                           392+*
+                                                                           393+* Boot Loader I/O Table Entry
+                                                                           394+*
+                                                                           395+BLSIOT   DSECT
+0000000000000000  0000                                                     396+BLSDEV   DS    H        +0 I/O device number
+
+0000000000000002  00                                                       398+BLSTYP   DS    X        +2 I/O device class and attributes
+                                      0000000000000080  0000000000000001   399+BLSPEOF  EQU   B'10000000' 'Detects physical end-of-file' mask
+                                      0000000000000040  0000000000000001   400+BLSUNSOL EQU   B'01000000' 'Generates unsolicited status' mask
+                                      0000000000000038  0000000000000001   401+BLSSCLS  EQU   B'00111000' Device subclass mask
+                                                                           402+* Note: the device class is positioned in the byte so it can be used for the
+                                                                           403+* channel subsystem SCHIB I/O subclass code field without shifting.
+                                      00000000000000F8  0000000000000001   404+BLSRSV   EQU   B'11111000' Reserved bits mask (zeros)              UE
+                                                                           405+*                        CLASS                                    PEOF ATTN
+                                                                           406+*              B'00000000' 0 - Highest priority available           ?    ?
+                                      0000000000000008  0000000000000001   407+BLSFBA   EQU   B'00001000' 1 - Fixed-Block-Architecture DASD device N    N
+                                      0000000000000089  0000000000000001   408+BLSCKD   EQU   B'10001001' 1 - Count-Key-Data DASD device           Y    N
+                                      0000000000000090  0000000000000001   409+BLSTAPE  EQU   B'10010000' 2 - Sequential tape device               Y    N
+                                      0000000000000098  0000000000000001   410+BLSCARD  EQU   B'10011000' 3 - Sequential input card device         Y    N
+                                      0000000000000020  0000000000000001   411+BLSPUN   EQU   B'00100000' 4 - Sequential output punch device       N    N
+                                      0000000000000028  0000000000000001   412+BLSPR    EQU   B'00101000' 5 - Sequential output printer device     N    N
+                                      0000000000000070  0000000000000001   413+BLSCON   EQU   B'01110000' 6 - Operator console device              N    Y
+                                      0000000000000078  0000000000000001   414+BLS3270  EQU   B'01111000' 7 - Operator 3270 terminal device        N    Y
+
+0000000000000003  00                                                       416+BLSTATUS DS    X        +3 Current device status
+                                      0000000000000080  0000000000000001   417+BLSBUSY  EQU   B'10000000' Device is busy
+                                                                           418+* Note: When BLSBUSY set, BLSTAT, BLSTATO, BLSTATS and BLSSNSP turned off,
+                                                                           419+* (set to 0).
+                                      0000000000000040  0000000000000001   420+BLSTAT   EQU   B'01000000' Status in BLSSW.
+                                      0000000000000020  0000000000000001   421+BLSTATO  EQU   B'00100000' Pending action present in BLSACT
+                                      0000000000000002  0000000000000001   422+BLSTATS  EQU   B'00000010' Unit and channel status present in BLSUNCH
+                                      0000000000000001  0000000000000001   423+BLSSNSP  EQU   B'00000001' Sense data is present in BLSSNS
+
+0000000000000004  00000000                                                 425+BLSHDW   DS    F        +4 Hardware defined device address
+
+0000000000000008                                                           427+BLSUNCH  DS    0XL2     +8 Accumulated status when bit 1 set to 1 in BLSTATUS
+0000000000000008  00                                                       428+BLSUNIT  DS    X           Unit status
+                                      0000000000000080  0000000000000001   429+BLSATTN  EQU   B'10000000' Attention status
+                                      0000000000000001  0000000000000001   430+BLSUE    EQU   B'00000001' Unit exception status (physical EOF)
+0000000000000009  00                                                       431+BLSCH    DS    X           Channel status
+
+
+000000000000000A  00                                                       433+BLSSNS   DS    XL1     +10 Sense data present when bit 7 set to 1 in BLSTATUS
+
+000000000000000B  00                                                       435+BLSACT   DS    XL1     +11 Pending action when bit 2 set to 1 in BLSTATUS
+                                      0000000000000000  0000000000000001   436+BLSRDSN  EQU   X'00'       Device has pending sense data to be read
+                                      0000000000000004  0000000000000001   437+BLSREAD  EQU   X'04'       Device has pending data to be read
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    12
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+000000000000000C  00                                                       439+BLSERR   DS    XL1     +12 Device status error mask, set by ENADEV
+
+000000000000000D  000000                                                   441+BLSRSV2  DS    XL3     +13 RESERVED
+
+0000000000000010  00000000 00000000                                        443+BLSSW    DS    3F      +16 SCSW of the latest interruption
+0000000000000018  00000000
+
+000000000000001C  00000000                                                 445+BLSPROG  DS    F       +28 Reserved for booted program usage
+                                      0000000000000020  0000000000000001   446+BLSIOEL  EQU   *-BLSIOT    Length of an I/O Table Entry (32 bytes)
+
+
+
+                                                                           448 *
+                                                                           449 * Hardware and software assigned storage areas
+                                                                           450 *
+
+                                                                           452 * This DSECT allows symbolic access to these locations.  The DSECT created is
+                                                                           453 * named ASA and contains the assigned storage locations and boot loader LOD1
+                                                                           454 * record definition.
+                                                                           455 ASA      BLSASA
+                                                                           457+ASA      DSECT
+                                      0000000000000000  0000000000000001   458+ASBEGIN  EQU   *                   Start of absolute/real assigned storage areas
+0000000000000000  00000000 00000000                                        459+IPLPSW   DC    FD'0'        000 A  Initial Program Load Program Status Word
+0000000000000008  00000000 00000000                                        460+IPLCCW1  DC    FD'0'        008 A  Initial Program Load first Channel Command Word
+0000000000000010  00000000 00000000                                        461+IPLCCW2  DC    FD'0'        010 A  Initial program Load second Channel Command Word
+                                                                           462+* RESTART RELATED PROGRAM STATUS WORDS
+0000000000000018                      0000000000000018  0000000000000000   463+         ORG   ASBEGIN
+0000000000000000  00000000 00000000                                        464+RSTNPSW  DC    FD'0'        000 R  Restart New PSW
+0000000000000008  00000000 00000000                                        465+RSTOPSW  DC    FD'0'        008 R  Restart Old PSW
+0000000000000010  00000000 00000000                                        466+UA0      DC    FD'0'        010 R  Unassigned Area 0
+                                                                           467+* INTERRUPTION OLD PROGRAM STATUS WORD SAVE AREAS
+0000000000000018  00000000 00000000                                        468+EXTOPSW  DC    FD'0'        018 R  External Interrupt Old PSW
+0000000000000020  00000000 00000000                                        469+SVCOPSW  DC    FD'0'        020 R  Supervisor Call Old PSW
+0000000000000028  00000000 00000000                                        470+PGMOPSW  DC    FD'0'        028 R  Program Old PSW
+0000000000000030  00000000 00000000                                        471+MCKOPSW  DC    FD'0'        030 R  Machine Check Old PSW
+0000000000000038  00000000 00000000                                        472+IOOPSW   DC    FD'0'        038 R  Input/Output Old PSW
+                                                                           473+* System/360 or System/370 Basic Control Mode INTERRUPTION INFORMATION
+0000000000000040                      0000000000000040  000000000000001A   474+         ORG   EXTOPSW+2
+000000000000001A  0000                                                     475+BCEXTCOD DC    H'0'         01A R  External Interuption Code
+000000000000001C                      000000000000001C  0000000000000022   476+         ORG   SVCOPSW+2
+0000000000000022  0000                                                     477+BCSVCCOD DC    H'00'        022 R  Supervisor Call Interruption Code
+0000000000000024                      0000000000000024  000000000000002A   478+         ORG   PGMOPSW+2
+000000000000002A  0000                                                     479+BCPGMCOD DC    H'0'         02A R  Program Interruption Code
+000000000000002C                      000000000000002C  0000000000000032   480+         ORG   MCKOPSW+2
+0000000000000032  0000                                                     481+BCMCKCOD DC    H'0'         032 R  Machine Check Interruption Code
+0000000000000034                      0000000000000034  000000000000003A   482+         ORG   IOOPSW+2
+000000000000003A  0000                                                     483+BCIOCOD  DC    H'0'         03A R  Input/Output Interruption Code (Device CCUU)
+000000000000003C                      000000000000003C  0000000000000040   484+         ORG   *+4
+                                                                           485+* CHANNEL-BASED INPUT/OUTPUT INTERRUPT RELATED
+0000000000000040  00000000 00000000                                        486+CSW      DC    FD'0'        040 R  Channel Status Word
+0000000000000048                                                           487+CAW      DC    0F'0'        048 R  Channel Address Word
+0000000000000048  00                                                       488+CAWKEY   DC    X'00'        048 R  Channel Storage Key (bits 0-3)
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    13
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+                                      0000000000000008  0000000000000001   489+CAWSUSP  EQU   X'08'        048 R  Suspend Control (bit 4)
+0000000000000049  000000                                                   490+CAWADDR  DC    AL3(0)       049 R  Channel Command Address
+000000000000004C  00000000                                                 491+UA1      DC    F'0'         04C R  Unassigend Area 1
+                                                                           492+* MISCELANEOUS AREAS
+0000000000000050  00000000                                                 493+TIMER    DC    F'0'         050 R  System/360 and System/370 Interval Timer
+0000000000000054  00000000                                                 494+TTDES    DC    F'0'         054 R  System/370 Trace-Table-Designation
+                                                                           495+* INTERRUPTION NEW PROGRAM STATUS WORD AREAS
+0000000000000058  00000000 00000000                                        496+EXTNPSW  DC    FD'0'        058 R  External New PSW
+0000000000000060  00000000 00000000                                        497+SVCNPSW  DC    FD'0'        060 R  Supervisor Call New PSW
+0000000000000068  00000000 00000000                                        498+PGMNPSW  DC    FD'0'        068 R  Program New PSW
+0000000000000070  00000000 00000000                                        499+MCKNPSW  DC    FD'0'        070 R  Machine Check New PSW
+0000000000000078  00000000 00000000                                        500+IONPSW   DC    FD'0'        078 R  Input/Output New PSW
+                                                                           501+* System/360 Diagnostic Scanout Area
+0000000000000080                                                           502+SCANOUT  DS    0X           080 A  System/360 Diagnostic Scanout Area
+                                      0000000000000000  0000000000000001   503+SCANOUTL EQU   *-SCANOUT           System/360 Diagnostic Scanout Area Length
+                                                                           504+* EXTERNAL INTERRUPTION INFORMATION
+0000000000000080                      0000000000000080  0000000000000080   505+         ORG   ASBEGIN+X'80'
+0000000000000080  00000000                                                 506+EXTIPARM DC    F'0'         080 R  External-interruption Parameter
+0000000000000084  0000                                                     507+EXTCPUAD DC    H'0'         084 R  External-interruption CPU Address
+0000000000000086  0000                                                     508+EXTICODE DC    H'0'         086 R  External-interruption Code
+                                                                           509+* SUPERVISOR CALL INTERRUPTION INFORMATION
+0000000000000088                                                           510+SVCIID   DC    0F'0'        088 R  Supervisor-Call Interuption Identification
+0000000000000088  00                                                       511+         DC    X'00'        088 R  not-used - zeros stored
+0000000000000089  00                                                       512+SVCIILC  DC    X'00'        089 R  Supervisor-Call instruction length code
+                                      000000000000000C  0000000000000001   513+SVCIILCM EQU   B'00001100'         Supervisor-Call ILC mask, zeros stored in other bits
+000000000000008A  0000                                                     514+SVCICODE DC    H'0'         08A R  Supervisor-Call Interruption Code
+                                                                           515+* PROGRAM INTERRUPTION INFORMATION
+000000000000008C                                                           516+PGMIID   DC    0F'0'        08C R  Program-interruption identification
+000000000000008C  00                                                       517+         DC    X'00'        08C R  not-used - zeros stored
+000000000000008D  00                                                       518+PGMIILC  DC    X'00'        08D R  Program instruction lengh code
+                                      000000000000000C  0000000000000001   519+PGMIILCM EQU   B'00001100'         Progrtam ILC mask, zeros stored in other bits
+000000000000008E  0000                                                     520+PGMICODE DC    H'0'         08E R  Program Interruption Code
+0000000000000090                                                           521+PGMDXC   DC    0F'0'        090 R  Data-Exception Code
+0000000000000090  00000000                                                 522+PGMTRX   DC    F'0'         090 R  Translation-Exception Identification
+0000000000000094                                                           523+MONCLS   DC    0H'0'        094 R  Monitor-Class Number
+0000000000000094  00                                                       524+         DC    X'00'        094 R  not-used - zeros stored
+0000000000000095  00                                                       525+MONNUMBR DC    X'00'        095 R  Monitor-Class Number stored
+0000000000000096  00                                                       526+PERCODE  DC    X'00'        096 R  Program-Event-Recording Code
+                                      00000000000000F0  0000000000000001   527+PERCODMK EQU   B'11110000'         Program-Event-Recordind Code mask in bits 0-3
+0000000000000097  00                                                       528+         DC    X'00'        097 R  PER Code not used - zeros stored
+0000000000000098  00000000                                                 529+PERADDR  DC    F'0'         098 R  PER Address
+000000000000009C  00000000                                                 530+MONCODE  DC    F'0'         09C R  Monitor Event Code in bytes 1-3, zeros in byte 0
+00000000000000A0  00                                                       531+PGMACCID DC    X'00'        0A0 R  Exception accress identification
+00000000000000A1  00                                                       532+PERACCID DC    X'00'        0A1 R  PER access identification
+00000000000000A2  00                                                       533+MPGACCID DC    X'00'        0A2 R  MOVE PAGE Operand access identification
+00000000000000A3                                                           534+SSARCHMD DC    0X'00'       0A3 A  Store Status Architectural Mode Identification
+00000000000000A3  00                                                       535+MKARCHMD DC    X'00'        0A3 R  Machine-Check Architectural Mode Identification
+00000000000000A4  00000000                                                 536+UA2      DC    F'0'         0A4 R  Unused area
+                                                                           537+* z/Architecture PROGRAM INTERRUPTION INFORMATION
+00000000000000A8  00000000 00000000                                        538+ZPGMTRX  DC    FD'0'        0A8 R  Translation Exception information
+00000000000000B0  00000000 00000000                                        539+ZMONCODE DC    FD'0'        0B0 R  Monitor Code
+                                                                           540+* System/370 CHANNEL INPUT/OUTPUT INFORMATION
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    14
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+00000000000000B8                      00000000000000B8  00000000000000A8   541+         ORG   ASBEGIN+X'A8'
+00000000000000A8  00000000                                                 542+CHANID   DC    F'0'         0A8 R  System/370 STORE CHANNEL ID location
+00000000000000AC  00000000                                                 543+IOELADDR DC    F'0'         0AC R  System/370 I/O Extended Logout Address
+00000000000000B0  00000000                                                 544+LCHANLOG DC    F'0'         0B0 R  System/370 Limited Channel Logout Area
+00000000000000B4  00000000                                                 545+UA3      DC    F'0'         0B4 R  unused by System/370
+00000000000000B8  00                                                       546+UA4      DC    X'00'        0B8 R  unused by System/370
+00000000000000B9  00                                                       547+MEASUREB DC    X'00'        0B9 R  System/370 Measurement Byte
+00000000000000BA  0000                                                     548+IOICODE  DC    H'0'         0BA R  System/370 Input/Output Interruption Device Address
+                                                                           549+* CHANNEL SUBSYSTEM INPUT/OUTPUT INFORMATION
+00000000000000BC                      00000000000000BC  00000000000000B8   550+         ORG   ASBEGIN+X'B8'
+00000000000000B8  00000000                                                 551+IOSSID   DC    F'0'         0B8 R  Channel subsystem-identification word
+00000000000000BC  00000000                                                 552+IOIPARM  DC    F'0'         0BC R  Channel subsystem I/O Interruption parameter
+00000000000000C0  00000000                                                 553+IOIID    DC    F'0'         0C0 R  Channel subsystem I/O Interruption Identification
+00000000000000C4  00000000                                                 554+PCFETO   DC    A(0)         0C4 R  ESA/390 PROGRAM CALL FAST Entry Table Origin
+00000000000000C8  00000000                                                 555+STFLDATA DC    F'0'         0C8 R  STORE FACILITY LIST storage area
+00000000000000CC  00000000 00000000                                        556+UA5      DC    XL8'00'      0CC R  unused area
+                                                                           557+* MACHINE-CHECK INTERRUPTION INFORMATION
+00000000000000D4  00000000                                                 558+MKXSAA   DC    F'0'         0D4 R  Machine-Check Extended Save Area Address
+00000000000000D8  00000000 00000000                                        559+MKCPUTIM DC    FD'0'        0D8 R  Machine-Check CPU timer save area
+00000000000000E0  00000000 00000000                                        560+MKCLKCMP DC    FD'0'        0E0 R  Machine-Check clock comparator save area
+00000000000000E8  00000000                                                 561+MKICODE  DC    F'0'         0E8 R  Machine-Check interruption code
+00000000000000EC  00000000 00000000                                        562+UA6      DC    XL8'00'      0EC R  unused area
+00000000000000F4  00000000                                                 563+MKDMGCOD DC    F'0'         0F4 R  Machine-Check external damage code
+00000000000000F8                                                           564+ZMKFAILA DC    0FD'0'       0F8 R  Machine-Check failing storage address
+00000000000000F8  00000000                                                 565+MKFAILA  DC    F'0'         0F8 R  Machine-Check failing storage address
+00000000000000FC  00000000                                                 566+MKMODEL  DC    F'0'         0FC R  Machine-Check model dependent information
+0000000000000100  00000000 00000000                                        567+MKLOGOUT DC    4F'0'        100 R  ESA machine-check fixed logout area
+0000000000000108  00000000 00000000
+0000000000000110                      0000000000000110  0000000000000100   568+         ORG   ASBEGIN+X'100'
+0000000000000100  00000000 00000000                                        569+ZEMONCTR DC    AD(0)        100 R  Enhanced-Monitor Counter-Array Origin
+0000000000000108  00000000                                                 570+ZEMONSIZ DC    F'0'         108 R  Enhanced-Monitor Counter-Array Size
+000000000000010C  00000000                                                 571+ZEMONCNT DC    F'0'         10C R  Enhanced-Monitor Exception Count
+0000000000000110  00000000 00000000                                        572+ZBRKADDR DC    AD(0)        110 R  Breaking-Event Address
+0000000000000118  00000000 00000000                                        573+UA7      DC    FD'0'        118 R  unused area
+0000000000000120  00000000 00000000                                        574+MKARS    DC    16F'0'       120 R  Machine-Check access register save area
+0000000000000128  00000000 00000000
+0000000000000130  00000000 00000000
+0000000000000138  00000000 00000000
+0000000000000140  00000000 00000000
+0000000000000148  00000000 00000000
+0000000000000150  00000000 00000000
+0000000000000158  00000000 00000000
+0000000000000160                      0000000000000160  0000000000000100   575+         ORG   ASBEGIN+X'100'
+0000000000000100  00000000 00000000                                        576+MCKLOG   DC    24F'0'       100 R  System/370, 370-XA machine-Check fixed logout area.
+0000000000000108  00000000 00000000
+0000000000000110  00000000 00000000
+0000000000000118  00000000 00000000
+0000000000000120  00000000 00000000
+0000000000000128  00000000 00000000
+0000000000000130  00000000 00000000
+0000000000000138  00000000 00000000
+0000000000000140  00000000 00000000
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    15
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+0000000000000148  00000000 00000000
+0000000000000150  00000000 00000000
+0000000000000158  00000000 00000000
+0000000000000160  00000000 00000000                                        577+MKFPRS   DC    4D'0'        160 R  Machine-Check floating point register save area
+0000000000000168  00000000 00000000
+0000000000000170  00000000 00000000
+0000000000000178  00000000 00000000
+0000000000000180  00000000 00000000                                        578+NKGRS    DC    16F'0'       180 R  Machine-Check general register save area
+0000000000000188  00000000 00000000
+0000000000000190  00000000 00000000
+0000000000000198  00000000 00000000
+00000000000001A0  00000000 00000000
+00000000000001A8  00000000 00000000
+00000000000001B0  00000000 00000000
+00000000000001B8  00000000 00000000
+00000000000001C0  00000000 00000000                                        579+MKCRS    DC    16F'0'       1C0 R  Machine-Check control register save area
+00000000000001C8  00000000 00000000
+00000000000001D0  00000000 00000000
+00000000000001D8  00000000 00000000
+00000000000001E0  00000000 00000000
+00000000000001E8  00000000 00000000
+00000000000001F0  00000000 00000000
+00000000000001F8  00000000 00000000
+                                                                           580+* STORE/STATUS SAVE AREAS
+0000000000000200                      0000000000000200  00000000000000D4   581+         ORG   ASBEGIN+X'D4'
+00000000000000D4  00000000                                                 582+SSXSAA   DC    A(0)         0D4 A  Store Status Extended Save Area Address
+00000000000000D8  00000000 00000000                                        583+SSCPUTIM DC    FD'0'        0D8 A  CPU Timer save area
+00000000000000E0  00000000 00000000                                        584+SSCLKCMP DC    FD'0'        0E0 A  Clock-Comparator save area
+00000000000000E8                      00000000000000E8  0000000000000100   585+         ORG   ASBEGIN+X'100'
+0000000000000100  00000000 00000000                                        586+SSPSW    DC    FD'0'        100 A  Program-Status Word save area
+0000000000000108  00000000                                                 587+SSPREFIX DC    F'0'         108 A  Prefix save area
+000000000000010C  00000000                                                 588+SSMODEL  DC    F'0'         10C A  Model-dependent save area
+0000000000000110                      0000000000000110  0000000000000120   589+         ORG   ASBEGIN+X'120'
+0000000000000120  00000000 00000000                                        590+SSARS    DC    16F'0'       120 A  Access-register save area
+0000000000000128  00000000 00000000
+0000000000000130  00000000 00000000
+0000000000000138  00000000 00000000
+0000000000000140  00000000 00000000
+0000000000000148  00000000 00000000
+0000000000000150  00000000 00000000
+0000000000000158  00000000 00000000
+0000000000000160  00000000 00000000                                        591+SSFPRS   DC    4D'0'        160 A  Floating-point register save area
+0000000000000168  00000000 00000000
+0000000000000170  00000000 00000000
+0000000000000178  00000000 00000000
+0000000000000180  00000000 00000000                                        592+SSGRS    DC    16F'0'       180 A  General register save area
+0000000000000188  00000000 00000000
+0000000000000190  00000000 00000000
+0000000000000198  00000000 00000000
+00000000000001A0  00000000 00000000
+00000000000001A8  00000000 00000000
+00000000000001B0  00000000 00000000
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    16
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+00000000000001B8  00000000 00000000
+00000000000001C0  00000000 00000000                                        593+SSCRS    DC    16F'0'       1C0 A  Control register save area
+00000000000001C8  00000000 00000000
+00000000000001D0  00000000 00000000
+00000000000001D8  00000000 00000000
+00000000000001E0  00000000 00000000
+00000000000001E8  00000000 00000000
+00000000000001F0  00000000 00000000
+00000000000001F8  00000000 00000000
+                                                                           594+* z/Architecture OLD PROGRAM STATUS WORDS
+0000000000000200                      0000000000000200  0000000000000120   595+         ORG   ASBEGIN+X'120'
+0000000000000120  00000000 00000000                                        596+ZRSTOPSW DC    XL16'00'     120 R  Restart Old PSW
+0000000000000128  00000000 00000000
+0000000000000130  00000000 00000000                                        597+ZEXTOPSW DC    XL16'00'     130 R  External Old PSW
+0000000000000138  00000000 00000000
+0000000000000140  00000000 00000000                                        598+ZSVCOPSW DC    XL16'00'     140 R  Supervisor-Call Old PSW
+0000000000000148  00000000 00000000
+0000000000000150  00000000 00000000                                        599+ZPGMOPSW DC    XL16'00'     150 R  Program Old PSW
+0000000000000158  00000000 00000000
+0000000000000160  00000000 00000000                                        600+ZMCKOPSW DC    XL16'00'     160 R  Machine-Check Old PSW
+0000000000000168  00000000 00000000
+0000000000000170  00000000 00000000                                        601+ZIOOPSW  DC    XL16'00'     170 R  Input-Output Old PSW
+0000000000000178  00000000 00000000
+0000000000000180  00000000 00000000                                        602+UA8      DC    XL32'00'     180 R  z/Architecture unused area
+0000000000000188  00000000 00000000
+0000000000000190  00000000 00000000
+0000000000000198  00000000 00000000
+                                                                           603+* z/Architecture NEW PROGRAM STATUS WORD AREAS
+00000000000001A0  00000000 00000000                                        604+ZRSTNPSW DC    XL16'00'     1A0 R  Restart New PSW
+00000000000001A8  00000000 00000000
+00000000000001B0  00000000 00000000                                        605+ZEXTNPSW DC    XL16'00'     1B0 R  External New PSW
+00000000000001B8  00000000 00000000
+00000000000001C0  00000000 00000000                                        606+ZSVCNPSW DC    XL16'00'     1C0 R  Supervisor-Call New PSW
+00000000000001C8  00000000 00000000
+00000000000001D0  00000000 00000000                                        607+ZPGMNPSW DC    XL16'00'     1D0 R  Program New PSW
+00000000000001D8  00000000 00000000
+00000000000001E0  00000000 00000000                                        608+ZMCKNPSW DC    XL16'00'     1E0 R  Machine-Check New PSW
+00000000000001E8  00000000 00000000
+00000000000001F0  00000000 00000000                                        609+ZIONPSW  DC    XL16'00'     1F0 R  Input/Output New PSW
+00000000000001F8  00000000 00000000
+                                      00000000000011C0  0000000000000001   610+ZSASDISP EQU   X'11C0'   Displacement to save areas defined by ASAZAREA macro
+                                      0000000000000200  0000000000000001   611+ASEND    EQU   *                   End of absolute/real assigned storage areas
+                                      0000000000000200  0000000000000001   612+ASLENGTH EQU   ASEND-ASBEGIN       Length of absolute/real assigned storage area
+                                                                           613+* LOGICAL ADDRESS USAGE
+                                      000000000000031B  0000000000000001   614+CPUID    EQU   *+X'11B'     31B L  System/370 CPU Identity used during DAS tracing
+                                                                           616+ASA      DSECT
+0000000000000200                      0000000000000200  0000000000000200   617+         ORG   ASA+X'200'
+0000000000000200  00000000 00000000                                        618+LODPARMS DS    CL64     Hercules IPL parameters
+0000000000000208  00000000 00000000
+0000000000000210  00000000 00000000
+0000000000000218  00000000 00000000
+0000000000000220  00000000 00000000
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    17
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+0000000000000228  00000000 00000000
+0000000000000230  00000000 00000000
+0000000000000238  00000000 00000000
+                                                                           619+* Addresses reflect location of LOD1 record when placed in its ASA area
+                                                                           620+* 000240-00028F.  Fields identified with an asterisk (*) indicate that
+                                                                           621+* the boot loader supplies the information during execution.
+                                      0000000000000240  0000000000000001   622+LOD1     EQU   *        Start of LOD1 record definition
+0000000000000240  00000000                                                 623+LOD1REC  DS    CL4      000240 - Record ID 'LOD1' in EBCDIC
+
+0000000000000244  00                                                       625+LOD1DTYP DS    XL1      000244 - IPL Device Type related information
+                                      0000000000000001  0000000000000001   626+LOD1OBJ  EQU   B'00000001'   Booted program is in an object deck
+                                      0000000000000002  0000000000000001   627+LOD1LENF EQU   B'00000010'   Directed record header contains a length field
+                                      0000000000000004  0000000000000001   628+LOD1CARD EQU   B'00000100'   IPL device is a card reader
+                                      0000000000000008  0000000000000001   629+LOD1TAPE EQU   B'00001000'   IPL device is a tape drive
+                                      0000000000000010  0000000000000001   630+LOD1FBA  EQU   B'00010000'   IPL device is a FBA DASD drive
+                                      0000000000000020  0000000000000001   631+LOD1CKD  EQU   B'00100000'   IPL device is a CKD DASD drive
+                                      0000000000000040  0000000000000001   632+LOD1ECKD EQU   B'01000000'   IPL device is a ECKD DASD drive
+
+0000000000000245  00                                                       634+LOD1BLFL DS    XL1      000245 - Boot loader flags
+                                      0000000000000080  0000000000000001   635+LOD1BLCA EQU   B'10000000'   Change architecture before loading booted program
+                                      0000000000000040  0000000000000001   636+LOD1BL64 EQU   B'01000000'   Set 64-bit address mode before entering program
+                                      0000000000000020  0000000000000001   637+LOD1BLTR EQU   B'00100000'   Set trap new PSW's before entering program
+                                      0000000000000010  0000000000000001   638+LOD1BLF1 EQU   B'00010000'   Use Format-1 CCW's and 31 bit addressing mode
+
+0000000000000246  0000                                                     640+LOD1MDLN DS    HL2      000246 - Maximum directed record length in bytes
+
+                                                                           642+* After loading of a booted progrm, these two fields must match.
+                                                                           643+* Note: not used when loading an absolute object deck.
+0000000000000248  00000000                                                 644+LOD1BPLN DS    FL4      000248 - Length of booted program content on medium
+000000000000024C  00000000                                                 645+LOD1BPLD DS    FL4    * 00024C - Length of loaded boot program
+0000000000000250  00000000                                                 646+LOD1ENTR DS    FL4      000250 - Booted program's entry address
+
+0000000000000254  00                                                       648+LOD1CPU  DS    XL1    * 000254 - Boot loader's CPU running architecture
+                                      0000000000000000  0000000000000001   649+LOD1CPNA EQU   X'00'         CPU architecture not available
+                                      0000000000000001  0000000000000001   650+LOD1360  EQU   X'01'         S/360 in BC mode
+                                      0000000000000002  0000000000000001   651+LOD1370B EQU   X'02'         S/370 in BC mode
+                                      0000000000000003  0000000000000001   652+LOD1370E EQU   X'03'         S/370 in EC mode
+                                      0000000000000004  0000000000000001   653+LOD1380  EQU   X'04'         S/380
+                                      0000000000000005  0000000000000001   654+LOD1370X EQU   X'05'         370-XA through ESA/390
+                                      0000000000000006  0000000000000001   655+LOE1E370 EQU   X'06'         ESA/370
+                                      0000000000000007  0000000000000001   656+LOD1E390 EQU   X'07'         ESA/390
+                                      0000000000000008  0000000000000001   657+LOD1S390 EQU   X'08'         ESA/390 on dual z/Arthitecture(R) system
+                                      0000000000000009  0000000000000001   658+LOD1ESAZ EQU   X'09'         z/Architecture on a dual z/Architecture system
+                                      000000000000000A  0000000000000001   659+LOD1Z    EQU   X'0A'         z/Architecture only system
+                                      00000000000000FF  0000000000000001   660+LOD1CPIN EQU   X'FF'         Invalid CPU operating environment
+
+0000000000000255  00                                                       662+LOD1IO   DS    XL1    * 000255 - Boot loader's I/O architecture and mode
+                                      0000000000000000  0000000000000001   663+LOD1IONA EQU   B'00000000'   I/O architecture and mode not available
+                                      0000000000000010  0000000000000001   664+LOD1IACH EQU   B'00010000'   I/O architecture is channel based
+                                      0000000000000020  0000000000000001   665+LOD1IACS EQU   B'00100000'   I/O architecture is channel subsystem based
+                                      00000000000000C0  0000000000000001   666+LOD1IAIN EQU   B'11000000'   I/O architecture is invalid
+                                      0000000000000001  0000000000000001   667+LOD1IM24 EQU   B'00000001'   I/O architecture uses CCW Format-0 CCW's
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    18
+
+      LOC            OBJECT CODE           ADDR1             ADDR2        STMT
+
+                                      0000000000000002  0000000000000001   668+LOD1IM31 EQU   B'00000010'   I/O architecture uses CCW Format-0 CCW's
+                                      0000000000000004  0000000000000001   669+LOD1IM64 EQU   B'00000100'   I/O architecture uses CCW1's plus IDAW-2's.
+                                      0000000000000008  0000000000000001   670+LOD1IMIN EQU   B'00001000'   I/O architecture mode is invalid
+                                      00000000000000C8  0000000000000001   671+LOD1IOIN EQU   LOD1IAIN+LOD1IMIN  I/O architecture or mode invalid
+                                      0000000000000011  0000000000000001   672+LOD1I370 EQU   LOD1IACH+LOD1IM24  S/360 and S/370 I/O
+                                      0000000000000022  0000000000000001   673+LOD1IESA EQU   LOD1IACS+LOD1IM31  370-XA through ESA/390 I/O
+                                      0000000000000024  0000000000000001   674+LOD1IZ   EQU   LOD1IACS+LOD1IM64  z/Architecture I/O
+
+0000000000000256  00                                                       676+LOD1BLAM DS    XL1    * 000256 - Boot loader's addressing mode when booted
+                                                                           677+*                                program is entered
+                                      0000000000000000  0000000000000001   678+LOD1AMAN EQU   X'00'         Addressing mode not available
+                                      0000000000000001  0000000000000001   679+LOD1AM24 EQU   X'01'         Addressing mode is 24-bits
+                                      0000000000000002  0000000000000001   680+LOD1AM31 EQU   X'02'         Addressing mode is 31-bits
+                                      0000000000000003  0000000000000001   681+LOD1AM64 EQU   X'03'         Addressing mode is 64-bits
+                                      00000000000000FF  0000000000000001   682+LOD1AMIN EQU   X'FF'         Addressing mode is invalid
+
+0000000000000257  00                                                       684+LOD1BLSV DS    XL1    * 000257 - Boot loader's services
+                                      0000000000000000  0000000000000001   685+LOD1BLSN EQU   X'00'         Boot loader services are unavailable
+                                                                           686+* Meaning of these bits are defined by the boot loader. Not zero implies
+                                                                           687+* services are available and LOD1BLST is valid.  When zero, LOD1BLST is
+                                                                           688+* not available.
+
+0000000000000258  00000000                                                 690+LOD1FSEC DS    FL4      000258 - Directed record FBA DASD starting sector
+000000000000025C  0000                                                     691+LOD1CCYL DS    HL2      00025C - Directed record CKD DASD starting cylinder
+000000000000025E  0000                                                     692+LOD1CTRK DS    HL2      00025E - Directed record CKD DASD starting track
+0000000000000260  00                                                       693+LOD1CREC DS    XL1      000260 - Directed record CKD DASD starting rec
+0000000000000261  00                                                       694+LOD1CRTK DS    XL1      000261 - Number of directed records per track
+0000000000000262  0000                                                     695+LOD1CMCY DS    HL2      000262 - Maximum CKD DASD cylinder number
+0000000000000264  0000                                                     696+LOD1CMTR DS    HL2      000264 - Maximum CKD DASD track number
+0000000000000266  0000                                                     697+LOD1DEVN DS    HL2    * 000266 - Device Number of IPL device from CS
+0000000000000268  00000000                                                 698+LOC1DEVI DS    FL4    * 000268 - I/O command device ID (CUU / subchannel num)
+000000000000026C  00000000                                                 699+LOD1IOA  DS    AL4(0)   00026C - Boot loader I/O area starting address
+0000000000000270  00000000                                                 700+LOD1BLST DS    AL4(0) * 000270 - Boot loader services address.
+0000000000000274  00                                                       701+LOD1ARCH DS    XL1    * 000274 - Running architecture level at boot loader entry
+0000000000000275  000000                                                   702+LOD1RSV2 DS    XL3      000275 - RESERVED NOT IN USE
+0000000000000278  00000000                                                 703+LOD1RTN  DS    A(0)   * 000278 - Address returning to service caller
+
+000000000000027C  00000000 00000000                                        705+LOD1RSRV DS    5FL4     00027C - RESERVED NOT IN USE
+0000000000000284  00000000 00000000
+000000000000028C  00000000
+                                      0000000000000050  0000000000000001   706+LOD1LEN  EQU   *-LOD1   Length of LOD1 record
+                                                                           707          END
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    19
+
+     SYMBOL        TYPE  VALUE   LENGTH  DEFN  REFERENCES
+
+ASA                 4    000000     656   457  617  182
+ASAREGN             2    000000     512   151
+ASASECT             J    000000     512   151  154  161  171  173
+ASBEGIN             U    000000       1   458  463  505  541  550  568  575  581  585  589  595  612
+ASEND               U    000200       1   611  612
+ASLENGTH            U    000200       1   612
+BCEXTCOD            H    00001A       2   475
+BCIOCOD             H    00003A       2   483
+BCMCKCOD            H    000032       2   481
+BCPGMCOD            H    00002A       2   479
+BCSVCCOD            H    000022       2   477
+BLS3270             U    000078       1   414
+BLSACT              X    00000B       1   435
+BLSATTN             U    000080       1   429
+BLSBUSY             U    000080       1   417
+BLSCARD             U    000098       1   410
+BLSCH               X    000009       1   431
+BLSCKD              U    000089       1   408
+BLSCON              U    000070       1   413  252
+BLSDEV              H    000000       2   396
+BLSERR              X    00000C       1   439
+BLSFBA              U    000008       1   407
+BLSHDW              F    000004       4   425
+BLSIOEL             U    000020       1   446
+BLSIOT              4    000000      32   395  446
+BLSPEOF             U    000080       1   399
+BLSPR               U    000028       1   412
+BLSPROG             F    00001C       4   445
+BLSPUN              U    000020       1   411
+BLSRDSN             U    000000       1   436
+BLSREAD             U    000004       1   437
+BLSRSV              U    0000F8       1   404
+BLSRSV2             X    00000D       3   441
+BLSSCLS             U    000038       1   401
+BLSSNS              X    00000A       1   433
+BLSSNSP             U    000001       1   423
+BLSSW               F    000010       4   443
+BLSTAPE             U    000090       1   409
+BLSTAT              U    000040       1   420
+BLSTATO             U    000020       1   421
+BLSTATS             U    000002       1   422
+BLSTATUS            X    000003       1   416
+BLSTYP              X    000002       1   398
+BLSUE               U    000001       1   430
+BLSUNCH             X    000008       2   427
+BLSUNIT             X    000008       1   428
+BLSUNSOL            U    000040       1   400
+BOOTED5             2    002000     335   180
+CAW                 F    000048       4   487
+CAWADDR             R    000049       3   490
+CAWKEY              X    000048       1   488
+CAWSUSP             U    000008       1   489
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    20
+
+     SYMBOL        TYPE  VALUE   LENGTH  DEFN  REFERENCES
+
+CHANID              F    0000A8       4   542
+CONCCW              W    002130       8   275  269
+CPUID               U    00031B       1   614
+CSW                 F    000040       8   486
+DEVBUSY             I    002066       4   226
+DEVNOAVL            I    00205E       4   224  201  218
+DEVSCSW             I    00206E       4   228  200  217
+DONE                3    002078       8   234  221
+ENABLED             H    002030       2   206  198
+ENADEV              U    000003       1   296  247
+ENAIOTA             F    00211C       4   251  207
+ENASPB              Y    002118       2   247  194
+ENASPBC             R    00211C       1   252
+ENDBAD              3    002080       8   236  224  225  226  227  228  229
+EXCP                U    000004       1   298  258
+EXCPORB             X    002124      12   263  207
+EXCPSPB             Y    002120       2   258  211
+EXTCPUAD            H    000084       2   507
+EXTICODE            H    000086       2   508
+EXTIPARM            F    000080       4   506
+EXTNPSW             F    000058       8   496
+EXTOPSW             F    000018       8   468  474
+HURRAY              I    00205A       4   221  215
+IMAGE               1    000000     847     0
+IOELADDR            F    0000AC       4   543
+IOICODE             H    0000BA       2   548
+IOIID               F    0000C0       4   553
+IOINIT              U    000001       1   292
+IOIPARM             F    0000BC       4   552
+IONPSW              F    000078       8   500
+IOOPSW              F    000038       8   472  482
+IOSSID              F    0000B8       4   551
+IPLCCW1             F    000008       8   460
+IPLCCW2             F    000010       8   461
+IPLPSW              F    000000       8   459
+LCHANLOG            F    0000B0       4   544
+LOC1DEVI            U    000268       4   698
+LOD1                U    000240       1   622  706
+LOD1360             U    000001       1   650
+LOD1370B            U    000002       1   651
+LOD1370E            U    000003       1   652
+LOD1370X            U    000005       1   654
+LOD1380             U    000004       1   653
+LOD1AM24            U    000001       1   679
+LOD1AM31            U    000002       1   680
+LOD1AM64            U    000003       1   681
+LOD1AMAN            U    000000       1   678
+LOD1AMIN            U    0000FF       1   682
+LOD1ARCH            X    000274       1   701
+LOD1BL64            U    000040       1   636
+LOD1BLAM            X    000256       1   676
+LOD1BLCA            U    000080       1   635
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    21
+
+     SYMBOL        TYPE  VALUE   LENGTH  DEFN  REFERENCES
+
+LOD1BLF1            U    000010       1   638
+LOD1BLFL            X    000245       1   634
+LOD1BLSN            U    000000       1   685
+LOD1BLST            R    000270       4   700  195  212
+LOD1BLSV            X    000257       1   684
+LOD1BLTR            U    000020       1   637
+LOD1BPLD            U    00024C       4   645
+LOD1BPLN            U    000248       4   644
+LOD1CARD            U    000004       1   628
+LOD1CCYL            U    00025C       2   691
+LOD1CKD             U    000020       1   631
+LOD1CMCY            U    000262       2   695
+LOD1CMTR            U    000264       2   696
+LOD1CPIN            U    0000FF       1   660
+LOD1CPNA            U    000000       1   649
+LOD1CPU             X    000254       1   648
+LOD1CREC            X    000260       1   693
+LOD1CRTK            X    000261       1   694
+LOD1CTRK            U    00025E       2   692
+LOD1DEVN            U    000266       2   697
+LOD1DTYP            X    000244       1   625
+LOD1E390            U    000007       1   656
+LOD1ECKD            U    000040       1   632
+LOD1ENTR            U    000250       4   646
+LOD1ESAZ            U    000009       1   658
+LOD1FBA             U    000010       1   630
+LOD1FSEC            U    000258       4   690
+LOD1I370            U    000011       1   672
+LOD1IACH            U    000010       1   664  672
+LOD1IACS            U    000020       1   665  673  674
+LOD1IAIN            U    0000C0       1   666  671
+LOD1IESA            U    000022       1   673
+LOD1IM24            U    000001       1   667  672
+LOD1IM31            U    000002       1   668  673
+LOD1IM64            U    000004       1   669  674
+LOD1IMIN            U    000008       1   670  671
+LOD1IO              X    000255       1   662
+LOD1IOA             R    00026C       4   699
+LOD1IOIN            U    0000C8       1   671
+LOD1IONA            U    000000       1   663
+LOD1IZ              U    000024       1   674
+LOD1LEN             U    000050       1   706
+LOD1LENF            U    000002       1   627
+LOD1MDLN            U    000246       2   640
+LOD1OBJ             U    000001       1   626
+LOD1REC             C    000240       4   623
+LOD1RSRV            U    00027C       4   705
+LOD1RSV2            X    000275       3   702
+LOD1RTN             A    000278       4   703
+LOD1S390            U    000008       1   657
+LOD1TAPE            U    000008       1   629
+LOD1Z               U    00000A       1   659
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    22
+
+     SYMBOL        TYPE  VALUE   LENGTH  DEFN  REFERENCES
+
+LODPARMS            C    000200      64   618
+LOE1E370            U    000006       1   655
+MCKLOG              F    000100       4   576
+MCKNPSW             F    000070       8   499
+MCKOPSW             F    000030       8   471  480
+MEASUREB            X    0000B9       1   547
+MESSAGE             C    002138      23   280  281  275
+MKARCHMD            X    0000A3       1   535
+MKARS               F    000120       4   574
+MKCLKCMP            F    0000E0       8   560
+MKCPUTIM            F    0000D8       8   559
+MKCRS               F    0001C0       4   579
+MKDMGCOD            F    0000F4       4   563
+MKFAILA             F    0000F8       4   565
+MKFPRS              D    000160       8   577
+MKICODE             F    0000E8       4   561
+MKLOGOUT            F    000100       4   567
+MKMODEL             F    0000FC       4   566
+MKXSAA              F    0000D4       4   558
+MONCLS              H    000094       2   523
+MONCODE             F    00009C       4   530
+MONNUMBR            X    000095       1   525
+MPGACCID            X    0000A2       1   533
+MSSGLEN             U    000017       1   281  275
+NKGRS               F    000180       4   578
+NOOP                U    000000       1   290
+PCFETO              A    0000C4       4   554
+PERACCID            X    0000A1       1   532
+PERADDR             F    000098       4   529
+PERCODE             X    000096       1   526
+PERCODMK            U    0000F0       1   527
+PGMACCID            X    0000A0       1   531
+PGMDXC              F    000090       4   521
+PGMICODE            H    00008E       2   520
+PGMIID              F    00008C       4   516
+PGMIILC             X    00008D       1   518
+PGMIILCM            U    00000C       1   519
+PGMNPSW             F    000068       8   498
+PGMOPSW             F    000028       8   470  478
+PGMSECT             J    002000     335   180
+PGMSTART            I    002000       4   183  172  184
+PGMTRX              F    000090       4   522
+PNDING              U    000005       1   300
+QIOT                U    000002       1   294
+RSTNPSW             F    000000       8   464
+RSTOPSW             F    000008       8   465
+SAVEAREA            F    002088       8   243  192
+SCANOUT             X    000080       1   502  503
+SCANOUTL            U    000000       1   503
+SPB                 4    000000      16   311
+SPBCCW0             U    000001       1   323
+SPBCCW1             U    000002       1   324
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    23
+
+     SYMBOL        TYPE  VALUE   LENGTH  DEFN  REFERENCES
+
+SPBCCWF             X    000002       1   322
+SPBCHST             X    000007       1   343
+SPBDCLS             X    000004       1   336
+SPBDEVST            X    000006       1   342
+SPBE                U    000004       1   314  330  335  337  339  344  384
+SPBEATN             U    000080       1   363
+SPBEBY1             U    000080       1   353  363
+SPBECTL             X    000002       1   352
+SPBENRM             U    00000C       1   362
+SPBEORB             F    000004       4   369  370
+SPBEORB1            X    000009       1   375
+SPBEORB2            X    00000B       1   377
+SPBEORBC            X    00000C       4   378
+SPBEORBK            X    000008       1   372
+SPBEORBL            X    00000A       1   376
+SPBEORBM            U    0000F0       1   373
+SPBEORBP            X    00000D       3   380
+SPBEORBR            U    00000F       1   374
+SPBEORBT            F    000004       4   371
+SPBEWCO             U    000008       1   359
+SPBEWDC             U    00000C       1   358  362  259
+SPBEWDO             U    000004       1   360
+SPBEWNO             U    000000       1   361
+SPBEWTM             U    00000C       1   356
+SPBID               H    000000       2   312
+SPBIOTA             F    000004       4   317
+SPBPEND             X    000003       1   365
+SPBPENDG            U    000001       1   366
+SPBPENDN            U    000000       1   367
+SPBSI               H    000002       2   313  321  351
+SSARCHMD            X    0000A3       1   534
+SSARS               F    000120       4   590
+SSCLKCMP            F    0000E0       8   584
+SSCPUTIM            F    0000D8       8   583
+SSCRS               F    0001C0       4   593
+SSFPRS              D    000160       8   591
+SSGRS               F    000180       4   592
+SSMODEL             F    00010C       4   588
+SSPREFIX            F    000108       4   587
+SSPSW               F    000100       8   586
+SSXSAA              A    0000D4       4   582
+STFLDATA            F    0000C8       4   555
+SVCICODE            H    00008A       2   514
+SVCIID              F    000088       4   510
+SVCIILC             X    000089       1   512
+SVCIILCM            U    00000C       1   513
+SVCNPSW             F    000060       8   497
+SVCOPSW             F    000020       8   469  476
+TIMER               F    000050       4   493
+TTDES               F    000054       4   494
+UA0                 F    000010       8   466
+UA1                 F    00004C       4   491
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    24
+
+     SYMBOL        TYPE  VALUE   LENGTH  DEFN  REFERENCES
+
+UA2                 F    0000A4       4   536
+UA3                 F    0000B4       4   545
+UA4                 X    0000B8       1   546
+UA5                 X    0000CC       8   556
+UA6                 X    0000EC       8   562
+UA7                 F    000118       8   573
+UA8                 X    000180      32   602
+ZBRKADDR            A    000110       8   572
+ZEMONCNT            F    00010C       4   571
+ZEMONCTR            A    000100       8   569
+ZEMONSIZ            F    000108       4   570
+ZEXTNPSW            X    0001B0      16   605
+ZEXTOPSW            X    000130      16   597
+ZIONPSW             X    0001F0      16   609
+ZIOOPSW             X    000170      16   601
+ZMCKNPSW            X    0001E0      16   608
+ZMCKOPSW            X    000160      16   600
+ZMKFAILA            F    0000F8       8   564
+ZMONCODE            F    0000B0       8   539
+ZPGMNPSW            X    0001D0      16   607
+ZPGMOPSW            X    000150      16   599
+ZPGMTRX             F    0000A8       8   538
+ZRSTNPSW            X    0001A0      16   604
+ZRSTOPSW            X    000120      16   596
+ZSASDISP            U    0011C0       1   610
+ZSVCNPSW            X    0001C0      16   606
+ZSVCOPSW            X    000140      16   598
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    25
+
+ MACRO     DEFN  REFERENCES
+
+ARCHIND      63
+ARCHLVL      62
+ASAIPL      169
+ASALOAD     150
+ASAREA      456
+BLSASA      455
+BLSCALL     193   210
+BLSIOT      391
+BLSORB      261
+BLSPB       307
+BLSTABLE    288
+DWAIT       233   235
+DWAITEND    232
+LOD1        615
+ORB         262
+SAVEAREA    242
+SERVEND     301
+SERVID      289   291   293   295   297   299
+TRAP128     162
+TRAP64      152   155
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    26
+
+   DESC     SYMBOL  SIZE    POS       ADDR
+
+Entry: 0
+
+Image      IMAGE     847  000-34E  0000-034E
+  Region   ASAREGN   512  000-1FF  0000-01FF
+    CSECT  ASASECT   512  000-1FF  0000-01FF
+  Region   BOOTED5   335  200-34E  2000-214E
+    CSECT  PGMSECT   335  200-34E  2000-214E
+
+
+      ADDR         POS                                OBJECT CONTENT                                         CHARACTER CONTENT
+
+
+Region: ASAREGN
+
+0000000000000000   000   00080000 00002000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0000000000000020   020   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0000000000000040   040   00000000 00000000 00000000 00000000  00000000 00000000 000A0000 00000018   |................ ................|
+0000000000000060   060   000A0000 00000020 000A0000 00000028  000A0000 00000030 000A0000 00000038   |................ ................|
+0000000000000080   080   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000000000000A0   0A0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000000000000C0   0C0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000000000000E0   0E0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0000000000000100   100   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0000000000000120   120   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0000000000000140   140   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0000000000000160   160   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0000000000000180   180   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000000000001A0   1A0   00020000 00000000 00000000 00000120  00020000 00000000 00000000 00000130   |................ ................|
+00000000000001C0   1C0   00020000 00000000 00000000 00000140  00020000 00000000 00000000 00000150   |...............  ...............&|
+00000000000001E0   1E0   00020000 00000000 00000000 00000160  00020000 00000000 00000000 00000170   |...............- ................|
+
+Region: BOOTED5
+
+0000000000002000   200   B90400CF 41D0C088 4110C118 E3F00270  00170DEF 47FFC018 A7F4000C 00000004   |.......h..A.T0.. ........x4......|
+0000000000002020   220   A7F40027 A7F4001D 00000010 00000014  D203C124 C11C4110 C120E3F0 02700017   |x4..x4.......... K.A.A...A.T0....|
+0000000000002040   240   0DEF47FF C046A7F4 000A0000 0004A7F4  0010A7F4 00060000 00108200 C0789204   |......x4......x4 ..x4......b...k.|
+0000000000002060   260   C0878200 C0809208 C0878200 C080920C  C0878200 C0800000 000A0000 00000000   |.gb...k..gb...k. .gb.............|
+0000000000002080   280   000A0000 00051000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000000000020A0   2A0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000000000020C0   2C0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000000000020E0   2E0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0000000000002100   300   00000000 00000000 00000000 00000000  00000000 00000000 0003000F 70000000   |................ ................|
+0000000000002120   320   00040C00 00000000 0080FF00 00002130  09000017 00002138 C8859393 9640C281   |................ ........Hello Ba|
+0000000000002140   340   998560D4 85A38193 40E69699 93845A                                          |re-Metal World!                  |
+ASMA Ver. 0.2.0  PGM5Z - DSECTS AND EQUATES                                                         08 Sep 2020 07:25:44  Page    27
+
+   STMT                           FILE NAME
+
+1     /home/harold/SATKREPO/SATK/samples/guide/pgm5/s390x/pgm5.asm
+
+
+** NO ERRORS FOUND **
+
+[145] MNOTE *,ARCHLVL - ARCHITECTURE LEVEL SET - 9

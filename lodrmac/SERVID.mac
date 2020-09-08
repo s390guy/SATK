@@ -1,0 +1,46 @@
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   SERVID &NAME=,&ENTRY=0,&EQU=NO
+.* Defines a service ID within the Boot Loader Services table
+.*   &LABEL is the name identifying the service ID in the table, if used.
+.*   &NAME is the logical service name.  Omitting the name provides a table
+.*          entry of zero, an empty slot.
+.*   &ENTRY is the required entry address of the service.  Use the same
+.*          label as used with the corresponding SERVICE macro.
+.*   &EQU   When 'YES', only generates the service ID as an EQUATE statement.
+.*          The &ENTRY parameter and &LABEL are silently ignored.
+.*          Used by BLSTABLE to generate service ID's for a booted program.
+.* If &NAME is omitted, a value of zero is assembled into the table and if
+.* EQU=YES, not EQUATE statement is generated.
+         GBLA  &BLSNUM
+         AIF   ('&EQU' NE 'YES').FULL
+         AIF   ('&NAME' EQ '').EMPTY
+&NAME    EQU   &BLSNUM
+.EMPTY   ANOP
+&BLSNUM  SETA  &BLSNUM+1
+         MEXIT
+.FULL    ANOP
+         AIF   ('&NAME' EQ '').GENZERO
+.GENSERV ANOP
+&LABEL   DC    A(&ENTRY)
+&NAME    EQU   &BLSNUM
+         AGO   .INCR
+.GENZERO ANOP
+&LABEL   DC    A(0)
+.INCR    ANOP
+&BLSNUM  SETA  &BLSNUM+1
+         MEND

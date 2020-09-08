@@ -1,0 +1,151 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         SERVENAD
+         GBLA  &ISLOADR
+         AIF   (&ISLOADR).OK
+         MNOTE 1,'SERVENAD - MACRO INTERNAL TO BOOT LOADER - MAY NOT BE USED'
+         MEXIT
+.OK      ANOP
+SERVENAD SERVICE ENADEV,ENADSAVE
+         GBLA  &ARCHLVL
+         AIF   (&ARCHLVL NE 0).ARCHOK
+         MNOTE 1,'SERVENAD - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         DROP  1
+         $LR   4,1              Need to free up R1 for I/O commands
+         USING SPB,4            Set new register for addressing SPB
+         SR    0,0              Set return code to 0, optimistically
+         SPACE 1
+* Determine if device is already in the table
+         MVC   ENAQIOT+2,SPBSI   Set device address in my QIOT
+         BLSCALL SPB=ENAQIOT     Determine if it is already in the table
+         LTR   15,15        Test the QIOT return code
+         BNZ   ENADADD      ..Not found, so device eligible for being added
+         SPACE 1
+* Make sure the device class is the same
+         L     5,ENAQIOT+SPBIOTA   Fetch the address of the existing entry
+         CLC   SPBDCLS,BLSTYP-BLSIOT(5)  Do the device classes match?
+         $BE   ENADOK           ..Yes, just return the address
+* Device class does not match
+         LA    0,20             Set return code of 20
+         $B    ENADRTN          Return to caller
+         SPACE 1
+ENADOK   DS    0H   Simply return with the I/O Table address
+         ST    5,SPBIOTA
+         LA    0,4              Set return address to 4
+         $B    ENADRTN
+         SPACE 1
+ENADADD  DS    0H   Try to add the device to the table
+         L     2,IOTBLEA        Locate the current end of the table
+         LR    3,2              Calculate the new end of the table
+         AL    3,IOTBLI         New ending address for new table entry
+         CL    3,IOTMAX         Did we go beyond the end of the table?
+         $BL   ENADTEST         ..No, good to go (room to add new entry)
+         LA    0,16             ..Yes, return with 16 return code, table full
+         $B    ENADRTN          Quit now.
+         SPACE 1
+ENADTEST DS    0H   Test if the device is usable.
+         LA    2,1(,2)          Point to the table entry being added
+         USING BLSIOT,2         Set up addressing for the new I/O Table entry
+         AIF   (&ARCHLVL GE 5).CSFIND
+.*
+.*  Test if device is operational
+         LH    1,SPBSI          Fetch the device number (also hardware address)
+         TIO   0(1)             Test if the device is available or not.
+* CC==0 (device available) add it to the I/O Table
+         BC    B'1000',ENADGOOD
+* CC==1 (CSW stored in ASA) error status available
+         BC    B'0100',ENADERR
+* CC==2 (device or channel busy)
+*        BC    B'0010', FALL THROUGH
+* CC==3 (not operational)
+*        BC    B'0001', FALL THROUGH
+         B     ENADNOAV
+         AGO   .WITHRC
+.CSFIND  ANOP
+.*
+.*  Locate the subchannel for the device number being added.
+         L     6,CSBLOCKS          This is where SCHIB will be stored
+         MVI   CSSTRUCT,CSSSCHIB   We have a SCHIB in the area
+         L     1,ENADSIWB          Fetch the first SIW
+         SPACE 1
+ENASRCH  DS    0H     This loop searches for the device being added within
+*                     the configured subchannel devices
+         STSCH 0(6)                Store the SCHIB
+         $BC   B'0001',ENADNOAV    Hit CC==3, end of subchannels
+*                                  CC==1 and CC==2 are not possible
+*                                  Assume CC==0, the SCHIB was stored
+         USING SCHIB,6             Address it
+         CLC   SPBSI,PMCWDNUM      Is this the device number we want?
+         $BE   ENADGOOD            ..Yes, we can add it to the IOT
+* This subchannel is not the one we need, try again with next subchannel
+* Increment the subchannel number in the SIW
+         LA    1,1(,1)             Increment it
+         $B    ENASRCH             See if next subchannel is what we need
+         AGO   .NODEV
+.WITHRC  ANOP
+         SPACE 1
+         AIF   (&ARCHLVL GE 5).NODEV
+ENADERR  DS    0H       Error status, return code 8
+         MVC   SPBDEVST(2),CSW+4   Move error data to SPBE
+         LA    0,8                 Exit with return code 8
+         $B    ENADRTN
+         SPACE 1
+.NODEV   ANOP
+ENADNOAV DS 0H   Device is invalid
+         LA    0,12     Return with condition code 12
+         $B    ENADRTN
+         SPACE 1
+         AIF   (&ARCHLVL GE 5).CSDEVAD
+ENADGOOD DS    0H  Add the channel device to the table...
+         STH   1,BLSDEV            Set I/O Table device number
+         ST    1,BLSHDW            Set I/O Table hardware address
+         MVC   BLSTYP,SPBDCLS      Set the device class in the entry
+         AGO   .BLSERR
+.CSDEVAD ANOP
+ENADGOOD DS    0H  Add the subchannel device to the table...
+         MVC   BLSDEV,PMCWDNUM     Set I/O Table device number
+         ST    1,BLSHDW            Set I/O Table hardware address
+         MVC   BLSTYP,SPBDCLS      Set the device class in the entry
+         OI    PMCW1_8,PMCWE       Enable the device to the subsystem
+         ST    5,PMCWIP            Set the Interruption Parameter
+         MVC   PMCW1_0,SPBDCLS     Set the Interruption subclass code
+         NI    PMCW1_0,PMCWISCM    Make sure required bits are zero
+         MSCH  0(6)                Enable the subchannel
+         DROP  6                   Do not access the SCHIB after this
+         $BC   B'0111',ENADNOAV    CC==1 or 2 or 3, subchannel not available
+* CC==0, subchannel was successfully modified
+.BLSERR  ANOP
+         SPACE 1
+* Create the device error mask from the device class entry
+         BLSERR
+         SPACE 1
+ENADSSPB DS    0H   Update the SPBE with the entry's address
+         ST    2,SPBIOTA           Set the I/O Table entry address in SPBE
+* Officially add the entry to the table
+         ST    3,IOTBLEA           Update the end of the table
+.RETURN  ANOP
+ENADRTN  SERVRTN
+         SPACE 1
+         AIF   (&ARCHLVL LT 5).NOSIW
+ENADSIWB DC    H'1',H'0'   Initial SIW used for searching subchannels
+.NOSIW   ANOP
+ENAQIOT  DC    Y(QIOT),H'0',F'0'  Check to see if device in table
+         MEND

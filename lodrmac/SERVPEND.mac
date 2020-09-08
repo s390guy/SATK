@@ -1,0 +1,65 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         SERVPEND
+         GBLA  &ARCHLVL
+         GBLA  &ISLOADR
+         AIF   (&ISLOADR).OK
+         MNOTE 1,'SERVPEND - MACRO INTERNAL TO BOOT LOADER - MAY NOT BE USED'
+         MEXIT
+.OK      ANOP
+         AIF   (&ARCHLVL NE 0).ARCHOK
+         MNOTE 1,'SERVPEND - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+SERVPEND SERVICE PNDING,PENDSAVE
+         $SR   0,0                 Set return code to 0, optimistically
+*         ICM   5,B'1111',SPBIOTA   Was an IOT address supplied?
+         LTEST 5,SPBIOTA           Was an IOT address supplied?
+         $BZ   PNDSRCH             ..No entry address, so search the table
+         USING BLSIOT,5            Address the IOT entry
+         TM    BLSTATUS,BLSTATO    Does device have a pending action?
+         $BO   PNDINGD             ..Yes, need to report to the program
+         $B    PNDRTN              ..No, return code of zero then
+         SPACE 1
+PNDSRCH  DS    0H   Search the IOT for a pending action
+         AIF   (&ARCHLVL GE 9).INIT64
+         LM    5,7,IOTBLBA         Initialize the search registers
+         AGO   .SEARCH
+.INIT64  ANOP
+         LLGT  5,IOTBLBA           Initialize the BXLE R1 (sum)
+         LLGT  6,IOTBLI            Initialize the BXLE R3 (even reg of pair)
+         LLGT  7,IOTBLEA           Initialize the BXLE R3+1 (odd reg of pair)
+.SEARCH  ANOP
+PNDLOOP  TM    BLSTATUS,BLSTATO    Does device have a pending action?
+         $BO   PNDINGD             ..Yes, need to report to the program
+         $BXLE 5,6,PNDLOOP         ..No, try next table entry
+* Did not find a device with a pending action
+         $B    PNDRTN              Return code 0
+         SPACE 1
+PNDINGD  DS    0H   Report pending action to the program
+         CLI   BLSACT,BLSREAD      Is a program read pending?
+         $BE   PNDSNS              ..No, must be sense
+         LA    0,4                 ..Yes, return code 4
+         $B    PNDDEV  Report to the program the device with the pending action
+PNDSNS   LA    0,8                 Tell program device has sense data
+         SPACE 1
+PNDDEV   ST    5,SPBIOTA     Tell the program which device has action pending
+         DROP  5
+PNDRTN   SERVRTN
+         MEND

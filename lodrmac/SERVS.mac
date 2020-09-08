@@ -1,0 +1,103 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   SERVS &TBL,&NTR64=
+.* Creates the Boot Loader Services framework
+.*
+.* This macro must be the first macro.  It defines a number of assembly time
+.* values and the run-time logic for use of Boot Loader Services
+.*
+.*   &LABEL provides an entry for 32-bit register save area callers.
+.*          Required.  This is the location initially stored in the LOD1 record.
+.*   &TBL   defines the location of the Services ID table. Required.
+.*   &NTR64 provides an entry for 64-bit register save area callers if provided.
+.*          Only required if ARCHLVL is 8 or 9.
+.*
+.* Each service is defined by a SERVID macro.  After the final service is
+.* defined, the table is terminated by a SERVEND macro.  The functional code
+.* of each service exists in its own macro  whose &LABEL is referenced by the
+.* SERVID macro.
+.*
+         GBLA  &ARCHLVL    Assembly architecture level
+         GBLA  &BLSNUM     Number of defined services
+         GBLC  &BLSDSN     Name of savea area dsect used at assembly time
+         GBLC  &BLSDSP     Save area field prefix name
+         AIF   ('&LABEL' NE '').LBLOK
+         MNOTE 1,'SERVS - LABEL REQUIRED'
+         MEXIT
+.LBLOK   ANOP
+         AIF   ('&TBL' NE '').SETARCH
+         MNOTE 1,'SERVS - ''TBL'' PARAMETER REQUIRED'
+         MEXIT
+.SETARCH ANOP
+         AIF   (&ARCHLVL NE 0).ARCHOK
+         MNOTE 1,'SERVS - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   (&ARCHLVL LE 8).SET32
+.* This sets the 64-bit register environment
+&BLSDSN  SETC  'SAVEG'
+&BLSDSP  SETC  'SAVEG'
+         AGO   .GEN
+.SET32   ANOP
+&BLSDSN  SETC  'SAVEA'
+&BLSDSP  SETC  'SAVE'
+.* Generate the services framework
+.GEN     ANOP
+&LABEL   DS    0H   Boot Loader 32-bit services entry point
+         USING ASA,0          Address Assigned Storage area
+         USING SPB,1          Pointer to Service Parameter Block
+         USING &BLSDSN,13     Register save area from caller
+         $STM  14,12,&BLSDSP.R14   Preserve caller's registers except R13
+         $LR   12,15          Establish my local register
+         USING &LABEL,12      ..and tell the assembler
+         SPACE 1
+* Locate the service's entry point
+         $LH   2,SPBID         Fetch the Service ID from the SPB
+         AIF   (&ARCHLVL EQ 1).NOCLM
+         CLM   2,B'0001',LOD1BLSV   Is ID valid? (Must be < LOD1 number)
+         AGO  .HAVECLM
+.NOCLM   ANOP
+         CLC   SPBID+1(1),LOD1BLSV  Is ID valid? (Must be < LOD1 number)
+.HAVECLM ANOP
+         $BL   CALLSRV         ..Yes, call the service then
+         $LNR  15,2            Turn the Service ID into a negative value
+         $B    BLSR            Return to caller with invalid Service ID
+         SPACE 1
+CALLSRV  DS    0H              Call the actual service now
+         SLL   2,2             Turn Service ID into table displacement (x4)
+         LA    2,&TBL.(2)      Turn displacement into an address
+         LTEST 2,0(2)          Fetch the service's entry address from table
+         $BNZ  BLSCALL         Table entry not zero, so can call it
+         $LH   15,BLSMONE      Set return code to negative one
+         $B    BLSR            ..and return to caller
+         SPACE 1
+BLSCALL  DS    0H         Good address!
+         $LR   12,2       Set up base register for service routine
+         BR    12         Go to the requested service (use as base register)
+         SPACE 1
+BLSR     DS    0H             Return to service caller from requested service
+* Return from called service has the caller's save area in R13
+         USING &BLSDSN,13
+         $ST   0,&BLSDSP.R15     Save return code in caller's save area
+         $LM   14,12,&BLSDSP.R14 Restore caller's registers
+* Retrun is actually in R15 now
+         BR    14                Return to caller
+         SPACE 1
+BLSMONE  DC    H'-1'          Negative one used for empty service slot
+         MEND

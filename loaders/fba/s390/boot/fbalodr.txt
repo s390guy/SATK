@@ -1,0 +1,2 @@
+ASAREGN.bin 0x0
+LOADER.bin 0x400

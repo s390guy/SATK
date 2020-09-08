@@ -1,0 +1,98 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         BLINIT &DTYPE=
+.* Keyword parameter
+.*   &DTYPE  Required parameter.  Specifies the value expected in LOD1TYP field
+.* Enter and intialize a boot loader
+         GBLA  &ARCHLVL
+         GBLB  &ISLOADR 
+.* &ISLOADER is used by the BLSTABLE macro to determine if building the full 
+.* table or just the service ID equates.  Makes sure a booted program uses the
+.* same values as does the loader itself.
+         AIF   (&ARCHLVL GT 0).ARCHOK
+         MNOTE 1,'BLINIT - MUST BE PRECEDED BY THE ARCHLVL MACRO'
+         MEXIT
+.ARCHOK  ANOP
+.* Note: SETB causes Python Exception when a comment is present!!!  FIXME??
+&ISLOADR SETB  1
+         USING ASA,0           Give me instruction access to the ASA and LOD1
+LODSTART STM   0,15,LODPARMS   Preserve Hercules IPL parameters, if any.
+* This must happen before any register is altered!
+         AIF   (&ARCHLVL LE 2).NOBASR
+         BASR  12,0            Establish my base register
+         USING *,12            Tell the assembler
+         AGO   .NOTBC
+.NOBASR  ANOP
+         BALR  12,0            Establish my base register
+         USING *,12            Tell the assembler
+         SLL   12,8            Clear high-order..
+         SRL   12,8            ..8 bits
+         MVC   IOICODE,2(0)    Preserve IPL device number
+.NOTBC   ANOP
+* Ensure program is not re-entered by a Hercules console initiated restart.
+* Address 0 changed from its absolute storage role (IPL PSW) to its real
+* storage role (Restart New PSW) after the IPL.
+* Change from the IPL PSW at address 0 to a Restart New PSW trap
+         MVC   RSTNPSW,PGMRS
+         SPACE 1
+* Check that the IPL device created by IPLASMA can be processed by this
+* Boot loader.
+.*         CLI   LOD1DTYP,LOD1LENF+LOD1FBA    Can I handle the IPL device type?
+         CLI   LOD1DTYP,&DTYPE    Can I handle the IPL device type?
+         BNE   BADDEVT            ..No, end with 018 error code
+         SPACE 3
+* Store data in LOD1 record
+         STLOD1 SERVS=BLSNUM,SENTRY=BLS,SRTN=BLSR
+         SPACE 3
+* Determine the running architecture of the CPU
+         APROB HERC=YES,REG=6  Check for just Hercules architectures
+         STC   6,LOD1ARCH      Save the running CPU architecture
+         SPACE 3
+* Ensure the running architecture can execute the assembled architecture.
+         AARCH RUNNING=LOD1ARCH,RC=6
+         B     *+4(6)          Use the return code to decide action
+         B     ARCHSOK         ..0, architectures compatible, nothing to do
+         AIF   (&ARCHLVL EQ 9).SETZ
+         B     ARCHBAD         ..4, change to z architecture (never)
+         AGO   .DOWNLVL
+.SETZ    ANOP
+         B     SETZ            ..4, change to z architecture
+.DOWNLVL ANOP
+         B     ARCHBAD         ..8, no support to downgrade to ESA/390 on z         
+         B     ARCHBAD         .12, bad combination, can not run
+         AIF   (&ARCHLVL LT 9).NOSETZ
+         SPACE 1
+SETZ     DS    0H
+         ZARCH 4,6,FAIL=ARCHBAD   Indicate bad architecture if change fails
+         MVI   LOD1ARCH,9         Set new running architecture
+.NOSETZ  ANOP
+         SPACE 1
+ARCHSOK  DS    0H
+         AIF   (&ARCHLVL LT 5).NOSAM
+         SAM31                    Boot loader runs in 31-bit address mode
+         AGO   .NOMSG
+.NOSAM   ANOP
+*        SAM24                    Boot loader runs in 24-bit address mode
+.NOMSG   ANOP
+         SPACE 3
+* At this point the boot loader's system environment has been validated and,
+* if need be, adjusted for compatibility with the assembled architecture.  The
+* loader is now running in its anticipated environment.  Anticipated, that is,
+* by the loader's _assembled_ target architecture.
+         MEND

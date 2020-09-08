@@ -1,0 +1,42 @@
+#!/bin/sh
+# Copyright (C) 2020 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+# This script MUST be executed from SATK's samples/guide/pgm5/s390 directory
+# Just type ./med to recreate the IPL medium.
+
+datetime()
+{
+	sfx=$(date +%Y%m%d.%H%M%S)
+}
+datetime   # set $sfx (the date and time of the run) for later use
+
+# Change this variable for your environment
+REPO=${HOME}/SATKREPO/SATK      # SATK repository from github
+
+# This variable is for the author's use.  Just leave it alone
+#REPO=${HOME}/SATKCLONE
+
+# IPLASMA related script variables
+IPLASMA=${REPO}/tools/iplasma.py        # The IPL medium creation tool
+LOADER=${REPO}/loaders/fba/s390x/boot   # Location of the boot loader
+# ${REPO}/samples/guide/pgm5/s390x  # Guide dir being used. Output goes here.
+
+# Create the IPL medium
+${IPLASMA} -v -f ld -m pgm5.3310 --records --asa=ASAREGN.bin --volser=PGM5 \
+           --boot ${LOADER}/fbalodr.txt --lasa=ASAREGN.bin --recl 512 \
+           ldipl/pgm5.txt 2>&1 |tee iplasma-${sfx}.txt

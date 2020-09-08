@@ -1,0 +1,53 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         BLMEM
+.* This macro defines storage usage by the boot loader that does not
+.* participate in the IPL function.
+         GBLA  &ARCHLVL
+         AIF   (&ARCHLVL NE 0).ARCHOK
+         MNOTE 1,'BLMEM - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+* This DSECT defines memory usage not part of the assembled region
+* By placing areas within this section, the boot loader size is reduced.
+* The boot loader must provide addressability to these areas at run-time.
+DMEMORY  DSECT
+*
+*  Service related save areas
+*
+SAVEAREA SAVEAREA    Primary program save area (boot loader itself)
+NOOPSAVE SAVEAREA    Service NOOP save area
+IOINSAVE SAVEAREA    Service IOINIT save area
+QIOTSAVE SAVEAREA    Service QIOT save area
+ENADSAVE SAVEAREA    Service ENADEV save area
+EXCPSAVE SAVEAREA    Service EXCP save area
+PENDSAVE SAVEAREA    Service PNDING save area
+         AIF   (&ARCHLVL LT 5).NOCS
+         SPACE 3
+CHSSBLK  DS    64F   Area used for channel subsystem control blocks
+.NOCS    ANOP
+         SPACE 3
+* I/O Table is placed last so that it can be dynamically extended if needed.
+* No service is provided for that purpose, but it can be done by increasing
+* IOTMAX by size of the number of additional table entries being added.  IOTBLI
+* contains the size of each individual entry.
+IOTBL    IOTBL IOTBLE,DEVICES=8
+         SPACE 3
+HWM      EQU   IOTBLE     Can not load any directed record lower than here
+         MEND

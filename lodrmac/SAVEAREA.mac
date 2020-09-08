@@ -1,0 +1,124 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   SAVEAREA &DSECT=NO,&REGSZ=
+.* Generate a save area for subroutine calls
+.*   &LABEL - Create a label for the save area
+.*   &DSECT - Whether to create a save area DSECT: YES or NO or BOTH.
+.*            Defaults to NO.
+.*   &REGSZ - Save area register size: 32 or 64.  Defaults to register size
+.*            implied by assembly architecture level
+.*
+.* Note: If both 32 and 64 bit registers may be in use, generate a 64-bit
+.*       save area (REGSZ=64).  The same save area may be used for both.
+.*       In this case, DSECT=BOTH should be used.  This will create both
+.*       DSECT's usable with the same save area.
+         GBLA  &ARCHLVL    Assembler's targeted architecture
+         LCLB  &ISDSECT    Generating a DSECT, true or false
+         LCLB  &IS32       Generating for 32-bit (true) or not (false)
+         LCLB  &IS64       Generating for 64-bit (true) or not (true)
+         AIF   ('&DSECT' NE 'BOTH').CKREGS
+&ISDSECT SETB  1
+&IS32    SETB  1
+&IS64    SETB  1
+         AGO   .PROCEED
+.CKREGS  ANOP
+         AIF   ('&REGSZ' EQ '32').SET32
+         AIF   ('&REGSZ' EQ '64').SET64
+         AIF   (&ARCHLVL GT 0).ARCHOK
+         MNOTE 1,'SAVEAREA - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   (&ARCHLVL GE 9).SET64
+.SET32   ANOP
+&IS32    SETB  1
+         AGO   .CKDSECT
+.SET64   ANOP
+&IS64    SETB  1
+.CKDSECT ANOP
+         AIF   ('&DSECT' EQ 'YES').DODSECT
+         AIF   ('&DSECT' EQ 'NO').PROCEED
+         MNOTE 1,'SAVEAREA - DSECT PARAMETER MUST BE ''YES'', ''NO'', OR ''BOTH'''
+         MEXIT
+.DODSECT ANOP
+&ISDSECT SETB  1
+.PROCEED ANOP
+         AIF   (&IS32).GEN32
+         AIF   (&IS64).GEN64
+         MNOTE 1,'SAVEAREA - NOT GENERATING FOR EITHER REGSZ - INTERNAL ERROR'
+         MEXIT
+.GEN32   ANOP
+.* Generating for 32 bit registers
+         AIF   (&ISDSECT).GENS32
+.* Generate 32-bit register save area
+&LABEL   DC    18F'0'      32-bit register save area
+         AIF   (&IS64).GEN64
+         MEXIT
+.GENS32  ANOP
+.* Generate DSECT for 32-bit register save area
+SAVEA    DSECT
+SAVERSV  DS    F'0'        Reserved save area field
+SAVEBCK  DS    A(0)        Backward save area pointer (points to caller)
+SAVEFWD  DS    A(0)        Forward save area pointer (points to called)
+SAVER14  DS    A(0)        Saved R14 (caller's return address)
+SAVER15  DS    A(0)        Saved R15 (called routine entry address)
+SAVER0   DS    F'0'        Saved R0
+SAVER1   DS    F'0'        Saved R1
+SAVER2   DS    F'0'        Saved R2
+SAVER3   DS    F'0'        Saved R3
+SAVER4   DS    F'0'        Saved R4
+SAVER5   DS    F'0'        Saved R5
+SAVER6   DS    F'0'        Saved R6
+SAVER7   DS    F'0'        Saved R7
+SAVER8   DS    F'0'        Saved R8
+SAVER9   DS    F'0'        Saved R9
+SAVER10  DS    F'0'        Saved R10
+SAVER11  DS    F'0'        Saved R11
+SAVER12  DS    F'0'        Saved R12
+SAVELEN  EQU   *-SAVEA     Length of 32-bit subroutine save area
+.* Generating for 64-bit register save area
+         AIF   (&IS64).GEN64
+         MEXIT
+.GEN64   ANOP
+         AIF   (&ISDSECT).GENS64
+.* Generate 64-bit register save area
+&LABEL   DC    18FD'0'     64-bit register save area
+         MEXIT
+.GENS64  ANOP
+.* Generate 64-bit register save area DSECT
+SAVEG    DSECT
+SAVEGRSV DS    FD'0'       Reserved save area (SA) field
+SAVEGBCK DS    AD(0)       Backward save area pointer (points to caller's SA)
+SAVEGFWD DS    AD(0)       Forward save area pointer (points to called SA)
+SAVEGR14 DS    AD(0)       Saved R14 (caller's return address)
+SAVEGR15 DS    AD(0)       Saved R15 (called routine's entry address)
+SAVEGR0  DS    FD'0'       Saved R0
+SAVEGR1  DS    FD'0'       Saved R1
+SAVEGR2  DS    FD'0'       Saved R2
+SAVEGR3  DS    FD'0'       Saved R3
+SAVEGR4  DS    FD'0'       Saved R4
+SAVEGR5  DS    FD'0'       Saved R5
+SAVEGR6  DS    FD'0'       Saved R6
+SAVEGR7  DS    FD'0'       Saved R7
+SAVEGR8  DS    FD'0'       Saved R8
+SAVEGR9  DS    FD'0'       Saved R9
+SAVEGR10 DS    FD'0'       Saved R10
+SAVEGR11 DS    FD'0'       Saved R11
+SAVEGR12 DS    FD'0'       Saved R12
+SAVEGLEN EQU   *-SAVEG     Length of 64-bit subroutine save area
+         MEND

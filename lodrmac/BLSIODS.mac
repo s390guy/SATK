@@ -1,0 +1,81 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         BLSIODS
+.* This macro generates the DSECTS required for I/O operations in a given
+.* architecture level.
+.*    Levels 1-9  ORB (All levels use the ORB with the BLS EXCP service.)
+.*                SCSW (All levels use the SCSW within the I/O Table)
+.*    Levels 1-4  CCW0, CSW
+.*    Levels 5-9  CCW1, IRB, SCHIB
+.* It uses the generic SATK wrapper for DSECTs, which in turn uses the IOFMT
+.* SATK macro to generate the individual I/O DSECTs.
+         GBLA  &ARCHLVL
+         AIF   (&ARCHLVL NE 0).ARCHOK
+         MNOTE 1,'BLSIODS - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         SPACE 1
+*
+* I/O Operation Request Block (ORB)
+*
+         SPACE 1
+.* All architecture levels use the ORB with Boot Loader Services
+         DSECTS NAME=ORB
+         SPACE 3
+*
+* Channel Subsystem Status Word (SCSW)
+*
+         SPACE 1
+.* All architecture levels use the SCSW format within the I/O Table
+         DSECTS NAME=SCSW
+         SPACE 3
+         AIF   (&ARCHLVL GE 5).CHSS
+*
+* Channel Command Word Format-0 (CCW0)
+*
+         SPACE 1
+         DSECTS NAME=CCW0
+         SPACE 3
+*
+* Channel Status Word
+*
+         SPACE 1
+         DSECTS NAME=CSW
+         SPACE 3
+         MEXIT
+.CHSS    ANOP
+.* Generate Channel Subsystem specific I/O DSECTS
+*
+* Channel Command Word Format-1 (CCW1)
+*
+         SPACE 1
+         DSECTS NAME=CCW1
+         SPACE 3
+*
+* Interruption Response Block (IRB)
+*
+         SPACE 1
+         DSECTS NAME=IRB
+         SPACE 3
+*
+* Subchannel Information Block (SCHIB)
+*
+         SPACE 1
+         DSECTS NAME=SCHIB
+         MEND

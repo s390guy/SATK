@@ -1,0 +1,75 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   BLSIOT
+*
+* Boot Loader I/O Table Entry
+*
+&LABEL   DSECT
+BLSDEV   DS    H        +0 I/O device number
+         SPACE 1
+BLSTYP   DS    X        +2 I/O device class and attributes
+BLSPEOF  EQU   B'10000000' 'Detects physical end-of-file' mask
+BLSUNSOL EQU   B'01000000' 'Generates unsolicited status' mask
+BLSSCLS  EQU   B'00111000' Device subclass mask
+* Note: the device class is positioned in the byte so it can be used for the
+* channel subsystem SCHIB I/O subclass code field without shifting.
+BLSRSV   EQU   B'11111000' Reserved bits mask (zeros)              UE  
+*                        CLASS                                    PEOF ATTN
+*              B'00000000' 0 - Highest priority available           ?    ?
+BLSFBA   EQU   B'00001000' 1 - Fixed-Block-Architecture DASD device N    N
+BLSCKD   EQU   B'10001001' 1 - Count-Key-Data DASD device           Y    N
+BLSTAPE  EQU   B'10010000' 2 - Sequential tape device               Y    N
+BLSCARD  EQU   B'10011000' 3 - Sequential input card device         Y    N
+BLSPUN   EQU   B'00100000' 4 - Sequential output punch device       N    N
+BLSPR    EQU   B'00101000' 5 - Sequential output printer device     N    N
+BLSCON   EQU   B'01110000' 6 - Operator console device              N    Y
+BLS3270  EQU   B'01111000' 7 - Operator 3270 terminal device        N    Y
+         SPACE 1
+BLSTATUS DS    X        +3 Current device status
+BLSBUSY  EQU   B'10000000' Device is busy
+* Note: When BLSBUSY set, BLSTAT, BLSTATO, BLSTATS and BLSSNSP turned off,
+* (set to 0).
+BLSTAT   EQU   B'01000000' Status in BLSSW.
+BLSTATO  EQU   B'00100000' Pending action present in BLSACT
+BLSTATS  EQU   B'00000010' Unit and channel status present in BLSUNCH
+BLSSNSP  EQU   B'00000001' Sense data is present in BLSSNS
+         SPACE 1
+BLSHDW   DS    F        +4 Hardware defined device address
+         SPACE 1
+BLSUNCH  DS    0XL2     +8 Accumulated status when bit 1 set to 1 in BLSTATUS
+BLSUNIT  DS    X           Unit status
+BLSATTN  EQU   B'10000000' Attention status
+BLSUE    EQU   B'00000001' Unit exception status (physical EOF)
+BLSCH    DS    X           Channel status
+         SPACE 2
+BLSSNS   DS    XL1     +10 Sense data present when bit 7 set to 1 in BLSTATUS
+         SPACE 1
+BLSACT   DS    XL1     +11 Pending action when bit 2 set to 1 in BLSTATUS
+BLSRDSN  EQU   X'00'       Device has pending sense data to be read
+BLSREAD  EQU   X'04'       Device has pending data to be read
+         SPACE 1
+BLSERR   DS    XL1     +12 Device status error mask, set by ENADEV
+         space 1
+BLSRSV2  DS    XL3     +13 RESERVED
+         SPACE 1
+BLSSW    DS    3F      +16 SCSW of the latest interruption
+         SPACE 1
+BLSPROG  DS    F       +28 Reserved for booted program usage
+BLSIOEL  EQU   *-BLSIOT    Length of an I/O Table Entry (32 bytes)
+         MEND

@@ -1,0 +1,41 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   IOTBL &IOTBLE,&DEVICES=1
+.* This macro defines the I/O table used by the I/O related services.
+.* It does not actually allocate memory (other than required to get onto
+.* the next fullword boundary)
+.*   &LABEL   Defines a label equated to the start of the table. Required
+.*   &IOTBLE  Defines a label equated to the byte _following_ the table.
+.*            Required.
+.*   &DEVICES The number of devices to be supported by the table.  If a label
+.*            is supplied it must be defined before the macro is invoked and
+.*            must be a positive integer.  0 is not valid.
+         AIF   ('&LABEL' NE '').LBLOK
+         MNOTE 1,'IOTBL - ''LABEL'' REQUIRED'
+         MEXIT
+.LBLOK   ANOP
+         AIF   ('&IOTBLE' NE '').ENDOK
+         MNOTE 1,'IOTBL - ''IOTABLE'' PARAMETER REQUIRED'
+         MEXIT
+.ENDOK   ANOP
+         DS    0D
+&LABEL   DS    (&DEVICES*7)F'0'      Define the I/O table
+IOTDEVS  EQU   &DEVICES              Number of devices in the I/O table
+&IOTBLE  EQU   *
+         MEND

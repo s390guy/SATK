@@ -1,0 +1,98 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         BLSPB 
+*
+* Boot Loader Services Parameter Block
+*
+SPB      DSECT
+SPBID    DS    H           Service ID of requested service from caller
+SPBSI    DS    H           Service Information provided by caller
+SPBE     EQU   *           Start of SPB extension used by service
+         SPACE 1
+* This SPBE field is used by IOINIT, QIOT, ENADEV, and PNDING services
+SPBIOTA  DS    F           I/O Table entry address as service input or output
+         SPACE 1
+* IOINIT SPBE - SERVICE ID 1
+*   SPB: DC  Y(IOINIT),H'0'
+         ORG   SPBSI
+SPBCCWF  DS    X           CCW Format used by boot loader services
+SPBCCW0  EQU   X'01'       CCW Format 0 used
+SPBCCW1  EQU   X'02'       CCW Format 1 used
+         DS    X
+         DS    F           Returned address of I/O Table entry
+         SPACE 1
+* QIOT SPBE -   SERVICE ID 2
+*   SPB: DC  Y(QIOT),H'0',F'0'
+         ORG   SPBE
+         DS    F           Returned address of I/O Table entry
+         SPACE 1
+* ENADEV SPBE - SERVICE ID 3
+*   SPB: DC   Y(ENADEV),H'0',AL1(BLSTYP),XL3'000000'
+         ORG   SPBE
+SPBDCLS  DS    X           Input Device Class (same values as BLSTYP)
+         ORG   SPBE  (RC==0 or RC==4)
+         DS    F           Returned address of I/O Table entry
+         ORG   SPBE  (RC==8)
+         DS    X           Input Device Class (SPBDCLS)
+         DS    X           RESERVED
+SPBDEVST DS    X           Device status (if available)
+SPBCHST  DS    X           Channel status (if available)
+         ORG   SPBE  (RC==12, RC==16, or RC==20)
+         DS    X           Input Device Class (SPBDCLS)
+         DS    XL3         RESERVED
+         SPACE 2
+* EXCP SPB -    SERVICE ID 4
+*   SPB: DC   Y(EXCP),H'0'
+*        BLSORB
+         ORG   SPBSI
+SPBECTL  DS    X           EXCP input function control mask
+SPBEBY1  EQU   X'80'       Bypass Step 1 processing (start I/O)
+* SPBEBY2  EQU   X'40'       Bypass Step 2 processing (I/O wait)
+* SPBEBY3  EQU   X'20'       Bypass Step 3 processing (status analysis)
+SPBEWTM  EQU   X'0C'       Mask to isolate wait conditions
+*                          Step 2 wait conditions:
+SPBEWDC  EQU   12            - Wait for both device and channel end
+SPBEWCO  EQU   8             - Wait for channel end (may also have device end)
+SPBEWDO  EQU   4             - Wait for device end (may also have channel end)
+SPBEWNO  EQU   0             - Do not wait for both device and channel end
+SPBENRM  EQU   SPBEWDC     Usual controls for most I/O actions
+SPBEATN  EQU   SPBEBY1     Usual controls for ATTN wait
+         SPACE 1
+SPBPEND  DS    X           EXCP output pending data condition
+SPBPENDG EQU   X'01'       I/O Table has pending actions for other devices
+SPBPENDN EQU   X'00'       I/O Table has no pending actions
+         SPACE 1
+SPBEORB  DS    3F          Operational Request Block
+         ORG   SPBEORB
+SPBEORBT DS    F       +0  Device I/O Table address (Interruption Parameter)
+SPBEORBK DS    X       +4  Storage Key field
+SPBEORBM EQU   X'F0'       Storage Key mask
+SPBEORBR EQU   X'0F'       Reserved portion of key field byte
+SPBEORB1 DS    X       +5  F flag byte required content
+SPBEORBL DS    X       +6  Logical Path Mask
+SPBEORB2 DS    X       +7  Required content
+SPBEORBC DS    0XL4    +8  31-bit channel program address
+         DS    X       +8  Ignored for early architectures
+SPBEORBP DS    XL3     +9  24-bit channel program address
+         SPACE 2
+* PNDGIN SPB -    SERVICE ID 5
+*   SPB: DC   Y(PNDING),H'0',F'0'
+         ORG   SPBE
+         DS    F           Returned IOT entry address of pending device
+         MEND

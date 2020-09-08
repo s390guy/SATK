@@ -1,0 +1,49 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   BLSCALL &SPB=,&SA=
+.* Call a boot loader service
+.*  SPB   The location of this call's Service Parameter Block.  If absent
+.*        it is assumed to be already loaded in R1.
+.*  SA    The location of this call's register save area.  If omitted it is
+.*        assumed to be already loaded into R13
+.* Registers 14 and 15 are used by the service call.
+.* Addressability to the assigned storage area is assumed to have been already
+.* estabilished via register 0.
+         GBLA  &ARCHLVL
+         AIF   (&ARCHLVL GT 0).ARCHOK
+         MNOTE 1,'BLSCALL - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   ('&LABEL' EQ '').CKSPB
+&LABEL   DS    0H
+.CKSPB   ANOP
+         AIF   ('&SPB' EQ '').CKSA
+         LA    1,&SPB
+.CKSA    ANOP
+         AIF   ('&SA' EQ '').DOCALL
+         LA    13,&SA
+.DOCALL  ANOP
+         AIF   (&ARCHLVL GE 9).LA64
+         L     15,LOD1BLST
+         AGO   .BAS
+.LA64    ANOP
+         LLGT  15,LOD1BLST
+.BAS     ANOP
+         $BASR 14,15
+         MEND

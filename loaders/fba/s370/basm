@@ -1,0 +1,52 @@
+#!/bin/sh
+# Copyright (C) 2020 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+# Assembles the boot loader into a list-directed IPL directory with a listing.
+# The resulting list-directed IPL directory is reusable with a FBA device
+# created by iplasma.py when executed in the target architecture.
+#
+# Run Directory: ${SATK}/loaders/fba/s370
+# Target Architecture: S/370
+#
+# Just type ./basm from this, the run directory, to rebuild the list-directed
+# IPL directory.
+
+datetime()
+{
+	sfx=$(date +%Y%m%d.%H%M%S)
+}
+datetime   # set $sfx (the date and time of the run) for later use
+
+# Change this variable for your environment
+REPO=${HOME}/SATKREPO/SATK           # SATK repository from github
+
+# This variable is for the author's use.  Just leave it alone.
+#REPO=${HOME}/SATKCLONE
+
+# ASMA related script variables
+ASMA=${REPO}/tools/asma.py           # The ASMA tool
+LODRMACS=${REPO}/lodrmac             # Loader macros
+SATKMACS=${REPO}/maclib              # General SATK macros
+
+# Assemble the boot loader program (from the primary loader source directory)
+export ASMPATH=${REPO}/srcasm/loader  # Where fbalodr.asm and bls.asm reside
+# Loader and SATK macros
+export MACLIB=${LODRMACS}:${SATKMACS}
+#echo "MACLIB:  '${MACLIB}'"
+
+${ASMA} -t s370 -d --stats -g boot/fbalodr.txt -l basm-$sfx.txt fbalodr.asm

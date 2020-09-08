@@ -1,0 +1,75 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   STLOD1 &SERVS=0,&SENTRY=,&SRTN=
+.* STLOD1 stores into LOD1 the information expected from the boot loader.
+.* It is driven by the current assembly architecture level
+.*   &SERVS   The number of supported services.  The label used with the
+.*            SERVEND macro.
+.*   &SENTRY  The Service Entry for service callers
+.*   &SRTN    The service's return to caller address.
+         GBLA  &ARCHLVL
+         AIF   (&ARCHLVL GT 0).DEFINE
+         MNOTE 1,'STLOD1 - MUST BE PRECEDED BY THE ARCHLVL MACRO'
+         MEXIT
+.CKENTRY ANOP
+         AIF   ('&SERVS' NE '0' AND '&SENTRY' NE '').DEFINE
+         MNOTE 1,'STLOD1 - ''SENTRY'' REQUIRED WHEN ''SERVS'' NOT 0'
+         MEXIT
+.DEFINE  ANOP
+         AIF   (&ARCHLVL EQ 1).S370
+         AIF   (&ARCHLVL EQ 2).S370
+         AIF   (&ARCHLVL EQ 3).S370
+         AIF   (&ARCHLVL EQ 4).NOTSUP
+         AIF   (&ARCHLVL GT 4 AND &ARCHLVL LT 8).ESA  5, 6, or 7
+         AIF   (&ARCHLVL EQ 8).S390X
+         AIF   (&ARCHLVL EQ 9).S390X
+.NOTSUP  ANOP
+         MNOTE 1,'STLOD1 - ARCHITECTURE LEVEL NOT SUPPORTED - &ARCHLVL'
+         MEXIT
+.S370    ANOP
+         MVC   RSTNPSW,PGMRS
+         MVI   LOD1IO,X'11'           Set I/O arch. and mode in use
+         MVI   LOD1BLAM,X'01'         Set booted program entry AM as 24
+         AGO   .SERVS
+.ESA     ANOP
+&LABEL   MVI   LOD1CPU,B'00010000'    Set expected CPU ESA/390 pre-z
+         MVI   LOD1IO,X'22'           Set I/O arch. and mode in use
+         MVI   LOD1BLAM,X'02'         Set booted program entry AM 31
+         AGO   .SERVS
+.S390    ANOP
+&LABEL   MVI   LOD1IO,X'22'           Set I/O arch. and mode in use
+         MVI   LOD1BLAM,X'02'         Set booted program entry AM as 31
+         AIF   (&ARCHLVL EQ 9).SET64
+         MVI   LOD1BLAM,X'02'         Set booted program entry AM 31
+         AGO   .SERVS
+.SET64   ANOP
+         MVI   LOD1BLAM,X'03'         Set booted program entry AM as 64
+         AGO   .SERVS
+.S390X   ANOP
+&LABEL   MVI   LOD1IO,X'22'           Set I/O arch. and mode in use
+         MVI   LOD1BLAM,X'03'         Set booted program entry AM as 64
+.SERVS   ANOP
+         MVI   LOD1CPU,&ARCHLVL       Set assembled CPU architecture
+         AIF   ('&SENTRY' EQ '').MEXIT
+         MVI   LOD1BLSV,&SERVS        Set start of unsupported services
+         LA    0,&SENTRY              Locate services entry point
+         ST    0,LOD1BLST             Store it in LOD1
+         LA    0,&SRTN                Locate the service return
+         ST    0,LOD1RTN              Save it in LOD1 reserved area
+.MEXIT   MEND

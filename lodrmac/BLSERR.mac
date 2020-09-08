@@ -1,0 +1,66 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   BLSERR
+         GBLB  &ISLOADR
+         AIF   (&ISLOADR).OK
+         MNOTE 1,'BLSERR - MACRO INTERNAL TO BOOT LOADER - MAY NOT BE USED'
+         MEXIT
+.OK      ANOP
+.* This internal macro allows the same code to be shared between the IOINIT
+.* and ENADEV services, while retaining a single copy for consistent
+.* functionality.
+.*
+.* The macro requires addressability to the IOT entry and a local base
+.* register if an early architecture.
+&LABEL   MVI   BLSERR,X'F1'        This is the generic device error check
+* This checks for these error conditions:
+*   X'80' - Attention (MAY BE TURNED OFF FOR SOME DEVICES)
+*   X'40' - Status Modifier
+*   X'20' - Control-Unit End
+*   X'10' - Busy
+*   X'01' - Unit Exception (MAY BE TURNED OFF FOR SOME DEVICES)
+*
+* While Unit Check is an error condition, it must be explicitly checked so
+* that the service can indicate a pending action to read sense data by the
+* program.  Yes, it is an error condition, but requires special handling.
+* When set, the service indicates both an error condition AND a pending action.
+*   X'02' - Unit Check (sense is pending)
+*
+* This ignores these normal status conditions.  They must be checked by the
+* service depending upon the EXCP SPB controls.
+*   X'08' - Channel end
+*   X'04' - Device end
+         SPACE 1
+* If device recognizes physical end-of-file with Unit Exception, not an error
+* So turn it off.
+         TM    BLSTYP,BLSPEOF      Does device use UE for end-of-file condition?
+         $BNO  ERRU&SYSNDX         ..No, check if device uses ATTN
+         NI    BLSERR,X'FE'        ..Yes, turn off UE as an error status
+         SPACE 1
+* If device signals data is ready with Attention, turn it off as an error.
+ERRU&SYSNDX TM  BLSTYP,BLSUNSOL    Does device use ATTN when data is ready?
+         $BNO  ERRX&SYSNDX         ..No, modifications to error status done
+         NI    BLSERR,X'7F'        ..Yes, turn off ATTN as an error status
+         SPACE 1
+* Note: At present no device uses UE for physical end-of-file and Attention
+* for data ready, but this code allows for both to be set in the device
+* class value.
+         SPACE 
+ERRX&SYSNDX DS 0H  Error mask completed
+         MEND

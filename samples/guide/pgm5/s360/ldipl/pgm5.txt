@@ -1,0 +1,2 @@
+ASAREGN.bin 0x0
+BOOTED5.bin 0x2000
