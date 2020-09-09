@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014-2017 Harold Grovesteen
+# Copyright (C) 2014-2020 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -91,7 +91,7 @@
 this_module="%s.py" % __name__
 
 # ASMA version tuple:
-asma_version=(0,2,0)
+asma_version=(0,2,1)
 
 # This method returns a standard identification of an error's location.
 # It is expected to be used like this:
@@ -1560,8 +1560,8 @@ class Base(object):
 
         # The absolute address associated with this register when used for
         # direct addressing.  This applies to register 0 only for all but one
-        # mainframe system.  The 360-20 utilizes eight registers (0-7) for direct
-        # mode addressing.  This asembler supports both situations.
+        # mainframe system.  The 360-20 utilizes eight registers (0-7) for
+        # direct mode addressing.  This asembler supports both situations.
         #
         # Regardless of the registered address, direct allways defaults to its
         # absolute address.  This works for register 0 getting assigned a DSECT
@@ -1576,30 +1576,33 @@ class Base(object):
 
         # The address assigned by the USING directive.  The address may be
         # relative or absolute.  At the stage of the assingment within the
-        # assembler, a CSECT will be utilizing absolute addresses and only a DSECT
-        # symbol provide a relative address.  Because many of the addresses will be
-        # relative addresses converted to absolute, the test for absolute or relative
-        # MUST use the isAbsolute() or isRelative() method tests, NOT a class
-        # isinstance test.
+        # assembler, a CSECT will be utilizing absolute addresses and only a
+        # DSECT symbol provide a relative address.  Because many of the
+        # addresses will be relative addresses converted to absolute, the test
+        # for absolute or relative MUST use the isAbsolute() or isRelative()
+        # method tests, NOT a class isinstance test.
         self.loc=addr
 
-        # The purpose of this class is to convert an address into a base/displacement
-        # pair.  In terms of the Python implementation, the class converts an Address
-        # instance into a tuple of integers representing the base register and
-        # displacement.  The calculation is always performed on the Address.address
-        # attribute regardless of whether it is a relative address or not being
-        # assigned by the USING directive.
+        # The purpose of this class is to convert an address into a
+        # base/displacement pair.  In terms of the Python implementation, the
+        # class converts an Address instance into a tuple of integers
+        # representing the base register and displacement.  The calculation is
+        # always performed on the Address.address attribute regardless of
+        # whether it is a relative address or not being assigned by the USING
+        # directive.
         if direct is not None:
             self.address=direct.address
         else:
-            self.address=addr.base()       # Absolute address or relative displacement
+            # Absolute address or relative displacement
+            self.address=addr.base()
 
-        # A register assigned a relative address can ONLY be used as a base register
-        # of another relative address within the same CSECT or DSECT.  Per above
-        # the only case that should occur is relative addresses related to DSECT's.
-        # This saves the Section instance related to the assigned relative address.
-        # It is used by the BaseMgr.find() method to ensure this base register
-        # assignment is only considered for a relative address in the same section.
+        # A register assigned a relative address can ONLY be used as a base
+        # register of another relative address within the same CSECT or DSECT.
+        # Per above, the only case that should occur is relative addresses
+        # related to DSECT's.  This saves the Section instance related to the
+        # assigned relative address.  It is used by the BaseMgr.find() method
+        # to ensure this base register assignment is only considered for a
+        # relative address in the same section.
         if addr.isRelative():
             self.section=addr.section  # CSECT/DSECT for relative address only
         else:
@@ -1613,23 +1616,23 @@ class Base(object):
                 % (eloc(self,"__init__"),repr(addr)))
 
 
-    # This method is used to comapre two Base instances for sorting purposes.  The
-    # staticmethod BaseMgr.compare() is just a wrapper for this method.  The
-    # staticmethod is required because functools requires an unbound method or
-    # function.
+    # This method is used to comapre two Base instances for sorting purposes.
+    # The staticmethod BaseMgr.compare() is just a wrapper for this method.
+    # The staticmethod is required because functools requires an unbound
+    # method or function.
     #
     # The rules for selection are as follows:
     #
     # 1. Select the base register with the smallest displacement.
-    # 2. If the displacement's are equal select the highest numbered register unless
-    #    direct mode base register, in which case select the lowest numbered
-    #    register.
+    # 2. If the displacement's are equal select the highest numbered register
+    #    unless direct mode base register, in which case select the lowest
+    #    numbered register.
     #
-    # Because the actual displacement has not been calculated the highest address
-    # results in the smallest displacement.  (We know that a base location is eligible
-    # or it would not be in the list being sorted.  Eligible means the base address
-    # or displacement is less than or equal to the address for which a base is
-    # sought.)
+    # Because the actual displacement has not been calculated the highest
+    # address results in the smallest displacement.  (We know that a base
+    # location is eligible or it would not be in the list being sorted.
+    # Eligible means the base address or displacement is less than or equal to
+    # the address for which a base is sought.)
     def __cmp__(self,other):
         assert self.disp is not None,\
             "%s displacement not set, can not sort Base instance: reg=%s,address=%s"\
@@ -1640,8 +1643,8 @@ class Base(object):
         if self.disp>other.disp:
             return 1
 
-        # displacements are equal so select on register, highest register is chosen.
-        # For direct registers always pick the lowest.
+        # displacements are equal so select on register, highest register is
+        # chosen.  For direct registers always pick the lowest.
         if self.direct is not None:
             # pick the lowest direct register candidate
             if self.reg<other.reg:
@@ -1683,12 +1686,164 @@ class Base(object):
         # displacement is appropriate for the instruction must be tested elsewhere.
 
 
-# This class manages base registers, USING, DROP and base/disp resolution
+# This class manages the current state of the USING environment.  It is this
+# object that is pushed or popped from a stack USING states.  It encapsulates
+# the current values used for address resolution.
+class BaseState(object):
+
+    def __init__(self):
+        # This dicitionary maps a register to one of the other dictionaries
+        # self.abases or self.rbases.  This dictionary is used by DROP to
+        # locate the actual dictionary in which the register is being removed.
+        self.bases={}
+
+        # The actual Base object representing the USING is separated by
+        # address type: relative vs. absolute.  This reduces a lot of
+        # tests to decide how to process the information.
+
+        # This dictionary contains the active "base" for all absolute addresses
+        # including direct registers.  See use_abase() method
+        self.abases={}    # Active USING assignments to absolute bases
+
+        # This dictionary contains the active base for relative addresses (for
+        # example DSECT symbols).  See use_rbase() method
+        self.rbases={}    # Active USING assignments to relative bases
+
+    # This method removes a previously registered base.  If it was not
+    # previously registered it is silenty ignored.  The effect of the DROP
+    # statement is to make a register unavailable for use as a base.  It does
+    # not matter whether it was previously available or not.
+    def drop(self,reg,trace=False):
+         assert isinstance(reg,int),\
+            "%s 'reg' argument must be an integer: %s" % (eloc(self,"drop"),reg)
+
+         based=None
+
+         # Fetch the dictionary in which the base is actually defined: abases
+         # or rbases.
+         try:
+             based=self.bases[reg]
+         except KeyError:
+             pass
+         # Check to see if the base has already been dropped
+         if based is None:
+             return
+             # Nothing more to do for an already dropped base
+
+         # Now remove the actual definition from either abases or rbases
+         try:
+             del based[reg]        # Remove the base assigned to the register
+         except KeyError:
+             pass
+         try:
+             self.bases[reg]=None  # This means the base is now dropped
+         except KeyError:
+             pass
+
+         # abases and rbases (the internal view) are now in sync with bases
+         # (the assembler or user) view.
+
+    # Print to the console the contents of this BaseState object
+    def print(self,indent="",string=False):
+        s="%sBase State:\n" % indent
+        lcl="%s    " % indent
+        for r in range(16):
+            #print("retrieving using for reg: %s" % r)
+            try:
+                # Retrieves the dictionary holding the USING assignment
+                bdict=self.bases[r]
+            except KeyError:
+                continue
+            if bdict is None:
+                continue
+            # Now retrieve the actual Base object for the assigned USING
+            assigned=bdict[r]
+            rstr="R%s" % r
+            rstr=rstr.ljust(3)
+            # This uses the assigned Base object's __str__() method to display
+            # its information.
+            s="%s%s%s  %s\n" % (s,lcl,rstr,assigned)
+        if string:
+            return s
+        print(s)
+
+    # This method creates a copy of the current state, implementing the
+    # the saving of the current state by PUSH USING assembler operation
+    # Returns:
+    #   A BaseState object of the current state.  The returned BaseState
+    #   object is saved at the end of the BaseMgr.stack list.
+    def push(self):
+        s_bases={}    # The copy of this object's bases dictionary
+        s_abases={}   # The copy of this object's abases dictionary
+        s_rbases={}   # The copy of this object's rbases dictionary
+
+        # Because the values in the abases and rbases dictionary are Base
+        # objects, which do not change once added to the respective dictionary
+        # the actual abases and rbases value (the same object) is reused in the
+        # new dictionary.  It is only the dictionaries that are copied.
+        # If the copies are not made, changes to the USING state after the push
+        # will get reflected in the saved state, thereby defeating the purpose
+        # of the PUSH.  This would occur because both instances of BaseState
+        # would point to the same physical dictionaries.
+
+        for reg in self.bases.keys():
+            d=self.bases[reg]
+            if d is None:
+                continue
+            elif d == self.abases:
+                # Copy the reference to abases Base object
+                s_abases[reg]=self.abases[reg]
+                # Point the preserved state to the saved abases dictionary
+                s_bases[reg]=s_abases
+            elif d == self.rbases:
+                # Copy the reference to abases Base object
+                s_rbases[reg]=self.rbases[reg]
+                # Point the preserved state to the saved rbases dictionary
+                s_bases[reg]=s_rbases
+            else:
+                # This should not occur, but just in case...
+                raise ValueError("self.bases object for register %s does not "\
+                    "point to either abases (%s) or rbases (%s): %s" \
+                        % (reg,self.abases,self.rbases,d))
+
+        # Create the saved state
+        saved_state=BaseState()
+        saved_state.bases=s_bases
+        saved_state.abases=s_abases
+        saved_state.rbases=s_rbases
+
+        return saved_state
+        # Restoration of the saved state occurs by simply assigning the
+        # current USING state in the BaseMgr object to this returned BaseState
+        # object.  See BaseMgr.pop() method
+
+    # Establish a new register absolute USING.
+    # Method Arguments:
+    #   reg    The general register number for which the USING is being
+    #          established
+    #   baseo  The Base object defining the absolute base of the general
+    #          register.
+    def use_abase(self,reg,baseo):
+        self.abases[reg]=baseo
+        self.bases[reg]=self.abases
+
+    # Establish a new register relative USING.
+    # Method Arguments:
+    #   reg    The general register number for which the USING is being
+    #          established
+    #   baseo  The Base object defining the relative base of the general
+    #          register.
+    def use_rbase(self,reg,baseo):
+        self.rbases[reg]=baseo
+        self.bases[reg]=self.rbases
+
+
+# This class manages base registers, USING, DROP, base/disp resolution, USING
+# POP and PUSH statements.
 class BaseMgr(object):
 
     # These class attributes manage direct mode addressing
     # One direct mode register in use
-    #direct1={0:AbsAddr(0x0000)}       # 4K        0x0000 ->       0
     direct1={0:lnkbase.AbsAddr(0x0000)}       # 4K        0x0000 ->       0
     # Eight direct mode registers in use
     direct8=\
@@ -1701,26 +1856,27 @@ class BaseMgr(object):
          6:Base(6,lnkbase.AbsAddr(0x2000)),   # 12K       0x6000 ->  24,576
          7:Base(7,lnkbase.AbsAddr(0x3000))}   # 16K       0x7000 ->  28,672
 
-    # This is established when BaseMgr in instantiated
+    # This is established when BaseMgr in instantiated.  See __init__() method.
     direct=None
 
     def __init__(self,extended=False):
-        # This dicitionary maps a register to one of the other dictionaries when it
-        # is actively engaged.  It is used by DROP to find the actual using to be
-        # removed.  Direct registers are here but never change.
-        self.bases={}     # Active USING assignments. reg number points to the other
+        self.cur=BaseState()     # Base register USING state.
 
-        # This dictionary contains the active "base" for all absolute addresses
-        # including direct registers.
-        self.abases={}    # Active USING assignments to absolute bases
+        # PUSH appends to the end of the list the current state of the
+        # BaseState object.  It does not alter the state of the current object.
+        # POP removes the last object (the most recently PUSHed BaseState
+        # object) and makes it the current BaseState object.
+        self.stack=[]            # The LIFO USING stack used by PUSH and POP.
+        # POPing an empty stack results in an error.
 
-        # This dictionary contains the active base for relative addresses (for
-        # example DSECT symbols).
-        self.rbases={}    # Active USING assignments to relative bases
+        # When PUSH occurs, the current BaseState object is not initiated with
+        # an empty BaseState object, one that contains no USING definitions.
+        # Rather, PUSH only saves the current status of the USING state
+        # and restores it upon pop.
 
         if extended:  # Extended direct mode is supported only on the 360-20
             BaseMgr.direct=BaseMgr.direct8
-        else:         # All other systems only support direct mode with register 0
+        else:    # All other systems only support direct mode with register 0
             BaseMgr.direct=BaseMgr.direct1
 
     # This method selects a base register from a list of possible candidates.
@@ -1748,24 +1904,7 @@ class BaseMgr(object):
          assert isinstance(reg,int),\
             "%s 'reg' argument must be an integer: %s" % (eloc(self,"drop"),reg)
 
-         based=None
-         try:
-             based=self.bases[reg]
-         except KeyError:
-             pass
-         # Check to see if the base has already been dropped
-         if based is None:
-             return
-             # Nothing more to do for an already dropped base
-
-         try:
-             del based[reg]        # Remove the base assigned to the register
-         except KeyError:
-             pass
-         try:
-             self.bases[reg]=None  # This means the base is now dropped
-         except KeyError:
-             pass
+         self.cur.drop(reg)
 
     # Resolve an address into a tuple of two integers (basereg,displacement)
     # If no base is found, a KeyError is raised to alert the caller to the
@@ -1785,7 +1924,7 @@ class BaseMgr(object):
 
         possible=[]
         if addr.isAbsolute():
-            for base in self.abases.values():
+            for base in self.cur.abases.values():
                 if base.address <= addr.address:
                     disp=base.getDisp(addr)
                     try:
@@ -1795,10 +1934,10 @@ class BaseMgr(object):
                         continue
                     base.disp=disp
                     possible.append(base)
-            # This can raise and uncaught KeyError when resolution is not possible
+            # This can raise an uncaught KeyError when resolution is not possible
             return self.__select(addr,possible,trace=trace)
 
-        for base in self.rbases.values():
+        for base in self.cur.rbases.values():
             #if base.section == addr.section and base.address <= addr.address:
             base_addr=addr.base()
             assert base_addr is not None,\
@@ -1816,23 +1955,27 @@ class BaseMgr(object):
         # This can raise an uncaught KeyError when resolution is not possible
         return self.__select(addr,possible,trace=trace)
 
+    # Implement the assembler POP USING operation
+    # Exception:
+    #   KeyError   When the internal stack is empty.  The caller should
+    #              catch this error and respond as appropriate.
+    def pop(self):
+        if not self.stack:
+            raise KeyError
+
+        self.cur=self.stack.pop()  # Retrieve the last element and remove it.
+        # The last element of the list is the most current state.
+
     def print(self,indent="",string=False):
-        string="%sBase Manager:\n" % indent
-        lcl="%s    " % indent
-        for r in range(16):
-            try:
-                bdict=self.bases[r]
-                if bdict is None:
-                    continue
-            except KeyError:
-                continue
-            assigned=bdict[r]
-            rstr="R%s" % r
-            rstr=rstr.ljust(3)
-            string="%s%s%s  %s\n" % (string,lcl,rstr,assigned)
-        if string:
-            return string
-        print(string)
+        return self.cur.print(indent=indent,string=string)
+
+    # This method saves the current USING state and pushes it to the LIFO
+    # stack of USING state.
+    def push(self):
+        saved=self.cur.push()     # Retrieve the current USING state
+        #saved.print()
+        self.stack.append(saved)  # Save it on the USING stack
+        # The last entry of the stack is the most current saved state.
 
     # This method registers a specific register and its associated base address.
     # Per the semantics of the USING directive, a new registration supercedes
@@ -1867,12 +2010,9 @@ class BaseMgr(object):
             dbase=None
 
         if addr.isAbsolute():
-            self.abases[reg]=Base(reg,addr,direct=dbase)
-            self.bases[reg]=self.abases
+            self.cur.use_abase(reg,Base(reg,addr,direct=dbase))
         else:
-            self.rbases[reg]=Base(reg,addr,direct=dbase)
-            self.bases[reg]=self.rbases
-        return
+            self.cur.use_rbase(reg,Base(reg,addr,direct=dbase))
 
 #
 #  +---------------------+
@@ -3424,7 +3564,7 @@ class MACLIBProcessor(asmbase.ASMProcessor):
         assert self.MB.indefn is None,\
             "%s macro '%s' definition in progress can not define a macro "\
                 "from maclib" % (eloc(self,"MacLib"),asm.MM.indefn)
-        
+
 
         debug=asm.dm.isdebug("stmt")
         result=None

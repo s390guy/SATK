@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2015-2017 Harold Grovesteen
+# Copyright (C) 2015-2020 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -1105,6 +1105,7 @@ class StackingStmt(ASMStmt):
 
         no_print=False
         stack_print=False
+        stack_using=False
         operands=self.spp_operands(debug=debug)
         if len(operands)>1 and operands[-1].upper() == 'NOPRINT':
             no_print=True
@@ -1113,12 +1114,14 @@ class StackingStmt(ASMStmt):
             y=x.upper()
             if y=="PRINT":
                 stack_print=True
+            elif y=="USING":
+                stack_using=True
             # Add cases here for additional future operands
             else:
                 raise assembler.AssemblerError(source=self.source,line=self.lineno,\
                     msg="%s operand invalid: %s" % (self.instu,x))
 
-        return (stack_print,no_print)
+        return (stack_using,stack_print,no_print)
 
 
 # GBLA, GBLB, GBLC, LCLA, LCLB, LCLC macro directive super class
@@ -3795,7 +3798,8 @@ class ORG(TemplateStmt):
 #
 # POP - restore saved settings
 #
-#         POP    PRINT[,NOPRINT]
+#         POP    [USING][,PRINT][,NOPRINT]
+#
 
 class POP(StackingStmt):
     # Statement processing controls
@@ -3817,14 +3821,21 @@ class POP(StackingStmt):
         self.parse_line(asm,debug=ptrace)
 
         #ptrace=self.trace or debug
-        stack_print,no_print=self.stacking_operands(asm,debug=ptrace)
+        self.using,stack_print,no_print=self.stacking_operands(asm,debug=ptrace)
         if stack_print and len(asm.pstack)!=0:
             self.pon,self.pdata,self.pgen=asm.pstack.pop()
         if no_print:
             self.pon=False
 
     def Pass1(self,asm,debug=False,trace=False): pass
-    def Pass2(self,asm,debug=False,trace=False): pass
+    #def Pass2(self,asm,debug=False,trace=False): pass
+    def Pass2(self,asm,debug=False,trace=False):
+        if self.using:
+            try:
+                asm.bases.pop()
+            except KeyError:
+                raise assembler.AssemblerError(line=self.lineno,
+                    msg="can not POP an empty USING stack")
 
 
 # PRINT Assembler Directive - Oper Type: SPP
@@ -4607,7 +4618,7 @@ class PSWZ(TemplateStmt):
 #
 # Restores settings previously saved using a POP directive.
 #
-#         PUSH   PRINT[,NOPRINT]
+#         PUSH   [USING][,PRINT][,NOPRINT]
 
 class PUSH(StackingStmt):
     # Statement processing controls
@@ -4628,7 +4639,7 @@ class PUSH(StackingStmt):
         ptrace = self.pre_process(asm) or debug
         self.parse_line(asm,debug=ptrace)
 
-        stack_print,no_print=self.stacking_operands(asm,debug=ptrace)
+        self.using,stack_print,no_print=self.stacking_operands(asm,debug=ptrace)
         if stack_print:
             options=(self.pon,self.pdata,self.pgen)
             asm.pstack.append(options)
@@ -4636,7 +4647,10 @@ class PUSH(StackingStmt):
             self.pon=False
 
     def Pass1(self,asm,debug=False,trace=False): pass
-    def Pass2(self,asm,debug=False,trace=False): pass
+    #def Pass2(self,asm,debug=False,trace=False): pass
+    def Pass2(self,asm,debug=False,trace=False):
+        if self.using:
+            asm.bases.push()
 
 
 # REGION Assembler Directive - Oper Type: SPP
