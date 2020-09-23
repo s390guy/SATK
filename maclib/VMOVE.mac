@@ -28,28 +28,28 @@
 .*
 .* VMOVE requires two positional parameters.  In each case the positional
 .* parameter is referring to an even/odd register pair.  The contents of
-.* &R1, R1+1, and R2 must be established by the program before using the VMOVE
-.* macro.  The contents of &R2+1 will be established by the macro depending
+.* &R1, &R2 and R2+1 must be established by the program before using the VMOVE
+.* macro.  The contents of &R1+1 will be established by the macro depending
 .* upon whether the MVCL instruction is used or not.
 .*
 .* Program register usage required when using the VMOVE macro:
 .*   &R1   - The destination starting address
-.*   &R1+1 - The total length being moved, decremented on each cycle.
+.*   &R2   - The source starting address
+.*   &R2+1 - The total length being moved, decremented on each cycle.
 .*           When &R1+1 is less than or equal to the remaining length to move, 
 .*           the variable move has only its final cycle to execute when MVCL
 .*           is not used.  In this case, register R1+1 will not be zero
 .*           at the termination of VMOVE.  The contents should be considered
 .*           unpredictable.
-.*   &R2   - The source starting address
 .*
 .* Register usage controled by the macro
-.*   &R2+1 - For non-MVCL instruction usage (S/360)
+.*   &R1+1 - For non-MVCL instruction usage (S/360)
 .*             The decrement value (X'100').  Remains constant during the
 .*             execution of VMOVE.  
 .*           For MVCL instruction usage (all other architectures)
 .*             The total length being 
 .*             moved by MVCL and decremented on each MVCL cycle.  Initially the
-.*             same as R1+1.
+.*             same as R2+1.
 .*
 .* Optional keyword parameter.  Ignored if MVCL not in use.
 .*   &DSTRCT  The label to which control is passed if MVCL detects destructive
@@ -68,20 +68,20 @@
 .NODST   ANOP
          MEXIT
 .NOMVCL  ANOP
-&LABEL   SR    &R2+1,&R2+1         Clear the decrement value
-         LA    &R2+1,256           Maximum bytes to move on one cycle
-VMVC&SYSNDX CR &R1+1,&R2+1         Are we almost done (R1+1 <= 256)?
+&LABEL   SR    &R1+1,&R1+1         Clear the decrement value
+         LA    &R1+1,256           Maximum bytes to move on one cycle
+VMVC&SYSNDX CR &R2+1,&R1+1         Are we almost done (R2+1 <= 256)?
          BNH   VMVE&SYSNDX         ..Yes, just do the last mvc
          MVC   0(256,&R1),0(&R2)   Move 256 bytes
-         ALR   &R1,&R2+1           Increment the destination address by 256
-         ALR   &R2,&R2+1           Increment the source address by 256
-         SR    &R1+1,&R2+1         Decrenent the remaining byte count by 256
+         ALR   &R1,&R1+1           Increment the destination address by 256
+         ALR   &R2,&R1+1           Increment the source address by 256
+         SR    &R2+1,&R1+1         Decrenent the remaining byte count by 256
          BP    VMVC&SYSNDX         ..If >0, more bytes to move, see if last
          BZ    VMVX&SYSNDX         ..Yes, done with the move if zero
          DC    H'0'  If <0 or overflow, something went wrong
 VMVE&SYSNDX DS 0H   This is the last (or only) move
-         BCTR  &R1+1,0             Decrement the remainder count by 1 for MVC
-         EX    &R1+1,VMVM&SYSNDX   Move the last chunk
+         BCTR  &R2+1,0             Decrement the remainder count by 1 for MVC
+         EX    &R2+1,VMVM&SYSNDX   Move the last chunk
          B     VMVX&SYSNDX         Branch around the executed MVC
 VMVM&SYSNDX MVC 0(1,&R1),0(&R2)     Move the last chunk
 VMVX&SYSNDX DS 0H   Variable move complete
