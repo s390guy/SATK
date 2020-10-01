@@ -2101,7 +2101,7 @@ class Mac_Symbols(object):
         name=sym.symbol
         try:
             self._fetch(name)
-            if self.unqiue or unique:
+            if self.unique or unique:
                 raise MacroError(msg="symbol already defined: '%s'" % name)
         except KeyError:
             pass
