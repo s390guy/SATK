@@ -1178,6 +1178,7 @@ class PParser(object):
                 #left=t.led(self,left,external=external,debug=debug,trace=trace)
                 left=t.led(ctx,left,debug=debug,trace=trace)
             except PEvaluationError as ee:
+                # PParserError caught by asmmacs module
                 raise PParserError(ptok=t,msg=ee.msg) from None
 
             if left is None:
