@@ -229,7 +229,7 @@ class File(object):
     #    directory,filename=os.path.split(filepath)
     #    filename,ext=os.path.splitext(filename)
     #    return (directory,filename,ext)
-    
+
     @classmethod
     def _ck_path(cls,path):
         if isinstance(path,Path):
@@ -983,7 +983,7 @@ class DTYPES(object):
                 return f
         # Device type not in any family, so raise KeyError
         raise KeyError
-        
+
     # Returns a list of a family's recognized device types
     # Returns:
     #   a list of strings.  Each string is a recognized device type
@@ -1015,10 +1015,10 @@ class Path(object):
         self.filename=None       # The file name without an extension
         self.filenamex=None      # The file name with an extension
         self.ext=None            # The file's extension
-        
+
         # Whether the path is absolute (True) or relative (False)
         self.isabs=None
-        
+
         if filepath:
             self.isabs=os.path.isabs(filepath)
             self.filepath=filepath
@@ -1052,11 +1052,11 @@ class Path(object):
             self.filepath=self.filenamex
 
         self.isabs=os.path.isabs(self.filepath)
-        
+
     def __str__(self):
         return "Path - %s - dir:%s  file:%s  ext:%s" \
             % (self.filepath,self.directory,self.filename,self.ext)
-        
+
     # Make this relative path absolute or return the already absolute path
     # Method Argument:
     #   reldir   the absolute directory path to which this relative path is made
@@ -1353,6 +1353,14 @@ class PathMgr(object):
                         files.append(x)
         return files
 
+    # Perform the actual opening of the file
+    def osopen(self,filename,mode,debug=False):
+        if __debug__:
+            if debug:
+                print("satkutil.py - %s.osopen() - trying: open('%s','%s')" \
+                    % (self.__class__.__name__,filename,mode))
+        return open(filename,mode)
+
     # Registers an environment variable to be used for file search paths by the
     # application.
     #
@@ -1409,28 +1417,42 @@ class PathMgr(object):
             if ldebug:
                 print("%s %s" % (clsstr,path.display(string=True)))
 
-    # Opens the file in the specified mode and returns the file object.  If supplied,
-    # the predefined path variable is used to find the supplied relative path.
-    # If an path variable is not supplied, or an absolute path is supplied, standard
-    # Python processing occurs.
+    # Opens the file in the specified mode and returns the file object.  If
+    # supplied, the predefined path variable is used to find the supplied
+    # relative path.  If an path variable is not supplied, or an absolute path
+    # is supplied, standard Python processing occurs.
     #
     # Method arguments:
-    #   filename    A path to a file to be opened. Required.
+    #   filename    A path or filename to a file to be opened. Required.
     #   mode        The mode in which the file is to be opened.  Defaults to "rt".
     #   variable    Recognized path environment variable string used to search for the
     #               file.  Optional.  If not supplied, standard Python open processing
     #               applies.  The arguemnet string must have been defined when the
     #               class was instantiated (via the 'variable' argument or later
     #               added via the path() method.
-    #   stdio       Specify True to open a file object.  Specify False to open a file
-    #               descriptor object.  Defaults to True
+    #   stdio       Specify True to open a file object.
+    #               Specify False to open a file descriptor object.
+    #               Defaults to True.
     #   debug       Enable debug messages during the call.
     #
-    # If path=False, returns the tuple:  (absolute_path, open_file_object)
-    #   The absolute_path is the path that was used to successfully open the file.
-    #   The open_file_object is ready to be used for file operations as allowed by
-    #   the mode.
-    # If path=True, returns the absolute_path or None if the file is not found
+    # Returns when stdio=True:
+    #   If 'variable' is a register path, returns the tuple:
+    #     (absolute_path, open_file_object).  The absolute_path is the path
+    #     that was used to _successfully_ open the file.  The open_file_object
+    #     is ready to be used for file operations as allowed by the mode.
+    #   If 'variable' is not a registered search path or 'filename' is an
+    #     absolute path, returns the tuple (filename, open_file_object).
+    #     The search path used to open the 'filename' is dictated by the host
+    #     operating system in this case.
+    #   Otherwise, None is returned.
+    #
+    # Returns when stdio=False:
+    #   The same process is followed, but instead of an open file object,
+    #   an open file descriptor is returned in a tuple:
+    #   (absolute_path, open_file_descriptor).
+    #
+    # Refer to Python documentation for the operations allowed on file objects
+    # vs. file descriptors.  Normally, file objects are used.
     #
     # Exceptions:
     #   ValueError  Raised if the file fails to open.  Note, this differs from normal
@@ -1438,7 +1460,11 @@ class PathMgr(object):
     #               exceptions are caught and not propagated upward.  Only can occur
     #               if path=False
     def ropen(self,filename,mode="rt",variable=None,stdio=True,debug=False):
-        ldebug=debug or self.debug
+        ldebug=debug or self.debug #or True
+
+        #print("%s.%s - ropen() - filename: %s  mode: %s variable: %s stdio: %s"\
+        #    " debug: %s" % (this_module,self.__class__.__name__,filename,mode,\
+        #        variable,stdio,debug))
 
         # Try locating the path list to open the file.
         try:
@@ -1452,16 +1478,25 @@ class PathMgr(object):
                     print("%s 'variable' argument not a defined path: '%s'" \
                         % (clsstr,variable))
 
-        # For absolute paths or where a path variable name has not been supplied, or
-        # the supplied variable is not recognized, default to Python's native behavior
-        if os.path.isabs(filename) or variable is None or pathlist is None:
+        # For absolute paths or where a path variable name has not been
+        # registered, default to Python's native behavior.
+        if os.path.isabs(filename) or pathlist is None:
+            #print("%s.%s - ropen() - filename: %s  absolute: %s variable: %s "\
+            #"pathlist: %s" % (this_module,self.__class__.__name__,filename,\
+            #    os.path.isabs(filename),variable,pathlist))
+
             if stdio:
+                # Return the open file object
                 try:
                     return (filename,self.osopen(filename,mode,debug=ldebug))
-                except IOError:
-                    raise ValueError("could not open in mode '%s' path: %s" \
+                except IOError as ie:
+                    if __debug__:
+                        if debug:
+                            print(ie)
+                    raise ValueError("could not open in mode '%s' file: %s" \
                         % (mode,filename)) from None
             else:
+                # Return the open file descriptor.
                 try:
                     return (filename,os.open(filename,os.O_RDONLY))
                 except EnvironmentError:
@@ -1477,15 +1512,20 @@ class PathMgr(object):
             # Return the open file object
             for p in pathlist:
                 filepath=os.path.join(p,filename)
-
                 try:
                     return (filepath,self.osopen(filepath,mode,debug=ldebug))
                 # on success, simply return the tuple (abspath,file_object)
-                except IOError:
+                except IOError as ie:
+                    if __debug__:
+                        if ldebug:
+                            print("%s - %s.ropen() - FAILED to open: %s" \
+                                 % (this_module,self.__class__.__name__,filepath))
+                            print(ie)
                     continue
 
-            raise ValueError("could not open in mode '%s' file '%s' with path: %s" \
-                % (mode,filename,variable))
+            raise ValueError(\
+                "could not open in mode '%s' file '%s' with search path: %s" \
+                    % (mode,filename,variable))
 
         else:
             # Return the open file descriptor object
@@ -1499,16 +1539,8 @@ class PathMgr(object):
                     continue
 
             raise ValueError(\
-                "could not open file descriptor for file '%s' with path: %s" \
+                "could not open file descriptor for file '%s' with search path: %s" \
                     % (mode,filename,variable))
-
-    # Perform the actual opening of the file
-    def osopen(self,filename,mode,debug=False):
-        if __debug__:
-            if debug:
-                print("satkutil.py - %s.osopen() - trying: open('%s','%s')" \
-                    % (self.__class__.__name__,filename,mode))
-        return open(filename,mode)
 
 
 # This class accepts a string as its instance argument and will format the
