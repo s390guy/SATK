@@ -1270,7 +1270,7 @@ class C_Val(Mac_Val):
 
     # Unary minus
     def __neg__(self):
-        return A_Val(-self.sdtern())
+        return A_Val(-self.sdterm())
 
     # Unary plus
     def __pos__(self):
