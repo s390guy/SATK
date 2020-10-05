@@ -1072,7 +1072,16 @@ class Model(MacroOp):
         super().__init__(lineno)
 
     def operation(self,state,debug=False):
-        self.model.replace(state.exp)  # Perform any symbolic replacements
+        
+        #self.model.replace(state.exp)  # Perform any symbolic replacements
+        try:
+            # Perform any symbolic replacements
+            self.model.replace(state.exp)
+        except pratt3.PParserError as pe:
+            # Convert PParserError into a MacroError
+            msg="%s: '%s'" % (pe.msg,pe.ptok.src.string)
+            raise MacroError(invoke=True,msg=msg) from None
+
         plines=self.model.create()     # Create physical lines for macro source
         return (self.next,plines)
 
