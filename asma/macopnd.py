@@ -1242,7 +1242,7 @@ class PSymRef(PCTerm):
     #             raise an exception.  Specify False to return None.  Defaults to
     #             False.
     # Exception:
-    #   PParserError if the label is not defined and excp=True
+    #   MacroError if the label is not defined and excp=True
     def getSTE(self,label,external=None,excp=False,debug=False,trace=False):
         try:
             return external._getSTE_Ref(label,self.src.line)
@@ -1252,8 +1252,7 @@ class PSymRef(PCTerm):
         except KeyError:
             # Label not defined
             if excp:
-                raise pratt3.PParserError(ptok=self.src,\
-                    msg="undefined label: %s" % label) from None
+                raise asmmacs.MacroError(msg="undefined label: %s" % label)
 
         return None
 
@@ -1383,7 +1382,8 @@ class PSymRefCAttr(PSymRef):
 
     def value(self,external=None,debug=False,trace=False):
         label=self.getLabel(external,debug=debug)
-        ste=self.getSTE(label,external=external,debug=debug,trace=trace)
+        ste=self.getSTE(label,external=external,excp=True,debug=debug,\
+            trace=trace)
         attr_val=ste[self.attr]
         if __debug__:
             if trace or debug:
