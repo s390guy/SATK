@@ -4576,7 +4576,7 @@ class PSWZ(TemplateStmt):
 
     def Pass1(self,asm,debug=False,trace=False):
         # Create the binary content and assign a label if present in the statement
-        self.new_content(asm,alignment=8,length=16)
+        self.new_content(asm,alignment=8,length=16,T="3")
         asm.cur_loc.increment(self.content)
 
     def Pass2(self,asm,debug=False,trace=False):
