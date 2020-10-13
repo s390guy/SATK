@@ -2226,7 +2226,7 @@ class Mac_Symbols(object):
         # Check for read-only symbol if it is being referenced for an update by SETx
         if updating and mac_sym.ro:
             raise MacroError(invoke=True,\
-                msg="symbol '%s' read-only, can not SET" % sym.symbol)
+                msg="symbol '%s' read-only, can not SET" % mac_sym.symbol)
 
         return mac_sym
 
