@@ -340,11 +340,29 @@ class OperMgr(asmbase.ASMOperTable):
         # the error.
         try:
             # Run the MACLIBProcessor to define the macro
-            asm.MP.run(asm,macname)
+            #print("ENTERING MACRO PROCESSOR")
+            r=asm.MP.run(asm,macname)
+            #print("RETURNED FROM MACRO PROCESSOR: class: %s" \
+            #    % r.__class__.__name__)
+            
+        # The MACROProcessor object should return exception objects, not
+        # uncaught exceptions.  This exception handler should not be required.
+        # This is why the caught exceptions generate a WARNING message.
         except assembler.AssemblerError as ae:
             # Fetching of the macro from the macro library failed for some reason
             # We need to treat this as a LineError of the physical line
+            print("WARNING: asmoper.OperMgr.getMacLib - AssemblerError may "\
+                "require cleanup in assembler.MACROProcessor")
             raise asmline.LineError(msg=ae.msg) from None
+        except asmline.LineError as le:
+            print("WARNING: asmoper.OperMgr.getMacLib - LineError may "\
+                "require cleanup in assembler.MACROProcessor")
+            raise le from None
+
+        # Report an error in the macro library definition for the listing
+        # from the returned exception object
+        if isinstance(r,asmline.LineError):
+            raise r from None
 
         # This time the macro should be defined.
         mte=self.macros.get(macname)
@@ -362,6 +380,8 @@ class OperMgr(asmbase.ASMOperTable):
     # Method Arguments:
     #   macname   The macro's name being sought
     #   macread   Whether a macro may be read from the MACLIB path
+    # Exception:
+    #   LineError if the library macro definition fails (from getMaclib)
     def getMacro(self,macname,macread=False,debug=False):
         try:
             mte=self.macros[macname]
@@ -372,6 +392,8 @@ class OperMgr(asmbase.ASMOperTable):
                 # Try the MACLIB path and define the macro if found
                 oper=self.getMacLib(macname)
                 # If the definition failed oper is None
+                #print("asmoper.OperMgr.getMacro - getMacLib(%s) result: %s" \
+                #    % (macname,oper))
             else:
                 oper=None
 
@@ -424,6 +446,7 @@ class OperMgr(asmbase.ASMOperTable):
     #   asmbase.ASMOper object of the operation
     # Exception:
     #   KeyError  if the operation is unrecognized
+    #   LineError if the library macro definition fails (from getMacro, from getMaclib)
     def getOper(self,opname,mbstate=0,macread=False,opsyn=True,lineno=None, \
                 debug=False):
         # Locate the instruction or statement data
@@ -690,6 +713,8 @@ class MacroTable(object):
     
     # Retrieve the MTE for this macro name
     def __getitem__(self,name):
+        #print("asmoper.MacroTable.__getitem__ - self.macros: %s" \
+        #    % self.macros.keys())
         return self.macros[name]
 
     # Define / redefine the macro with this name
@@ -712,6 +737,9 @@ class MacroTable(object):
             entry.redefine(oper)
         except KeyError:
             # First macro definition with this name
+            #print("asmoper.MacroTable.define - %s defining" % name)
+            #print("asmoper.MacroTable.define - macro: %s, oper: %s, env: %s" \
+            #    % (name,oper,env))
             mte=MTE(oper,maclib=env=="MACLIB")
             self.macros[name]=mte
 

@@ -1655,6 +1655,9 @@ class ASMProcessor(object):
             self.phase=n                       # Set the current phase number
             self.cur_phase,phase=phaset        # Set the name of the current phase
             self.result=phase(self.asm,fail=self.asm.fail)  # Execute it!
+        #print("%s.process '%s' result: class: %s - %s" \
+        #    % (self.__class__.__name__,self.cur_phase,\
+        #        self.result.__class__.__name__,self.result))
         return self.result
 
     # The subclass must provide this method, called by the user of the processor,

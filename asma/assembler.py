@@ -3561,10 +3561,17 @@ class MACLIBProcessor(asmbase.ASMProcessor):
         #assert not self.MB.indefn is None,\
         #    "%s macro '%s' definition in progress can not define a macro "\
         #        "from maclib" % (eloc(self,"MacLib"),asm.MM.indefn)
+        #if self.MB.indefn != None:
+        #    self.MB.indefn = None
+        #    return asmline.LineError(source="[%s]-%s" % (self.macro,self.lineno),\
+        #                msg="library definition failed",maclib=True)
+        #assert self.MB.indefn is None,\
+        #    "%s macro '%s' definition in process can not define a macro "\
+        #        "from maclib" % (eloc(self,"MacLib"),asm.MM.indefn)
         assert self.MB.indefn is None,\
-            "%s macro '%s' definition in progress can not define a macro "\
-                "from maclib" % (eloc(self,"MacLib"),asm.MM.indefn)
-
+            "%s can not define macro '%s' because definition of '%s' in "\
+                "process from maclib" % (eloc(self,"MacLib"),self.macro,\
+                    self.MB.indefn.name)
 
         debug=asm.dm.isdebug("stmt")
         result=None
@@ -3592,6 +3599,7 @@ class MACLIBProcessor(asmbase.ASMProcessor):
                         source="[%s]-%s" % (self.macro,self.lineno),\
                         msg=me.msg,maclib=True)
                 self.IM.LB.closeSource()  # without BufferEmpty being triggered
+                self.MB.flush()   # Clean up after failure
                 break
             except AssemblerError as ae:
                 if asm.fail:
@@ -3606,6 +3614,7 @@ class MACLIBProcessor(asmbase.ASMProcessor):
                     source="[%s]-%s" % (self.macro,self.lineno),\
                     msg=ae.msg,maclib=True)
                 self.IM.LB.closeSource()  # without BufferEmpty being triggered
+                self.MB.flush()  # Clean up after failure
                 break
             except asminput.BufferEmpty:
                 # Note: the source file is already closed if this exception is raised
@@ -3680,8 +3689,9 @@ class MACLIBProcessor(asmbase.ASMProcessor):
 
         # Process the MACLIB file
         result=self.process()
-        if isinstance(result,asmline.LineError):
-            raise result
+        #print("assembler.MACLIBProcessor.run process result: class %s - %s" \
+        #    % (result.__class__.__name__,result))
+
         return result
 
 
