@@ -1,0 +1,158 @@
+* Copyright (C) 2020 Harold Grovesteen
+*
+* This file is part of SATK.
+*
+*     SATK is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, either version 3 of the License, or
+*     (at your option) any later version.
+*
+*     SATK is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         SCPI
+.* This macro defines the SERVC commands, control block header and SCP
+.* information.  The command is placed in the first register operand and the
+.* address of the control block header is supplied in the second register
+.* operand of the SERVC instruction.
+*
+* Service Call command words
+*
+SRSCP    EQU   X'00020001'    Read System Control Program information
+SRCHP    EQU   X'00030001'    Read Channel Path information
+SCPUD    EQU   X'00100001'    Deconfigure CPU
+SCPUC    EQU   X'00110001'    Configure CPU
+SRIFL    EQU   X'00120001'    Read IFL information
+SVFD     EQU   X'001A0001'    Disconnect Vector Facility
+SVFC     EQU   X'001B0001'    Connect Vector Facility
+SRCS     EQU   X'001C0001'    Read Channel Subsystem information
+SRXST    EQU   X'00250001'    Read Expanded Storage Map
+SWEVT    EQU   X'00760005'    Write event data
+SREVT    EQU   X'00770005'    Read event data
+SWEVTM   EQU   X'00780005'    Write event data mask
+SCMDM    EQU   X'FFFF00FF'    Command Mask
+SCMDCM   EQU   X'000000FF'    Command Class
+SRSCM    EQU   X'0000FF00'    Resource Mask
+         SPACE 3
+*
+* Service Call Control Block
+*
+.* The Service Call Control Block is immediately followed by the data being
+.* written, read or mask being set.
+SCCB     DSECT
+SCCBL    DS    H      +0   This Service Call Control Block length
+         SPACE 1
+SCCBF    DS    X      +2   Flag Byte
+SCCBFS   EQU   X'80'       Synchronous request
+         DS    XL2    +3   Reserved
+         SPACE 1
+SCCBTYP  DS    XL1    +5   Request type
+SCCBTYPV EQU   X'80'       Variable request
+         SPACE 1
+SCCBRSP  DS    0XL2   +6   Response (Reason Code plus Response Class)
+SCCBRSN  DS    XL1    +6   Reason code
+SCCVROK  EQU   X'00'       No reason code
+SCCBRCP  EQU   X'01'       SCCB crosses a page boundary
+SCCBROL  EQU   X'02'       SCCB length is not a multiple of 8
+SCCBRTS  EQU   X'03'       SCB lendth is too short for content
+SCCBRNA  EQU   X'02'       No action taken, resource is in the requested state
+SCCBRSB  EQU   X'04'       Resource is in a standby state
+SCCBIC   EQU   X'01'       Invalid SCCB command code
+SCCBIRSP EQU   X'03'       Invalid resource in parameter
+SCCBIS   EQU   X'05'       Invalid resource state or requested action
+SCCBIRSC EQU   X'09'       Invalid resource
+         SPACE 1
+SCCBCC   DS    XL1    +7   Response class code
+SCCBCBE  EQU   X'00'       Data block error
+SCCBCIR  EQU   X'10'       Information returned
+SCCBCOM  EQU   X'20'       Command completed
+SCCBCBO  EQU   X'40'       Command backed out
+SCCBCREJ EQU   X'F0'       Command rejected
+SCCBDATA EQU   *           Start of SCCB data
+SCCBLEN  EQU   *-SCCB +8   Length of the SCCB header
+         SPACE 3
+*
+* Service Call System Control Program Information
+*
+SCP      DSECT
+SCPII    DS    HL2    +0   Number of installed storage increments
+SCPIS    DS    XL1    +2   Size of each storage increment in megabytes
+SCPSBS   DS    XL1    +3   Size of a storage block in kilobytes
+SCPINTI  DS    HL2    +4   Storage increment block interleave interval
+         DS    HL2    +6   Reserved
+SCPCPUS  DS    HL2    +8   Installed CPU's
+SCPCPUO  DS    HL2    +10  Offset from SCCB to the CPU information array
+SCPHSAS  DS    HL2    +12  Number of Hardware Storage Areas
+SCPHSAO  DS    HL2    +14  Offset from SCCB to the Hardare Storage Area array
+SCPLP    DS    CL8    +16  Load parameter
+SCPXSI   DS    FL4    +24  Number of expanded storage increments installed
+SCPX4K   DS    FL4    +28  Number of 4K blocks in an expanded storage increment
+SCPXE    DS    HL2    +32  Number of expanded storage elements installed
+         DS    HL2    +34  Reserved
+SCPVSZ   DS    HL2    +36  Vector section size
+SCPVSUM  DS    HL2    +38  Vector partial sum number
+SCPFAC   DS    XL8    +40  Installed facilities
+         DS    XL8    +48  Reserved
+SCPRG    DS    HL2    +56  Maximum resource groups
+         DS    XL6    +58  Reserved
+SCPMPFN  DS    HL2    +64  Number of entries in the MPF information array
+SCPMPFO  DS    HL2    +66  Offset from SCCB to the MVF information array
+         DS    FL4    +68  Reserved
+         SPACE 1
+SCPCFG   DS    XL6    +72  Configuration characteristics
+SCP5Z    EQU   X'01'  +77  Set when 64-bit addressing installed. See SCPZIN
+         SPACE 1
+SCPCAP   DS    FL4    +78  Configuration characteristics capacity
+SCPC11   DS    XL1    +82  Configuration characteristics
+SCPCRL   DS    XL1    +83  Maximum copy and reassing list elements allowed
+SCPETR   DS    XL4    +84  ETR synchronization check tolerance
+         DS    XL3    +88  Reserved
+SCPVM    DS    XL1    +91  Maximum guest storage size. Zero not constrained
+SCPZI    DS    XL4    +92  Address increment size in 1M, SCPIS is zero
+SCPZIN   DS    FDL8   +96  Maximum increments when larger than 64K or 64-bit
+         DS    XL16   +104 Reserved
+SCPLEN   EQU   *-SCP  +120 Length of SCP fixed information.  Arrays follow
+         SPACE 3
+*
+* System Control Program CPU Entry
+*
+         SPACE 1
+SCPC     DSECT
+SCPCA    DS    XL1    +0   CPU Address
+SCPCT    DS    XL1    +1   TOD clock number
+SCPCF    DS    XL12   +2   Real CPU facility map
+         SPACE 1
+SCPCY    DS    XL1    +14  Processor Type
+SCPCYC   EQU   0           CP processor
+SCPCYU   EQU   1           unknown processor type
+SCPCYZ   EQU   2           ZAAP processor
+SCPCYI   EQU   3           IFL processor
+SCPCYF   EQU   4           ICF processor
+SCPCYP   EQU   5           ZIIP processor
+         SPACE 1
+SCPPCK   DS    XL1    +15  Crypto unit identifier
+SCPCLEN  EQU   *-SCPC +16  Length of the SCP CPU entry
+         SPACE 3
+*
+* System Control Program Hardware Storage Area Entry
+*
+         SPACE 1
+SCPH     DSECT
+SCPHSIZE DS    XL4    +0   Storage area size in 4K blocks
+SCPHADDR DS    XL4    +2   Storage area address
+SCPHLEN  EQU   *-SCPH +4   Length of the SCP HSA entry
+         SPACE 3
+*
+* System Control Program MPF Entry
+*
+         SPACE 1
+SCPM     DSECT
+SCPMI    DS    XL2    +0   Entry information
+SCPMLEN  EQU   *-SCPM +2   Length of the MPF entry
+         MEND

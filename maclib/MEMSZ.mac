@@ -1,0 +1,297 @@
+* Copyright (C) 2020 Harold Grovesteen
+*
+* This file is part of SATK.
+*
+*     SATK is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, either version 3 of the License, or
+*     (at your option) any later version.
+*
+*     SATK is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   MEMSZ &R1,&R2,&ERROR,&LODPARM=,&POOL=
+.* The MEMSZ macro locates the end of memory.  Different approaches are used
+.* by different architecture levels.
+.*
+.* Positional Parameters, all required:
+.*   &R1    is an even/odd pair of registers.
+.*   &R2    a different even/odd pair of registers.
+.*   &ERROR the location to which control is passed if an error is detected.
+.*
+.* Keyword Parameters:
+.*   &LODPARM  Location to which the LOADPARM data is placed. If omitted,
+.*             LOADPARM data is ignored.  If not available, but the keyword
+.*             if specified, the area is cleared to binary zeros.
+.*
+.*   Determined memory size is contained in &R1 upon exit.  If &ERROR is
+.*   taken, register contents are unpredictable.
+.*
+.* Upon Exit Register Content
+.*   &R1    contains the SIZE of available memory
+.*   &R1+1  contains the last available memory ADDRESS. (&R1 minus 1)
+.*
+.* Refer to the individual addressing mode for a description of register usage.
+.* This includes how the macro's registers are used.
+.*
+.* The macro assumes a base register has been established for the program.
+.* The base register must not be a register used by the macro.  The macro
+.* also requires access to the hardware assigned address locations.  R0
+.* is usually used for this purpose.
+         GBLA  &ARCHLVL
+         LCLB  &INITPUL   Whether to initialize a memory pool or not
+         AIF   (&ARCHLVL GT 0).ARCHOK
+         MNOTE 1,'MEMSZ - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   ('&R1' NE '').CKR2
+         MNOTE 1,'MEMSZ - FIRST POSITIONAL PARAMETER REQUIRED'
+         MEXIT
+.CKR2    ANOP
+         AIF   ('&R2' NE '').CKERR
+         MNOTE 1,'MEMSZ - SECOND POSITION PARAMETER REQUIRED'
+         MEXIT
+.CKERR   ANOP
+         AIF   ('&ERROR' NE '').CKPOOL
+         MNOTE 1,'MEMSZ - THIRD POSITION PARAMETER REQUIRED'
+         MEXIT
+.CKPOOL  ANOP
+         AIF   ('&POOL' EQ '').DOSIZE
+         AIF   ('&POOL' EQ 'NO').DOSIZE
+         AIF   ('&POOL' NE 'YES').BADPOOL
+&INITPUL SETB  1
+         AGO   .DOSIZE
+.BADPOOL ANOP
+         MNOTE 1,'MEMSZ - POOL PARAMETER INVALID: &POOL'
+         MEXIT
+.DOSIZE  ANOP
+         AIF   (&ARCHLVL GE 5).SERVC
+.* 24-Bit addressing.
+.*
+.* Uses a binary search algorithm to locate the end of storage.
+.*
+.* This method uses a program addressing exception (code X'0005') to detect
+.* when an unavailable address' (memory that is not available) access fails.
+.* This case indicate the memory location is NOT available and the access
+.* address should be decremented.  If the access is successful, then the
+.* access address should be incremented.  First the next byte is accessed
+.* to determine if the end of memory was just determined.  If not, the access
+.* address is incremented by half of what it was previously.
+.*
+.* The program interruption triggered by this process is serviced by a
+.* very small interrupt handler that is enabled strictly for the address access
+.* process.  Otherwise the program interruption trap is active.
+.* If a program exception other than addressing is encountered, the trap
+.* PSW will be used to terminate the program.
+.*
+.* Register Usage by 24-bit addressing
+.*    &R1   - Accumulates the size of the memory as it is inspected.
+.*            Upon exit, the register contains the size of installed memory.
+.*            Note: the last address associated with the memory size, in bytes,
+.*            is &R1's content during macro execution.
+.*    &R1+1 - A work register used for detecting the memory address.
+.*            Participates in the binary search of memory.  Upon exit, the
+.*            register's contents are unpredictable.
+.*    &R2   - Internal register used to return from the mini interrupt handler
+.*    &R2+1 - Address being tested by the mini-interrupt handler
+.*
+&LABEL   L     &R2+1,MSZ1&SYSNDX    Test if maximum memory available
+         $BAS  &R2,MSZT&SYSNDX      Check if so..
+         B     MSZ3&SYSNDX          ..Success, don't tramp through memory...
+* Failed, so use binary search to find the memory size...
+         L     &R1,MSZA&SYSNDX      Set the end of memory to 8 megabytes - 1
+         LA    &R1+1,1(,&R1)        Set the initial addressing bit being tested
+         SPACE 1
+MSZX&SYSNDX DS 0H   Test if the address is available
+         LR    &R2+1,&R1            Set address to test access
+         $BAS  &R2,MSZT&SYSNDX      Determine if this much memory is available
+         B     MSZB&SYSNDX          ..Succeeded, need to check next byte
+* Failed, so must decrement to next address bit
+         SRL   &R1+1,1              Shift the addressing bit to the right
+         LTR   &R1+1,&R1+1          Any memory bits left?
+         BZ    &ERROR               ..No, went wrong someplace!
+         SLR   &R1,&R1+1          Subtract the addressing bit from the address
+         B     MSZX&SYSNDX        Test the new address
+         SPACE 1
+* Access succeeded, but are we at the End-of-Memory (meaning accessing the next
+* byte fails)?
+MSZB&SYSNDX DS 0H   Need to determine if we are at the End-of-Memory
+.* Note: This is the normal exit from the macro.  Because of the initial
+.* test for maximum installed memory, this logic is guaranteed to find when
+.* the macro has gone from existing storage to unavailable storage.
+         LA    &R2+1,1(,&R2+1)      Point to the next byte
+         $BAS  &R2,MSZT&SYSNDX      Determine if more memory is available
+         B     MSZI&SYSNDX  ..Success, so more memory means increment higher
+*                           ..Failed, so End-of-Memory located!
+         LR    &R1,&R2+1            Set the amount of memory found in &R1
+         B     MSZF&SYSNDX          Exit the macro...
+         SPACE 1
+* Increment the address
+MSZI&SYSNDX DC 0H    Increment the address with the next bit
+         SRL   &R1+1,1                Shift the addressing bit to the right
+         LTR   &R1+1,&R1+1            Any memory bits left?
+         BZ    &ERROR                 ..No, did not find it, error occurred
+         ALR   &R1,&R1+1              Point to the higher area in memory
+         B     MSZX&SYSNDX            ..Yes, more is available
+         SPACE 1
+* Maximum memory installed
+MSZ3&SYSNDX DC 0H
+         L     &R1,MSZ2&SYSNDX        Set maximum memory available
+         B     MSZF&SYSNDX            Exit the macro
+         SPACE 1
+* Mini program interruption handler.
+*   Returns to the caller at point of call when access was successful
+*   Returns to the caller at the point of the call plus 4 when unsuccessful
+MSZT&SYSNDX DS 0H   Test if current EOM pointer is accessable.
+         MVC   PGMNPSW,MSZU&SYSNDX   Enable the mini-interruption handler
+         CLI   0(&R2+1),X'00'         Test address for access
+         MVC   PGMNPSW,MSZW&SYSNDX   Disable the mini-interruption handler
+         BR    &R2                    Worked, so return + 0
+         SPACE 1
+MSZN&SYSNDX DS 0H  Failed to access the byte
+         MVC   PGMNPSW,MSZW&SYSNDX   Disable the mini-interruption handler
+         AIF   (&ARCHLVL GE 3).NOBC
+         CLC   PGMOPSW+2(2),MSZE&SYSNDX   Was this an 'addressing exception'?
+         AGO   .RETURN
+.NOBC    ANOP
+         CLC   PGMICODE,MSZE&SYSNDX  Was this an 'addressing exception'?
+.RETURN  ANOP
+         BE    4(,&R2)               ..Yes, return + 4
+         LPSW  PGMNPSW               ..No, real OOPS!  Unexpected!
+         SPACE 1
+MSZ5&SYSNDX DC FL4'1'                Constant of 1.
+MSZA&SYSNDX DC XL4'007FFFFF'         Middle of possible available memory
+MSZ1&SYSNDX DC XL4'00FFFFFF'         Maximum possible address
+MSZ2&SYSNDX DC XL4'01000000'         Maximum possible memory size
+MSZE&SYSNDX DC XL2'0005'             Addressing exception interruption code
+         SPACE 1
+MSZW&SYSNDX DWAIT CODE=28
+MSZU&SYSNDX PSW 0,0,0,0,MSZN&SYSNDX
+MSZF&SYSNDX DS  0H                   Found the memory size
+         AIF   ('&LODPARM' EQ '').NOPARM
+         XC    &LODPARM.(8),&LODPARM    Clear unavailable LOADPARM data
+.NOPARM  ANOP
+         LR    &R1+1,&R1           Get memory size
+         SL    &R1+1,MSZ5&SYSNDX   Subtract 1, &R1+1 is now last memory address
+         AGO   .MEMPOOL
+.* Last sanity check on the results...
+.*         CLI   0(&R1+1),X'00'
+.* This should not result in a program interruption. Hence, the sanity check.
+.*        AGO   .INITPUL
+.*
+.SERVC   ANOP
+.* 31-bit and 64-bit addressing
+.*
+.* Uses the SERVC instruction to access System Control Program information.
+.* The SCP data is used in calculations that result in the installed memory
+.* size.  While there, the LOADPARM data is also made available.
+.*
+.* The SCPI macro is used to map the control blocks header and System
+.* Control Program information.
+.*
+.* Register usage by 31-bit and 64-bit addressing
+.*
+.*   &R1   - The SERVC command code
+.*   &R1+1 - The address of the SCCB into which the SCP information is stored.
+.*           This address should be on 4K page boundary.  The SCCB area may
+.*           not cross a 4K page boundary.  So the best way to ensure it does
+.*           not is to place its start at a 4K boundary.  The macro uses
+.*           whatever value is supplied.
+.*   &R2, &R2+1 - Participate in the calculation of installed memory.
+.*
+.* Upon macro successful exit:
+.*   &R1   contains the installed memory size in bytes
+.*   &R1+1 unpredictable
+.*   &R2   unpredictable
+.*   &R2+1 unpredictable
+.*
+&LABEL   L     &R1,MSZC&SYSNDX   Set SERVC command for SCP information
+         USING SCCB,&R1+1        Address the SCCB area
+* Clear the header to zeros
+         XC   SCCB(SCCBLEN),SCCB
+* Initialize the SCCB for the service call
+         MVC   SCCBL(L'SCCBL+1),MSZL&SYSNDX  Length=4096 of synchronous call
+* Read the SCP information
+         SERVC &R1,&R1+1
+         CLC   SCCBRSP,MSZR&SYSNDX   Was the request successful?
+         $BNE  &ERROR                ..No, pass control for error
+* SCP data is now in the SCCB
+         LA    &R1+1,SCCBDATA        Point to the start of the SCP information
+         USING SCP,&R1+1             Can now access the SCP information
+         $SR   &R2,&R2               Make sure register is zero
+         $LR   &R2+1,&R2             ..and its other one.
+         CLI   SCPIS,X'00'           Are we using SCPZI?
+         $BE   MSZZ&SYSNDX           ..Yes, SCPIS is zero
+         IC    &R2,SCPIS             ..No, get storage increment size in MB's
+         $B    MSZY&SYSNDX           Bypass use of SCPZI
+MSZZ&SYSNDX L  &R2,SCPZI             Get increment size in MB's from Z field
+MSZY&SYSNDX EQU *
+         AIF   (&ARCHLVL GE 9).USEZ
+.* 31-bit addressing here
+         AIF   ('&LODPARM' EQ '').NOLOD31
+         MVC   &LODPARM.(8),SCPLP    Save the LOADPARM data
+.* Note: saving the LOADPARM data is placed here because it is dependent
+.* upon the SCB address contained in &R1+1.  &R1+1 content is changed below
+.* before the DROP.
+.NOLOD31 ANOP
+         MH    &R2,SCPII             Megabytes from number of increments
+.* &R2 contains the size of memory in megabytes now
+         CL    &R2,MSZE&SYSNDX       Is memory larger than 31-bit can handle?
+         BNH   MSZA&SYSNDX           ..No, use what SERVC told us
+         L     &R2,MSZE&SYSNDX       ..Yes, set to max megabytes (2,048==2G)
+MSZA&SYSNDX SLL   &R2,20             Convert to bytes from megabytes
+         LR    &R1,&R2               Move bytes to register R1
+.* &R1 contains the size of memory in megabytes now
+         LR    &R1+1,&R1             Get memory size
+         DROP  &R1+1                 Forget access to SCP data
+         SL    &R1+1,MSZ1&SYSNDX  Subtract 1, &R1+1 is now last memory address
+.* &R1+1 now contains the last available memory address
+         SAM31 ,            Make sure we are accessing all memory
+.* &R1 contains the size of memory in megabytes now
+         AGO   .EXIT
+.USEZ    ANOP
+.* 64-bit addressing here
+         AIF   ('&LODPARM' EQ '').NOLOD64
+         MVC   &LODPARM.(8),SCPLP    Save the LOADPARM
+.* Note: saving the LOADPARM data is placed here because it is dependent
+.* upon the SCB address contained in &R1+1.  &R1+1 content is changed below
+.* before the DROP.
+.NOLOD64 ANOP
+         LG    &R2+1,SCPZIN          Get number of increments from Z field
+         MSGR  &R2,&R2+1             Megabytes from number of increments
+         SLLG  &R1,&R2,20            Convert to bytes from megabytes
+.* &R1 now contains the size of available memory
+         LGR   &R1+1,&R1             Get memory size
+         DROP  &R1+1                 Forget SCP data access
+         SLGF  &R1+1,MSZ1&SYSNDX   Subtract 1, &R1+1 is now last memory address
+.* &R1+1 now contains the last available memory address
+         SAM64 ,      Make sure we are accessing all memory
+.MEMPOOL ANOP
+         AIF  (NOT &INITPUL).EXIT
+.*
+.* Initialize a memory pool
+.*  This code assumes that the MEMPOOL DSECT has been assigned a base registe
+.*  with a USING before the MEMSZ macro was called.
+         &SLR  &R2,&R2         Set starting pool address to start of memory
+         &LR   &R2+1,&R1+1     Set ending pool address to last memory address
+         MEMPOOL &R2,ERROR=&ERROR     Initalize the pool
+.EXIT    ANOP
+* Last sanity check on the results...
+         CLI   0(&R1+1),X'00'  This should not result in a program interruption
+* This should not result in a program interruption. Hence, the sanity check.
+         $B    MSZD&SYSNDX            Leave the macro
+         AIF   (&ARCHLVL GE 9 OR &ARCHLVL LT 5).NO31MAX
+MSZE&SYSNDX DC A(X'800')  Maximum memory size for 31-bit addressing system
+.NO31MAX ANOP
+MSZC&SYSNDX DC A(SRSCP)   Command to read System Control Program information
+MSZ1&SYSNDX DC F'1'       Constant of 1.
+MSZL&SYSNDX DC HL2'4096',AL1(SCCBFS)  Size of SCCB in use. Synchronous command
+MSZR&SYSNDX DC AL1(SCCVROK,SCCBCIR)   Good response for this command
+MSZD&SYSNDX DC 0H                     Exit the macro here
+         MEND
