@@ -1,0 +1,177 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+.*
+
+         MACRO
+         REGEQU &CR=NO,&FPR=0,&AR=NO,&VR=NO
+         LCLA  &FPRS     Number of EQUs for Floating Point Registers
+         LCLB  &ARYES    Whether Access Registers are EQUAE'd
+         LCLB  &CRYES    Whether Control registers are EQUATE'd
+         LCLB  &VRYES    Whether Vector Register are EQUATE'd
+         AIF   ('&CR' EQ 'NO').CROK
+         AIF   ('&CR' EQ 'YES').CRENA
+         MNOTE 1,'REGEQU - CR PARAMETER MUST BE YES OR NO: &CR'
+         MEXIT
+.CRENA   ANOP
+&CRYES   SETB  1
+.CROK    ANOP
+         AIF   ('&FPR' EQ '0').FPROK
+         AIF   ('&FPR' EQ '4').FPR4
+         AIF   ('&FPR' EQ '16').FPR16
+         MNOTE 1,'REGEQU - FPR PARAMETER MUST BE 0, 4, OR 16: &FPR'
+         MEXIT
+.FPR4    ANOP
+&FPRS    SETA  4
+         AGO   .FPROK
+.FPR16   ANOP
+&FPRS    SETA  16
+.FPROK   ANOP
+         AIF   ('&AR' EQ 'NO').AROK
+         AIF   ('&AR' EQ 'YES').ARENA
+         MNOTE 1,'REGEQU - AR PARAMETER MUST BE YES OR NO: &AR'
+         MEXIT
+.ARENA   ANOP
+&ARYES   SETB  1
+.AROK    ANOP
+         AIF   ('&VR' EQ 'NO').VROK
+         AIF   ('&VR' EQ 'YES').VRENA
+         MNOTE 1,'REGEQU - VR PARAMETER MUST BE YES OR NO: &VR'
+         MEXIT
+.VRENA   ANOP
+&VRYES   SETB  1
+.VROK    ANOP
+* General Registers
+R0       EQU   0     General Register 0
+R1       EQU   1     General Register 1
+R2       EQU   2     General Register 2
+R3       EQU   3     General Register 3
+R4       EQU   4     General Register 4
+R5       EQU   5     General Register 5
+R6       EQU   6     General Register 6
+R7       EQU   7     General Register 7
+R8       EQU   8     General Register 8
+R9       EQU   9     General Register 9
+R10      EQU   10    General Register 10
+R11      EQU   11    General Register 11
+R12      EQU   12    General Register 12
+R13      EQU   13    General Register 13
+R14      EQU   14    General Register 14
+R15      EQU   15    General Register 15
+         AIF   (NOT &CRYES).NOCR
+         SPACE 1
+* Control Registers
+C0       EQU   0     Control Register 0
+C1       EQU   1     Control Register 1
+C2       EQU   2     Control Register 2
+C3       EQU   3     Control Register 3
+C4       EQU   4     Control Register 4
+C5       EQU   5     Control Register 5
+C6       EQU   6     Control Register 6
+C7       EQU   7     Control Register 7
+C8       EQU   8     Control Register 8
+C9       EQU   9     Control Register 9
+C10      EQU   10    Control Register 10
+C11      EQU   11    Control Register 11
+C12      EQU   12    Control Register 12
+C13      EQU   13    Control Register 13
+C14      EQU   14    Control Register 14
+C15      EQU   15    Control Register 15
+.NOCR    ANOP
+         AIF   (&FPRS EQ 0).NOFPR
+         SPACE 1
+* Floating Point Registers
+F0       EQU   0     Floating Point Register 0
+         AIF   (&FPRS NE 16).NOFPR1
+F1       EQU   1     Floating Point Register 1
+.NOFPR1  ANOP
+F2       EQU   2     Floating Point Register 2
+         AIF   (&FPRS NE 16).NOFPR3
+F3       EQU   3     Floating Point Register 3
+.NOFPR3  ANOP
+F4       EQU   4     Floating Point Register 4
+         AIF   (&FPRS NE 16).NOFPR5
+F5       EQU   5     Floating Point Register 5
+.NOFPR5  ANOP
+F6       EQU   6     Floating Point Register 6
+         AIF   (&FPRS NE 16).NOFPR
+F7       EQU   7     Floating Point Register 7
+F8       EQU   8     Floating Point Register 8
+F9       EQU   9     Floating Point Register 9
+F10      EQU   10    Floating Point Register 10
+F11      EQU   11    Floating Point Register 11
+F12      EQU   12    Floating Point Register 12
+F13      EQU   13    Floating Point Register 13
+F14      EQU   14    Floating Point Register 14
+F15      EQU   15    Floating Point Register 15
+.NOFPR   ANOP
+         AIF   (NOT &ARYES).NOAR
+         SPACE 1
+* Access Registers
+A0       EQU   0     Access Register 0
+A1       EQU   1     Access Register 1
+A2       EQU   2     Access Register 2
+A3       EQU   3     Access Register 3
+A4       EQU   4     Access Register 4
+A5       EQU   5     Access Register 5
+A6       EQU   6     Access Register 6
+A7       EQU   7     Access Register 7
+A8       EQU   8     Access Register 8
+A9       EQU   9     Access Register 9
+A10      EQU   10    Access Register 10
+A11      EQU   11    Access Register 11
+A12      EQU   12    Access Register 12
+A13      EQU   13    Access Register 13
+A14      EQU   14    Access Register 14
+A15      EQU   15    Access Register 15
+.NOAR    ANOP
+         AIF   (NOT &VRYES).NOVR
+         SPACE 1
+* Vector Registers
+V0       EQU   0     Vector Register 0
+V1       EQU   1     Vector Register 1
+V2       EQU   2     Vector Register 2
+V3       EQU   3     Vector Register 3
+V4       EQU   4     Vector Register 4
+V5       EQU   5     Vector Register 5
+V6       EQU   6     Vector Register 6
+V7       EQU   7     Vector Register 7
+V8       EQU   8     Vector Register 8
+V9       EQU   9     Vector Register 9
+V10      EQU   10    Vector Register 10
+V11      EQU   11    Vector Register 11
+V12      EQU   12    Vector Register 12
+V13      EQU   13    Vector Register 13
+V14      EQU   14    Vector Register 14
+V15      EQU   15    Vector Register 15
+V16      EQU   16    Vector Register 16
+V17      EQU   17    Vector Register 17
+V18      EQU   18    Vector Register 18
+V19      EQU   19    Vector Register 19
+V20      EQU   20    Vector Register 20
+V21      EQU   21    Vector Register 21
+V22      EQU   22    Vector Register 22
+V23      EQU   23    Vector Register 23
+V24      EQU   24    Vector Register 24
+V25      EQU   25    Vector Register 25
+V26      EQU   26    Vector Register 26
+V27      EQU   27    Vector Register 27
+V28      EQU   28    Vector Register 28
+V29      EQU   29    Vector Register 29
+V30      EQU   30    Vector Register 30
+V31      EQU   31    Vector Register 31
+.NOVR    ANOP
+         MEND
