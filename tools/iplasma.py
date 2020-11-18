@@ -72,6 +72,7 @@ import fbautil    # Access the FBA device support
 import fbadscb    # Access the FBA data set control block definitions (for VOL1)
 from hexdump import dump   # Access the dump() function
 import media      # Access the device independent and device specific modules
+import rdrpun     # Access the CARD device support
 import recsutil   # Access the device record module
 
 
@@ -955,6 +956,10 @@ class Alloc(object):
         self.allocs={}            # Dictionary of Allocations by name
         self.protected=protected  # Whether allocated areas by overlap
         self.format=format        # Default format type for range values
+        
+    # Returns an Allocation object associated with a specific name
+    def __getitem__(self,key):
+        return self.allocs[key]
 
     # Returns the presented Allocation after it has been assigned a range succeeding
     # another named allocation
@@ -1330,6 +1335,7 @@ READ=0x02         # Unit record read command
 # CCW flags:
 CD=0x80           # Chain data
 CC=0x40           # Command chain
+NONE=0x00         # No CCW flags
 SLI=0x20          # Suppress length indication
 SKIP=0x10         # Skip data
 
@@ -1350,6 +1356,10 @@ class CCW0(BaseStruct):
         self.iolen=iolen              # I/O area length
         self.ioarea=ioarea            # I/O area location
         self.flags=flags              # Command flags
+        
+    def __str__(self):
+        return "CCWO - command: %02X  iolen: %s  flags: %02X  address: %06X" \
+            % (self.command,self.iolen,self.flags,self.ioarea)
 
     def binary(self):
         bdata=byte(self.command)      # +0 1 Command
@@ -1461,7 +1471,7 @@ class PSWEC(BaseStruct):
     def __init__(self,masks,sys,prog,IA,AM=24,address=None,mloc=None):
         super().__init__(length=8,address=address,mloc=mloc,align=8)
         self.masks=masks      # Interruption masks
-        self.sys=sys | 0x80   # System masks
+        self.sys=sys | 0x08   # System masks
         self.prog=prog        # Progam masks and condition code
         self.IA=IA            # Instruction address
         if AM == 24:
@@ -1948,6 +1958,7 @@ class Memory(Alloc):
 #   bc        Specify True to cause a basic-control mode PSW to be manufactered.
 #   verbose   Whether detailed messages are to be displayed
 class IPLVOL(object):
+
     def __init__(self,args,program,boot,dtypeo,bc=False,verbose=False):
         self.args=args           # Command-line arguments
         self.dtypeo=dtypeo       # DTYPE object
@@ -1968,7 +1979,7 @@ class IPLVOL(object):
         # Memory management object.  Memory usage is similar for all device types
         self.mem=Memory()        # Memory Manager
 
-        self.areas=[]            # List of areas requiring medium locations
+        self.areas=[]       # List of Area objects requiring medium locations
 
         # Areas created during IPLVOL instantiation
         # IPL function areas
@@ -2058,10 +2069,13 @@ class IPLVOL(object):
                 boot=" BOOT: LDIPL"
         return "%s IPL: %s%s" % (self.dtype,ipl,boot)
 
-    # Generic build and install process for all IPL media types
+    # Generic build and install process for all IPL media types except CARD
     def build(self):
 
       # Build logical IPL records
+
+        # Some devices needs to process before IPL records built
+        #self.build_init()   # Keep this????
 
         # IPL Record 1 constructed
         self.r1_area=self.set_IPL1("IPL1",debug=False)
@@ -2123,6 +2137,9 @@ class IPLVOL(object):
             self.write_IPL3()   # ASA
         if self.lod1:
             self.write_IPL4()   # LOD1
+
+        # Some devices need to complete the write process.
+        #self.fini()
 
         if self.verbose:
             if self.lod1_bin:
@@ -2233,7 +2250,8 @@ class IPLVOL(object):
         if len(at_zero)==0:
             # Use the first byte of the first region loaded as the program entry
             load_point=self.program.load_list[0]
-            load_point=load_point.range.beg
+            #load_point=load_point.range.beg
+            load_point=load_point.address
             hwords,odd=divmod(load_point,2)
             if odd != 0:
                 raise MediumError(msg="Program starting location not on a half "
@@ -2264,6 +2282,11 @@ class IPLVOL(object):
   # Methods that must be implemented by the subclass
   #
 
+    # IPL record build initialization
+    #def build_init(self):
+    #    raise NotImplementedError("%s - class %s must provide build_init() " \
+    #        "method" % (this_module,self.__class__.__name__))
+
     # Creates the emulated IPL volume
     def create(self,path,minimize=True,comp=False,progress=False,debug=False):
         raise NotImplementedError("%s - class %s must provide create() method" \
@@ -2282,6 +2305,13 @@ class IPLVOL(object):
     def dump(self):
         raise NotImplementedError("%s - class %s must provide dump() method" \
             % (this_module,self.__class__.__name__))
+
+    # Some devices (cards in particular) can not write any of the IPL records
+    # until all of the IPL data content has been established.  Other device
+    # types do not need this method.
+    #def fini(self):
+    #    raise NotImplementedError("%s - class %s must provide fini() method" \
+    #        % (this_module,self.__class__.__name__))
 
     # Returns the Area containing the IPL CCW's destined for IPL Record 0
     def ipl_ccw(self):
@@ -2340,6 +2370,592 @@ class IPLVOL(object):
     def write_VOL1(self):
         raise NotImplementedError("%s - class %s must provide write_VOL1() method" \
             % (this_module,self.__class__.__name__))
+
+#
+# +-------------------+
+# |                   |
+# |   CARD IPL Deck   |
+# |                   |
+# +-------------------+
+#
+
+class CRDECK(IPLVOL):
+    def __init__(self,args,program,boot,dtypeo,verbose=False):
+        super().__init__(args,program,boot,dtypeo,verbose=verbose)
+
+        self.dir_len=None  # Directed record length in bytes
+        self.ipl_areas=[]  # List of areas to be read during IPL
+
+        # The object from which the IPL card stream is written
+        self.deck=ADECK(self.verbose)   # From which the IPL deck is created
+
+        if self.booted and not self.deck:
+            self.dir_len=80
+            self.lod1.set_directed_length(self.dir_len)
+
+            # Create directed records for the booted program
+            self.booted.directed(self.dir_len,length=True)
+            self.lod1.set_booted_length(self.booted.cum_len)
+
+        if verbose:
+            # Mimic the information supplied by fba_util.__str__() method
+            string="Volume:  TYPE=%s LFS=False" % (dtypeo.hardware)
+            string="%s\nHost:    FILE=variable" % string
+            string="%s\nRecord:  LENGTH=80 RECORDS=variable" % string
+            print(string)
+
+        # Must use an emulated "punch" device to create a card deck image
+        # that can be read by a program.
+        self.device=media.device("3525")
+
+        # A device allocation map is not used for a sequential device.
+
+    # Converts an Area object into a list of ACARD objects
+    # Method Argument:
+    #   area   The Area object being converted
+    # Returns:
+    #   a list of ACARD objects
+    def area_to_cards(self,area):
+        assert isinstance(area,Area),"'area' argument must be an Area: %s" \
+            % area
+
+        cur_addr=area.range.beg     # Determine area's starting address
+        content=area.content
+        length=len(content)
+        cards=[]         # ACARD instances destined for deck
+
+        for ndx in range(0,length,80):
+            byt=content[ndx:min(ndx+80,length)]
+            cards.append(ACARD(None,byt,addr=cur_addr))  # Note no ID value
+            cur_addr+=80
+
+        return cards
+
+
+    # Card decks use an entirely different set of records for loading program
+    # content than the other device types.  This method overrides the
+    # IPLVOL.build() method in its entirety.
+    #
+    # At the logical level, all of the IPL Records are supported by an IPL deck.
+    # However the manner in which they are loaded is entirely different for
+    # cards.  With cards all IPL loaded data from all records 2 and above are
+    # merged with the corresponding data that would in other contexts be a
+    # separate IPL Record 1 (the channel program).  Other devices separate
+    # the data into separate physical records.
+    #
+    # See the manual doc/asma/IPLASMA.odt or doc/asma/IPLASMA.pdf for details on
+    # the IPL deck created by this module.
+    def build(self):
+        if self.verbose:
+            # Insert note about 3525 device type.
+            print("NOTE: an emulated punch device is used to create the IPL " \
+                "deck")
+
+    # Build logical card IPL records
+
+        # Allocate the two buffers for the IPL channel commands (logical
+        # IPL Record 1).
+        self.r1_area=self.set_IPL1("IPL1",debug=False) # Two card buffers..
+        self.mem.allocate(self.r1_area) # ..are allocated
+
+        # Create the IPL CCW's in IPL Record 0
+        # Construct the device specific portion of IPL Record 0, the one/two CCW's
+        self.ccw_area=self.set_IPLCCW("CCW0",debug=False)
+        if self.verbose:
+            print("%s - IPL Record 0 - CCWs:" % this_module)
+            self.ccw_area.dump(indent="    ")
+        self.mem.allocate(self.ccw_area)
+
+        # IPL Record 0 can now be constructed
+        self.r0_area=Area("IPL0",beg=0,\
+            bytes=self.ipl_psw+self.ccw_area.content)
+        self.mem.allocate(self.r0_area)
+        if self.verbose:
+            print("%s - IPL Record 0:" % this_module)
+            self.r0_area.dump(indent="    ")
+
+  # CANDIDATE FOR ITS OWN METHOD IN IPLVOL
+  #
+        # Allocate LOD1 in the memory allocation map
+        if self.booted:
+            self.mem.allocate(self.lod1_area)
+
+        # Allocate booted program in the memory map allocation
+        # And set boot loader I/O area
+        if self.booted and not self.deck:
+            # Allocate booted program in memory
+            lwm=self.booted.lwm()
+            hwm=self.booted.hwm()
+            allocation=Allocation("BOOTED",slots=hwm-lwm+1)
+            allocation.position(lwm,format="06X")
+            self.mem.allocate(allocation)
+
+            # Assign boot loader I/O area and set it in the LOD1 record
+            self.boot_io=align(self.r1_area.range.end,8)
+            self.lod1.set_ioarea(self.boot_io)
+
+        # Report boot loader I/O area address here, before memory map
+        if self.verbose and self.boot_io:
+            print("%s - Boot Loader I/O area: %06X" \
+                % (this_module,self.boot_io))
+  #
+  # CANDIDATE FOR ITS OWN METHOD IN IPLVOL
+
+        # Establish IPL Record 1 cards' buffer addresses
+        # Updates the ALG class attribute buffer_addr.
+        ipl1_obj=self.mem["IPL1"]      # Fetch the Allocation object for IPL1
+        begina=ipl1_obj.range.beg       # Determine beginning address
+        beginb=begina+80
+        ALG.buffer_addr["A"]=begina    # Buffer A is at the beginning address
+        ALG.buffer_addr["B"]=beginb    # Beffer B is the 80 bytes beyond that
+        
+        if self.verbose:
+            print("Memory Map:")
+            print(self.mem.display(indent="    "))
+            print("        CCW Record Buffer A: %06X-%06X" \
+                % (begina,begina+79))
+            print("        CCW Record Buffer B: %06X-%06X" \
+                % (beginb,beginb+79))
+
+        # Build the deck content (not the deck yet)
+        self.write_IPL0()      # IPL0
+        #self.write_IPL1()      # IPL1  IPL1 is intermixed with data
+        #self.write_VOL1()      # VOL1  A Card deck does not have a VOL1 record
+        self.write_areas()     # IPL2's IPL2 records intermixed with CCW's
+        if self.asa_area:
+            self.write_IPL3()   # ASA
+        if self.lod1:
+            self.write_IPL4()   # LOD1
+        # The ADECK object has been primed with data
+
+    # Create the IPL medium
+    def create(self,path,minimize=True,comp=False,progress=False,debug=False):
+        self.deck.create()    # Convert deck into a load stream
+        
+        # Dump the physical cards here for more information in the output
+        if self.verbose:
+            self.deck.dump()
+
+        #print("CRDECK.create() - self.device: %r" % self.device)
+        for card in self.deck.cards:
+            real_card=recsutil.card(data=card.content)
+            self.device.record(real_card)
+            
+        self.device.create(path)  # Write the IPL medium file    
+
+    # Dumps the card records
+    def dump(self):
+        pass
+
+    # Returns the CCW's used to construct IPL Record 0
+    def ipl_ccw(self,name,debug=False):
+        # Reads the first card of read CCW's into the first buffer
+        self.iplccw1=CCW0(IPLREAD,80,self.iplrec1_start,CC)
+        # Transfers channel control to the first card now in the buffer
+        self.iplccw2=TICCCW(self.iplrec1_start)
+
+        # Build the CCWs into a byte sequence
+        ccws=IPLREC0_CCWS()
+        ccws.append(self.iplccw1)
+        ccws.append(self.iplccw2)
+        ccws.loc(8)
+        ccws.length=16
+        ccws.build()
+
+        # Return an Area object for the CCWs in IPL Record 0
+        return Area(name,beg=ccws.address,bytes=ccws.content)
+
+    def ipl_rec1(self,name,debug=False):
+        # The returned area's content is binary zeros.  The IPL Record 1 Area
+        # object defines the two I/O buffers used by the channel commands of
+        # the dispersed IPL Record 1 chain throughout the IPL deck.
+        self.iplrec1_start=align(self.hwm+80,8)
+        area=Area(name,beg=self.iplrec1_start,bytes=bytes(2*80))
+
+        # This allows the two buffer areas to be allocated, but the content of
+        # this Area is not used in the IPL deck.
+        return area
+
+    # Create data records from an area and add to the deck
+    # IPLVOL.__init__() has created the areas in self.areas
+    def write_areas(self):
+        for area in self.prog_regns:
+             self.deck.add_data(self.area_to_cards(area))
+
+    # Add IPL Record 0 to the deck in process
+    def write_IPL0(self):
+        card_ipl0=ACARD("IPL0",self.r0_area.content,addr=0)
+        self.deck.add_IPL0(card_ipl0)   # Add IPL Record 0 to output deck
+
+    #def write_IPL1(self):
+    #   Method not used for a card deck
+    #   Logical equivalent created by ADECK.create() method
+
+    #def write_IPL2(self):
+    #   Method not used for a card deck
+    #   Logical equivalent created by ADECK.create() method
+
+    # Add ASA content to the deck in process
+    def write_IPL3(self):
+        self.deck.add_data(self.area_to_cards(self.asa_area))
+
+    # Write LOD1 to the deck in process.  LOD1 fits on a single card
+    def write_IPL4(self):
+        self.deck.add_data(self.area_to_cards(self.lod1_area))
+
+# This class encapsulates a card for the IPL deck.  It creates a card
+# whose content can be punched by the emulated punch device
+#
+# Instance Arguments:
+#   ID     A character string ID'ing the card record. Required.
+#   byt    A bytes-type sequence of content for the card.  If omitted, a card
+#          consisting of all EBCDIC spaces is produced.
+#   pad    Whether the content provided by the byt argument can be padded
+#          to the full 80 bytes with EBCDIC spaces.  Specify True to pad byt.
+#          Specify False to inhibit padding.  When padding is inhibited, the
+#          content provided by byt must be 80 bytes in length.  If omitted,
+#          the default is False.
+class ACARD(object):
+
+    # Immutable blank card with EBCDIC spaces
+    blank=bytes([64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64, \
+                 64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64, \
+                 64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64, \
+                 64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64, \
+                 64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64])
+
+    # Use bytearray(ACARD.blank) to create a mutuable copy
+
+    def __init__(self,ID,byt,addr=None):
+        assert isinstance(ID,str) or ID is None,\
+            "'byt' argument must be a string: %s" % (this_module,addr)
+        assert isinstance(byt,(bytes,bytearray)),"ACARD.__init__() - byt " \
+            "argument not a bytes sequence: %s" % byt
+
+        self.ID=ID        # Give this card a recognized name
+        self.content=byt  # Card binary content
+        # Content length used in CCW
+        self.addr=addr    # Address to which this card is written (for CCW)
+        self.islast=False # Whether this is the last card of deck
+        # Note: when this is True, the CCW that reads it is NOT command chained.
+
+    def __str__(self):
+        return "ACARD %s @ %06X length: %s" \
+            % (self.ID,self.addr,len(self.content))
+            
+    # Pad the current content with additional EBCDIC spaces until full
+    # content is 80 bytes.  Make sure the content is inmutable.
+    def pad(self):
+        length=len(self.content)
+        assert length <= 80,"content length not <= 80 bytes: %s" % length
+        if length < 80:
+            # Content already 80 bytes, no padding required
+            blank=bytearray(ACARD.blank)   # Get an "empty" mutable card image
+            blank[0:length]=self.content   # Update with unpadded data
+            padded=bytes(blank)            # Convert back to immutable object
+            self.content=padded            # Set my padded content
+            
+        # Make sure we have an immutable bytes sequence for recsutil
+        if isinstance(self.content,bytearray):
+            self.content=bytes(self.content)
+
+
+# This is an intermediate object for creating the card IPL deck
+class ADECK(object):
+    def __init__(self,verbose):
+        self.verbose=verbose   # --verbose from comamand-line
+        self.ipl0=None    # IPL 0 record added here (only one!)
+        self.data=[]      # All data loaded by the IPL process goes here
+        self.algs=[]      # All ACARD Load Group instances (from self.data)
+
+        # This is the source of the actual deck written to the file
+        self.cards=[]     # List of ACARD card images to be written
+
+        self.lg_num_recs=[]  # The number of data records for each load group
+
+    # Add a single ALG instance to the list.  Used by create() method
+    def add_alg(self,alg):
+        assert isinstance(alg,ALG),\
+            "'alg' argument not an ALG instance: %s" % alg
+        self.algs.append(self.algs)
+
+    # Add a single ACARD instance as IPL Record zero.
+    def add_IPL0(self,ipl0):
+        assert isinstance(ipl0,ACARD),\
+            "'ipl0' argument not an ACARD instance: %s" % ipl0
+        assert self.ipl0 is None,\
+            "self.ipl0 must be None: %s" % self.ipl0
+        self.ipl0=ipl0    # Add IPL0 ACARD instance
+
+    # Add data ACARDs (one or a list of ACARDs to the list)
+    def add_data(self,data):
+        #print("ADECK.add_data: %s" % data)
+        # Add a list of ACARDs to the data list
+        if isinstance(data,list):
+            assert len(data)>0,"'data' argument list must not be empty"
+            for card in data:
+                self.add_data(card)  # This ensures all list entries are ACARDs
+            return
+
+        # Add a single ACARD instance to the data list
+        assert isinstance(data,ACARD),\
+            "'data' argument not an ACARD instance: %s" % data
+        self.data.append(data)   # Add a data card to the list of data cards
+
+    # Creates the load groups and ultimate card deck that is written to the
+    # output medium, self.cards
+    def create(self):
+      # Step 1 - Add meaninful ID's to the ACARD data objects
+        for n,acard in enumerate(self.data):
+            card_num=n+1
+            acard.ID="D%s" % card_num
+
+      # Step 2 - Tag the last card
+        self.data[-1].islast=True
+
+      # Step 3 - Calculate the size of the load groups in terms of ACARD
+      #          data objects
+
+        if self.verbose:
+            print("IPL Record 2 data cards: %s" % len(self.data))
+
+        full,extra = divmod(len(self.data),8)
+        #print("ADECK.create() - full,extra: %s,%s" % (full,extra))
+        grp_ndxs=[]
+        num_data_cards=[]
+        
+        if full:
+            # At least one full CCW card of 8 CCW's
+            for n in range(full):
+                grp_ndxs.append(n*8)
+                num_data_cards.append(8)
+            if extra <= 2:
+                # Add extra data cards to last load group
+                num_data_cards[-1]=num_data_cards[-1]+extra
+            else:
+                # Add another load group to the list
+                #print("ADECK.create() - grp_ndxs: %s" % grp_ndxs)
+                grp_ndxs.append(grp_ndxs[-1]+8)
+                num_data_cards.append(extra)
+        else:
+            # First CCW card not full of CCW's
+            # Incomplete first card
+            # Do we need to check for an empty image???
+            grp_ndxs.append(0)
+            num_data_cards.append(extra)
+
+      # Step 4 - Create load groups
+
+        next_buffer="B"
+        a_buf_num = 1
+        b_buf_num = 1
+        for n,ndx in enumerate(grp_ndxs):
+            data=self.data[ndx:ndx+num_data_cards[n]]
+            # Create ALG and its CCW record ID
+            if next_buffer == "A":
+                ID="B%s" % b_buf_num
+                b_buf_num+=1
+            else:
+                ID="A%s" % a_buf_num
+                a_buf_num+=1
+            lg=ALG(ID,data,next_buffer)
+            self.algs.append(lg)
+
+            # Identify the next buffer
+            if next_buffer == "A":
+                next_buffer = "B"
+            else:
+                next_buffer = "A"
+                
+        if self.verbose:
+            print("IPL Record 1 CCW cards:  %s" % len(self.algs))
+
+        # Tag the last load group
+        last_lg=self.algs[-1]
+        last_lg.islast=True    # The last load group does not chain
+        last_lg.nxt_buf=None   # The next buffer to which this group chains
+
+      # Step 5 - Create CCW0 objects for each load group
+      
+        for alg in self.algs:
+            alg.build_ccws()
+            
+        # Tweak next to last CCW length and flag if needed
+        self.tweak_ccw()
+
+        if self.verbose:
+            for alg in self.algs:
+                buf="%s" % alg.nxt_buf
+                buf=buf.ljust(4)
+                alg_ccws="%s" % len(alg.ccwos)
+                alg_ccws=alg_ccws.ljust(2)
+                alg_cards="%s" % len(alg.cards)
+                alg_cards=alg_cards.ljust(2)
+                if alg.tweaked:
+                    alg_last="%s" % alg.islast
+                    alg_last=alg_last.ljust(5)
+                    alg_last="%s  (adjusted)" % (alg_last)
+                else:
+                    alg_last="%s" % alg.islast
+                print("    %s  CCWs: %s  data cards read: %s  next buffer: %s"
+                    "  LAST: %s" % (alg.ID,alg_ccws,alg_cards,buf,alg_last))
+                
+      # Step 6 - Create the final card deck: IPL Record 0
+      
+        self.ipl0.pad()
+        self.cards.append(self.ipl0)
+        
+        for alg in self.algs:
+            alg.create_ccw_card()
+            # All ALG ACARD objects are now ready to go
+            
+            # Add the ALG ACARD objects to the deck's list
+            self.cards.append(alg.ccw_card)
+            self.cards.extend(alg.cards)
+            
+    def dump(self):
+        for n,card in enumerate(self.cards):
+            print("CARD %s - %s @ %06X" % (n+1,card.ID,card.addr))
+            print(dump(card.content,indent="    "))
+    
+    # Tweak the next to last CCW card reading command for the last load group.
+    # This is required because by default the command preceding the one that
+    # transfers control to the other buffer always is created to read an entire
+    # card.  While this would work, it is preferable to only read what you
+    # need.  So, once all of the load groups have had the CCW's created as
+    # CCW0 objects, it becomes possible to adjust this CCW in the next to
+    # last load group with the actual values needed by the last load group.
+    #
+    # This must be done here where all load groups (ALG objects) are available.
+    def tweak_ccw(self):
+        if len(self.algs) < 2:
+            # Only if there are two or more load groups is tweaking possibly
+            # needed
+            return
+        
+        # Determine if CCW tweaking is needed.  This occurs if the last
+        # load group's CCW card does not contain all 10 CCWs.
+        last_alg=self.algs[-1]
+        
+        # Number of CCW's in last load group's CCW record
+        last_ccws=len(last_alg.ccwos)   
+        if last_ccws == 10:
+            # The entire card is needed, so no tweaking to I/O length
+            return
+           
+        # Tweaking _is_ needed to the next to last load group's CCW read
+        # command's length to read only the CCW's it needs.
+        # Here we are reaching into the CCW0 object and making adjustments
+        next=self.algs[-2]
+        tweak_ccw=next.ccwos[-2] # -2 reads next CCWS, -1 TIC's to next buffer
+        tweak_ccw.iolen = last_ccws * 8  # Adjust length to what we need
+        tweak_ccw.flags |= SLI   # Suppress incorrect length
+        # Incorrect length is signaled by the channel because we are now not
+        # reading the entire card, just the CCW's we need.  So it is needs
+        # suppression for the IPL channel program to continue.
+        next.tweaked=True
+
+
+# ACARD Load Group: one channel ccw command card plus one or more data ACARDs
+class ALG(object):
+
+    buffer_addr={}    # Initialized by CRDECK when IPL 1 buffers allocated
+
+    def __init__(self,ID,ldata,nxt_buf):
+        assert isinstance(ldata,list),"'ldata' argument must be a list: %s" \
+            % ldata
+
+        self.ID=ID             # This load group's ID
+        self.nxt_buf=nxt_buf   # Next Buffer to which the ccw_card chains
+        self.islast=False      # Whether this is the last load group
+        
+        # Set my buffer for my card based upon the next buffer.
+        # P.S. I am in the other one with its address
+        if nxt_buf == "A":
+            self.my_buf = "B"
+        else:
+            self.my_buf = "A"
+        
+        # List of CCW0 objects destined for a card
+        self.ccwos=[]          # See build_ccws() method
+        
+        # ACARD object of the CCW's - they read the data records
+        self.ccw_card=None     # See create_ccw() method
+        
+        # List of ACARD objects of the load group's binary data
+        self.cards=ldata       # Provided by instantiator
+        
+        # Whether this load group was tweaked (see ADECK.tweak_ccw() method)
+        self.tweaked=False     # See ADECK.tweak_ccw() method
+
+    def __str__(self):
+        return "ALG %s - data cards: %s  ccws: %s  next buffer: %s  last: %s" \
+            % (self.ID,len(self.cards),len(self.ccwos),self.nxt_buf,\
+                self.islast)
+
+    # This method creates the CCW0 objects placed in the IPL Record 1 CCW
+    # cards.
+    def build_ccws(self):
+        ccws=[]                # List of CCW0 objects
+        for dcard in self.cards:
+            # dcard is an ACARD object
+            if dcard.islast:
+                flag=NONE
+            else:
+                flag=CC
+            length=len(dcard.content)
+            assert length > 0 and length <= 80,"dcard content length not " \
+                "between 1 and 80: %s" % length
+            if length < 80:
+                # Suppress incorrect length if the whole card is not read
+                flag |= SLI
+                
+            # Read a data card of this load group
+            ccw=CCW0(READ,length,dcard.addr,flags=flag)
+            ccws.append(ccw)
+
+        if not self.islast:
+            # If not the last load group then we need to read the ccw card
+            # for the next load group and transfer channel control to its
+            # buffer.
+            try:
+                buf_addr=ALG.buffer_addr[self.nxt_buf]
+            except KeyError:
+                raise KeyError(\
+                    "ALG.buffer_addr not initialized for buffer: %s" \
+                        % self.nxt_buf) from None
+
+            # Reads the next card into the next CCW buffer area
+            ccw=CCW0(READ,80,buf_addr,flags=CC)
+            ccws.append(ccw)
+
+            # Transfers channel program control to the next buffer
+            ccw=TICCCW(buf_addr)
+            ccws.append(ccw)
+            
+        self.ccwos=ccws  # Remember for later use
+        # CCW that reads in the last load group needs tweaking for the last
+        # load group.  This can not be done here.  So we are remembering it
+        # for later usage at a higher level where all load groups area
+        # available.
+        
+    # Create actual binary CCW0
+    def create_ccw_card(self):
+        bin=bytearray(0)    # An empty bytearray sequence
+        for ccw in self.ccwos:
+            bin.extend(ccw.binary())
+        
+        # Create my actual CCW card's ACARD object
+        self.ccw_card=ACARD(self.ID,bin,addr=ALG.buffer_addr[self.my_buf])
+        self.ccw_card.pad()
+        
+        # Pad my data cards too
+        for card in self.cards:
+            card.pad()
+            
+    # Returns the number of cards in this load group
+    def num_cards(self):
+        return len(self.cards)
 
 
 #
@@ -2409,7 +3025,7 @@ class FBAVOL(IPLVOL):
             assert isinstance(area,Area),"%s.%s - __init__()  'area' %s not an "\
                 "Area object: %s" % (this_module,self.__class__.__name__,\
                     n,area.__class__.__name__)
-            # Each area (from a memory region from within the LDIPL directory)
+            # For each area (from a memory region from within the LDIPL directory)
             # sector assignments are made
             self.fbamap.assign(area.name,FBAMAP.sectors(len(area)))
         if self.booted and not self.deck:
@@ -2427,6 +3043,10 @@ class FBAVOL(IPLVOL):
             sector=sectors.range.beg
             area.mloc(sector)
 
+    # Not used by FBA devices
+    #def build_init(self):
+    #    pass
+
     # Create the FBA Volume
     def create(self,path,minimize=True,comp=False,progress=False,debug=False):
         self.device.create(path=path,\
@@ -2442,6 +3062,10 @@ class FBAVOL(IPLVOL):
     def dump(self):
         for r in self.device.sequence:
             print(r.dump())
+
+    # FBA devices do not use this method.
+    #def fini(self):
+    #    return
 
     # Return the Area associated with the IPL CCW's, part of IPL Record 0
     # (IPL Record 1 coresides with IPL Record 0 for FBA).
@@ -2739,7 +3363,9 @@ class DTYPE(object):
     #   ValueError if the class can not instantiate itself because the
     #   dtype argument is not recognized.
     def __init__(self,dtype):
-        self.classes={"FBA":FBAVOL}   # Supported devices
+        # Supported devices
+        self.classes={ "CARD":CRDECK,
+                       "FBA": FBAVOL}
 
         # Device Type attributes used
         self.hdwtype=None        # Medium generic device class
@@ -2762,7 +3388,7 @@ class DTYPE(object):
             if generic == typ:
                 self.hdwtype=generic      # From for loop
                 self.hardware=dflt        # From tuple[2]
-                self.seq=seq              # From typle[0]
+                self.seq=seq              # From tuple[0]
                 self.lod1_flag=lod1_flag  # From tuple[1]
                 self.max_rec=max_rec      # From tuple[3]
                 self.dlen=dlen            # From tuple[4]
@@ -3048,9 +3674,6 @@ class IPLTOOL(object):
         if args.recl:
             print(\
                 "%s - option --recl ignored, option --boot missing" % this_module)
-        #if args.arch:
-        #    print(\
-        #        "%s - option --arch ignored, option --boot missing" % this_module)
 
     def error(self,msg):
         print("%s - %s" % (this_module,msg))
@@ -3086,9 +3709,13 @@ class IPLTOOL(object):
         # At this point the emulated medium has been written and closed
 
         # Output success message
-        filesize=os.stat(self.args.medium).st_size
-        print("%s - emulated medium %s created with file size: %s" \
-            % (this_module,self.args.medium,filesize))
+        try:
+            filesize=os.stat(self.args.medium).st_size
+            print("%s - emulated medium %s created with file size: %s" \
+                % (this_module,self.args.medium,filesize))
+        except FileNotFoundError:
+            print("%s - NOT CREATED emulated medium file: %s" % (this_module,\
+                self.args.medium))
 
         # If requested dump the volume records
         if self.args.records:
