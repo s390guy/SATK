@@ -78,7 +78,7 @@ class DECKTOOL(object):
                 filename,mode="rb",variable="DECKS",debug=False)
         except ValueError as ve:
             DECKTOOL.errors+=1  # Increment global errors
-            print("%s - %s" % this_module,ve)
+            print("%s - %s" % (this_module,ve))
             return None
 
         try:
