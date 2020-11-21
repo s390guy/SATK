@@ -1,0 +1,838 @@
+ASMA Ver. 0.2.1                                                                                     21 Nov 2020 04:48:08  Page     1
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                     1 * Copyright (C) 2020 Harold Grovesteen
+                                                     2 *
+                                                     3 * This file is part of SATK.
+                                                     4 *
+                                                     5 *     SATK is free software: you can redistribute it and/or modify
+                                                     6 *     it under the terms of the GNU General Public License as published by
+                                                     7 *     the Free Software Foundation, either version 3 of the License, or
+                                                     8 *     (at your option) any later version.
+                                                     9 *
+                                                    10 *     SATK is distributed in the hope that it will be useful,
+                                                    11 *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+                                                    12 *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+                                                    13 *     GNU General Public License for more details.
+                                                    14 *
+                                                    15 *     You should have received a copy of the GNU General Public License
+                                                    16 *     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+                                                    17 *
+                                                    18          XCARDTST ,    XCARD eXtended LOADER Test Object Module
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page     2
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                    20+* Program Description:
+                                                    21+*
+                                                    22+* xcardtst.asm is a bare-metal program that tests XCARD.  The program is
+                                                    23+* executed by being booted with XCARD as an object module.
+                                                    24+*
+                                                    25+* Target Architecture: S/390
+                                                    26+* xcardtst.asm MUST be executed with 1M of memory at present.
+                                                    27+*
+                                                    28+* Program Register Usage:
+                                                    29+*   R4   Starting address of the area being compared to a pad character
+                                                    30+*   R5   Length of the area being compared to the pad character
+                                                    31+*   R6   Reserved for use by the COMPARE subroutine (address zero)
+                                                    32+*   R7   Reserved for use by the COMPARE subroutine (length zero)
+                                                    33+*   R8   Address of the COMPARE subroutine using 0 pad
+                                                    34+*   R9   Return address of the COMPARE subroutine
+                                                    35+*   R12  Test program base register
+                                                    36+*
+                                                    37+* Disables Wait State PSW's address field values used by the program:
+                                                    38+*    X'020000' - Successful execution of the test program.  All tests passed!
+                                                    39+*    x'020004' - I/O device information not passed by XCARD (X'B8'-X'C3')
+                                                    40+*                          X'0'  - X'7'    Module entry PSW
+                                                    41+*    X'020008' - Area from X'8'  - X'67'   not zeros (See R4)
+                                                    42+*                          X'68' - X'6F'   Program trap PSW
+                                                    43+*    X'02000C' - Area from X'70' - X'B7'   not zeros (See R4)
+                                                    44+*                          X'B8' - X'C3'   IPL device data
+                                                    45+*    X'020010' - Area from X'C4' - X'2FF'  not zeros (See R4)
+                                                    46+*                          X'300'- X'427'  The test program (myself)
+                                                    47+*    X'020014' - Area from X'428'- X'FF5'  not zeros (See R4)
+                                                    48+*                          X'FF6'- X'103D' Data to test XCARD handling of TXT
+                                                    49+*    X'020018' - Area from X'103E'-EOM-6   not zeros (See R4)
+                                                    50+*    X'02001C' - Area from X'FF6'- X'103D' Data not as correct for XCARD tests
+                                                    51+*    X'020028' - Unexpected program interruption occurred. Old program PSW at
+                                                    52+*                address X'28'
+                                                    53+*
+
+
+
+                                                    55+         PRINT DATA            See all object data in listing
+                                                    58+$AL      OPSYN AL
+                                                    59+$ALR     OPSYN ALR
+                                                    60+$B       OPSYN B
+                                                    61+$BAS     OPSYN BAS
+                                                    62+$BASR    OPSYN BASR
+                                                    63+$BC      OPSYN BC
+                                                    64+$BCTR    OPSYN BCTR
+                                                    65+$BE      OPSYN BE
+                                                    66+$BH      OPSYN BH
+                                                    67+$BL      OPSYN BL
+                                                    68+$BM      OPSYN BM
+                                                    69+$BNE     OPSYN BNE
+                                                    70+$BNH     OPSYN BNH
+                                                    71+$BNL     OPSYN BNL
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page     3
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                    72+$BNM     OPSYN BNM
+                                                    73+$BNO     OPSYN BNO
+                                                    74+$BNP     OPSYN BNP
+                                                    75+$BNZ     OPSYN BNZ
+                                                    76+$BO      OPSYN BO
+                                                    77+$BP      OPSYN BP
+                                                    78+$BXLE    OPSYN BXLE
+                                                    79+$BZ      OPSYN BZ
+                                                    80+$CH      OPSYN CH
+                                                    81+$CLR     OPSYN CLR
+                                                    82+$L       OPSYN L
+                                                    83+$LH      OPSYN LH
+                                                    84+$LM      OPSYN LM
+                                                    85+$LNR     OPSYN LNR
+                                                    86+$LPSW    OPSYN LPSW
+                                                    87+$LR      OPSYN LR
+                                                    88+$LTR     OPSYN LTR
+                                                    89+$NR      OPSYN NR
+                                                    90+$SL      OPSYN SL
+                                                    91+$SLR     OPSYN SLR
+                                                    92+$SR      OPSYN SR
+                                                    93+$ST      OPSYN ST
+                                                    94+$STM     OPSYN STM
+                                                    95+$X       OPSYN X
+                                                    96+$AHI     OPSYN AHI
+                                                    97+$B       OPSYN J
+                                                    98+$BC      OPSYN BRC
+                                                    99+$BE      OPSYN JE
+                                                   100+$BH      OPSYN JH
+                                                   101+$BL      OPSYN JL
+                                                   102+$BM      OPSYN JM
+                                                   103+$BNE     OPSYN JNE
+                                                   104+$BNH     OPSYN JNH
+                                                   105+$BNL     OPSYN JNL
+                                                   106+$BNM     OPSYN JNM
+                                                   107+$BNO     OPSYN JNO
+                                                   108+$BNP     OPSYN JNP
+                                                   109+$BNZ     OPSYN JNZ
+                                                   110+$BO      OPSYN JO
+                                                   111+$BP      OPSYN JP
+                                                   112+$BXLE    OPSYN JXLE
+                                                   113+$BZ      OPSYN JZ
+                                                   114+$CHI     OPSYN CHI
+                                                   115+$LHI     OPSYN LHI
+                                                   116+         MNOTE *,'ARCHLVL - ARCHITECTURE LEVEL SET - 8'
+          ** [116] MNOTE *,ARCHLVL - ARCHITECTURE LEVEL SET - 8
+
+
+
+                                                   119+* General Registers
+                              00000000  00000001   120+R0       EQU   0     General Register 0
+                              00000001  00000001   121+R1       EQU   1     General Register 1
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page     4
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                              00000002  00000001   122+R2       EQU   2     General Register 2
+                              00000003  00000001   123+R3       EQU   3     General Register 3
+                              00000004  00000001   124+R4       EQU   4     General Register 4
+                              00000005  00000001   125+R5       EQU   5     General Register 5
+                              00000006  00000001   126+R6       EQU   6     General Register 6
+                              00000007  00000001   127+R7       EQU   7     General Register 7
+                              00000008  00000001   128+R8       EQU   8     General Register 8
+                              00000009  00000001   129+R9       EQU   9     General Register 9
+                              0000000A  00000001   130+R10      EQU   10    General Register 10
+                              0000000B  00000001   131+R11      EQU   11    General Register 11
+                              0000000C  00000001   132+R12      EQU   12    General Register 12
+                              0000000D  00000001   133+R13      EQU   13    General Register 13
+                              0000000E  00000001   134+R14      EQU   14    General Register 14
+                              0000000F  00000001   135+R15      EQU   15    General Register 15
+                                                   136+*
+                                                   137+*  THIS SECTION IS COMPLETELY LOADED INTO THE PAGE 0 SURROGATE USED BY
+                                                   138+*  XCARD FOR LOADING THAT SECTION OF MEMORY.  SUCCESSFUL EXECUTION OF
+                                                   139+*  THIS BOOTED OBJECT MODULE DEMONSTRATES THAT THE HANDLING OF PAGE 0
+                                                   140+*  SURROGATE IS CORRECT.
+                                                   141+*
+
+                              00000000  0000103D   143+PGMSECT  START 0       Start the module with a control section
+                                                   144+* This results in the PSW made active by XCARD when entering the booted object
+                                                   145+* module.
+00000000  00080000 00000300                        146+         PSW   0,0,0,0,IPLPGM  The IPL PSW for this program
+00000008                      00000008  000000B8   147+         ORG   PGMSECT+X'B8'   Point to the IPL device information
+000000B8  FFFFFFFF FFFFFFFF                        148+         DC    3A(X'FFFFFFFF') Ensure IPL device info passed by XCARD
+000000C0  FFFFFFFF
+
+000000C4                      000000C4  00000300   150+         ORG   PGMSECT+X'300'
+                                                   151+*
+                                                   152+*  Set the assembly location counter to X'300' - the object module residence.
+                                                   153+*  Inspection of memory at address X'300' and beyond should match the
+                                                   154+*  assembly listing for this module.  The only way to test the validity of
+                                                   155+*  the loaded object module is to execute it short of visual inspection.
+                                                   156+*  Execution has been successful.
+                                                   157+*
+00000300                      00000000             158+         USING ASA,R0
+00000300  0DC0                                     159+IPLPGM   BASR  R12,0               Establish my base register
+00000302                      00000302             160+         USING *,R12               Tell the assembler
+
+                                                   162+* Set a trap PSW in case some program interruption occurs
+00000302  D207 0068 C116      00000068  00000418   163+         MVC   X'68'(8,0),PGMEX  Set a NEW PSW trapping program interruptions
+
+
+
+                                                   165+* Prepare for use of the compare subroutine
+00000308  1F66                                     166+         SLR   R6,R6               Start of padded ares (0)
+0000030A  1876                                     167+         LR    R7,R6               Length of the pad area (0) - Uses pad char
+0000030C  4180 C058                     0000035A   168+         LA    R8,COMPARE0         Address of compare subroutine
+                                                   169+*
+                                                   170+*  TEST WHETHER XCARD PASSED THE IPL DEVICE INFORMATION
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page     5
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                   171+*
+00000310  D50B 00B8 C062                00000364   172+         CLC   IOSSID(12),NULLIO  Is this data the same as I set it?
+00000316  4780 C0DE                     000003E0   173+         BE    BADIO              ..Yes, no data from XCARD, abend with 020004
+
+
+
+                                                   175+*
+                                                   176+*  TEST AREA 0 FOR ZEROS (FROM END OF RESTART NEW PSW TO PROGRAM TRAP PSW)
+                                                   177+*
+0000031A  9845 C0B6                     000003B8   178+         LM    R4,R5,AREA0CMP     Area being checked for zeros
+0000031E  0D98                                     179+         BASR  R9,R8              Compare...
+00000320  4760 C0E6                     000003E8   180+         BC    B'0110',BAD1       Area not zeros, abend with 020008
+
+
+
+                                                   182+*
+                                                   183+*  TEST AREA 1 FOR ZEROS (FROM END OF PRGM TRAP PSW TO IPL DEVICE DATA)
+                                                   184+*
+00000324  9845 C0BE                     000003C0   185+         LM    R4,R5,AREA1CMP     Area being checked for zeros
+00000328  0D98                                     186+         BASR  R9,R8              Compare...
+0000032A  4760 C0EE                     000003F0   187+         BC    B'0110',BAD2       Area not zeros, abend with 02000C
+
+
+
+                                                   189+*
+                                                   190+*  TEST  AREA 2 FOR ZEROS (FROM IPL DEVICE DATA TO TEST PROGRAM)
+                                                   191+*
+
+0000032E  9845 C0C6                     000003C8   193+         LM    R4,R5,AREA2CMP     Area being compared
+00000332  0D98                                     194+         BASR  R9,R8              Use subroutine to compare for zeros
+00000334  4760 C0F6                     000003F8   195+         BC    B'0110',BAD3       Area not zeros, abend with 020010
+
+
+
+                                                   197+*
+                                                   198+*  TEST AREA 3 FOR ZEROS (FROM END OF TEST PROGRAM TO END OF PAGE 0 MINUS 6)
+                                                   199+*
+
+00000338  9845 C0CE                     000003D0   201+         LM    R4,R5,AREA3CMP      Start of area being compared
+0000033C  0D98                                     202+         BASR  R9,R8               Check for zeros in the area.
+0000033E  4760 C0FE                     00000400   203+         BC    B'0110',BAD4        Area not zeros, abend with 020014
+
+
+
+                                                   205+*
+                                                   206+*  TEST AREA 4 FOR ZEROS (FROM END OF FILL1 TO END OF MEMORY MINUS 6)
+                                                   207+*
+00000342  9845 C0D6                     000003D8   208+         LM    R4,R5,AREA4CMP      Start of area being compared
+00000346  0D98                                     209+         BASR  R9,R8               Check for zeros in the area.
+00000348  4760 C106                     00000408   210+         BC    B'0110',BAD5        Area not zeros, abend with 020018
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page     6
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                   212+*
+                                                   213+*  TEST THAT AREA LOADED BY MY TXT CARDS CONTAINS THE DATA IS SHOULD
+                                                   214+*
+0000034C  D547 C06E CCF4      00000370  00000FF6   215+         CLC   XCRD(XCRDLEN),FILL1  Equal?
+00000352  4770 C10E                     00000410   216+         BNE   BAD6                ..No, abend with an error 02001C
+
+00000356  8200 C11E                     00000420   218+         LPSW  ENDPSW              ..YES, normal program termination
+
+
+
+                                                   220+*
+                                                   221+*  Compare memory area for all zeros.
+                                                   222+*
+0000035A                                           223+COMPARE0 DS    0H   Compare area subroutine
+0000035A  A946 0000                     00000000   224+CLCLE    CLCLE R4,R6,0    Is the area zeros?
+0000035E  4710 C058                     0000035A   225+         BC    B'0001',CLCLE       ..Not done, so continue compares
+                                                   226+* Registers 4 and 5 altered by CLCLE
+00000362  07F9                                     227+         BR    R9         Return with CC set to result
+
+
+
+00000364  FFFFFFFF FFFFFFFF                        229+NULLIO   DC    3A(X'FFFFFFFF') Tests the passing of IPL device data from XCARD
+0000036C  FFFFFFFF
+00000370  F0F1F2F3 F4F5F6F7                        230+XCRD     DC    C'0123456789ABCDEFGHIJKLMNOP'
+00000378  F8F9C1C2 C3C4C5C6
+00000380  C7C8C9D1 D2D3D4D5
+00000388  D6D7
+0000038A  E3C8C9E2 40C4C1E3                        231+         DC    C'THIS DATA MUST BE IN PAGE 1 AT ADDRESS X''1010'''
+00000392  C140D4E4 E2E340C2
+0000039A  C540C9D5 40D7C1C7
+000003A2  C540F140 C1E340C1
+000003AA  C4C4D9C5 E2E240E7
+000003B2  7DF1F0F1 F07D
+                              00000048  00000001   232+XCRDLEN  EQU   *-XCRD
+
+                                                   234+*
+                                                   235+*  Area's being compared
+                                                   236+*
+000003B8  00000008 00000060                        237+AREA0CMP DC    A(AREA0-ASA),A(AREA0LEN)        020008
+000003C0  00000070 00000048                        238+AREA1CMP DC    A(AREA1-ASA),A(AREA1LEN)        02000C
+000003C8  000000C4 0000023C                        239+AREA2CMP DC    A(AREA2-ASA),A(AREA2LEN)        020010
+000003D0  00000428 00000BCE                        240+AREA3CMP DC    A(AREA3),A(PAGE0END-AREA3)      020014
+000003D8  0000103E 000FEFBC                        241+AREA4CMP DC    A(FILL1END),A(X'000FFFFA'-(FILL1END-PGMSECT))  020018
+
+
+
+                                                   243+*
+                                                   244+*  Termination PSW's
+                                                   245+*
+000003E0  9204 C125                     00000427   246+BADIO    MVI   ENDPSW+7,X'04'  Set abend code to 020004
+000003E4  8200 C11E                     00000420   247+         LPSW  ENDPSW
+000003E8  9208 C125                     00000427   248+BAD1     MVI   ENDPSW+7,X'08'  Set abend code to 020008. See R4 for byte != 0
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page     7
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+000003EC  8200 C11E                     00000420   249+         LPSW  ENDPSW
+000003F0  920C C125                     00000427   250+BAD2     MVI   ENDPSW+7,X'0C'  Set abend code to 02000C. See R4 for byte != 0.
+000003F4  8200 C11E                     00000420   251+         LPSW  ENDPSW
+000003F8  9210 C125                     00000427   252+BAD3     MVI   ENDPSW+7,X'10'  Set abend code to 020010. See R4 for byte != 0.
+000003FC  8200 C11E                     00000420   253+         LPSW  ENDPSW
+00000400  9214 C125                     00000427   254+BAD4     MVI   ENDPSW+7,X'14'  Set abend code to 020014. See R4 for byte != 0.
+00000404  8200 C11E                     00000420   255+         LPSW  ENDPSW
+00000408  9218 C125                     00000427   256+BAD5     MVI   ENDPSW+7,X'18'  Set abend code to 020018. See R4 for byte != 0.
+0000040C  8200 C11E                     00000420   257+         LPSW  ENDPSW
+00000410  921C C125                     00000427   258+BAD6     MVI   ENDPSW+7,X'1C'  Set abend code to 02001C.
+00000414  8200 C11E                     00000420   259+         LPSW  ENDPSW
+
+                                                   261+* PSW's used by this program...
+                                                   262+* Disabled wait trap PSW for program interruptions
+00000418  000A0000 00020028                        263+PGMEX    PSW   0,0,2,0,X'020028'   Points to the program OLD PSW at X'28'
+                                                   264+* Program termination PSW's
+00000420  000A0000 00020000                        266+ENDPSW   PSW   0,0,2,0,X'020000'
+                              00000428  00000001   267+AREA3    EQU   *
+
+
+
+                                                   269+*
+                                                   270+*  THIS SECTION EXPLICITLY LOADS DATA INTO PAGE 1. INSPECTION OF PAGE 1 PLUS
+                                                   271+*  16 BYTES MUST MATCH THIS ASSEMBLY LISTING TO VALIDATE PROPER OPERATION
+                                                   272+*  OF XCARD WHEN LOADING CONTENT DIRECTLY TO MEMORY
+                                                   273+*
+
+00000428                      00000428  00001010   275+         ORG   PGMSECT+X'1010'
+00001010  E3C8C9E2 40C4C1E3                        276+         DC    C'THIS DATA MUST BE IN PAGE 1 AT ADDRESS X''1010'''
+00001018  C140D4E4 E2E340C2
+00001020  C540C9D5 40D7C1C7
+00001028  C540F140 C1E340C1
+00001030  C4C4D9C5 E2E240E7
+00001038  7DF1F0F1 F07D
+                              0000103E  00000001   277+FILL1END EQU   *
+
+
+
+                                                   279+*
+                                                   280+*  THIS SECTION EXPLICITLY LOADS DATA INTO BOTH PAGE 0 AND PAGE 1.  IF
+                                                   281+*  PROPERLY HANDLED BY XCARD THE NUMBERS WILL EXIST IN PAGE0 AND THE LETTERS
+                                                   282+*  WILL RESIDE IN PAGE 1.  THIS TESTS THE CASE WHERE TXT DATA FROM ONE TXT
+                                                   283+*  RECORD MUST BE SPLIT BETWEEN PAGE 0 SURROGATE AND PAGE 1.  THIS DATA MUST
+                                                   284+*  NOTE OVERLAY THE PREVIOUS DATA LOADED BY ITS OWN TXT RECORD
+                                                   285+*
+                                                   286+*  USE HERCULES COMMAND r ff4 TO INSPECT BOTH THIS TEST AND THE PRECEDING
+                                                   287+*  TEST FOR PROPER CONTENT.  ALSO TESTED ABOVE PROGRAMMATICALLY.
+
+0000103E                      0000103E  00000FF6   289+         ORG   PGMSECT+X'0FF6'
+                              00000FF6  00000001   290+PAGE0END EQU   *    End of page 0 that should be zeros
+00000FF6  F0F1F2F3 F4F5F6F7                        291+FILL1    DC    C'0123456789ABCDEFGHIJKLMNOP'
+00000FFE  F8F9C1C2 C3C4C5C6
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page     8
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+00001006  C7C8C9D1 D2D3D4D5
+0000100E  D6D7
+
+
+
+                                                   294+ASA      DSECT
+                              00000000  00000001   295+ASBEGIN  EQU   *                   Start of absolute/real assigned storage areas
+00000000  00000000 00000000                        296+IPLPSW   DC    FD'0'        000 A  Initial Program Load Program Status Word
+00000008  00000000 00000000                        297+IPLCCW1  DC    FD'0'        008 A  Initial Program Load first Channel Command Word
+00000010  00000000 00000000                        298+IPLCCW2  DC    FD'0'        010 A  Initial program Load second Channel Command Word
+                                                   299+* RESTART RELATED PROGRAM STATUS WORDS
+00000018                      00000018  00000000   300+         ORG   ASBEGIN
+00000000  00000000 00000000                        301+RSTNPSW  DC    FD'0'        000 R  Restart New PSW
+00000008  00000000 00000000                        302+RSTOPSW  DC    FD'0'        008 R  Restart Old PSW
+00000010  00000000 00000000                        303+UA0      DC    FD'0'        010 R  Unassigned Area 0
+                                                   304+* INTERRUPTION OLD PROGRAM STATUS WORD SAVE AREAS
+00000018  00000000 00000000                        305+EXTOPSW  DC    FD'0'        018 R  External Interrupt Old PSW
+00000020  00000000 00000000                        306+SVCOPSW  DC    FD'0'        020 R  Supervisor Call Old PSW
+00000028  00000000 00000000                        307+PGMOPSW  DC    FD'0'        028 R  Program Old PSW
+00000030  00000000 00000000                        308+MCKOPSW  DC    FD'0'        030 R  Machine Check Old PSW
+00000038  00000000 00000000                        309+IOOPSW   DC    FD'0'        038 R  Input/Output Old PSW
+                                                   310+* INTERRUPTION NEW PROGRAM STATUS WORD AREAS
+00000040                      00000040  00000058   311+         ORG   ASBEGIN+X'58'
+00000058  00000000 00000000                        312+EXTNPSW  DC    FD'0'        058 R  External New PSW
+00000060  00000000 00000000                        313+SVCNPSW  DC    FD'0'        060 R  Supervisor Call New PSW
+00000068  00000000 00000000                        314+PGMNPSW  DC    FD'0'        068 R  Program New PSW
+00000070  00000000 00000000                        315+MCKNPSW  DC    FD'0'        070 R  Machine Check New PSW
+00000078  00000000 00000000                        316+IONPSW   DC    FD'0'        078 R  Input/Output New PSW
+                                                   317+* EXTERNAL INTERRUPTION INFORMATION
+00000080                      00000080  00000080   318+         ORG   ASBEGIN+X'80'
+00000080  00000000                                 319+EXTIPARM DC    F'0'         080 R  External-interruption Parameter
+00000084  0000                                     320+EXTCPUAD DC    H'0'         084 R  External-interruption CPU Address
+00000086  0000                                     321+EXTICODE DC    H'0'         086 R  External-interruption Code
+                                                   322+* SUPERVISOR CALL INTERRUPTION INFORMATION
+00000088                                           323+SVCIID   DC    0F'0'        088 R  Supervisor-Call Interuption Identification
+00000088  00                                       324+         DC    X'00'        088 R  not-used - zeros stored
+00000089  00                                       325+SVCIILC  DC    X'00'        089 R  Supervisor-Call instruction length code
+                              0000000C  00000001   326+SVCIILCM EQU   B'00001100'         Supervisor-Call ILC mask, zeros stored in other bits
+0000008A  0000                                     327+SVCICODE DC    H'0'         08A R  Supervisor-Call Interruption Code
+                                                   328+* PROGRAM INTERRUPTION INFORMATION
+0000008C                                           329+PGMIID   DC    0F'0'        08C R  Program-interruption identification
+0000008C  00                                       330+         DC    X'00'        08C R  not-used - zeros stored
+0000008D  00                                       331+PGMIILC  DC    X'00'        08D R  Program instruction lengh code
+                              0000000C  00000001   332+PGMIILCM EQU   B'00001100'         Progrtam ILC mask, zeros stored in other bits
+0000008E  0000                                     333+PGMICODE DC    H'0'         08E R  Program Interruption Code
+00000090                                           334+PGMDXC   DC    0F'0'        090 R  Data-Exception Code
+00000090  00000000                                 335+PGMTRX   DC    F'0'         090 R  Translation-Exception Identification
+00000094                                           336+MONCLS   DC    0H'0'        094 R  Monitor-Class Number
+00000094  00                                       337+         DC    X'00'        094 R  not-used - zeros stored
+00000095  00                                       338+MONNUMBR DC    X'00'        095 R  Monitor-Class Number stored
+00000096  00                                       339+PERCODE  DC    X'00'        096 R  Program-Event-Recording Code
+                              000000F0  00000001   340+PERCODMK EQU   B'11110000'         Program-Event-Recordind Code mask in bits 0-3
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page     9
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+00000097  00                                       341+         DC    X'00'        097 R  PER Code not used - zeros stored
+00000098  00000000                                 342+PERADDR  DC    F'0'         098 R  PER Address
+0000009C  00000000                                 343+MONCODE  DC    F'0'         09C R  Monitor Event Code in bytes 1-3, zeros in byte 0
+000000A0  00                                       344+PGMACCID DC    X'00'        0A0 R  Exception access identification
+000000A1  00                                       345+PERACCID DC    X'00'        0A1 R  PER access identification
+000000A2  00                                       346+MPGACCID DC    X'00'        0A2 R  MOVE PAGE Operand access identification
+000000A3                                           347+SSARCHMD DC    0X'00'       0A3 A  Store Status Architectural Mode Identification
+000000A3  00                                       348+MKARCHMD DC    X'00'        0A3 R  Machine-Check Architectural Mode Identification
+000000A4  00000000                                 349+UA2      DC    F'0'         0A4 R  Unused area
+                                                   350+* CHANNEL SUBSYSTEM INPUT/OUTPUT INFORMATION
+000000A8                      000000A8  000000B8   351+         ORG   ASBEGIN+X'B8'
+000000B8  00000000                                 352+IOSSID   DC    F'0'         0B8 R  Channel subsystem-identification word
+000000BC  00000000                                 353+IOIPARM  DC    F'0'         0BC R  Channel subsystem I/O Interruption parameter
+000000C0  00000000                                 354+IOIID    DC    F'0'         0C0 R  Channel subsystem I/O Interruption Identification
+000000C4  00000000                                 355+PCFETO   DC    A(0)         0C4 R  ESA/390 PROGRAM CALL FAST Entry Table Origin
+000000C8  00000000                                 356+STFLDATA DC    F'0'         0C8 R  STORE FACILITY LIST storage area
+000000CC  00000000 00000000                        357+UA5      DC    XL8'00'      0CC R  unused area
+                                                   358+* MACHINE-CHECK INTERRUPTION INFORMATION
+000000D4                      000000D4  000000D4   359+         ORG   ASBEGIN+X'D4'
+000000D4  00000000                                 360+MKXSAA   DC    F'0'         0D4 R  Machine-Check Extended Save Area Address
+000000D8  00000000 00000000                        361+MKCPUTIM DC    FD'0'        0D8 R  Machine-Check CPU timer save area
+000000E0  00000000 00000000                        362+MKCLKCMP DC    FD'0'        0E0 R  Machine-Check clock comparator save area
+000000E8  00000000                                 363+MKICODE  DC    F'0'         0E8 R  Machine-Check interruption code
+000000EC  00000000 00000000                        364+UA6      DC    XL8'00'      0EC R  unused area
+000000F4  00000000                                 365+MKDMGCOD DC    F'0'         0F4 R  Machine-Check external damage code
+000000F8                                           366+ZMKFAILA DC    0FD'0'       0F8 R  Machine-Check failing storage address
+000000F8  00000000                                 367+MKFAILA  DC    F'0'         0F8 R  Machine-Check failing storage address
+000000FC  00000000                                 368+MKMODEL  DC    F'0'         0FC R  Machine-Check model dependent information
+00000100                      00000100  00000120   369+         ORG   ASBEGIN+X'120'
+00000120  00000000 00000000                        370+MKARS    DC    16F'0'       120 R  Machine-Check access register save area
+00000128  00000000 00000000
+00000130  00000000 00000000
+00000138  00000000 00000000
+00000140  00000000 00000000
+00000148  00000000 00000000
+00000150  00000000 00000000
+00000158  00000000 00000000
+                              00000160  00000001   371+ASEND    EQU   *                   End of absolute/real assigned storage areas
+                              00000160  00000001   372+ASLENGTH EQU   ASEND-ASBEGIN       Length of absolute/real assigned storage area
+                                                   373+*
+                                                   374+* First area that should be zeros in Page 0  - Not zeros -> abend code 020004
+                              00000008  00000008   375+AREA0    EQU   IPLCCW1
+                              00000060  00000001   376+AREA0LEN EQU   PGMNPSW-AREA0
+                                                   377+*
+                                                   378+* Second area that should be zeros in Page 0 - Non zeros -> abend code 020008
+                              00000070  00000008   379+AREA1    EQU   MCKNPSW
+                              00000048  00000001   380+AREA1LEN EQU   IOSSID-AREA1
+                                                   381+*
+                                                   382+* Third area that should be zero in Page 0   - Not zeros -> abend code 02000C
+                              000000C4  00000004   383+AREA2    EQU   IOSSID+12
+                              0000023C  00000002   384+AREA2LEN EQU   IPLPGM-(AREA2-ASA)
+                                                   385          END
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page    10
+
+     SYMBOL        TYPE  VALUE   LENGTH  DEFN  REFERENCES
+
+AREA0               U    000008       8   375  376  237
+AREA0CMP            A    0003B8       4   237  178
+AREA0LEN            U    000060       1   376  237
+AREA1               U    000070       8   379  380  238
+AREA1CMP            A    0003C0       4   238  185
+AREA1LEN            U    000048       1   380  238
+AREA2               U    0000C4       4   383  384  239
+AREA2CMP            A    0003C8       4   239  193
+AREA2LEN            U    00023C       2   384  239
+AREA3               U    000428       1   267  240
+AREA3CMP            A    0003D0       4   240  201
+AREA4CMP            A    0003D8       4   241  208
+ASA                 4    000000     352   294  384  158  237  238  239
+ASBEGIN             U    000000       1   295  300  311  318  351  359  369  372
+ASEND               U    000160       1   371  372
+ASLENGTH            U    000160       1   372
+BAD1                I    0003E8       4   248  180
+BAD2                I    0003F0       4   250  187
+BAD3                I    0003F8       4   252  195
+BAD4                I    000400       4   254  203
+BAD5                I    000408       4   256  210
+BAD6                I    000410       4   258  216
+BADIO               I    0003E0       4   246  173
+CLCLE               I    00035A       4   224  225
+COMPARE0            H    00035A       2   223  168
+ENDPSW              3    000420       8   266  218  246  247  248  249  250  251  252  253  254  255  256  257  258  259
+EXTCPUAD            H    000084       2   320
+EXTICODE            H    000086       2   321
+EXTIPARM            F    000080       4   319
+EXTNPSW             F    000058       8   312
+EXTOPSW             F    000018       8   305
+FILL1               C    000FF6      26   291  215
+FILL1END            U    00103E       1   277  241
+IMAGE               1    000000    4158     0
+IOIID               F    0000C0       4   354
+IOIPARM             F    0000BC       4   353
+IONPSW              F    000078       8   316
+IOOPSW              F    000038       8   309
+IOSSID              F    0000B8       4   352  380  383  172
+IPLCCW1             F    000008       8   297  375
+IPLCCW2             F    000010       8   298
+IPLPGM              I    000300       2   159  384  146
+IPLPSW              F    000000       8   296
+MCKNPSW             F    000070       8   315  379
+MCKOPSW             F    000030       8   308
+MKARCHMD            X    0000A3       1   348
+MKARS               F    000120       4   370
+MKCLKCMP            F    0000E0       8   362
+MKCPUTIM            F    0000D8       8   361
+MKDMGCOD            F    0000F4       4   365
+MKFAILA             F    0000F8       4   367
+MKICODE             F    0000E8       4   363
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page    11
+
+     SYMBOL        TYPE  VALUE   LENGTH  DEFN  REFERENCES
+
+MKMODEL             F    0000FC       4   368
+MKXSAA              F    0000D4       4   360
+MONCLS              H    000094       2   336
+MONCODE             F    00009C       4   343
+MONNUMBR            X    000095       1   338
+MPGACCID            X    0000A2       1   346
+NULLIO              A    000364       4   229  172
+PAGE0END            U    000FF6       1   290  240
+PCFETO              A    0000C4       4   355
+PERACCID            X    0000A1       1   345
+PERADDR             F    000098       4   342
+PERCODE             X    000096       1   339
+PERCODMK            U    0000F0       1   340
+PGMACCID            X    0000A0       1   344
+PGMDXC              F    000090       4   334
+PGMEX               3    000418       8   263  163
+PGMICODE            H    00008E       2   333
+PGMIID              F    00008C       4   329
+PGMIILC             X    00008D       1   331
+PGMIILCM            U    00000C       1   332
+PGMNPSW             F    000068       8   314  376
+PGMOPSW             F    000028       8   307
+PGMSECT             J    000000    4158   143  147  150  275  289  241
+PGMTRX              F    000090       4   335
+R0                  U    000000       1   120  158
+R1                  U    000001       1   121
+R10                 U    00000A       1   130
+R11                 U    00000B       1   131
+R12                 U    00000C       1   132  159  160
+R13                 U    00000D       1   133
+R14                 U    00000E       1   134
+R15                 U    00000F       1   135
+R2                  U    000002       1   122
+R3                  U    000003       1   123
+R4                  U    000004       1   124  178  185  193  201  208  224
+R5                  U    000005       1   125  178  185  193  201  208
+R6                  U    000006       1   126  166  167  224
+R7                  U    000007       1   127  167
+R8                  U    000008       1   128  168  179  186  194  202  209
+R9                  U    000009       1   129  179  186  194  202  209  227
+RSTNPSW             F    000000       8   301
+RSTOPSW             F    000008       8   302
+SSARCHMD            X    0000A3       1   347
+STFLDATA            F    0000C8       4   356
+SVCICODE            H    00008A       2   327
+SVCIID              F    000088       4   323
+SVCIILC             X    000089       1   325
+SVCIILCM            U    00000C       1   326
+SVCNPSW             F    000060       8   313
+SVCOPSW             F    000020       8   306
+UA0                 F    000010       8   303
+UA2                 F    0000A4       4   349
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page    12
+
+     SYMBOL        TYPE  VALUE   LENGTH  DEFN  REFERENCES
+
+UA5                 X    0000CC       8   357
+UA6                 X    0000EC       8   364
+XCRD                C    000370      26   230  232  215
+XCRDLEN             U    000048       1   232  215
+ZMKFAILA            F    0000F8       8   366
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page    13
+
+ MACRO     DEFN  REFERENCES
+
+ARCHIND      57
+ARCHLVL      56
+ASAREA      293
+DWAIT       265
+REGEQU      118
+XCARDTST     18
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page    14
+
+   DESC     SYMBOL  SIZE     POS        ADDR
+
+Entry: 0
+
+Image      IMAGE    4158  0000-103D  0000-103D
+  Region            4158  0000-103D  0000-103D
+    CSECT  PGMSECT  4158  0000-103D  0000-103D
+
+
+  ADDR     POS                                 OBJECT CONTENT                                         CHARACTER CONTENT
+
+
+Region:
+
+00000000   0000   00080000 00000300 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000020   0020   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000040   0040   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000060   0060   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000080   0080   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000000A0   00A0   00000000 00000000 00000000 00000000  00000000 00000000 FFFFFFFF FFFFFFFF   |................ ................|
+000000C0   00C0   FFFFFFFF 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000000E0   00E0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000100   0100   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000120   0120   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000140   0140   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000160   0160   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000180   0180   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000001A0   01A0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000001C0   01C0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000001E0   01E0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000200   0200   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000220   0220   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000240   0240   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000260   0260   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000280   0280   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000002A0   02A0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000002C0   02C0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000002E0   02E0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000300   0300   0DC0D207 0068C116 1F661876 4180C058  D50B00B8 C0624780 C0DE9845 C0B60D98   |..K...A......... N.........q....q|
+00000320   0320   4760C0E6 9845C0BE 0D984760 C0EE9845  C0C60D98 4760C0F6 9845C0CE 0D984760   |.-.Wq....q.-..q. .F.q.-.6q....q.-|
+00000340   0340   C0FE9845 C0D60D98 4760C106 D547C06E  CCF44770 C10E8200 C11EA946 00004710   |..q..O.q.-A.N..> .4..A.b.A.z.....|
+00000360   0360   C05807F9 FFFFFFFF FFFFFFFF FFFFFFFF  F0F1F2F3 F4F5F6F7 F8F9C1C2 C3C4C5C6   |...9............ 0123456789ABCDEF|
+00000380   0380   C7C8C9D1 D2D3D4D5 D6D7E3C8 C9E240C4  C1E3C140 D4E4E2E3 40C2C540 C9D540D7   |GHIJKLMNOPTHIS D ATA MUST BE IN P|
+000003A0   03A0   C1C7C540 F140C1E3 40C1C4C4 D9C5E2E2  40E77DF1 F0F1F07D 00000008 00000060   |AGE 1 AT ADDRESS  X'1010'.......-|
+000003C0   03C0   00000070 00000048 000000C4 0000023C  00000428 00000BCE 0000103E 000FEFBC   |...........D.... ................|
+000003E0   03E0   9204C125 8200C11E 9208C125 8200C11E  920CC125 8200C11E 9210C125 8200C11E   |k.A.b.A.k.A.b.A. k.A.b.A.k.A.b.A.|
+00000400   0400   9214C125 8200C11E 9218C125 8200C11E  921CC125 8200C11E 000A0000 00020028   |k.A.b.A.k.A.b.A. k.A.b.A.........|
+00000420   0420   000A0000 00020000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000440   0440   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000460   0460   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000480   0480   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000004A0   04A0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000004C0   04C0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000004E0   04E0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page    15
+
+  ADDR     POS                                 OBJECT CONTENT                                         CHARACTER CONTENT
+
+00000500   0500   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000520   0520   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000540   0540   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000560   0560   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000580   0580   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000005A0   05A0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000005C0   05C0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000005E0   05E0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000600   0600   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000620   0620   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000640   0640   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000660   0660   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000680   0680   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000006A0   06A0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000006C0   06C0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000006E0   06E0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000700   0700   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000720   0720   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000740   0740   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000760   0760   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000780   0780   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000007A0   07A0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000007C0   07C0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000007E0   07E0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000800   0800   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000820   0820   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000840   0840   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000860   0860   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000880   0880   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000008A0   08A0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000008C0   08C0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000008E0   08E0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000900   0900   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000920   0920   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000940   0940   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000960   0960   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000980   0980   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000009A0   09A0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000009C0   09C0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000009E0   09E0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000A00   0A00   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000A20   0A20   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000A40   0A40   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000A60   0A60   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000A80   0A80   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000AA0   0AA0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000AC0   0AC0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000AE0   0AE0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000B00   0B00   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000B20   0B20   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000B40   0B40   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000B60   0B60   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page    16
+
+  ADDR     POS                                 OBJECT CONTENT                                         CHARACTER CONTENT
+
+00000B80   0B80   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000BA0   0BA0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000BC0   0BC0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000BE0   0BE0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000C00   0C00   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000C20   0C20   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000C40   0C40   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000C60   0C60   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000C80   0C80   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000CA0   0CA0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000CC0   0CC0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000CE0   0CE0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000D00   0D00   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000D20   0D20   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000D40   0D40   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000D60   0D60   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000D80   0D80   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000DA0   0DA0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000DC0   0DC0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000DE0   0DE0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000E00   0E00   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000E20   0E20   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000E40   0E40   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000E60   0E60   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000E80   0E80   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000EA0   0EA0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000EC0   0EC0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000EE0   0EE0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000F00   0F00   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000F20   0F20   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000F40   0F40   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000F60   0F60   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000F80   0F80   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000FA0   0FA0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000FC0   0FC0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000FE0   0FE0   00000000 00000000 00000000 00000000  00000000 0000F0F1 F2F3F4F5 F6F7F8F9   |................ ......0123456789|
+00001000   1000   C1C2C3C4 C5C6C7C8 C9D1D2D3 D4D5D6D7  E3C8C9E2 40C4C1E3 C140D4E4 E2E340C2   |ABCDEFGHIJKLMNOP THIS DATA MUST B|
+00001020   1020   C540C9D5 40D7C1C7 C540F140 C1E340C1  C4C4D9C5 E2E240E7 7DF1F0F1 F07D       |E IN PAGE 1 AT A DDRESS X'1010'  |
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page    17
+
+OBJECT DECK
+
+COL  0000000001 1111111112 2222222223 3333333334 4444444445 5555555556 6666666667 7777777778
+POS  1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890
+HEX  0EEE400044 0044000000 0000444444 4444444444 4444444444 4444444444 4444444444 44FFFFFFFF
+     2373000000 0800000800 0030000000 0000000000 0000000000 0000000000 0000000000 0000000001
+CHR  .TXT ...   ..  ...... ....                                                     00000001
+
+COL  0000000001 1111111112 2222222223 3333333334 4444444445 5555555556 6666666667 7777777778
+POS  1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890
+HEX  0EEE400B44 004400FFFF FFFFFFFF44 4444444444 4444444444 4444444444 4444444444 44FFFFFFFF
+     2373000800 0C0000FFFF FFFFFFFF00 0000000000 0000000000 0000000000 0000000000 0000000002
+CHR  .TXT ...   ..  ...... ........                                                 00000002
+
+COL  0000000001 1111111112 2222222223 3333333334 4444444445 5555555556 6666666667 7777777778
+POS  1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890
+HEX  0EEE400044 0344000CD0 06C1161748 C5D00BC648 CD94CB0946 CE94CB0946 CE94CC0946 CFFFFFFFFF
+     2373003000 080000D027 0816F68610 085B080270 0E8506D870 06850ED870 0E8506D870 0600000003
+CHR  .TXT ...   .8  ...{K. ..A....... {.N...{... {.q.{..q.- {Wq.{..q.- {.q.{F.q.- {600000003
+
+COL  0000000001 1111111112 2222222223 3333333334 4444444445 5555555556 6666666667 7777777778
+POS  1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890
+HEX  0EEE400344 03440094CC 0946CF94CD 0946C0D4C6 CF47C080C1 A40041C50F FFFFFFFFFF FFFFFFFFFF
+     2373003800 080000850E D8700E8506 D87016570E C4701E201E 9600700879 FFFFFFFFFF FF00000004
+CHR  .TXT ..8   .8  ..q.{. .q.-{.q.{O .q.-A.N.{> .4.XA.b.A. z.....{..9 .......... ..00000004
+
+COL  0000000001 1111111112 2222222223 3333333334 4444444445 5555555556 6666666667 7777777778
+POS  1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890
+HEX  0EEE400744 034400FFFF FFFFFFCCCC CCCCCDDDDD DDECCE4CCE C4DEEE4CC4 CD4DCCC4F4 CEFFFFFFFF
+     2373003000 0800000123 4567891234 5678912345 6738920413 1044230250 9507175010 1300000005
+CHR  .TXT ..X   .8  ..0123 456789ABCD EFGHIJKLMN OPTHIS DAT A MUST BE  IN PAGE 1  AT00000005
+
+COL  0000000001 1111111112 2222222223 3333333334 4444444445 5555555556 6666666667 7777777778
+POS  1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890
+HEX  0EEE400A44 0344004CCC DCEE4E7FFF F700000006 0007000400 0C00030002 000C001300 EBFFFFFFFF
+     2373003800 0800000144 952207D101 0D00080000 0000000800 04002C0048 00BE000E0F FC00000006
+CHR  .TXT ..y   .8  .. ADD RESS X'101 0'.......- ...X...... .D...<.... .......>.. ..00000006
+
+COL  0000000001 1111111112 2222222223 3333333334 4444444445 5555555556 6666666667 7777777778
+POS  1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890
+HEX  0EEE400E44 03440090C2 80C190C280 C190C280C1 91C280C191 C280C191C2 80C191C280 C1FFFFFFFF
+     2373003000 0800002415 201E281520 1E2C15201E 2015201E24 15201E2815 201E2C1520 1E00000007
+CHR  .TXT ..\   .8  ..k.A. b.A.k.A.b. A.k.A.b.A. k.A.b.A.k. A.b.A.k.A. b.A.k.A.b. A.00000007
+
+COL  0000000001 1111111112 2222222223 3333333334 4444444445 5555555556 6666666667 7777777778
+POS  1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890
+HEX  0EEE400144 0144000000 0002000000 0044444444 4444444444 4444444444 4444444444 44FFFFFFFF
+     2373004800 0000000A00 02080A0002 0000000000 0000000000 0000000000 0000000000 0000000008
+CHR  .TXT ...   ..  ...... .......... ..                                            00000008
+
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page    18
+
+OBJECT DECK
+
+COL  0000000001 1111111112 2222222223 3333333334 4444444445 5555555556 6666666667 7777777778
+POS  1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890
+HEX  0EEE401144 024400ECCE 4CCEC4DEEE 4CC4CD4DCC C4F4CE4CCC DCEE4E7FFF F744444444 44FFFFFFFF
+     2373000000 0E00003892 0413104423 0250950717 5010130144 952207D101 0D00000000 0000000009
+CHR  .TXT ...   ..  ..THIS  DATA MUST  BE IN PAG E 1 AT ADD RESS X'101 0'           00000009
+
+COL  0000000001 1111111112 2222222223 3333333334 4444444445 5555555556 6666666667 7777777778
+POS  1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890
+HEX  0EEE400F44 014400FFFF FFFFFFCCCC CCCCCDDDDD DD44444444 4444444444 4444444444 44FFFFFFFF
+     237300F600 0A00000123 4567891234 5678912345 6700000000 0000000000 0000000000 0000000010
+CHR  .TXT ..6   ..  ..0123 456789ABCD EFGHIJKLMN OP                                 00000010
+
+COL  0000000001 1111111112 2222222223 3333333334 4444444445 5555555556 6666666667 7777777778
+POS  1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890
+HEX  0CDC400044 4444004444 4444444444 4444444444 4444444444 4444444444 4444444444 44FFFFFFFF
+     2554000000 0000000000 0000000000 0000000000 0000000000 0000000000 0000000000 0000000011
+CHR  .END ...       ..                                                              00000011
+
+ASMA Ver. 0.2.1  XCARD BOOTED MODULE - TEST PROGRAM                                                 21 Nov 2020 04:48:08  Page    19
+
+   STMT                    FILE NAME
+
+1     /home/harold/SATKREPO/SATK/xcard/xcardtst.asm
+
+
+** NO ERRORS FOUND **
+
+[116] MNOTE *,ARCHLVL - ARCHITECTURE LEVEL SET - 8
+

@@ -1,0 +1,593 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+.*
+
+         MACRO
+         XCARD
+         GBLA  &ARCHLVL
+         LCLB  &ISCS      Whether channel subsystem is used
+         LCLB  &IS390     Whether the architecture is ESA/390
+         ARCHLVL
+         AIF   (&ARCHLVL GE 5 AND &ARCHLVL LE 8).ESA390
+.NOTSUPP ANOP
+         MNOTE 1,'XCARD DOES NOT SUPPORT IPL ARCHITECTURE LEVEL &ARCHLVL'
+         MEXIT
+.ESA390  ANOP
+&IS390   SETB  1
+&ISCS    SETB  1
+.START   ANOP
+         TITLE '*** XCARD EXTENDEND LOADER ***'
+         REGEQU CR=YES
+*
+*  GENERAL REGISTER USAGE
+*
+*   R0 -  not used, but Assigned Storage Area base register for assembler
+*   R1 -  I/O device address for initiating I/O (same as IPLDEV)
+*   R2 -  I/O Subchannel Status Word base address
+*   R3 -  Relocation adjustment added to addresses (RELOFAC mirrors)
+*   R4 -  Available high memory locations as allocated (AVAILMEM mirrors)
+*      -  Work register during TXT loading
+*   R5 -  Work register during TXT loading
+*   R6 -  Work register during TXT loading
+*   R7 -  Work register during TXT loading
+*   R8 -  TXT data residence address
+*   R9 -  TXT data length
+*   R10 - not used
+*   R11 - DUMMY DSECT base register
+*   R12 - XCARD CSECT base register
+*   R13 - CLEANUP base register
+*   R14 - Page 0 Surrogate base register
+*   R15 - Page 0 length
+
+XCARDRGN START X'400',XCARD    Start a region for the boot loader itself
+* This results in XCARD.bin being created in the list directed IPL directory
+         USING ASA,R0          Give me instruction access to the ASA CSECT
+PGMSTART BASR R12,0            Establish my base register
+         USING *,R12           Tell the assembler
+         SPACE 1
+* Ensure program is not re-entered by a console initiated restart while
+* loading a program.
+*
+* Address 0 changed from its absolute storage role (IPL PSW) to its real
+* storage role (Restart New PSW) after the IPL.
+         MVC   RSTNPSW,RSTTRAP
+         MVC   EXTNPSW(L'TRAPS),TRAPS  Set other interruption traps
+         SPACE 3
+*
+*  Determine memory size of the environment
+*
+         AIF   (NOT &IS390).MEMSRCH
+         L     R5,SCCBADDR   Tell the macro where to place the SCCB
+         MEMSZ R4,R6,MEMSZBAD,LODPARM=LOADPARM   Uses SERVC
+         AGO   .MEMDONE
+.MEMSRCH ANOP
+         MEMSZ R4,R6,MEMSZBAD
+.MEMDONE ANOP
+* R4 contains the number of bytes of system memory available
+* R5 contains the last memory address of the system (R4 less 1)
+         AIF   (NOT &IS390).AM24
+* 31-bit addressing after MEMSZ
+         AGO   .SAVEMEM
+.AM24    ANOP
+* 24-bit addressing after MEMSZ
+.SAVEMEM ANOP
+         ST    R4,MEMSIZE    Remember how much memory is in the system
+         SPACE 3
+*
+*  Determine where to move XCARD in memory, copy myself to it, and
+*  pass control to the copy.
+*
+         SL    R4,XCARDALC   Point to where XCARD is to be moved and
+         ST    R4,AVAILMEM   Amount of available memory
+         AIF   (NOT &IS390).MVCM1
+*                            sets the MVCLE destination address
+         AGO   .MVCM1E
+.MVCM1   ANOP
+*                            sets the MVCL destination address
+.MVCM1E  ANOP
+         ST    R4,XCARDCPY  Remember to where I am moving myself
+         LR    R3,R4        Get a copy of where XCARD is moving
+         L     R6,XCARDIPL  This is where XCARD was IPL'd and
+*                           sets the MVCL source address
+         SPACE 1
+         SLR   R3,R6        Calculate the relocation adjustment of XCARD
+         ST    R3,RELOFAC   Save it for any later use
+         SPACE 1
+         L     R5,XCARDSIZ  Only move the size of the region (w/o dummy memory)
+         LR    R7,R5        Set the source length to be the same
+         AIF   (NOT &IS390).MVCL2
+MVCLE2   MVCLE  4,6,0       Copy myself to the high end of memory
+         BC    B'0001',MVCLE2     If not done, continue with MVCLE
+         BC    B'0110',UNEQMOVE   Source and destination lengths not equal
+* Note: Registers 4-7 are all altered by the MVCLE instruction.
+         AGO   .MVCLE2
+.MVCL2   ANOP
+         MVCL  R4,R6        Copy myself to the high end of memory
+         BC    B'0001',DESTOVLP   Destructive overlap detected
+         BC    B'0110',UNEQMOVE   Source and destination lengths not equal
+.MVCLE2  ANOP
+* Successfully moved XCARD to its new memory location
+         SPACE 1
+         ALR   R12,R3       Relocate the base register to its new address
+         B     *+4          Branch into XCARD copy
+* The preceding branch appears to simply go to the next instruction.  But,
+* in reality it branches to the next instruction in the copied program
+* because the ALR changed the base register to that required in the high
+* memory copy of XCARD.
+         SPACE 3
+*
+**** EVERYTHING PRECEDING THIS LINE OCCURS IN THE IPL LOCATIONS OF XCARD
+         EJECT
+**** EVERYTHING FOLLOWING THIS LINE OCCURS IN THE XCARD HIGH MEMORY COPY
+*
+         SPACE 3
+*
+*  Establish addressability to DUMMY DSECT for memory used but not
+*  physically part of the XCARD card deck content and initialize it
+*
+         SPACE 1
+         LA    R11,DUMMYMEM  Establish addressing..
+         USING DUMMY,R11     ..to dynamically used memory outside of IPL deck
+         SPACE 1
+         MVC   IPLDEVI,IOSSID   Remember the the IPL device information
+         SPACE 1
+* Update dynamically relocated addresses or addresses within the DUMMY DSECT
+         LA    R0,CARDDATA       Locate the card I/O area in the DUMMY DSECT
+         ST    R0,XCARDCCA       Place it in the read channel program
+         LA    R0,XCARDCP        Locate the card channel program (its moved)
+         ST    R0,XCARDCPA       Place it in the ORB
+         LA    R0,IOINT          Locate my interruption handling code
+         ST    R0,IOINTRPT+4     Place it in the I/O New PSW
+         OI    IOINTRPT+4,X'80'  Make the PSW do 31-bit address mode
+         AIF   (NOT &IS390).NOSSCB  If not ESA/390, SSCB not used
+         SPACE 1
+* Clean up SCCB area before going on.  Have everything needed from it.
+*
+* NEED TO ADD CODE TO CLEAN UP FROM x'1000' IF XCARD EXTENDS BEYOND THIS
+* ADDRESS.
+         LM    R4,R5,SCCBADDR  Set destination address and page size as length
+         LR    R6,R4           Calculate the source address by..
+         ALR   R6,R5           ..adding the page length to it
+         SR    R7,R7           Source length is zero bytes, so destination padded
+MVCLE1   MVCLE R4,R6,0         Clear SERVC page for use by booted program
+         BC    B'0001',MVCLE1   If not done, continue with MVCLE
+* Note: Registers 4-6 are all altered by the MVCLE instruction.  Register
+* 7 remains zero.
+.NOSSCB  ANOP
+         SPACE 3
+*
+*  Allocate the surrogate page 0 used during the boot loader process.  The
+*  surrogate page is used while loading any object module content into the
+*  first page.  This allows the booted object module to initialize page
+*  0 while XCARD uses page 0 for its purposes.
+*
+*  Before transferring control to the booted program, XCARD will replace
+*  the content of physical page 0 (the content XCARD makes use of for I/O) with
+*  the contents of the surrogate page.
+*
+         L     R4,AVAILMEM   Fetch available memory (high to low)
+         SL    R4,PAGELEN    Allocate a page ahead of XCARD for Surrogate Page 0
+         ST    R4,AVAILMEM   Update available memory
+         ST    R4,PAGE0      Establish address of the Surrogate Page 0
+         LR    R14,R4        Establish Surrogate Page 0 base register
+* No formal USING statement is used when Page 0 is loaded from the booted
+* object module.  All such moves are performed dynamically using an EXECUTE
+* instruction.
+         SPACE 1
+* Cause transfer to end with an error condition if this PSW is not overlayed
+* by the booted object module.
+         MVC   0(R8,14),ENDBAD
+* The only content moved to Surrogate Page 0 that is not from the object
+* module.
+         TITLE '*** XCARD EXTENDEND LOADER *** OBJECT MODULE BOOTING'
+         LCTL  C6,C6,ENAINT Enable all device subclasses for interrupts
+         L     R1,IPLDEV    Set the IPL device as the target of the I/O
+         LA    R2,IOSCSW    Point to the SCSW stored by TEST SUBCHANNEL (TSCH)
+         USING SCSW,R2      Address the SCSW
+         SR    R8,R8        Make sure TXT data address register is zero
+         SPACE 3
+IOLOOP   DS    0H   I/O loop that processes the booted object module's content
+         XC    IOSTATUS,IOSTATUS   Clear accumulated status at I/O start
+         SSCH  XCARDORB    Try starting I/O operation to read from device
+         BC    B'1000',WAIT           CC=0 wait for results...
+         BC    B'0010',BUSY           CC=2 subchannel is busy
+*                                     It has a previous start, halt or clear
+*                                     function in progress.  Should not happen
+         BC    B'0001',NOTOPERS       CC=3 device not available
+*                                     Should not happen.  Device was enabled
+*        BC    B'0100',FALL THROUGH   CC=1 subchannel has pending status?
+         SPACE 1
+* Wait for I/O interruption from successful I/O operation start
+WAIT     MVC   IONPSW,IOINTRPT   Set new PSW for the I/O interruption
+         LPSW  IOWAIT            Wait for the I/O interruption
+IOINT    DS    0H   I/O interrupt happened, continue with I/O examination
+* I/O New PSW disables I/O interruptions
+         MVC   IONPSW,IOTRAP     Reset the I/O trap new PSW (just in case)
+         SPACE 1
+* I/O interrupt occurred.  Get the status
+         TSCH  IOIRB             Save the SCSW (and rest of IRB)
+         BC    B'1000',HAVSTAT   CC=0, IRB has been stored with status (normal)
+         BC    B'0001',NOTOPERT  CC=3, Device is not operational
+         BC    B'0100',NOSTAT    CC=1, IRB stored for a reason other than status
+         BC    B'0010',NOTOCCUR  CC=2, Never presented by TEST SUBCHANNEL (TSCH)
+         SPACE 1
+HAVSTAT  DS    0H   Proceed to check the returned status
+         CLC   IOSSID,IPLDEV     Did the interrupt come from the IPL device?
+         BNE   WAIT              ..No, so wait for it
+         OC    IOSTATUS,SCSWUS   Merge in the latest status
+         TM    IOCHAN,X'FF'      Any channel errors?
+         BNZ   CHANERR           ..Yes, report the errors
+         TM    IOUNIT,X'F2'      Any unit errors?
+         BNZ   UNITERR           ..Yes, report the errors
+         TM    IOUNIT,X'01'      Physical end-of-file condition?
+         BO    EOFFOUND          ..Yes, report it, can't do any more.
+         TM    IOUNIT,X'0C'      Channel End and Device End present?
+         BNO   WAIT              ..No, wait for another interruption
+         SPACE 3
+* I/O COMPLETED SUCCESSFULLY - PROCESS THE INPUT DATA
+         CLC   OBJID,TXTID      Is this a TXT record?
+         BE    TEXT             ..Yes, load TXT record content
+         CLC   OBJID,ENDID      Is this an END record?
+         BE    ENTER            ..Yes, done loading, enter booted object module
+*                               Ignore ESD or RLD records if present
+         B     IOLOOP           ..No, read another record
+         SPACE 3
+TEXT     DS    0H    Process the TXT record content
+         ICM   R8,B'0111',OBJADDR     Get the TXT data residence address
+         SPACE 3
+* Load TXT data to memory
+*   R8 - TXT data residence address
+*   R9 - Number of bytes of TXT data
+*   R10 - Ending address of the TXT data
+         LH    R9,OBJBYTES      Fetch TXT data length
+         LA    R10,0(R9,R8)     Calculate the ending address
+         CLR   R10,R14          Does data overlay XCARD or Surrogate Page 0?
+         BH    OVERLAY          ..Yes, exit XCARD with an error (010020)
+         CL    R8,PAGE0ADR      Data in Page 0?
+         BL    PAGE0DAT         ..Yes, --> process Page 0 data for surrogate
+         BCTR  R9,0             Decrement value by 1 for execute
+         EX    R9,LOADTXT       Move the TXT data to memory
+         B     IOLOOP           Process next input record
+         SPACE 1
+LOADTXT  MVC   0(0,R8),OBJTEXT     Move TXT object module data to memory
+         SPACE 3
+* Move Page 0 data to Page 0 Surrogate
+* On entry from TEXT routine
+*  R8 - TXT data destination address
+*  R9 - TXT data length
+*  R10 - Ending address of the TXT data
+PAGE0DAT DS    0H
+         CL    R10,PAGE0ADR     Is TXT data split between Surrogate and memory
+         BH    SPLIT            ..Yes, --> need to split the data
+         LA    R10,0(R8,R14)    Calculate the Page 0 Surrogate address
+         BCTR  R9,0             Decrement by 1 for EXECUTE
+         EX    R9,LOADSURR      ..No, just move it the Surrogate then
+         B     IOLOOP           Process next input record
+         SPACE 1
+LOADSURR MVC   0(0,R10),OBJTEXT    Move TXT object module data to surrogate
+         SPACE 3
+* Split Page 0 data betweem the Page 0 Surrogate and memory
+* On entry from PAGE0DAT routine
+*  R8 - TXT data destination address
+*  R9 - TXT data length
+*  R10 - Ending address of TXT data (in regular memory, not page 0)
+* During execution
+*  R4 - TXT data length in regular memory
+*  R5 - TXT data length in Page 0 memory
+*  R6 - Source of TXT data destined for regular memory
+*  R7 - Destination of TXT data destined for regular memory (X'1000')
+SPLIT    DS    0H
+* Move High End of split TXT data to regular memory
+         L     R7,PAGE0ADR   Start of regular memory
+         LR    R4,R10        Fetch the ending of data in memory
+         SLR   R4,R7         Calculate the number of bytes in memory
+         LR    R5,R9         Fetch the total bytes to be loaded
+         SLR   R5,R4         Calculate the number of bytes in Page 0
+         LA    R6,OBJTEXT(5) Source of high end piece in TXT record
+         BCTR  R4,0          Decrement by one for EXECUTE
+         EX    R4,SPLITHI    Move the high piece to regular memory
+         SPACE 1
+* Move Low End of the split TXT data to the Page 0 Surrogate
+* On entry from above logic moving high end piece of TXT
+*  R4 - TXT data length in regular memory
+*  R5 - TXT data length in Page 0 memory
+*  R6 - Source of TXT data destined for regular memory
+*  R7 - Destination of TXT data destined for regular memory (X'1000')
+*  R8 - TXT data destination address
+*  R9 - TXT data length
+*  R10 - Destination address of low end piece in Page 0 Surrage
+         LA    R10,0(R8,R14)    Calculate the Surrogate destination address
+         BCTR  R5,0             Decrement by 1 for the EXECUTE
+         EX    R5,SPLITLO       Move low end piece to the Page 0 Surrogate
+         B     IOLOOP
+         SPACE 1
+SPLITLO  MVC   0(0,R10),OBJTEXT  Moves low end of TXT data to Page 0 Surrogate
+SPLITHI  MVC   0(0,R7),0(R6)  Moves high end part of TXT data to regular memory
+         TITLE '*** XCARD EXTENDEND LOADER *** TRANSFER OF CONTROL'
+ENTER    DS    0H    Enter the booted object module
+         LCTL  C6,C6,CLEANUPZ    Clear control register 6
+         MVC   IOSSID-ASA(L'IPLDEVI,14),IPLDEVI   Pass IPL device information
+         SR    R4,R4       Set destination address to start of physical Page 0
+         L     R5,PAGELEN  Set destination length to a page (4096)
+         LR    R15,R5      Set the source length to a page (4096)
+* Use the Page 0 Surrogate base register as the source address
+MVCLE3   MVCLE R4,R14,0    Move Page 0 Surrogate to Physical page 0
+         BC    B'0001',MVCLE3   If not done, continue with MVCLE
+* WARNING: Registers 4, 5, 14, and 15 are altered by MVCLE
+         SPACE 1
+*
+*  Booted object module is now completely loaded in memory at its locations.
+*  XCARD must not ALTER any addresses in Physical Page 0, X'0'-X'0FFF',
+*  from this point onward.
+*
+         SPACE 3
+.* * Initalize exit registers (booted object module can ignore)
+.*          L     R0,MEMSIZE    Pass available memory
+.*          L     R1,IPLDEV     Pass the IPL device identifier
+.*          LM    R2,R3,LOADPARM  LOADPARM data
+.* *              R4 reserved for future use.
+         SPACE 1
+* Move the clean up code at the end of XCARD to the end of memory
+         L     R13,MEMSIZE    Fetch the size of memory
+         SL    R13,CLEANSIZ   Locate where clean up logic is placed
+         LA    R10,CLEANUP    Determine where clean up logic is in XCARD
+* R13 becomes the clean up code base register
+         MVC   0(CLEANUPA,R13),CLEANUP   CLEANUP IS NOW AT THE END OF MEMORY
+         B     CLEANUPX-CLEANUP(,R13)    Enter the clean up logic w/R13
+         TITLE '*** XCARD EXTENDEND LOADER *** PROGRAM DATA'
+*
+*  XCARD program data
+*
+         SPACE 1
+TXTID    DC    XL1'02',CL3'TXT'    TXT object module record id
+ENDID    DC    XL1'02',CL3'END'    END object module record id
+         AIF   (NOT &IS390).NOSERVC
+LOADPARM DC    XL8'00'      LOADPARM data from MEMSZ (when available)
+SCCBADDR DC    A((L'XCARD+4095)/4096*4096)  Loacation of SERVC SCCB data
+* The page used for SCCB will be reset to all binary zeros during clean up.
+.NOSERVC ANOP
+PAGELEN  DC    A(X'1000')   Size of a single page, or..
+PAGE0ADR EQU   PAGELEN,4    ..Memory address following page 0
+XCARDIPL DC    A(XCARD)     Start of XCARD at IPL
+XCARDSIZ DC    A(L'XCARD)   Length of the XCARD region
+CLEANSIZ DC    A(CLEANUPA)  Length of the clean up code
+* This is the number of bytes to allocate at high memory for XCARD and the
+* DUMMY memory area.  It is rounded up to the next higher page boundary.
+XCARDALC DC    A((L'XCARD+L'DUMMY+4095)/4096*4096)
+         SPACE 3
+*
+*  Input/Output Related Data
+*
+         DS    0F
+ENAINT   DC    XL4'FF000000'   Enables all device subclasses for interrupts
+         SPACE 1
+XCARDORB DS    0F  XCARD I/O Operation Request Block
+         DC    CL4'XCRD'    ORB Interruption parameter
+         DC    AL1(X'00')   ORB Key and S, C, M, Y controls
+         DC    AL1(X'80')   ORB F, P, I, A, U, H, T controls (CCW1's used)
+         DC    AL1(X'FF')   ORB Logical Path Mask (any and all paths eligible)
+         DC    AL1(X'00')   ORB L, X controls (three word ORB used)
+XCARDCPA DC    AL4(0)       ORB Channel Program Address (set dynamically)
+         SPACE 1
+* Card Reader or Tape read command.
+XCARDCP  DS    0D
+*        CCW   X'02',OBJREC,0,80  Single card or tape record read
+XCARDCCC DC    XL1'02'            Read channel command
+XCARDCCF DC    XL1'00'            CCW flags
+XCARDCCL DC    AL2(L'CARDDATA)    I/O area length
+XCARDCCA DC    AL4(0)             I/O area address (set dynamically)
+         SPACE 3
+* Dynamically managed memory locations
+MEMSIZE  DC    A(0)         Size of system memory
+AVAILMEM DC    A(0)         Size of currently available memory
+XCARDCPY DC    A(0)         Location to which XCARD is moved by MVCL(E)
+RELOFAC  DC    F'0'         Address relocation factor adjustment
+         TITLE '*** XCARD EXTENDEND LOADER *** PSWs AND EXIT CONDITIONS'
+*
+*  XCARD Program Status Words and exit conditions
+*
+         SPACE 1
+* Program Status Words
+IOWAIT   PSW   X'02',0,2,0,1     Wait for I/O interruption (enabled wait)
+IOINTRPT PSW   0,0,0,0,0      I/O New PSW for interrupt (addr set dynamically)
+* Exit conditions
+NOTRANFR LPSW  ENDBAD   Use default PSW abend code of 010000 (SHOULD NOT OCCUR)
+         SPACE 1
+* MEMSZ macro failed to executue.  Size of memory not determined
+MEMSZBAD MVI   ENDBAD+7,X'04'   Set PSW abend code to 010004
+         LPSW  ENDBAD
+         SPACE 1
+* Copy of XCARD requires equal source and destination lengths. Lengths not equal
+UNEQMOVE MVI   ENDBAD+7,X'08'   Set PSW abend code to 010008
+         LPSW  ENDBAD
+         AIF   (&IS390).NO1000C
+         SPACE 1
+* Destructive overlap detected by MVCL instruction during XCARD copy
+DESTOVLP MVI   ENDBAD+7,X'0C'   Set PSW abend code to 01000C
+         LPSW  ENDBAD
+.NO1000C ANOP
+         SPACE 1
+* IPL device is not operational or available (should not occur, but it did)
+NOTOPERS MVI   ENDBAD+6,X'33'   Set START SUBCHANNEL as error source
+         B     NOTOPER
+NOTOPERT MVI   ENDBAD+6,X'35'   Set TEST SUBCHANNEL as error source
+NOTOPER  MVI   ENDBAD+7,X'10'   Set PSW abend code to 01xx10
+         LPSW  ENDBAD
+         SPACE 1
+* IPL device is busy when trying to start the I/O (should not occur, but it did)
+BUSY     MVI   ENDBAD+6,X'33'   Set START SUBCHANNEL as error source
+         MVI   ENDBAD+7,X'14'   Set PSW abend code to 013314
+         LPSW  ENDBAD
+         SPACE 1
+NOSTAT   MVI   ENDBAD+6,X'35'   Set TEST SUBCHANNEL as error source
+         MVI   ENDBAD+7,X'18'   Set PSW abend code to 013518
+         SPACE 1
+* Condition code 2 from TEST SUBCHANNEL impossible, so must be bug
+NOTOCCUR MVI   ENDBAD+6,X'35'   Set TEST SUBCHANNEL as error source
+         MVI   ENDBAD+7,X'1C'   Set PSW abend code to 01351C
+         LPSW  ENDBAD
+         SPACE 1
+OVERLAY  MVI   ENDBAD+7,X'20'   Set PSW abend code to 010020
+         LPSW  ENDBAD
+         SPACE 1
+* Channel errors reported in status portion of the abend code:
+*        -  X'80' - Program Controlled Interruption
+*        -  X'40' - Incorrect Length
+*        -  X'20' - Program check
+*        -  X'10' - Protection check
+*        -  X'08' - Channel-data check
+*        -  X'04' - Channel-control check
+*        -  X'02' - Interface-control check
+*        -  X'01' - Chaining check
+CHANERR  MVC   ENDBAD+6(1),IOCHAN   Report channel errors
+         MVI   ENDBAD+7,X'24'   Set PSW abend code to 01xx24
+         LPSW  ENDBAD
+         SPACE 1
+* Unit errors reported in status portion of the abend code
+*        -  X'80' - Attention
+*        -  X'40' - Status Modifier
+*        -  X'20' - Control-unit End
+*        -  X'10' - Busy
+*        -  X'02' - Unit check (SENSE data available)
+* Considered normal responses for a card reader or tape device:
+*        -  X'0C' - Channel End and device End combined is normal I/O
+*        -  X'08' - Channel End
+*        -  X'04' - Device End
+*        -  X'01' - Unit exception - signals physical end-of-file.
+UNITERR  MVC   ENDBAD+6(1),IOUNIT   Report unit errors
+         MVI   ENDBAD+7,X'28'   Set PSW abend code to 01xx28
+         LPSW  ENDBAD
+         SPACE 1
+EOFFOUND MVC   ENDBAD+7,X'2C'   Set PSW abend code to 01002C
+         LPSW  ENDBAD
+         SPACE 1
+ENDBAD   DWAIT PGM=01,CMP=0,CODE=000  010000 updated with abend code
+         SPACE 1
+* These PSW's depend upon the current XMODE PSW setting.
+RSTTRAP  PSW   0,0,2,0,X'08'  Restart New PSW trap.  Points to Restart Old PSW
+TRAPS    DS    0XL40
+         PSW   0,0,2,0,X'18'  External New PSW trap. Points to External New PSW
+         PSW   0,0,2,0,X'20'  SVC Call New PSW trap. Points to SVC Call Old PSW
+         PSW   0,0,2,0,X'28'  Program New PSW trap. Points to Program Old PSW
+         PSW   0,0,2,0,X'30'  Mach Ck New PSW trap. Points to Mach Ck Old PSW
+IOTRAP   PSW   0,0,2,0,X'38'  I/O New PSW trap. Points to I/O Old PSW
+         TITLE '*** XCARD EXTENDEND LOADER *** FINAL CLEANUP AND MODULE ENTRY'
+*
+*  This snippet of code is moved to end of memory for execution.  The XCARD
+*  base register is still valid.  Access to XCARD data is available until
+*  XCARD is removed from memory.
+*
+CLEANUP  DS    0F   Final clean up of memory and actual transfer of control
+* Note: LCTL requires the operant (CLEANUPZ) to be on a full word boundary
+         USING CLEANUP,R13
+CLEANUPZ DC    13F'0'     Used to clean up register 0-12 and 14,15
+         SPACE 1
+CLEANUPX L     R4,PAGE0    Set the destination address (Surrogate Page 0)
+         LR    R6,R4       Set the source address to the same
+         SL    R6,PAGELEN  Calculate the source address a page lower
+.* The selection of this address is driven by Hercules MVCLE algorithm.  The
+.* amount of memory moved before terminating is controlled by the shortest
+.* distance to the page end of either the source or destination, whichever is
+.* shorter.  This provides significantly improved performance than using the
+.* first byte of the cleanup routine which is very close to the end of its
+.* page.  During padding it does not participate in the move anyway which is
+.* the source of the performance considerations in this case.  The source
+.* address never changes.
+         LR    R5,R13     Use it to calculate the size needing clean up
+         SLR   R5,R4      Calculate size from Surrogate Page 0 to clean up code
+         SR    R7,R7      Set the source length as zero for clearing memory
+MVCLE4   MVCLE R4,R6,0    Clear Surrogate Page 0 and all of XCARD area to me
+         BC    B'0001',MVCLE4   If not done, continue with MVCLE
+         SPACE 1
+* XCARD and DUMMY section are erased from memory.  Do not let even the
+* assembler to address it.
+         DROP  R11   DUMMY DSECT gone
+         DROP  R12   XCARD gone
+         SPACE 1
+         LM    R0,R12,CLEANUPZ   Clear general registers 0-12
+         LM    R14,R15,CLEANUPZ  Clear general registers 14 and 15.
+* All that is now left is this code, which goes away now
+         XC    CLEANUPX(CLEANUPC),CLEANUPX    Clean up myself
+* This XC instruction is included in the clean up area.  It goes too.
+CLEANUPC EQU   *-CLEANUPX Length of the final CLEANUP instructions
+         DROP  R13        The assembler forgets about CLEANUP CSECT
+* Now just these two instructions remain in memory from XCARD's presence
+         SR    R13,R13    Cleanup the last register
+         LPSW  0          Transfer control to the booted object module
+CLEANUPA EQU   *-CLEANUP  Length of the final CLEANUP area
+         SPACE 1
+DUMMYMEM DS    0C  DUMMY DSECT placed here. It is not part of the IPL card deck
+         TITLE '*** XCARD EXTENDEND LOADER *** DSECTS'
+*
+*  "Dummy" Memory - memory used by XCARD but not physically part of the XCARD
+*                   IPL deck itself.  Reduces the cards in the deck.
+*
+*   R11 is used as its base register.
+*
+DUMMY    DSECT
+PAGE0    DS    A            Surrogate Page 0 starting location
+IPLDEVI  DS    0CL12        IPL device information passed to booted program
+IPLDEV   DS    F            IPL device SSID        from ASA X'B8'
+IPLINTP  DS    F            IPL device Int. Parm.  from ASA X'BC'
+IPLINTW  DS    F            IPL device Int. Id.    from ASA X'C0'
+         SPACE 1
+IOSTATUS DS    0CL2         Accumulated I/O status
+IOUNIT   DS    XL1          I/O unit status
+IOCHAN   DS    XL1          Channel Status
+         SPACE 1
+CARDDATA DS    0CL80        A single card record
+OBJREC   DS    0CL80        Single record/card I/O area.  See XCARDCP
+OBJID    DS    0CL4         Object module record ID
+OBJ02    DS    XL1          Marker for object module records - X'02'
+* ESD Record Type Format - ignored by XCARD
+* TXT Record Type Format
+OBJTXT   DS    CL3'TXT'     Object module record type - TXT
+         DS    CL1' '       blank
+OBJADDR  DS    AL3(0)       TXT data memory address
+         DS    CL2'  '      blank
+OBJBYTES DS    HL2'0'       Number of bytes of data in the TXT record
+         DS    CL2'  '      blank
+         DS    HL2'0'       ESD identifier (ignored by XCARD)
+OBJTEXT  DS    CL56' '      TXT card data
+         DS    CL8' '       not used
+* RLD Record Type Format - ignored by XCARD
+* END Record Type Format
+         ORG   OBJTXT
+OBJEND   DS    CL3'END'     Object module record type - END
+         DS    CL76' '      not used
+OBJRECL  EQU   L'CARDDATA   Length of an object module card
+         SPACE 1
+IOIRB    DS    0F      I/O Interruption Response Block
+IOSCSW   DS    3F      I/O Subchannel Status Word (3 full words)
+         DS    20F     remainder of the IRB (20 full words)
+         EJECT
+*
+* Hardware and software assigned storage areas
+*
+         SPACE 1
+* This DSECT allows symbolic access to these locations.  The DSECT created is
+* named ASA and contains the assigned storage locations.
+ASA      ASAREA DSECT=YES
+         AIF   (NOT &IS390).NOSCPI
+         SPACE 3
+SCSW     DSECTS NAME=SCSW      Subchannel Status Word Format
+         EJECT
+         SCPI                  SERVC Control Block Information
+.NOSCPI  ANOP
+.* Sets the title for the rest of the assembler listing
+         TITLE '*** XCARD EXTENDEND LOADER ***'
+         MEND

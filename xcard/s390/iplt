@@ -1,0 +1,34 @@
+#!/bin/sh
+# Copyright (C) 2020 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+# IPL XCARD and boot the text program object module on a virtual AWS tape.
+
+# Just type ./iplt in the XCARD directory to IPL and run the XCARD test
+# program from an emulated AWS tape file.
+
+datetime()
+{
+	sfx=$(date +%Y%m%d.%H%M%S)
+}
+datetime   # set $sfx (the date and time of the run) for later use
+
+# Change this variable for your environment
+HERCULES=${HOME}/hyperioni/bin/hercules  # Hercules location directory
+
+export HERCULES_RC=iplt.rc
+${HERCULES} -v -f iplt.conf  >> iplt-${sfx}.txt

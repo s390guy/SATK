@@ -1,0 +1,43 @@
+#!/bin/sh
+# Copyright (C) 2020 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+# This script converts the XCARD list-directed IPL directory into a
+# IPL capable emulated card deck using SATK's IPLASMA tool.
+
+# This script must be executed from SATK's xcard/s390 directory or your local
+# copy.
+# Just type ./medx in SATK xcard/s390 directory.
+
+datetime()
+{
+	sfx=$(date +%Y%m%d.%H%M%S)
+}
+datetime   # set $sfx (the date and time of the run) for later use
+
+# Change this variable for your environment
+REPO=${HOME}/SATKREPO/SATK      # SATK repository from github
+
+# This variable is for the author's use.  Just leave it alone
+#REPO=${HOME}/SATKCLONE
+
+# IPLASMA related script variables
+IPLASMA=${REPO}/tools/iplasma.py    # The IPL medium creation tool
+
+# Create the IPL medium
+${IPLASMA} -v -f ld -d CARD -m xcard.deck --records \
+           ldipl/xcard.txt 2>&1 |tee medx-${sfx}.txt

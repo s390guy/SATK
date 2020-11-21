@@ -1,0 +1,269 @@
+.* Copyright (C) 2020 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+.*
+
+         MACRO
+         XCARDTST &OVERLAY=NO
+.* This macro creates the test program for XCARD.  It is tailored to the
+.* target architecture.
+.*
+.* Keyword Parameters:
+.*    &OVERLAY  Whether the XCARD overlay test is included.
+.*       YES - Include the XCARD overlay test in the object module
+.*             When included, this test will abort the loading of this program,
+.*             so the test program itself will not actually run.  Memory
+.*             must be configured for 1M when this test is included.  If not,
+.*             one of the other tests during execution will fail because
+.*             memory is not zero's.
+.*       NO  - Exclude the XCARD overlay test.  This is the default
+.*            
+         GBLA  &ARCHLVL
+         AIF   ('&OVERLAY' EQ 'YES').OVOK
+         AIF   ('&OVERLAY' EQ 'NO').OVOK
+         MNOTE 1,'XCARDTST - OVERLAY PARAMETER MUST BE YES OR NO: ''&OVERLAY'''
+         MEXIT
+.OVOK    ANOP
+         TITLE 'XCARD BOOTED MODULE - TEST PROGRAM'
+* Program Description:
+*
+* xcardtst.asm is a bare-metal program that tests XCARD.  The program is
+* executed by being booted with XCARD as an object module.
+*
+* Target Architecture: S/390
+* xcardtst.asm MUST be executed with 1M of memory at present.
+*
+* Program Register Usage:
+*   R4   Starting address of the area being compared to a pad character
+*   R5   Length of the area being compared to the pad character
+*   R6   Reserved for use by the COMPARE subroutine (address zero)
+*   R7   Reserved for use by the COMPARE subroutine (length zero)
+*   R8   Address of the COMPARE subroutine using 0 pad
+*   R9   Return address of the COMPARE subroutine
+*   R12  Test program base register
+*
+* Disables Wait State PSW's address field values used by the program:
+*    X'020000' - Successful execution of the test program.  All tests passed!
+*    x'020004' - I/O device information not passed by XCARD (X'B8'-X'C3')
+*                          X'0'  - X'7'    Module entry PSW
+*    X'020008' - Area from X'8'  - X'67'   not zeros (See R4)
+*                          X'68' - X'6F'   Program trap PSW
+*    X'02000C' - Area from X'70' - X'B7'   not zeros (See R4)
+*                          X'B8' - X'C3'   IPL device data
+*    X'020010' - Area from X'C4' - X'2FF'  not zeros (See R4)
+*                          X'300'- X'427'  The test program (myself)
+*    X'020014' - Area from X'428'- X'FF5'  not zeros (See R4)
+*                          X'FF6'- X'103D' Data to test XCARD handling of TXT
+*    X'020018' - Area from X'103E'-EOM-6   not zeros (See R4)
+*    X'02001C' - Area from X'FF6'- X'103D' Data not as correct for XCARD tests
+*    X'020028' - Unexpected program interruption occurred. Old program PSW at
+*                address X'28'
+*
+         SPACE 3
+         PRINT DATA            See all object data in listing
+         ARCHLVL               Determine target architecture
+         SPACE 3
+         REGEQU                Symbolic EQUATEs for registers
+*
+*  THIS SECTION IS COMPLETELY LOADED INTO THE PAGE 0 SURROGATE USED BY
+*  XCARD FOR LOADING THAT SECTION OF MEMORY.  SUCCESSFUL EXECUTION OF
+*  THIS BOOTED OBJECT MODULE DEMONSTRATES THAT THE HANDLING OF PAGE 0
+*  SURROGATE IS CORRECT.
+*
+         SPACE 1
+PGMSECT  START 0       Start the module with a control section
+* This results in the PSW made active by XCARD when entering the booted object
+* module.
+         PSW   0,0,0,0,IPLPGM  The IPL PSW for this program
+         ORG   PGMSECT+X'B8'   Point to the IPL device information
+         DC    3A(X'FFFFFFFF') Ensure IPL device info passed by XCARD
+         SPACE 1
+         ORG   PGMSECT+X'300'
+*
+*  Set the assembly location counter to X'300' - the object module residence.
+*  Inspection of memory at address X'300' and beyond should match the
+*  assembly listing for this module.  The only way to test the validity of
+*  the loaded object module is to execute it short of visual inspection.
+*  Execution has been successful.
+*
+         USING ASA,R0
+IPLPGM   BASR  R12,0               Establish my base register
+         USING *,R12               Tell the assembler
+         SPACE 1
+* Set a trap PSW in case some program interruption occurs
+         MVC   X'68'(8,0),PGMEX  Set a NEW PSW trapping program interruptions
+         SPACE 3
+* Prepare for use of the compare subroutine
+         SLR   R6,R6               Start of padded ares (0)
+         LR    R7,R6               Length of the pad area (0) - Uses pad char
+         LA    R8,COMPARE0         Address of compare subroutine
+*
+*  TEST WHETHER XCARD PASSED THE IPL DEVICE INFORMATION
+*
+         CLC   IOSSID(12),NULLIO  Is this data the same as I set it?
+         BE    BADIO              ..Yes, no data from XCARD, abend with 020004
+         SPACE 3
+*
+*  TEST AREA 0 FOR ZEROS (FROM END OF RESTART NEW PSW TO PROGRAM TRAP PSW)
+*
+         LM    R4,R5,AREA0CMP     Area being checked for zeros
+         BASR  R9,R8              Compare...
+         BC    B'0110',BAD1       Area not zeros, abend with 020008
+         SPACE 3
+*
+*  TEST AREA 1 FOR ZEROS (FROM END OF PRGM TRAP PSW TO IPL DEVICE DATA)
+*
+         LM    R4,R5,AREA1CMP     Area being checked for zeros
+         BASR  R9,R8              Compare...
+         BC    B'0110',BAD2       Area not zeros, abend with 02000C
+         SPACE 3
+*
+*  TEST  AREA 2 FOR ZEROS (FROM IPL DEVICE DATA TO TEST PROGRAM)
+*
+         SPACE 1
+         LM    R4,R5,AREA2CMP     Area being compared
+         BASR  R9,R8              Use subroutine to compare for zeros
+         BC    B'0110',BAD3       Area not zeros, abend with 020010
+         SPACE 3
+*
+*  TEST AREA 3 FOR ZEROS (FROM END OF TEST PROGRAM TO END OF PAGE 0 MINUS 6)
+*
+         SPACE 1
+         LM    R4,R5,AREA3CMP      Start of area being compared
+         BASR  R9,R8               Check for zeros in the area.
+         BC    B'0110',BAD4        Area not zeros, abend with 020014
+         SPACE 3
+*  
+*  TEST AREA 4 FOR ZEROS (FROM END OF FILL1 TO END OF MEMORY MINUS 6)
+*
+         LM    R4,R5,AREA4CMP      Start of area being compared
+         BASR  R9,R8               Check for zeros in the area.
+         BC    B'0110',BAD5        Area not zeros, abend with 020018
+         SPACE 3
+*
+*  TEST THAT AREA LOADED BY MY TXT CARDS CONTAINS THE DATA IS SHOULD
+* 
+         CLC   XCRD(XCRDLEN),FILL1  Equal?
+         BNE   BAD6                ..No, abend with an error 02001C
+         SPACE 1
+         LPSW  ENDPSW              ..YES, normal program termination
+         SPACE 3
+*
+*  Compare memory area for all zeros.
+*
+COMPARE0 DS    0H   Compare area subroutine
+CLCLE    CLCLE R4,R6,0    Is the area zeros?
+         BC    B'0001',CLCLE       ..Not done, so continue compares
+* Registers 4 and 5 altered by CLCLE
+         BR    R9         Return with CC set to result
+         SPACE 3
+NULLIO   DC    3A(X'FFFFFFFF') Tests the passing of IPL device data from XCARD
+XCRD     DC    C'0123456789ABCDEFGHIJKLMNOP'
+         DC    C'THIS DATA MUST BE IN PAGE 1 AT ADDRESS X''1010'''
+XCRDLEN  EQU   *-XCRD
+         SPACE
+*
+*  Area's being compared
+*
+AREA0CMP DC    A(AREA0-ASA),A(AREA0LEN)        020008
+AREA1CMP DC    A(AREA1-ASA),A(AREA1LEN)        02000C
+AREA2CMP DC    A(AREA2-ASA),A(AREA2LEN)        020010
+AREA3CMP DC    A(AREA3),A(PAGE0END-AREA3)      020014
+AREA4CMP DC    A(FILL1END),A(X'000FFFFA'-(FILL1END-PGMSECT))  020018
+         SPACE 3
+*
+*  Termination PSW's
+*
+BADIO    MVI   ENDPSW+7,X'04'  Set abend code to 020004
+         LPSW  ENDPSW
+BAD1     MVI   ENDPSW+7,X'08'  Set abend code to 020008. See R4 for byte != 0
+         LPSW  ENDPSW
+BAD2     MVI   ENDPSW+7,X'0C'  Set abend code to 02000C. See R4 for byte != 0.
+         LPSW  ENDPSW
+BAD3     MVI   ENDPSW+7,X'10'  Set abend code to 020010. See R4 for byte != 0.
+         LPSW  ENDPSW
+BAD4     MVI   ENDPSW+7,X'14'  Set abend code to 020014. See R4 for byte != 0.
+         LPSW  ENDPSW
+BAD5     MVI   ENDPSW+7,X'18'  Set abend code to 020018. See R4 for byte != 0.
+         LPSW  ENDPSW
+BAD6     MVI   ENDPSW+7,X'1C'  Set abend code to 02001C.
+         LPSW  ENDPSW
+         SPACE 1
+* PSW's used by this program...
+* Disabled wait trap PSW for program interruptions
+PGMEX    PSW   0,0,2,0,X'020028'   Points to the program OLD PSW at X'28'
+* Program termination PSW's
+ENDPSW   DWAIT PGM=02,CMP=0,CODE=000   Successful execution of the program
+AREA3    EQU   *
+         SPACE 3
+*
+*  THIS SECTION EXPLICITLY LOADS DATA INTO PAGE 1. INSPECTION OF PAGE 1 PLUS
+*  16 BYTES MUST MATCH THIS ASSEMBLY LISTING TO VALIDATE PROPER OPERATION
+*  OF XCARD WHEN LOADING CONTENT DIRECTLY TO MEMORY
+*
+         SPACE 1
+         ORG   PGMSECT+X'1010'
+         DC    C'THIS DATA MUST BE IN PAGE 1 AT ADDRESS X''1010'''
+FILL1END EQU   *
+         SPACE 3
+*
+*  THIS SECTION EXPLICITLY LOADS DATA INTO BOTH PAGE 0 AND PAGE 1.  IF
+*  PROPERLY HANDLED BY XCARD THE NUMBERS WILL EXIST IN PAGE0 AND THE LETTERS
+*  WILL RESIDE IN PAGE 1.  THIS TESTS THE CASE WHERE TXT DATA FROM ONE TXT
+*  RECORD MUST BE SPLIT BETWEEN PAGE 0 SURROGATE AND PAGE 1.  THIS DATA MUST
+*  NOTE OVERLAY THE PREVIOUS DATA LOADED BY ITS OWN TXT RECORD
+*
+*  USE HERCULES COMMAND r ff4 TO INSPECT BOTH THIS TEST AND THE PRECEDING
+*  TEST FOR PROPER CONTENT.  ALSO TESTED ABOVE PROGRAMMATICALLY.
+         SPACE 1
+         ORG   PGMSECT+X'0FF6'
+PAGE0END EQU   *    End of page 0 that should be zeros
+FILL1    DC    C'0123456789ABCDEFGHIJKLMNOP'
+         AIF   ('&OVERLAY' NE 'YES').NOOV
+         SPACE 3
+*
+*  IF SUCESSFUL XCARD WILL TERMINATE WITH AN ABEND CODE OF 010020.  THIS TEST
+*  ASSUMES THAT AVAILABLE MEMORY IS CONFIGURED FOR 1M AND PAGE 0 SURROGATE
+*  IS AT X'FE000'.  IF UNSUCCESSFUL MEMORY CONTENT AT PAGE 0 SURROGATE 
+*  WILL HAVE BEEN DESTROYED MAKING THE PSW AT PAGE 0 REAL ADDRESS X'0' 
+*  INVALID.  A PROGRAM INTERRUPT LOOP WILL RESULT IF XCARD FAILS TO DETECT
+*  THIS SITUATION.
+*
+*  NOTE: Because this creates a TXT record in the object module and causes
+*  XCARD itself to abend, it can not be made dynamically adjusted to the
+*  configured available memory.  TODO: Make this adjustable from ASMA command
+*  line.
+*
+         SPACE 1
+* This has been tested and XCARD works as expected, abended with code 010020
+         ORG   PGMSECT+X'FE000'
+         DC    C'ZZZZZZZZ'
+.NOOV    ANOP
+         SPACE 3
+ASA      ASAREA DSECT=YES
+*
+* First area that should be zeros in Page 0  - Not zeros -> abend code 020004
+AREA0    EQU   IPLCCW1
+AREA0LEN EQU   PGMNPSW-AREA0
+*
+* Second area that should be zeros in Page 0 - Non zeros -> abend code 020008
+AREA1    EQU   MCKNPSW
+AREA1LEN EQU   IOSSID-AREA1
+*
+* Third area that should be zero in Page 0   - Not zeros -> abend code 02000C
+AREA2    EQU   IOSSID+12
+AREA2LEN EQU   IPLPGM-(AREA2-ASA)
+         MEND

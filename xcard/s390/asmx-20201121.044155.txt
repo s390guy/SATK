@@ -1,0 +1,1499 @@
+ASMA Ver. 0.2.1                                                                                     21 Nov 2020 04:41:55  Page     1
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                     1 * Copyright (C) 2020 Harold Grovesteen
+                                                     2 *
+                                                     3 * This file is part of SATK.
+                                                     4 *
+                                                     5 *     SATK is free software: you can redistribute it and/or modify
+                                                     6 *     it under the terms of the GNU General Public License as published by
+                                                     7 *     the Free Software Foundation, either version 3 of the License, or
+                                                     8 *     (at your option) any later version.
+                                                     9 *
+                                                    10 *     SATK is distributed in the hope that it will be useful,
+                                                    11 *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+                                                    12 *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+                                                    13 *     GNU General Public License for more details.
+                                                    14 *
+                                                    15 *     You should have received a copy of the GNU General Public License
+                                                    16 *     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+                                                    17 *
+                                                    18          XCARD ,    XCARD eXtended LOADER
+                                                    21+$AL      OPSYN AL
+                                                    22+$ALR     OPSYN ALR
+                                                    23+$B       OPSYN B
+                                                    24+$BAS     OPSYN BAS
+                                                    25+$BASR    OPSYN BASR
+                                                    26+$BC      OPSYN BC
+                                                    27+$BCTR    OPSYN BCTR
+                                                    28+$BE      OPSYN BE
+                                                    29+$BH      OPSYN BH
+                                                    30+$BL      OPSYN BL
+                                                    31+$BM      OPSYN BM
+                                                    32+$BNE     OPSYN BNE
+                                                    33+$BNH     OPSYN BNH
+                                                    34+$BNL     OPSYN BNL
+                                                    35+$BNM     OPSYN BNM
+                                                    36+$BNO     OPSYN BNO
+                                                    37+$BNP     OPSYN BNP
+                                                    38+$BNZ     OPSYN BNZ
+                                                    39+$BO      OPSYN BO
+                                                    40+$BP      OPSYN BP
+                                                    41+$BXLE    OPSYN BXLE
+                                                    42+$BZ      OPSYN BZ
+                                                    43+$CH      OPSYN CH
+                                                    44+$CLR     OPSYN CLR
+                                                    45+$L       OPSYN L
+                                                    46+$LH      OPSYN LH
+                                                    47+$LM      OPSYN LM
+                                                    48+$LNR     OPSYN LNR
+                                                    49+$LPSW    OPSYN LPSW
+                                                    50+$LR      OPSYN LR
+                                                    51+$LTR     OPSYN LTR
+                                                    52+$NR      OPSYN NR
+                                                    53+$SL      OPSYN SL
+                                                    54+$SLR     OPSYN SLR
+ASMA Ver. 0.2.1                                                                                     21 Nov 2020 04:41:55  Page     2
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                    55+$SR      OPSYN SR
+                                                    56+$ST      OPSYN ST
+                                                    57+$STM     OPSYN STM
+                                                    58+$X       OPSYN X
+                                                    59+$AHI     OPSYN AHI
+                                                    60+$B       OPSYN J
+                                                    61+$BC      OPSYN BRC
+                                                    62+$BE      OPSYN JE
+                                                    63+$BH      OPSYN JH
+                                                    64+$BL      OPSYN JL
+                                                    65+$BM      OPSYN JM
+                                                    66+$BNE     OPSYN JNE
+                                                    67+$BNH     OPSYN JNH
+                                                    68+$BNL     OPSYN JNL
+                                                    69+$BNM     OPSYN JNM
+                                                    70+$BNO     OPSYN JNO
+                                                    71+$BNP     OPSYN JNP
+                                                    72+$BNZ     OPSYN JNZ
+                                                    73+$BO      OPSYN JO
+                                                    74+$BP      OPSYN JP
+                                                    75+$BXLE    OPSYN JXLE
+                                                    76+$BZ      OPSYN JZ
+                                                    77+$CHI     OPSYN CHI
+                                                    78+$LHI     OPSYN LHI
+                                                    79+         MNOTE *,'ARCHLVL - ARCHITECTURE LEVEL SET - 8'
+          ** [79] MNOTE *,ARCHLVL - ARCHITECTURE LEVEL SET - 8
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER ***                                                     21 Nov 2020 04:41:55  Page     3
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                    82+* General Registers
+                              00000000  00000001    83+R0       EQU   0     General Register 0
+                              00000001  00000001    84+R1       EQU   1     General Register 1
+                              00000002  00000001    85+R2       EQU   2     General Register 2
+                              00000003  00000001    86+R3       EQU   3     General Register 3
+                              00000004  00000001    87+R4       EQU   4     General Register 4
+                              00000005  00000001    88+R5       EQU   5     General Register 5
+                              00000006  00000001    89+R6       EQU   6     General Register 6
+                              00000007  00000001    90+R7       EQU   7     General Register 7
+                              00000008  00000001    91+R8       EQU   8     General Register 8
+                              00000009  00000001    92+R9       EQU   9     General Register 9
+                              0000000A  00000001    93+R10      EQU   10    General Register 10
+                              0000000B  00000001    94+R11      EQU   11    General Register 11
+                              0000000C  00000001    95+R12      EQU   12    General Register 12
+                              0000000D  00000001    96+R13      EQU   13    General Register 13
+                              0000000E  00000001    97+R14      EQU   14    General Register 14
+                              0000000F  00000001    98+R15      EQU   15    General Register 15
+
+                                                   100+* Control Registers
+                              00000000  00000001   101+C0       EQU   0     Control Register 0
+                              00000001  00000001   102+C1       EQU   1     Control Register 1
+                              00000002  00000001   103+C2       EQU   2     Control Register 2
+                              00000003  00000001   104+C3       EQU   3     Control Register 3
+                              00000004  00000001   105+C4       EQU   4     Control Register 4
+                              00000005  00000001   106+C5       EQU   5     Control Register 5
+                              00000006  00000001   107+C6       EQU   6     Control Register 6
+                              00000007  00000001   108+C7       EQU   7     Control Register 7
+                              00000008  00000001   109+C8       EQU   8     Control Register 8
+                              00000009  00000001   110+C9       EQU   9     Control Register 9
+                              0000000A  00000001   111+C10      EQU   10    Control Register 10
+                              0000000B  00000001   112+C11      EQU   11    Control Register 11
+                              0000000C  00000001   113+C12      EQU   12    Control Register 12
+                              0000000D  00000001   114+C13      EQU   13    Control Register 13
+                              0000000E  00000001   115+C14      EQU   14    Control Register 14
+                              0000000F  00000001   116+C15      EQU   15    Control Register 15
+                                                   117+*
+                                                   118+*  GENERAL REGISTER USAGE
+                                                   119+*
+                                                   120+*   R0 -  not used, but Assigned Storage Area base register for assembler
+                                                   121+*   R1 -  I/O device address for initiating I/O (same as IPLDEV)
+                                                   122+*   R2 -  I/O Subchannel Status Word base address
+                                                   123+*   R3 -  Relocation adjustment added to addresses (RELOFAC mirrors)
+                                                   124+*   R4 -  Available high memory locations as allocated (AVAILMEM mirrors)
+                                                   125+*      -  Work register during TXT loading
+                                                   126+*   R5 -  Work register during TXT loading
+                                                   127+*   R6 -  Work register during TXT loading
+                                                   128+*   R7 -  Work register during TXT loading
+                                                   129+*   R8 -  TXT data residence address
+                                                   130+*   R9 -  TXT data length
+                                                   131+*   R10 - not used
+                                                   132+*   R11 - DUMMY DSECT base register
+                                                   133+*   R12 - XCARD CSECT base register
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER ***                                                     21 Nov 2020 04:41:55  Page     4
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                   134+*   R13 - CLEANUP base register
+                                                   135+*   R14 - Page 0 Surrogate base register
+                                                   136+*   R15 - Page 0 length
+                              00000400  000007B7   137+XCARDRGN START X'400',XCARD    Start a region for the boot loader itself
+                                                   138+* This results in XCARD.bin being created in the list directed IPL directory
+00000400                      00000000             139+         USING ASA,R0          Give me instruction access to the ASA CSECT
+00000400  0DC0                                     140+PGMSTART BASR  R12,0           Establish my base register
+00000402                      00000402             141+         USING *,R12           Tell the assembler
+
+                                                   143+* Ensure program is not re-entered by a console initiated restart while
+                                                   144+* loading a program.
+                                                   145+*
+                                                   146+* Address 0 changed from its absolute storage role (IPL PSW) to its real
+                                                   147+* storage role (Restart New PSW) after the IPL.
+00000402  D207 0000 C326      00000000  00000728   148+         MVC   RSTNPSW,RSTTRAP
+00000408  D227 0058 C32E                00000730   149+         MVC   EXTNPSW(L'TRAPS),TRAPS  Set other interruption traps
+
+
+
+                                                   151+*
+                                                   152+*  Determine memory size of the environment
+                                                   153+*
+0000040E  5850 C252                     00000654   154+         L     R5,SCCBADDR   Tell the macro where to place the SCCB
+00000412  5840 C07A                     0000047C   156+         L     R4,MSZC0005       Set SERVC command for SCP information
+00000416                      00000000             157+         USING SCCB,R4+1         Address the SCCB area
+                                                   158+* Clear the header to zeros
+00000416  D707 5000 5000                00000000   159+         XC    SCCB(SCCBLEN),SCCB
+                                                   160+* Initialize the SCCB for the service call
+0000041C  D202 5000 C082                00000484   161+         MVC   SCCBL(L'SCCBL+1),MSZL0005     Length=4096 of synchronous call
+                                                   162+* Read the SCP information
+00000422  B220 0045                                163+         SERVC R4,R4+1
+00000426  D501 5006 C085      00000006  00000487   164+         CLC   SCCBRSP,MSZR0005      Was the request successful?
+0000042C  A774 0140                     000006AC   165+         $BNE  MEMSZBAD              ..No, pass control for error
+                                                   166+* SCP data is now in the SCCB
+00000430  4150 5008                     00000008   167+         LA    R4+1,SCCBDATA         Point to the start of the SCP information
+00000434                      00000000             168+         USING SCP,R4+1              Can now access the SCP information
+00000434  1B66                                     169+         $SR   R6,R6                 Make sure register is zero
+00000436  1876                                     170+         $LR   R6+1,R6               ..and its other one.
+00000438  9500 5002                     00000002   171+         CLI   SCPIS,X'00'           Are we using SCPZI?
+0000043C  A784 0006                     00000448   172+         $BE   MSZZ0005              ..Yes, SCPIS is zero
+00000440  4360 5002                     00000002   173+         IC    R6,SCPIS              ..No, get storage increment size in MB's
+00000444  A7F4 0004                     0000044C   174+         $B    MSZY0005              Bypass use of SCPZI
+00000448  5860 505C                     0000005C   175+MSZZ0005 L     R6,SCPZI              Get increment size in MB's from Z field
+                              0000044C  00000001   176+MSZY0005 EQU   *
+0000044C  D207 C24A 5010      0000064C  00000010   177+         MVC   LOADPARM(8),SCPLP     Save the LOADPARM data
+00000452  4C60 5000                     00000000   178+         MH    R6,SCPII              Megabytes from number of increments
+00000456  5560 C076                     00000478   179+         CL    R6,MSZE0005           Is memory larger than 31-bit can handle?
+0000045A  47D0 C060                     00000462   180+         BNH   MSZA0005              ..No, use what SERVC told us
+0000045E  5860 C076                     00000478   181+         L     R6,MSZE0005           ..Yes, set to max megabytes (2,048==2G)
+00000462  8960 0014                     00000014   182+MSZA0005 SLL   R6,20                 Convert to bytes from megabytes
+00000466  1846                                     183+         LR    R4,R6                 Move bytes to register R1
+00000468  1854                                     184+         LR    R4+1,R4               Get memory size
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER ***                                                     21 Nov 2020 04:41:55  Page     5
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+0000046A                                           185+         DROP  R4+1                  Forget access to SCP data
+0000046A  5F50 C07E                     00000480   186+         SL    R4+1,MSZ10005      Subtract 1, &R1+1 is now last memory address
+0000046E  010D                                     187+         SAM31 ,            Make sure we are accessing all memory
+                                                   188+* Last sanity check on the results...
+00000470  9500 5000                     00000000   189+         CLI   0(R4+1),X'00'   This should not result in a program interruption
+                                                   190+* This should not result in a program interruption. Hence, the sanity check.
+00000474  A7F4 000B                     0000048A   191+         $B    MSZD0005               Leave the macro
+00000478  00000800                                 192+MSZE0005 DC    A(X'800')  Maximum memory size for 31-bit addressing system
+0000047C  00020001                                 193+MSZC0005 DC    A(SRSCP)   Command to read System Control Program information
+00000480  00000001                                 194+MSZ10005 DC    F'1'       Constant of 1.
+00000484  100080                                   195+MSZL0005 DC    HL2'4096',AL1(SCCBFS)  Size of SCCB in use. Synchronous command
+00000487  0010                                     196+MSZR0005 DC    AL1(SCCVROK,SCCBCIR)   Good response for this command
+0000048A                                           197+MSZD0005 DC    0H                     Exit the macro here
+                                                   198+* R4 contains the number of bytes of system memory available
+                                                   199+* R5 contains the last memory address of the system (R4 less 1)
+                                                   200+* 31-bit addressing after MEMSZ
+0000048A  5040 C286                     00000688   201+         ST    R4,MEMSIZE    Remember how much memory is in the system
+
+
+
+                                                   203+*
+                                                   204+*  Determine where to move XCARD in memory, copy myself to it, and
+                                                   205+*  pass control to the copy.
+                                                   206+*
+0000048E  5F40 C266                     00000668   207+         SL    R4,XCARDALC   Point to where XCARD is to be moved and
+00000492  5040 C28A                     0000068C   208+         ST    R4,AVAILMEM   Amount of available memory
+                                                   209+*                            sets the MVCLE destination address
+00000496  5040 C28E                     00000690   210+         ST    R4,XCARDCPY  Remember to where I am moving myself
+0000049A  1834                                     211+         LR    R3,R4        Get a copy of where XCARD is moving
+0000049C  5860 C25A                     0000065C   212+         L     R6,XCARDIPL  This is where XCARD was IPL'd and
+                                                   213+*                           sets the MVCL source address
+
+000004A0  1F36                                     215+         SLR   R3,R6        Calculate the relocation adjustment of XCARD
+000004A2  5030 C292                     00000694   216+         ST    R3,RELOFAC   Save it for any later use
+
+000004A6  5850 C25E                     00000660   218+         L     R5,XCARDSIZ  Only move the size of the region (w/o dummy memory)
+000004AA  1875                                     219+         LR    R7,R5        Set the source length to be the same
+000004AC  A846 0000                     00000000   220+MVCLE2   MVCLE 4,6,0        Copy myself to the high end of memory
+000004B0  4710 C0AA                     000004AC   221+         BC    B'0001',MVCLE2     If not done, continue with MVCLE
+000004B4  4760 C2B2                     000006B4   222+         BC    B'0110',UNEQMOVE   Source and destination lengths not equal
+                                                   223+* Note: Registers 4-7 are all altered by the MVCLE instruction.
+                                                   224+* Successfully moved XCARD to its new memory location
+
+000004B8  1EC3                                     226+         ALR   R12,R3       Relocate the base register to its new address
+000004BA  47F0 C0BC                     000004BE   227+         B     *+4          Branch into XCARD copy
+                                                   228+* The preceding branch appears to simply go to the next instruction.  But,
+                                                   229+* in reality it branches to the next instruction in the copied program
+                                                   230+* because the ALR changed the base register to that required in the high
+                                                   231+* memory copy of XCARD.
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER ***                                                     21 Nov 2020 04:41:55  Page     6
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                   233+*
+                                                   234+**** EVERYTHING PRECEDING THIS LINE OCCURS IN THE IPL LOCATIONS OF XCARD
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER ***                                                     21 Nov 2020 04:41:55  Page     7
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                   236+**** EVERYTHING FOLLOWING THIS LINE OCCURS IN THE XCARD HIGH MEMORY COPY
+                                                   237+*
+
+
+
+                                                   239+*
+                                                   240+*  Establish addressability to DUMMY DSECT for memory used but not
+                                                   241+*  physically part of the XCARD card deck content and initialize it
+                                                   242+*
+
+000004BE  41B0 C3B6                     000007B8   244+         LA    R11,DUMMYMEM  Establish addressing..
+000004C2                      00000000             245+         USING DUMMY,R11     ..to dynamically used memory outside of IPL deck
+
+000004C2  D20B B004 00B8      00000004  000000B8   247+         MVC   IPLDEVI,IOSSID   Remember the the IPL device information
+
+                                                   249+* Update dynamically relocated addresses or addresses within the DUMMY DSECT
+000004C8  4100 B012                     00000012   250+         LA    R0,CARDDATA       Locate the card I/O area in the DUMMY DSECT
+000004CC  5000 C282                     00000684   251+         ST    R0,XCARDCCA       Place it in the read channel program
+000004D0  4100 C27E                     00000680   252+         LA    R0,XCARDCP        Locate the card channel program (its moved)
+000004D4  5000 C276                     00000678   253+         ST    R0,XCARDCPA       Place it in the ORB
+000004D8  4100 C13A                     0000053C   254+         LA    R0,IOINT          Locate my interruption handling code
+000004DC  5000 C2A2                     000006A4   255+         ST    R0,IOINTRPT+4     Place it in the I/O New PSW
+000004E0  9680 C2A2                     000006A4   256+         OI    IOINTRPT+4,X'80'  Make the PSW do 31-bit address mode
+
+                                                   258+* Clean up SCCB area before going on.  Have everything needed from it.
+                                                   259+*
+                                                   260+* NEED TO ADD CODE TO CLEAN UP FROM x'1000' IF XCARD EXTENDS BEYOND THIS
+                                                   261+* ADDRESS.
+000004E4  9845 C252                     00000654   262+         LM    R4,R5,SCCBADDR  Set destination address and page size as length
+000004E8  1864                                     263+         LR    R6,R4           Calculate the source address by..
+000004EA  1E65                                     264+         ALR   R6,R5           ..adding the page length to it
+000004EC  1B77                                     265+         SR    R7,R7           Source length is zero bytes, so destination padded
+000004EE  A846 0000                     00000000   266+MVCLE1   MVCLE R4,R6,0         Clear SERVC page for use by booted program
+000004F2  4710 C0EC                     000004EE   267+         BC    B'0001',MVCLE1   If not done, continue with MVCLE
+                                                   268+* Note: Registers 4-6 are all altered by the MVCLE instruction.  Register
+                                                   269+* 7 remains zero.
+
+
+
+                                                   271+*
+                                                   272+*  Allocate the surrogate page 0 used during the boot loader process.  The
+                                                   273+*  surrogate page is used while loading any object module content into the
+                                                   274+*  first page.  This allows the booted object module to initialize page
+                                                   275+*  0 while XCARD uses page 0 for its purposes.
+                                                   276+*
+                                                   277+*  Before transferring control to the booted program, XCARD will replace
+                                                   278+*  the content of physical page 0 (the content XCARD makes use of for I/O) with
+                                                   279+*  the contents of the surrogate page.
+                                                   280+*
+000004F6  5840 C28A                     0000068C   281+         L     R4,AVAILMEM   Fetch available memory (high to low)
+000004FA  5F40 C256                     00000658   282+         SL    R4,PAGELEN    Allocate a page ahead of XCARD for Surrogate Page 0
+000004FE  5040 C28A                     0000068C   283+         ST    R4,AVAILMEM   Update available memory
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER ***                                                     21 Nov 2020 04:41:55  Page     8
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+00000502  5040 B000                     00000000   284+         ST    R4,PAGE0      Establish address of the Surrogate Page 0
+00000506  18E4                                     285+         LR    R14,R4        Establish Surrogate Page 0 base register
+                                                   286+* No formal USING statement is used when Page 0 is loaded from the booted
+                                                   287+* object module.  All such moves are performed dynamically using an EXECUTE
+                                                   288+* instruction.
+
+                                                   290+* Cause transfer to end with an error condition if this PSW is not overlayed
+                                                   291+* by the booted object module.
+00000508  D207 E000 C31E      00000000  00000720   292+         MVC   0(R8,14),ENDBAD
+                                                   293+* The only content moved to Surrogate Page 0 that is not from the object
+                                                   294+* module.
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER *** OBJECT MODULE BOOTING                               21 Nov 2020 04:41:55  Page     9
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+0000050E  B766 C26A                     0000066C   296+         LCTL  C6,C6,ENAINT Enable all device subclasses for interrupts
+00000512  5810 B004                     00000004   297+         L     R1,IPLDEV    Set the IPL device as the target of the I/O
+00000516  4120 B064                     00000064   298+         LA    R2,IOSCSW    Point to the SCSW stored by TEST SUBCHANNEL (TSCH)
+0000051A                      00000000             299+         USING SCSW,R2      Address the SCSW
+0000051A  1B88                                     300+         SR    R8,R8        Make sure TXT data address register is zero
+
+
+
+0000051C                                           302+IOLOOP   DS    0H   I/O loop that processes the booted object module's content
+0000051C  D701 B010 B010      00000010  00000010   303+         XC    IOSTATUS,IOSTATUS   Clear accumulated status at I/O start
+00000522  B233 C26E                     00000670   304+         SSCH  XCARDORB    Try starting I/O operation to read from device
+00000526  4780 C130                     00000532   305+         BC    B'1000',WAIT           CC=0 wait for results...
+0000052A  4720 C2CE                     000006D0   306+         BC    B'0010',BUSY           CC=2 subchannel is busy
+                                                   307+*                                     It has a previous start, halt or clear
+                                                   308+*                                     function in progress.  Should not happen
+0000052E  4710 C2BA                     000006BC   309+         BC    B'0001',NOTOPERS       CC=3 device not available
+                                                   310+*                                     Should not happen.  Device was enabled
+                                                   311+*        BC    B'0100',FALL THROUGH   CC=1 subchannel has pending status?
+
+                                                   313+* Wait for I/O interruption from successful I/O operation start
+00000532  D207 0078 C29E      00000078  000006A0   314+WAIT     MVC   IONPSW,IOINTRPT   Set new PSW for the I/O interruption
+00000538  8200 C296                     00000698   315+         LPSW  IOWAIT            Wait for the I/O interruption
+0000053C                                           316+IOINT    DS    0H   I/O interrupt happened, continue with I/O examination
+                                                   317+* I/O New PSW disables I/O interruptions
+0000053C  D207 0078 C34E      00000078  00000750   318+         MVC   IONPSW,IOTRAP     Reset the I/O trap new PSW (just in case)
+
+                                                   320+* I/O interrupt occurred.  Get the status
+00000542  B235 B064                     00000064   321+         TSCH  IOIRB             Save the SCSW (and rest of IRB)
+00000546  4780 C154                     00000556   322+         BC    B'1000',HAVSTAT   CC=0, IRB has been stored with status (normal)
+0000054A  4710 C2C2                     000006C4   323+         BC    B'0001',NOTOPERT  CC=3, Device is not operational
+0000054E  4740 C2DA                     000006DC   324+         BC    B'0100',NOSTAT    CC=1, IRB stored for a reason other than status
+00000552  4720 C2E2                     000006E4   325+         BC    B'0010',NOTOCCUR  CC=2, Never presented by TEST SUBCHANNEL (TSCH)
+
+00000556                                           327+HAVSTAT  DS    0H   Proceed to check the returned status
+00000556  D503 00B8 B004      000000B8  00000004   328+         CLC   IOSSID,IPLDEV     Did the interrupt come from the IPL device?
+0000055C  4770 C130                     00000532   329+         BNE   WAIT              ..No, so wait for it
+00000560  D601 B010 2008      00000010  00000008   330+         OC    IOSTATUS,SCSWUS   Merge in the latest status
+00000566  91FF B011                     00000011   331+         TM    IOCHAN,X'FF'      Any channel errors?
+0000056A  4770 C2F6                     000006F8   332+         BNZ   CHANERR           ..Yes, report the errors
+0000056E  91F2 B010                     00000010   333+         TM    IOUNIT,X'F2'      Any unit errors?
+00000572  4770 C304                     00000706   334+         BNZ   UNITERR           ..Yes, report the errors
+00000576  9101 B010                     00000010   335+         TM    IOUNIT,X'01'      Physical end-of-file condition?
+0000057A  4710 C312                     00000714   336+         BO    EOFFOUND          ..Yes, report it, can't do any more.
+0000057E  910C B010                     00000010   337+         TM    IOUNIT,X'0C'      Channel End and Device End present?
+00000582  47E0 C130                     00000532   338+         BNO   WAIT              ..No, wait for another interruption
+
+
+
+                                                   340+* I/O COMPLETED SUCCESSFULLY - PROCESS THE INPUT DATA
+00000586  D503 B012 C242      00000012  00000644   341+         CLC   OBJID,TXTID      Is this a TXT record?
+0000058C  4780 C19C                     0000059E   342+         BE    TEXT             ..Yes, load TXT record content
+00000590  D503 B012 C246      00000012  00000648   343+         CLC   OBJID,ENDID      Is this an END record?
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER *** OBJECT MODULE BOOTING                               21 Nov 2020 04:41:55  Page    10
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+00000596  4780 C212                     00000614   344+         BE    ENTER            ..Yes, done loading, enter booted object module
+                                                   345+*                               Ignore ESD or RLD records if present
+0000059A  47F0 C11A                     0000051C   346+         B     IOLOOP           ..No, read another record
+
+
+
+0000059E                                           348+TEXT     DS    0H    Process the TXT record content
+0000059E  BF87 B017                     00000017   349+         ICM   R8,B'0111',OBJADDR     Get the TXT data residence address
+
+
+
+                                                   351+* Load TXT data to memory
+                                                   352+*   R8 - TXT data residence address
+                                                   353+*   R9 - Number of bytes of TXT data
+                                                   354+*   R10 - Ending address of the TXT data
+000005A2  4890 B01C                     0000001C   355+         LH    R9,OBJBYTES      Fetch TXT data length
+000005A6  41A9 8000                     00000000   356+         LA    R10,0(R9,R8)     Calculate the ending address
+000005AA  15AE                                     357+         CLR   R10,R14          Does data overlay XCARD or Surrogate Page 0?
+000005AC  4720 C2EE                     000006F0   358+         BH    OVERLAY          ..Yes, exit XCARD with an error (010020)
+000005B0  5580 C256                     00000658   359+         CL    R8,PAGE0ADR      Data in Page 0?
+000005B4  4740 C1C6                     000005C8   360+         BL    PAGE0DAT         ..Yes, --> process Page 0 data for surrogate
+000005B8  0690                                     361+         BCTR  R9,0             Decrement value by 1 for execute
+000005BA  4490 C1C0                     000005C2   362+         EX    R9,LOADTXT       Move the TXT data to memory
+000005BE  47F0 C11A                     0000051C   363+         B     IOLOOP           Process next input record
+
+000005C2  D200 8000 B022      00000000  00000022   365+LOADTXT  MVC   0(0,R8),OBJTEXT     Move TXT object module data to memory
+
+
+
+                                                   367+* Move Page 0 data to Page 0 Surrogate
+                                                   368+* On entry from TEXT routine
+                                                   369+*  R8 - TXT data destination address
+                                                   370+*  R9 - TXT data length
+                                                   371+*  R10 - Ending address of the TXT data
+000005C8                                           372+PAGE0DAT DS    0H
+000005C8  55A0 C256                     00000658   373+         CL    R10,PAGE0ADR     Is TXT data split between Surrogate and memory
+000005CC  4720 C1E2                     000005E4   374+         BH    SPLIT            ..Yes, --> need to split the data
+000005D0  41A8 E000                     00000000   375+         LA    R10,0(R8,R14)    Calculate the Page 0 Surrogate address
+000005D4  0690                                     376+         BCTR  R9,0             Decrement by 1 for EXECUTE
+000005D6  4490 C1DC                     000005DE   377+         EX    R9,LOADSURR      ..No, just move it the Surrogate then
+000005DA  47F0 C11A                     0000051C   378+         B     IOLOOP           Process next input record
+
+000005DE  D200 A000 B022      00000000  00000022   380+LOADSURR MVC   0(0,R10),OBJTEXT    Move TXT object module data to surrogate
+
+
+
+                                                   382+* Split Page 0 data betweem the Page 0 Surrogate and memory
+                                                   383+* On entry from PAGE0DAT routine
+                                                   384+*  R8 - TXT data destination address
+                                                   385+*  R9 - TXT data length
+                                                   386+*  R10 - Ending address of TXT data (in regular memory, not page 0)
+                                                   387+* During execution
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER *** OBJECT MODULE BOOTING                               21 Nov 2020 04:41:55  Page    11
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                   388+*  R4 - TXT data length in regular memory
+                                                   389+*  R5 - TXT data length in Page 0 memory
+                                                   390+*  R6 - Source of TXT data destined for regular memory
+                                                   391+*  R7 - Destination of TXT data destined for regular memory (X'1000')
+000005E4                                           392+SPLIT    DS    0H
+                                                   393+* Move High End of split TXT data to regular memory
+000005E4  5870 C256                     00000658   394+         L     R7,PAGE0ADR   Start of regular memory
+000005E8  184A                                     395+         LR    R4,R10        Fetch the ending of data in memory
+000005EA  1F47                                     396+         SLR   R4,R7         Calculate the number of bytes in memory
+000005EC  1859                                     397+         LR    R5,R9         Fetch the total bytes to be loaded
+000005EE  1F54                                     398+         SLR   R5,R4         Calculate the number of bytes in Page 0
+000005F0  4165 B022                                399+         LA    R6,OBJTEXT(5) Source of high end piece in TXT record
+000005F4  0640                                     400+         BCTR  R4,0          Decrement by one for EXECUTE
+000005F6  4440 C20C                     0000060E   401+         EX    R4,SPLITHI    Move the high piece to regular memory
+
+                                                   403+* Move Low End of the split TXT data to the Page 0 Surrogate
+                                                   404+* On entry from above logic moving high end piece of TXT
+                                                   405+*  R4 - TXT data length in regular memory
+                                                   406+*  R5 - TXT data length in Page 0 memory
+                                                   407+*  R6 - Source of TXT data destined for regular memory
+                                                   408+*  R7 - Destination of TXT data destined for regular memory (X'1000')
+                                                   409+*  R8 - TXT data destination address
+                                                   410+*  R9 - TXT data length
+                                                   411+*  R10 - Destination address of low end piece in Page 0 Surrage
+000005FA  41A8 E000                     00000000   412+         LA    R10,0(R8,R14)    Calculate the Surrogate destination address
+000005FE  0650                                     413+         BCTR  R5,0             Decrement by 1 for the EXECUTE
+00000600  4450 C206                     00000608   414+         EX    R5,SPLITLO       Move low end piece to the Page 0 Surrogate
+00000604  47F0 C11A                     0000051C   415+         B     IOLOOP
+
+00000608  D200 A000 B022      00000000  00000022   417+SPLITLO  MVC   0(0,R10),OBJTEXT  Moves low end of TXT data to Page 0 Surrogate
+0000060E  D200 7000 6000      00000000  00000000   418+SPLITHI  MVC   0(0,R7),0(R6)  Moves high end part of TXT data to regular memory
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER *** TRANSFER OF CONTROL                                 21 Nov 2020 04:41:55  Page    12
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+00000614                                           420+ENTER    DS    0H    Enter the booted object module
+00000614  B766 C356                     00000758   421+         LCTL  C6,C6,CLEANUPZ    Clear control register 6
+00000618  D20B E0B8 B004      000000B8  00000004   422+         MVC   IOSSID-ASA(L'IPLDEVI,14),IPLDEVI   Pass IPL device information
+0000061E  1B44                                     423+         SR    R4,R4       Set destination address to start of physical Page 0
+00000620  5850 C256                     00000658   424+         L     R5,PAGELEN  Set destination length to a page (4096)
+00000624  18F5                                     425+         LR    R15,R5      Set the source length to a page (4096)
+                                                   426+* Use the Page 0 Surrogate base register as the source address
+00000626  A84E 0000                     00000000   427+MVCLE3   MVCLE R4,R14,0    Move Page 0 Surrogate to Physical page 0
+0000062A  4710 C224                     00000626   428+         BC    B'0001',MVCLE3   If not done, continue with MVCLE
+                                                   429+* WARNING: Registers 4, 5, 14, and 15 are altered by MVCLE
+
+                                                   431+*
+                                                   432+*  Booted object module is now completely loaded in memory at its locations.
+                                                   433+*  XCARD must not ALTER any addresses in Physical Page 0, X'0'-X'0FFF',
+                                                   434+*  from this point onward.
+                                                   435+*
+
+
+
+
+                                                   438+* Move the clean up code at the end of XCARD to the end of memory
+0000062E  58D0 C286                     00000688   439+         L     R13,MEMSIZE    Fetch the size of memory
+00000632  5FD0 C262                     00000664   440+         SL    R13,CLEANSIZ   Locate where clean up logic is placed
+00000636  41A0 C356                     00000758   441+         LA    R10,CLEANUP    Determine where clean up logic is in XCARD
+                                                   442+* R13 becomes the clean up code base register
+0000063A  D25F D000 C356      00000000  00000758   443+         MVC   0(CLEANUPA,R13),CLEANUP   CLEANUP IS NOW AT THE END OF MEMORY
+00000640  47F0 D034                     00000034   444+         B     CLEANUPX-CLEANUP(,R13)    Enter the clean up logic w/R13
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER *** PROGRAM DATA                                        21 Nov 2020 04:41:55  Page    13
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                   446+*
+                                                   447+*  XCARD program data
+                                                   448+*
+
+00000644  02E3E7E3                                 450+TXTID    DC    XL1'02',CL3'TXT'    TXT object module record id
+00000648  02C5D5C4                                 451+ENDID    DC    XL1'02',CL3'END'    END object module record id
+0000064C  00000000 00000000                        452+LOADPARM DC    XL8'00'      LOADPARM data from MEMSZ (when available)
+00000654  00001000                                 453+SCCBADDR DC    A((L'XCARD+4095)/4096*4096)  Loacation of SERVC SCCB data
+                                                   454+* The page used for SCCB will be reset to all binary zeros during clean up.
+00000658  00001000                                 455+PAGELEN  DC    A(X'1000')   Size of a single page, or..
+                              00000658  00000004   456+PAGE0ADR EQU   PAGELEN,4    ..Memory address following page 0
+0000065C  00000400                                 457+XCARDIPL DC    A(XCARD)     Start of XCARD at IPL
+00000660  000003B8                                 458+XCARDSIZ DC    A(L'XCARD)   Length of the XCARD region
+00000664  00000060                                 459+CLEANSIZ DC    A(CLEANUPA)  Length of the clean up code
+                                                   460+* This is the number of bytes to allocate at high memory for XCARD and the
+                                                   461+* DUMMY memory area.  It is rounded up to the next higher page boundary.
+00000668  00001000                                 462+XCARDALC DC    A((L'XCARD+L'DUMMY+4095)/4096*4096)
+
+
+
+                                                   464+*
+                                                   465+*  Input/Output Related Data
+                                                   466+*
+0000066C                                           467+         DS    0F
+0000066C  FF000000                                 468+ENAINT   DC    XL4'FF000000'   Enables all device subclasses for interrupts
+
+00000670                                           470+XCARDORB DS    0F  XCARD I/O Operation Request Block
+00000670  E7C3D9C4                                 471+         DC    CL4'XCRD'    ORB Interruption parameter
+00000674  00                                       472+         DC    AL1(X'00')   ORB Key and S, C, M, Y controls
+00000675  80                                       473+         DC    AL1(X'80')   ORB F, P, I, A, U, H, T controls (CCW1's used)
+00000676  FF                                       474+         DC    AL1(X'FF')   ORB Logical Path Mask (any and all paths eligible)
+00000677  00                                       475+         DC    AL1(X'00')   ORB L, X controls (three word ORB used)
+00000678  00000000                                 476+XCARDCPA DC    AL4(0)       ORB Channel Program Address (set dynamically)
+
+                                                   478+* Card Reader or Tape read command.
+00000680                                           479+XCARDCP  DS    0D
+                                                   480+*        CCW   X'02',OBJREC,0,80  Single card or tape record read
+00000680  02                                       481+XCARDCCC DC    XL1'02'            Read channel command
+00000681  00                                       482+XCARDCCF DC    XL1'00'            CCW flags
+00000682  0050                                     483+XCARDCCL DC    AL2(L'CARDDATA)    I/O area length
+00000684  00000000                                 484+XCARDCCA DC    AL4(0)             I/O area address (set dynamically)
+
+
+
+                                                   486+* Dynamically managed memory locations
+00000688  00000000                                 487+MEMSIZE  DC    A(0)         Size of system memory
+0000068C  00000000                                 488+AVAILMEM DC    A(0)         Size of currently available memory
+00000690  00000000                                 489+XCARDCPY DC    A(0)         Location to which XCARD is moved by MVCL(E)
+00000694  00000000                                 490+RELOFAC  DC    F'0'         Address relocation factor adjustment
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER *** PSWs AND EXIT CONDITIONS                            21 Nov 2020 04:41:55  Page    14
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                   492+*
+                                                   493+*  XCARD Program Status Words and exit conditions
+                                                   494+*
+
+                                                   496+* Program Status Words
+00000698  020A0000 00000001                        497+IOWAIT   PSW   X'02',0,2,0,1     Wait for I/O interruption (enabled wait)
+000006A0  00080000 00000000                        498+IOINTRPT PSW   0,0,0,0,0      I/O New PSW for interrupt (addr set dynamically)
+                                                   499+* Exit conditions
+000006A8  8200 C31E                     00000720   500+NOTRANFR LPSW  ENDBAD   Use default PSW abend code of 010000 (SHOULD NOT OCCUR)
+
+                                                   502+* MEMSZ macro failed to executue.  Size of memory not determined
+000006AC  9204 C325                     00000727   503+MEMSZBAD MVI   ENDBAD+7,X'04'   Set PSW abend code to 010004
+000006B0  8200 C31E                     00000720   504+         LPSW  ENDBAD
+
+                                                   506+* Copy of XCARD requires equal source and destination lengths. Lengths not equal
+000006B4  9208 C325                     00000727   507+UNEQMOVE MVI   ENDBAD+7,X'08'   Set PSW abend code to 010008
+000006B8  8200 C31E                     00000720   508+         LPSW  ENDBAD
+
+                                                   510+* IPL device is not operational or available (should not occur, but it did)
+000006BC  9233 C324                     00000726   511+NOTOPERS MVI   ENDBAD+6,X'33'   Set START SUBCHANNEL as error source
+000006C0  47F0 C2C6                     000006C8   512+         B     NOTOPER
+000006C4  9235 C324                     00000726   513+NOTOPERT MVI   ENDBAD+6,X'35'   Set TEST SUBCHANNEL as error source
+000006C8  9210 C325                     00000727   514+NOTOPER  MVI   ENDBAD+7,X'10'   Set PSW abend code to 01xx10
+000006CC  8200 C31E                     00000720   515+         LPSW  ENDBAD
+
+                                                   517+* IPL device is busy when trying to start the I/O (should not occur, but it did)
+000006D0  9233 C324                     00000726   518+BUSY     MVI   ENDBAD+6,X'33'   Set START SUBCHANNEL as error source
+000006D4  9214 C325                     00000727   519+         MVI   ENDBAD+7,X'14'   Set PSW abend code to 013314
+000006D8  8200 C31E                     00000720   520+         LPSW  ENDBAD
+
+000006DC  9235 C324                     00000726   522+NOSTAT   MVI   ENDBAD+6,X'35'   Set TEST SUBCHANNEL as error source
+000006E0  9218 C325                     00000727   523+         MVI   ENDBAD+7,X'18'   Set PSW abend code to 013518
+
+                                                   525+* Condition code 2 from TEST SUBCHANNEL impossible, so must be bug
+000006E4  9235 C324                     00000726   526+NOTOCCUR MVI   ENDBAD+6,X'35'   Set TEST SUBCHANNEL as error source
+000006E8  921C C325                     00000727   527+         MVI   ENDBAD+7,X'1C'   Set PSW abend code to 01351C
+000006EC  8200 C31E                     00000720   528+         LPSW  ENDBAD
+
+000006F0  9220 C325                     00000727   530+OVERLAY  MVI   ENDBAD+7,X'20'   Set PSW abend code to 010020
+000006F4  8200 C31E                     00000720   531+         LPSW  ENDBAD
+
+                                                   533+* Channel errors reported in status portion of the abend code:
+                                                   534+*        -  X'80' - Program Controlled Interruption
+                                                   535+*        -  X'40' - Incorrect Length
+                                                   536+*        -  X'20' - Program check
+                                                   537+*        -  X'10' - Protection check
+                                                   538+*        -  X'08' - Channel-data check
+                                                   539+*        -  X'04' - Channel-control check
+                                                   540+*        -  X'02' - Interface-control check
+                                                   541+*        -  X'01' - Chaining check
+000006F8  D200 C324 B011      00000726  00000011   542+CHANERR  MVC   ENDBAD+6(1),IOCHAN   Report channel errors
+000006FE  9224 C325                     00000727   543+         MVI   ENDBAD+7,X'24'   Set PSW abend code to 01xx24
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER *** PSWs AND EXIT CONDITIONS                            21 Nov 2020 04:41:55  Page    15
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+00000702  8200 C31E                     00000720   544+         LPSW  ENDBAD
+
+                                                   546+* Unit errors reported in status portion of the abend code
+                                                   547+*        -  X'80' - Attention
+                                                   548+*        -  X'40' - Status Modifier
+                                                   549+*        -  X'20' - Control-unit End
+                                                   550+*        -  X'10' - Busy
+                                                   551+*        -  X'02' - Unit check (SENSE data available)
+                                                   552+* Considered normal responses for a card reader or tape device:
+                                                   553+*        -  X'0C' - Channel End and device End combined is normal I/O
+                                                   554+*        -  X'08' - Channel End
+                                                   555+*        -  X'04' - Device End
+                                                   556+*        -  X'01' - Unit exception - signals physical end-of-file.
+00000706  D200 C324 B010      00000726  00000010   557+UNITERR  MVC   ENDBAD+6(1),IOUNIT   Report unit errors
+0000070C  9228 C325                     00000727   558+         MVI   ENDBAD+7,X'28'   Set PSW abend code to 01xx28
+00000710  8200 C31E                     00000720   559+         LPSW  ENDBAD
+
+00000714  D207 C325 002C      00000727  0000002C   561+EOFFOUND MVC   ENDBAD+7,X'2C'   Set PSW abend code to 01002C
+0000071A  8200 C31E                     00000720   562+         LPSW  ENDBAD
+
+00000720  000A0000 00010000                        565+ENDBAD   PSW   0,0,2,0,X'010000'
+
+                                                   567+* These PSW's depend upon the current XMODE PSW setting.
+00000728  000A0000 00000008                        568+RSTTRAP  PSW   0,0,2,0,X'08'  Restart New PSW trap.  Points to Restart Old PSW
+00000730                                           569+TRAPS    DS    0XL40
+00000730  000A0000 00000018                        570+         PSW   0,0,2,0,X'18'  External New PSW trap. Points to External New PSW
+00000738  000A0000 00000020                        571+         PSW   0,0,2,0,X'20'  SVC Call New PSW trap. Points to SVC Call Old PSW
+00000740  000A0000 00000028                        572+         PSW   0,0,2,0,X'28'  Program New PSW trap. Points to Program Old PSW
+00000748  000A0000 00000030                        573+         PSW   0,0,2,0,X'30'  Mach Ck New PSW trap. Points to Mach Ck Old PSW
+00000750  000A0000 00000038                        574+IOTRAP   PSW   0,0,2,0,X'38'  I/O New PSW trap. Points to I/O Old PSW
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER *** FINAL CLEANUP AND MODULE ENTRY                      21 Nov 2020 04:41:55  Page    16
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                   576+*
+                                                   577+*  This snippet of code is moved to end of memory for execution.  The XCARD
+                                                   578+*  base register is still valid.  Access to XCARD data is available until
+                                                   579+*  XCARD is removed from memory.
+                                                   580+*
+00000758                                           581+CLEANUP  DS    0F   Final clean up of memory and actual transfer of control
+                                                   582+* Note: LCTL requires the operant (CLEANUPZ) to be on a full word boundary
+00000758                      00000758             583+         USING CLEANUP,R13
+00000758  00000000 00000000                        584+CLEANUPZ DC    13F'0'     Used to clean up register 0-12 and 14,15
+
+0000078C  5840 B000                     00000000   586+CLEANUPX L     R4,PAGE0    Set the destination address (Surrogate Page 0)
+00000790  1864                                     587+         LR    R6,R4       Set the source address to the same
+00000792  5F60 C256                     00000658   588+         SL    R6,PAGELEN  Calculate the source address a page lower
+00000796  185D                                     589+         LR    R5,R13     Use it to calculate the size needing clean up
+00000798  1F54                                     590+         SLR   R5,R4      Calculate size from Surrogate Page 0 to clean up code
+0000079A  1B77                                     591+         SR    R7,R7      Set the source length as zero for clearing memory
+0000079C  A846 0000                     00000000   592+MVCLE4   MVCLE R4,R6,0    Clear Surrogate Page 0 and all of XCARD area to me
+000007A0  4710 D044                     0000079C   593+         BC    B'0001',MVCLE4   If not done, continue with MVCLE
+
+                                                   595+* XCARD and DUMMY section are erased from memory.  Do not let even the
+                                                   596+* assembler to address it.
+000007A4                                           597+         DROP  R11   DUMMY DSECT gone
+000007A4                                           598+         DROP  R12   XCARD gone
+
+000007A4  980C D000                     00000758   600+         LM    R0,R12,CLEANUPZ   Clear general registers 0-12
+000007A8  98EF D000                     00000758   601+         LM    R14,R15,CLEANUPZ  Clear general registers 14 and 15.
+                                                   602+* All that is now left is this code, which goes away now
+000007AC  D725 D034 D034      0000078C  0000078C   603+         XC    CLEANUPX(CLEANUPC),CLEANUPX    Clean up myself
+                                                   604+* This XC instruction is included in the clean up area.  It goes too.
+                              00000026  00000001   605+CLEANUPC EQU   *-CLEANUPX Length of the final CLEANUP instructions
+000007B2                                           606+         DROP  R13        The assembler forgets about CLEANUP CSECT
+                                                   607+* Now just these two instructions remain in memory from XCARD's presence
+000007B2  1BDD                                     608+         SR    R13,R13    Cleanup the last register
+000007B4  8200 0000                     00000000   609+         LPSW  0          Transfer control to the booted object module
+                              00000060  00000001   610+CLEANUPA EQU   *-CLEANUP  Length of the final CLEANUP area
+
+000007B8                                           612+DUMMYMEM DS    0C  DUMMY DSECT placed here. It is not part of the IPL card deck
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER *** DSECTS                                              21 Nov 2020 04:41:55  Page    17
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                   614+*
+                                                   615+*  "Dummy" Memory - memory used by XCARD but not physically part of the XCARD
+                                                   616+*                   IPL deck itself.  Reduces the cards in the deck.
+                                                   617+*
+                                                   618+*   R11 is used as its base register.
+                                                   619+*
+                                                   620+DUMMY    DSECT
+00000000  00000000                                 621+PAGE0    DS    A            Surrogate Page 0 starting location
+00000004                                           622+IPLDEVI  DS    0CL12        IPL device information passed to booted program
+00000004  00000000                                 623+IPLDEV   DS    F            IPL device SSID        from ASA X'B8'
+00000008  00000000                                 624+IPLINTP  DS    F            IPL device Int. Parm.  from ASA X'BC'
+0000000C  00000000                                 625+IPLINTW  DS    F            IPL device Int. Id.    from ASA X'C0'
+
+00000010                                           627+IOSTATUS DS    0CL2         Accumulated I/O status
+00000010  00                                       628+IOUNIT   DS    XL1          I/O unit status
+00000011  00                                       629+IOCHAN   DS    XL1          Channel Status
+
+00000012                                           631+CARDDATA DS    0CL80        A single card record
+00000012                                           632+OBJREC   DS    0CL80        Single record/card I/O area.  See XCARDCP
+00000012                                           633+OBJID    DS    0CL4         Object module record ID
+00000012  00                                       634+OBJ02    DS    XL1          Marker for object module records - X'02'
+                                                   635+* ESD Record Type Format - ignored by XCARD
+                                                   636+* TXT Record Type Format
+00000013  000000                                   637+OBJTXT   DS    CL3'TXT'     Object module record type - TXT
+00000016  00                                       638+         DS    CL1' '       blank
+00000017  000000                                   639+OBJADDR  DS    AL3(0)       TXT data memory address
+0000001A  0000                                     640+         DS    CL2'  '      blank
+0000001C  0000                                     641+OBJBYTES DS    HL2'0'       Number of bytes of data in the TXT record
+0000001E  0000                                     642+         DS    CL2'  '      blank
+00000020  0000                                     643+         DS    HL2'0'       ESD identifier (ignored by XCARD)
+00000022  00000000 00000000                        644+OBJTEXT  DS    CL56' '      TXT card data
+0000005A  00000000 00000000                        645+         DS    CL8' '       not used
+                                                   646+* RLD Record Type Format - ignored by XCARD
+                                                   647+* END Record Type Format
+00000062                      00000062  00000013   648+         ORG   OBJTXT
+00000013  000000                                   649+OBJEND   DS    CL3'END'     Object module record type - END
+00000016  00000000 00000000                        650+         DS    CL76' '      not used
+                              00000050  00000001   651+OBJRECL  EQU   L'CARDDATA   Length of an object module card
+
+00000064                                           653+IOIRB    DS    0F      I/O Interruption Response Block
+00000064  00000000 00000000                        654+IOSCSW   DS    3F      I/O Subchannel Status Word (3 full words)
+00000070  00000000 00000000                        655+         DS    20F     remainder of the IRB (20 full words)
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER *** DSECTS                                              21 Nov 2020 04:41:55  Page    18
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                   657+*
+                                                   658+* Hardware and software assigned storage areas
+                                                   659+*
+
+                                                   661+* This DSECT allows symbolic access to these locations.  The DSECT created is
+                                                   662+* named ASA and contains the assigned storage locations.
+                                                   664+ASA      DSECT
+                              00000000  00000001   665+ASBEGIN  EQU   *                   Start of absolute/real assigned storage areas
+00000000  00000000 00000000                        666+IPLPSW   DC    FD'0'        000 A  Initial Program Load Program Status Word
+00000008  00000000 00000000                        667+IPLCCW1  DC    FD'0'        008 A  Initial Program Load first Channel Command Word
+00000010  00000000 00000000                        668+IPLCCW2  DC    FD'0'        010 A  Initial program Load second Channel Command Word
+                                                   669+* RESTART RELATED PROGRAM STATUS WORDS
+00000018                      00000018  00000000   670+         ORG   ASBEGIN
+00000000  00000000 00000000                        671+RSTNPSW  DC    FD'0'        000 R  Restart New PSW
+00000008  00000000 00000000                        672+RSTOPSW  DC    FD'0'        008 R  Restart Old PSW
+00000010  00000000 00000000                        673+UA0      DC    FD'0'        010 R  Unassigned Area 0
+                                                   674+* INTERRUPTION OLD PROGRAM STATUS WORD SAVE AREAS
+00000018  00000000 00000000                        675+EXTOPSW  DC    FD'0'        018 R  External Interrupt Old PSW
+00000020  00000000 00000000                        676+SVCOPSW  DC    FD'0'        020 R  Supervisor Call Old PSW
+00000028  00000000 00000000                        677+PGMOPSW  DC    FD'0'        028 R  Program Old PSW
+00000030  00000000 00000000                        678+MCKOPSW  DC    FD'0'        030 R  Machine Check Old PSW
+00000038  00000000 00000000                        679+IOOPSW   DC    FD'0'        038 R  Input/Output Old PSW
+                                                   680+* INTERRUPTION NEW PROGRAM STATUS WORD AREAS
+00000040                      00000040  00000058   681+         ORG   ASBEGIN+X'58'
+00000058  00000000 00000000                        682+EXTNPSW  DC    FD'0'        058 R  External New PSW
+00000060  00000000 00000000                        683+SVCNPSW  DC    FD'0'        060 R  Supervisor Call New PSW
+00000068  00000000 00000000                        684+PGMNPSW  DC    FD'0'        068 R  Program New PSW
+00000070  00000000 00000000                        685+MCKNPSW  DC    FD'0'        070 R  Machine Check New PSW
+00000078  00000000 00000000                        686+IONPSW   DC    FD'0'        078 R  Input/Output New PSW
+                                                   687+* EXTERNAL INTERRUPTION INFORMATION
+00000080                      00000080  00000080   688+         ORG   ASBEGIN+X'80'
+00000080  00000000                                 689+EXTIPARM DC    F'0'         080 R  External-interruption Parameter
+00000084  0000                                     690+EXTCPUAD DC    H'0'         084 R  External-interruption CPU Address
+00000086  0000                                     691+EXTICODE DC    H'0'         086 R  External-interruption Code
+                                                   692+* SUPERVISOR CALL INTERRUPTION INFORMATION
+00000088                                           693+SVCIID   DC    0F'0'        088 R  Supervisor-Call Interuption Identification
+00000088  00                                       694+         DC    X'00'        088 R  not-used - zeros stored
+00000089  00                                       695+SVCIILC  DC    X'00'        089 R  Supervisor-Call instruction length code
+                              0000000C  00000001   696+SVCIILCM EQU   B'00001100'         Supervisor-Call ILC mask, zeros stored in other bits
+0000008A  0000                                     697+SVCICODE DC    H'0'         08A R  Supervisor-Call Interruption Code
+                                                   698+* PROGRAM INTERRUPTION INFORMATION
+0000008C                                           699+PGMIID   DC    0F'0'        08C R  Program-interruption identification
+0000008C  00                                       700+         DC    X'00'        08C R  not-used - zeros stored
+0000008D  00                                       701+PGMIILC  DC    X'00'        08D R  Program instruction lengh code
+                              0000000C  00000001   702+PGMIILCM EQU   B'00001100'         Progrtam ILC mask, zeros stored in other bits
+0000008E  0000                                     703+PGMICODE DC    H'0'         08E R  Program Interruption Code
+00000090                                           704+PGMDXC   DC    0F'0'        090 R  Data-Exception Code
+00000090  00000000                                 705+PGMTRX   DC    F'0'         090 R  Translation-Exception Identification
+00000094                                           706+MONCLS   DC    0H'0'        094 R  Monitor-Class Number
+00000094  00                                       707+         DC    X'00'        094 R  not-used - zeros stored
+00000095  00                                       708+MONNUMBR DC    X'00'        095 R  Monitor-Class Number stored
+00000096  00                                       709+PERCODE  DC    X'00'        096 R  Program-Event-Recording Code
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER *** DSECTS                                              21 Nov 2020 04:41:55  Page    19
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                              000000F0  00000001   710+PERCODMK EQU   B'11110000'         Program-Event-Recordind Code mask in bits 0-3
+00000097  00                                       711+         DC    X'00'        097 R  PER Code not used - zeros stored
+00000098  00000000                                 712+PERADDR  DC    F'0'         098 R  PER Address
+0000009C  00000000                                 713+MONCODE  DC    F'0'         09C R  Monitor Event Code in bytes 1-3, zeros in byte 0
+000000A0  00                                       714+PGMACCID DC    X'00'        0A0 R  Exception access identification
+000000A1  00                                       715+PERACCID DC    X'00'        0A1 R  PER access identification
+000000A2  00                                       716+MPGACCID DC    X'00'        0A2 R  MOVE PAGE Operand access identification
+000000A3                                           717+SSARCHMD DC    0X'00'       0A3 A  Store Status Architectural Mode Identification
+000000A3  00                                       718+MKARCHMD DC    X'00'        0A3 R  Machine-Check Architectural Mode Identification
+000000A4  00000000                                 719+UA2      DC    F'0'         0A4 R  Unused area
+                                                   720+* CHANNEL SUBSYSTEM INPUT/OUTPUT INFORMATION
+000000A8                      000000A8  000000B8   721+         ORG   ASBEGIN+X'B8'
+000000B8  00000000                                 722+IOSSID   DC    F'0'         0B8 R  Channel subsystem-identification word
+000000BC  00000000                                 723+IOIPARM  DC    F'0'         0BC R  Channel subsystem I/O Interruption parameter
+000000C0  00000000                                 724+IOIID    DC    F'0'         0C0 R  Channel subsystem I/O Interruption Identification
+000000C4  00000000                                 725+PCFETO   DC    A(0)         0C4 R  ESA/390 PROGRAM CALL FAST Entry Table Origin
+000000C8  00000000                                 726+STFLDATA DC    F'0'         0C8 R  STORE FACILITY LIST storage area
+000000CC  00000000 00000000                        727+UA5      DC    XL8'00'      0CC R  unused area
+                                                   728+* MACHINE-CHECK INTERRUPTION INFORMATION
+000000D4                      000000D4  000000D4   729+         ORG   ASBEGIN+X'D4'
+000000D4  00000000                                 730+MKXSAA   DC    F'0'         0D4 R  Machine-Check Extended Save Area Address
+000000D8  00000000 00000000                        731+MKCPUTIM DC    FD'0'        0D8 R  Machine-Check CPU timer save area
+000000E0  00000000 00000000                        732+MKCLKCMP DC    FD'0'        0E0 R  Machine-Check clock comparator save area
+000000E8  00000000                                 733+MKICODE  DC    F'0'         0E8 R  Machine-Check interruption code
+000000EC  00000000 00000000                        734+UA6      DC    XL8'00'      0EC R  unused area
+000000F4  00000000                                 735+MKDMGCOD DC    F'0'         0F4 R  Machine-Check external damage code
+000000F8                                           736+ZMKFAILA DC    0FD'0'       0F8 R  Machine-Check failing storage address
+000000F8  00000000                                 737+MKFAILA  DC    F'0'         0F8 R  Machine-Check failing storage address
+000000FC  00000000                                 738+MKMODEL  DC    F'0'         0FC R  Machine-Check model dependent information
+00000100                      00000100  00000120   739+         ORG   ASBEGIN+X'120'
+00000120  00000000 00000000                        740+MKARS    DC    16F'0'       120 R  Machine-Check access register save area
+                              00000160  00000001   741+ASEND    EQU   *                   End of absolute/real assigned storage areas
+                              00000160  00000001   742+ASLENGTH EQU   ASEND-ASBEGIN       Length of absolute/real assigned storage area
+
+
+
+                                                   746+SCSW     DSECT Subchannel          Status Word
+00000000  00                                       747+SCSWFLAG DC    X'00'    Flags
+                              000000F0  00000001   748+SCSWKEYM EQU   X'F0'    Storage Key Mask of subchannel storage key
+                              00000008  00000001   749+SCSWSUSC EQU   X'08'    Suspend Control
+                              00000004  00000001   750+SCSWESWF EQU   X'04'    Extended Status Word Format
+                              00000003  00000001   751+SCSWDCCM EQU   X'03'    Deferred condiont code mask
+                              00000000  00000001   752+SCSWDCC0 EQU   X'00'    Normal I/O interruption
+                              00000001  00000001   753+SCSWDCC1 EQU   X'01'    Deferred condition code is 1
+                              00000003  00000001   754+SCSWDCC3 EQU   X'03'    Deferred condition code is 3
+
+00000001  00                                       756+SCSWCTLS DC    X'00'    General Controls
+                              00000080  00000001   757+SCSWCCWF EQU   X'80'    CCW Format control when ...
+                              00000040  00000001   758+SCSWCCWP EQU   X'40'    CCW Prefetch Control
+                              00000020  00000001   759+SCSWISIC EQU   X'20'    Initial-Status-Interruption Control
+                              00000010  00000001   760+SCSWALKC EQU   X'10'    Address-Limit-Checking Control
+                              00000008  00000001   761+SCSWSSIC EQU   X'08'    Suppress suspended interruption
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER *** DSECTS                                              21 Nov 2020 04:41:55  Page    20
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                              00000004  00000001   762+SCSW0CC  EQU   X'04'    Zero-Condition Code
+                              00000002  00000001   763+SCSWECWC EQU   X'02'    Extended Control Word control
+                              00000001  00000001   764+SCSWPNOP EQU   X'01'    Path Not Operational
+
+00000002  00                                       766+SCSW1    DC    X'00'    Control Byte 1
+                              00000070  00000001   767+SCSWFM   EQU   X'70'    Functional Control Mask
+                              00000040  00000001   768+SCSWFS   EQU   X'40'    Function Control - Start Function
+                              00000020  00000001   769+SCSWFH   EQU   X'20'    Function Control - Halt Function
+                              00000010  00000001   770+SCSWFC   EQU   X'10'    Function Control - Clear Function
+                              00000008  00000001   771+SCSWARP  EQU   X'08'    Activity Control - Resume pending
+                              00000004  00000001   772+SCSWASP  EQU   X'04'    Activity Control - Start pending
+                              00000002  00000001   773+SCSWAHP  EQU   X'02'    Activity Control - Halt pending
+                              00000001  00000001   774+SCSWACP  EQU   X'01'    Activity Control - Clear pending
+00000003  00                                       775+SCSW2    DC    X'00'    Control Byte 2
+                              00000080  00000001   776+SCSWASA  EQU   X'80'    Activity Control - Subchannel Active
+                              00000040  00000001   777+SCSWADA  EQU   X'40'    Activity Control - Device Active
+                              00000020  00000001   778+SCSWASUS EQU   X'20'    Activity Control - Suspended
+                              00000010  00000001   779+SCSWSAS  EQU   X'10'    Status Control   - Alert Status
+                              00000008  00000001   780+SCSWSINT EQU   X'08'    Status Control   - Intermediate Status
+                              00000004  00000001   781+SCSWSPRI EQU   X'04'    Status Control   - Primary Status
+                              00000002  00000001   782+SCSWSSEC EQU   X'02'    Status Control   - Secondary Status
+                              00000001  00000001   783+SCSWSPEN EQU   X'01'    Status Control   - Status Pending
+
+00000004  00000000                                 785+SCSWCCW  DC    A(0)     CCW Address
+
+00000008  00                                       787+SCSWUS   DC    X'00'    Unit Status
+                              00000080  00000001   788+SCSWATTN EQU   X'80'    Attention
+                              00000040  00000001   789+SCSWSM   EQU   X'40'    Status modifier
+                              00000020  00000001   790+SCSWCUE  EQU   X'20'    Control-unit end
+                              00000010  00000001   791+SCSWBUSY EQU   X'10'    Busy
+                              00000008  00000001   792+SCSWCE   EQU   X'08'    Channel end
+                              00000004  00000001   793+SCSWDE   EQU   X'04'    Device end
+                              00000002  00000001   794+SCSWUC   EQU   X'02'    Unit check
+                              00000001  00000001   795+SCSWUX   EQU   X'01'    Unit exception
+
+00000009  00                                       797+SCSWCS   DC    X'00'    Channel Status
+                              00000080  00000001   798+SCSWPCI  EQU   X'80'    Program-controlled interruption
+                              00000040  00000001   799+SCSWIL   EQU   X'40'    Incorrect length
+                              00000020  00000001   800+SCSWPRGM EQU   X'20'    Program check
+                              00000010  00000001   801+SCSWPROT EQU   X'10'    Protection Check
+                              00000008  00000001   802+SCSWCDAT EQU   X'08'    Channel-data check
+                              00000004  00000001   803+SCSWCCTL EQU   X'04'    Channel-control check
+                              00000002  00000001   804+SCSWICTL EQU   X'02'    Interface-control check
+                              00000001  00000001   805+SCSWCHNG EQU   X'01'    Chaining check
+
+0000000A  0000                                     807+SCSWCNT  DC    H'0'     Residual CCW count
+                              0000000C  00000001   808+SCSWL    EQU   *-SCSW
+
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER *** DSECTS                                              21 Nov 2020 04:41:55  Page    21
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                   812+*
+                                                   813+* Service Call command words
+                                                   814+*
+                              00020001  00000001   815+SRSCP    EQU   X'00020001'    Read System Control Program information
+                              00030001  00000001   816+SRCHP    EQU   X'00030001'    Read Channel Path information
+                              00100001  00000001   817+SCPUD    EQU   X'00100001'    Deconfigure CPU
+                              00110001  00000001   818+SCPUC    EQU   X'00110001'    Configure CPU
+                              00120001  00000001   819+SRIFL    EQU   X'00120001'    Read IFL information
+                              001A0001  00000001   820+SVFD     EQU   X'001A0001'    Disconnect Vector Facility
+                              001B0001  00000001   821+SVFC     EQU   X'001B0001'    Connect Vector Facility
+                              001C0001  00000001   822+SRCS     EQU   X'001C0001'    Read Channel Subsystem information
+                              00250001  00000001   823+SRXST    EQU   X'00250001'    Read Expanded Storage Map
+                              00760005  00000001   824+SWEVT    EQU   X'00760005'    Write event data
+                              00770005  00000001   825+SREVT    EQU   X'00770005'    Read event data
+                              00780005  00000001   826+SWEVTM   EQU   X'00780005'    Write event data mask
+                              FFFF00FF  00000001   827+SCMDM    EQU   X'FFFF00FF'    Command Mask
+                              000000FF  00000001   828+SCMDCM   EQU   X'000000FF'    Command Class
+                              0000FF00  00000001   829+SRSCM    EQU   X'0000FF00'    Resource Mask
+
+
+
+                                                   831+*
+                                                   832+* Service Call Control Block
+                                                   833+*
+                                                   834+SCCB     DSECT
+00000000  0000                                     835+SCCBL    DS    H      +0   This Service Call Control Block length
+
+00000002  00                                       837+SCCBF    DS    X      +2   Flag Byte
+                              00000080  00000001   838+SCCBFS   EQU   X'80'       Synchronous request
+00000003  0000                                     839+         DS    XL2    +3   Reserved
+
+00000005  00                                       841+SCCBTYP  DS    XL1    +5   Request type
+                              00000080  00000001   842+SCCBTYPV EQU   X'80'       Variable request
+
+00000006                                           844+SCCBRSP  DS    0XL2   +6   Response (Reason Code plus Response Class)
+00000006  00                                       845+SCCBRSN  DS    XL1    +6   Reason code
+                              00000000  00000001   846+SCCVROK  EQU   X'00'       No reason code
+                              00000001  00000001   847+SCCBRCP  EQU   X'01'       SCCB crosses a page boundary
+                              00000002  00000001   848+SCCBROL  EQU   X'02'       SCCB length is not a multiple of 8
+                              00000003  00000001   849+SCCBRTS  EQU   X'03'       SCB lendth is too short for content
+                              00000002  00000001   850+SCCBRNA  EQU   X'02'       No action taken, resource is in the requested state
+                              00000004  00000001   851+SCCBRSB  EQU   X'04'       Resource is in a standby state
+                              00000001  00000001   852+SCCBIC   EQU   X'01'       Invalid SCCB command code
+                              00000003  00000001   853+SCCBIRSP EQU   X'03'       Invalid resource in parameter
+                              00000005  00000001   854+SCCBIS   EQU   X'05'       Invalid resource state or requested action
+                              00000009  00000001   855+SCCBIRSC EQU   X'09'       Invalid resource
+
+00000007  00                                       857+SCCBCC   DS    XL1    +7   Response class code
+                              00000000  00000001   858+SCCBCBE  EQU   X'00'       Data block error
+                              00000010  00000001   859+SCCBCIR  EQU   X'10'       Information returned
+                              00000020  00000001   860+SCCBCOM  EQU   X'20'       Command completed
+                              00000040  00000001   861+SCCBCBO  EQU   X'40'       Command backed out
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER *** DSECTS                                              21 Nov 2020 04:41:55  Page    22
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                              000000F0  00000001   862+SCCBCREJ EQU   X'F0'       Command rejected
+                              00000008  00000001   863+SCCBDATA EQU   *           Start of SCCB data
+                              00000008  00000001   864+SCCBLEN  EQU   *-SCCB +8   Length of the SCCB header
+
+
+
+                                                   866+*
+                                                   867+* Service Call System Control Program Information
+                                                   868+*
+                                                   869+SCP      DSECT
+00000000  0000                                     870+SCPII    DS    HL2    +0   Number of installed storage increments
+00000002  00                                       871+SCPIS    DS    XL1    +2   Size of each storage increment in megabytes
+00000003  00                                       872+SCPSBS   DS    XL1    +3   Size of a storage block in kilobytes
+00000004  0000                                     873+SCPINTI  DS    HL2    +4   Storage increment block interleave interval
+00000006  0000                                     874+         DS    HL2    +6   Reserved
+00000008  0000                                     875+SCPCPUS  DS    HL2    +8   Installed CPU's
+0000000A  0000                                     876+SCPCPUO  DS    HL2    +10  Offset from SCCB to the CPU information array
+0000000C  0000                                     877+SCPHSAS  DS    HL2    +12  Number of Hardware Storage Areas
+0000000E  0000                                     878+SCPHSAO  DS    HL2    +14  Offset from SCCB to the Hardare Storage Area array
+00000010  00000000 00000000                        879+SCPLP    DS    CL8    +16  Load parameter
+00000018  00000000                                 880+SCPXSI   DS    FL4    +24  Number of expanded storage increments installed
+0000001C  00000000                                 881+SCPX4K   DS    FL4    +28  Number of 4K blocks in an expanded storage increment
+00000020  0000                                     882+SCPXE    DS    HL2    +32  Number of expanded storage elements installed
+00000022  0000                                     883+         DS    HL2    +34  Reserved
+00000024  0000                                     884+SCPVSZ   DS    HL2    +36  Vector section size
+00000026  0000                                     885+SCPVSUM  DS    HL2    +38  Vector partial sum number
+00000028  00000000 00000000                        886+SCPFAC   DS    XL8    +40  Installed facilities
+00000030  00000000 00000000                        887+         DS    XL8    +48  Reserved
+00000038  0000                                     888+SCPRG    DS    HL2    +56  Maximum resource groups
+0000003A  00000000 0000                            889+         DS    XL6    +58  Reserved
+00000040  0000                                     890+SCPMPFN  DS    HL2    +64  Number of entries in the MPF information array
+00000042  0000                                     891+SCPMPFO  DS    HL2    +66  Offset from SCCB to the MVF information array
+00000044  00000000                                 892+         DS    FL4    +68  Reserved
+
+00000048  00000000 0000                            894+SCPCFG   DS    XL6    +72  Configuration characteristics
+                              00000001  00000001   895+SCP5Z    EQU   X'01'  +77  Set when 64-bit addressing installed. See SCPZIN
+
+0000004E  00000000                                 897+SCPCAP   DS    FL4    +78  Configuration characteristics capacity
+00000052  00                                       898+SCPC11   DS    XL1    +82  Configuration characteristics
+00000053  00                                       899+SCPCRL   DS    XL1    +83  Maximum copy and reassing list elements allowed
+00000054  00000000                                 900+SCPETR   DS    XL4    +84  ETR synchronization check tolerance
+00000058  000000                                   901+         DS    XL3    +88  Reserved
+0000005B  00                                       902+SCPVM    DS    XL1    +91  Maximum guest storage size. Zero not constrained
+0000005C  00000000                                 903+SCPZI    DS    XL4    +92  Address increment size in 1M, SCPIS is zero
+00000060  00000000 00000000                        904+SCPZIN   DS    FDL8   +96  Maximum increments when larger than 64K or 64-bit
+00000068  00000000 00000000                        905+         DS    XL16   +104 Reserved
+                              00000078  00000001   906+SCPLEN   EQU   *-SCP  +120 Length of SCP fixed information.  Arrays follow
+
+
+
+                                                   908+*
+                                                   909+* System Control Program CPU Entry
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER *** DSECTS                                              21 Nov 2020 04:41:55  Page    23
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                   910+*
+
+                                                   912+SCPC     DSECT
+00000000  00                                       913+SCPCA    DS    XL1    +0   CPU Address
+00000001  00                                       914+SCPCT    DS    XL1    +1   TOD clock number
+00000002  00000000 00000000                        915+SCPCF    DS    XL12   +2   Real CPU facility map
+
+0000000E  00                                       917+SCPCY    DS    XL1    +14  Processor Type
+                              00000000  00000001   918+SCPCYC   EQU   0           CP processor
+                              00000001  00000001   919+SCPCYU   EQU   1           unknown processor type
+                              00000002  00000001   920+SCPCYZ   EQU   2           ZAAP processor
+                              00000003  00000001   921+SCPCYI   EQU   3           IFL processor
+                              00000004  00000001   922+SCPCYF   EQU   4           ICF processor
+                              00000005  00000001   923+SCPCYP   EQU   5           ZIIP processor
+
+0000000F  00                                       925+SCPPCK   DS    XL1    +15  Crypto unit identifier
+                              00000010  00000001   926+SCPCLEN  EQU   *-SCPC +16  Length of the SCP CPU entry
+
+
+
+                                                   928+*
+                                                   929+* System Control Program Hardware Storage Area Entry
+                                                   930+*
+
+                                                   932+SCPH     DSECT
+00000000  00000000                                 933+SCPHSIZE DS    XL4    +0   Storage area size in 4K blocks
+00000004  00000000                                 934+SCPHADDR DS    XL4    +2   Storage area address
+                              00000008  00000001   935+SCPHLEN  EQU   *-SCPH +4   Length of the SCP HSA entry
+
+
+
+                                                   937+*
+                                                   938+* System Control Program MPF Entry
+                                                   939+*
+
+                                                   941+SCPM     DSECT
+00000000  0000                                     942+SCPMI    DS    XL2    +0   Entry information
+                              00000002  00000001   943+SCPMLEN  EQU   *-SCPM +2   Length of the MPF entry
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER ***                                                     21 Nov 2020 04:41:55  Page    24
+
+  LOC        OBJECT CODE       ADDR1     ADDR2    STMT
+
+                                                   945          END
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER ***                                                     21 Nov 2020 04:41:55  Page    25
+
+     SYMBOL        TYPE   VALUE      LENGTH    DEFN  REFERENCES
+
+ASA                 4    00000000         352   664  139  422
+ASBEGIN             U    00000000           1   665  670  681  688  721  729  739  742
+ASEND               U    00000160           1   741  742
+ASLENGTH            U    00000160           1   742
+AVAILMEM            A    0000068C           4   488  208  281  283
+BUSY                I    000006D0           4   518  306
+C0                  U    00000000           1   101
+C1                  U    00000001           1   102
+C10                 U    0000000A           1   111
+C11                 U    0000000B           1   112
+C12                 U    0000000C           1   113
+C13                 U    0000000D           1   114
+C14                 U    0000000E           1   115
+C15                 U    0000000F           1   116
+C2                  U    00000002           1   103
+C3                  U    00000003           1   104
+C4                  U    00000004           1   105
+C5                  U    00000005           1   106
+C6                  U    00000006           1   107  296  421
+C7                  U    00000007           1   108
+C8                  U    00000008           1   109
+C9                  U    00000009           1   110
+CARDDATA            C    00000012          80   631  651  250  483
+CHANERR             I    000006F8           6   542  332
+CLEANSIZ            A    00000664           4   459  440
+CLEANUP             F    00000758           4   581  610  441  443  444  583
+CLEANUPA            U    00000060           1   610  443  459
+CLEANUPC            U    00000026           1   605  603
+CLEANUPX            I    0000078C           4   586  605  444  603
+CLEANUPZ            F    00000758           4   584  421  600  601
+DUMMY               4    00000000         192   620  245  462
+DUMMYMEM            C    000007B8           1   612  244
+ENAINT              X    0000066C           4   468  296
+ENDBAD              3    00000720           8   565  292  500  503  504  507  508  511  513  514  515  518  519  520  522  523
+                                                     526  527  528  530  531  542  543  544  557  558  559  561  562
+ENDID               X    00000648           1   451  343
+ENTER               H    00000614           2   420  344
+EOFFOUND            I    00000714           6   561  336
+EXTCPUAD            H    00000084           2   690
+EXTICODE            H    00000086           2   691
+EXTIPARM            F    00000080           4   689
+EXTNPSW             F    00000058           8   682  149
+EXTOPSW             F    00000018           8   675
+HAVSTAT             H    00000556           2   327  322
+IMAGE               1    00000400         952     0
+IOCHAN              X    00000011           1   629  331  542
+IOIID               F    000000C0           4   724
+IOINT               H    0000053C           2   316  254
+IOINTRPT            3    000006A0           8   498  255  256  314
+IOIPARM             F    000000BC           4   723
+IOIRB               F    00000064           4   653  321
+IOLOOP              H    0000051C           2   302  346  363  378  415
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER ***                                                     21 Nov 2020 04:41:55  Page    26
+
+     SYMBOL        TYPE   VALUE      LENGTH    DEFN  REFERENCES
+
+IONPSW              F    00000078           8   686  314  318
+IOOPSW              F    00000038           8   679
+IOSCSW              F    00000064           4   654  298
+IOSSID              F    000000B8           4   722  247  328  422
+IOSTATUS            C    00000010           2   627  303  330
+IOTRAP              3    00000750           8   574  318
+IOUNIT              X    00000010           1   628  333  335  337  557
+IOWAIT              3    00000698           8   497  315
+IPLCCW1             F    00000008           8   667
+IPLCCW2             F    00000010           8   668
+IPLDEV              F    00000004           4   623  297  328
+IPLDEVI             C    00000004          12   622  247  422
+IPLINTP             F    00000008           4   624
+IPLINTW             F    0000000C           4   625
+IPLPSW              F    00000000           8   666
+LOADPARM            X    0000064C           8   452  177
+LOADSURR            I    000005DE           6   380  377
+LOADTXT             I    000005C2           6   365  362
+MCKNPSW             F    00000070           8   685
+MCKOPSW             F    00000030           8   678
+MEMSIZE             A    00000688           4   487  201  439
+MEMSZBAD            I    000006AC           4   503  165
+MKARCHMD            X    000000A3           1   718
+MKARS               F    00000120           4   740
+MKCLKCMP            F    000000E0           8   732
+MKCPUTIM            F    000000D8           8   731
+MKDMGCOD            F    000000F4           4   735
+MKFAILA             F    000000F8           4   737
+MKICODE             F    000000E8           4   733
+MKMODEL             F    000000FC           4   738
+MKXSAA              F    000000D4           4   730
+MONCLS              H    00000094           2   706
+MONCODE             F    0000009C           4   713
+MONNUMBR            X    00000095           1   708
+MPGACCID            X    000000A2           1   716
+MSZ10005            F    00000480           4   194  186
+MSZA0005            I    00000462           4   182  180
+MSZC0005            A    0000047C           4   193  156
+MSZD0005            H    0000048A           2   197  191
+MSZE0005            A    00000478           4   192  179  181
+MSZL0005            U    00000484           2   195  161
+MSZR0005            R    00000487           1   196  164
+MSZY0005            U    0000044C           1   176  174
+MSZZ0005            I    00000448           4   175  172
+MVCLE1              I    000004EE           4   266  267
+MVCLE2              I    000004AC           4   220  221
+MVCLE3              I    00000626           4   427  428
+MVCLE4              I    0000079C           4   592  593
+NOSTAT              I    000006DC           4   522  324
+NOTOCCUR            I    000006E4           4   526  325
+NOTOPER             I    000006C8           4   514  512
+NOTOPERS            I    000006BC           4   511  309
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER ***                                                     21 Nov 2020 04:41:55  Page    27
+
+     SYMBOL        TYPE   VALUE      LENGTH    DEFN  REFERENCES
+
+NOTOPERT            I    000006C4           4   513  323
+NOTRANFR            I    000006A8           4   500
+OBJ02               X    00000012           1   634
+OBJADDR             R    00000017           3   639  349
+OBJBYTES            U    0000001C           2   641  355
+OBJEND              C    00000013           3   649
+OBJID               C    00000012           4   633  341  343
+OBJREC              C    00000012          80   632
+OBJRECL             U    00000050           1   651
+OBJTEXT             C    00000022          56   644  365  380  399  417
+OBJTXT              C    00000013           3   637  648
+OVERLAY             I    000006F0           4   530  358
+PAGE0               A    00000000           4   621  284  586
+PAGE0ADR            U    00000658           4   456  359  373  394
+PAGE0DAT            H    000005C8           2   372  360
+PAGELEN             A    00000658           4   455  456  282  424  588
+PCFETO              A    000000C4           4   725
+PERACCID            X    000000A1           1   715
+PERADDR             F    00000098           4   712
+PERCODE             X    00000096           1   709
+PERCODMK            U    000000F0           1   710
+PGMACCID            X    000000A0           1   714
+PGMDXC              F    00000090           4   704
+PGMICODE            H    0000008E           2   703
+PGMIID              F    0000008C           4   699
+PGMIILC             X    0000008D           1   701
+PGMIILCM            U    0000000C           1   702
+PGMNPSW             F    00000068           8   684
+PGMOPSW             F    00000028           8   677
+PGMSTART            I    00000400           2   140
+PGMTRX              F    00000090           4   705
+R0                  U    00000000           1    83  139  250  251  252  253  254  255  600
+R1                  U    00000001           1    84  297
+R10                 U    0000000A           1    93  356  357  373  375  380  395  412  417  441
+R11                 U    0000000B           1    94  244  245  597
+R12                 U    0000000C           1    95  140  141  226  598  600
+R13                 U    0000000D           1    96  439  440  443  444  583  589  606  608
+R14                 U    0000000E           1    97  285  357  375  412  427  601
+R15                 U    0000000F           1    98  425  601
+R2                  U    00000002           1    85  298  299
+R3                  U    00000003           1    86  211  215  216  226
+R4                  U    00000004           1    87  156  157  163  167  168  183  184  185  186  189  201  207  208  210  211
+                                                     262  263  266  281  282  283  284  285  395  396  398  400  401  423  427
+                                                     586  587  590  592
+R5                  U    00000005           1    88  154  218  219  262  264  397  398  413  414  424  425  589  590
+R6                  U    00000006           1    89  169  170  173  175  178  179  181  182  183  212  215  263  264  266  399
+                                                     418  587  588  592
+R7                  U    00000007           1    90  219  265  394  396  418  591
+R8                  U    00000008           1    91  292  300  349  356  359  365  375  412
+R9                  U    00000009           1    92  355  356  361  362  376  377  397
+RELOFAC             F    00000694           4   490  216
+RSTNPSW             F    00000000           8   671  148
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER ***                                                     21 Nov 2020 04:41:55  Page    28
+
+     SYMBOL        TYPE   VALUE      LENGTH    DEFN  REFERENCES
+
+RSTOPSW             F    00000008           8   672
+RSTTRAP             3    00000728           8   568  148
+SCCB                4    00000000           8   834  864  157  159
+SCCBADDR            A    00000654           4   453  154  262
+SCCBCBE             U    00000000           1   858
+SCCBCBO             U    00000040           1   861
+SCCBCC              X    00000007           1   857
+SCCBCIR             U    00000010           1   859  196
+SCCBCOM             U    00000020           1   860
+SCCBCREJ            U    000000F0           1   862
+SCCBDATA            U    00000008           1   863  167
+SCCBF               X    00000002           1   837
+SCCBFS              U    00000080           1   838  195
+SCCBIC              U    00000001           1   852
+SCCBIRSC            U    00000009           1   855
+SCCBIRSP            U    00000003           1   853
+SCCBIS              U    00000005           1   854
+SCCBL               H    00000000           2   835  161
+SCCBLEN             U    00000008           1   864  159
+SCCBRCP             U    00000001           1   847
+SCCBRNA             U    00000002           1   850
+SCCBROL             U    00000002           1   848
+SCCBRSB             U    00000004           1   851
+SCCBRSN             X    00000006           1   845
+SCCBRSP             X    00000006           2   844  164
+SCCBRTS             U    00000003           1   849
+SCCBTYP             X    00000005           1   841
+SCCBTYPV            U    00000080           1   842
+SCCVROK             U    00000000           1   846  196
+SCMDCM              U    000000FF           1   828
+SCMDM               U    FFFF00FF           1   827
+SCP                 4    00000000         120   869  906  168
+SCP5Z               U    00000001           1   895
+SCPC                4    00000000          16   912  926
+SCPC11              X    00000052           1   898
+SCPCA               X    00000000           1   913
+SCPCAP              U    0000004E           4   897
+SCPCF               X    00000002          12   915
+SCPCFG              X    00000048           6   894
+SCPCLEN             U    00000010           1   926
+SCPCPUO             U    0000000A           2   876
+SCPCPUS             U    00000008           2   875
+SCPCRL              X    00000053           1   899
+SCPCT               X    00000001           1   914
+SCPCY               X    0000000E           1   917
+SCPCYC              U    00000000           1   918
+SCPCYF              U    00000004           1   922
+SCPCYI              U    00000003           1   921
+SCPCYP              U    00000005           1   923
+SCPCYU              U    00000001           1   919
+SCPCYZ              U    00000002           1   920
+SCPETR              X    00000054           4   900
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER ***                                                     21 Nov 2020 04:41:55  Page    29
+
+     SYMBOL        TYPE   VALUE      LENGTH    DEFN  REFERENCES
+
+SCPFAC              X    00000028           8   886
+SCPH                4    00000000           8   932  935
+SCPHADDR            X    00000004           4   934
+SCPHLEN             U    00000008           1   935
+SCPHSAO             U    0000000E           2   878
+SCPHSAS             U    0000000C           2   877
+SCPHSIZE            X    00000000           4   933
+SCPII               U    00000000           2   870  178
+SCPINTI             U    00000004           2   873
+SCPIS               X    00000002           1   871  171  173
+SCPLEN              U    00000078           1   906
+SCPLP               C    00000010           8   879  177
+SCPM                4    00000000           2   941  943
+SCPMI               X    00000000           2   942
+SCPMLEN             U    00000002           1   943
+SCPMPFN             U    00000040           2   890
+SCPMPFO             U    00000042           2   891
+SCPPCK              X    0000000F           1   925
+SCPRG               U    00000038           2   888
+SCPSBS              X    00000003           1   872
+SCPUC               U    00110001           1   818
+SCPUD               U    00100001           1   817
+SCPVM               X    0000005B           1   902
+SCPVSUM             U    00000026           2   885
+SCPVSZ              U    00000024           2   884
+SCPX4K              U    0000001C           4   881
+SCPXE               U    00000020           2   882
+SCPXSI              U    00000018           4   880
+SCPZI               X    0000005C           4   903  175
+SCPZIN              U    00000060           8   904
+SCSW                4    00000000          12   746  808  299
+SCSW0CC             U    00000004           1   762
+SCSW1               X    00000002           1   766
+SCSW2               X    00000003           1   775
+SCSWACP             U    00000001           1   774
+SCSWADA             U    00000040           1   777
+SCSWAHP             U    00000002           1   773
+SCSWALKC            U    00000010           1   760
+SCSWARP             U    00000008           1   771
+SCSWASA             U    00000080           1   776
+SCSWASP             U    00000004           1   772
+SCSWASUS            U    00000020           1   778
+SCSWATTN            U    00000080           1   788
+SCSWBUSY            U    00000010           1   791
+SCSWCCTL            U    00000004           1   803
+SCSWCCW             A    00000004           4   785
+SCSWCCWF            U    00000080           1   757
+SCSWCCWP            U    00000040           1   758
+SCSWCDAT            U    00000008           1   802
+SCSWCE              U    00000008           1   792
+SCSWCHNG            U    00000001           1   805
+SCSWCNT             H    0000000A           2   807
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER ***                                                     21 Nov 2020 04:41:55  Page    30
+
+     SYMBOL        TYPE   VALUE      LENGTH    DEFN  REFERENCES
+
+SCSWCS              X    00000009           1   797
+SCSWCTLS            X    00000001           1   756
+SCSWCUE             U    00000020           1   790
+SCSWDCC0            U    00000000           1   752
+SCSWDCC1            U    00000001           1   753
+SCSWDCC3            U    00000003           1   754
+SCSWDCCM            U    00000003           1   751
+SCSWDE              U    00000004           1   793
+SCSWECWC            U    00000002           1   763
+SCSWESWF            U    00000004           1   750
+SCSWFC              U    00000010           1   770
+SCSWFH              U    00000020           1   769
+SCSWFLAG            X    00000000           1   747
+SCSWFM              U    00000070           1   767
+SCSWFS              U    00000040           1   768
+SCSWICTL            U    00000002           1   804
+SCSWIL              U    00000040           1   799
+SCSWISIC            U    00000020           1   759
+SCSWKEYM            U    000000F0           1   748
+SCSWL               U    0000000C           1   808
+SCSWPCI             U    00000080           1   798
+SCSWPNOP            U    00000001           1   764
+SCSWPRGM            U    00000020           1   800
+SCSWPROT            U    00000010           1   801
+SCSWSAS             U    00000010           1   779
+SCSWSINT            U    00000008           1   780
+SCSWSM              U    00000040           1   789
+SCSWSPEN            U    00000001           1   783
+SCSWSPRI            U    00000004           1   781
+SCSWSSEC            U    00000002           1   782
+SCSWSSIC            U    00000008           1   761
+SCSWSUSC            U    00000008           1   749
+SCSWUC              U    00000002           1   794
+SCSWUS              X    00000008           1   787  330
+SCSWUX              U    00000001           1   795
+SPLIT               H    000005E4           2   392  374
+SPLITHI             I    0000060E           6   418  401
+SPLITLO             I    00000608           6   417  414
+SRCHP               U    00030001           1   816
+SRCS                U    001C0001           1   822
+SREVT               U    00770005           1   825
+SRIFL               U    00120001           1   819
+SRSCM               U    0000FF00           1   829
+SRSCP               U    00020001           1   815  193
+SRXST               U    00250001           1   823
+SSARCHMD            X    000000A3           1   717
+STFLDATA            F    000000C8           4   726
+SVCICODE            H    0000008A           2   697
+SVCIID              F    00000088           4   693
+SVCIILC             X    00000089           1   695
+SVCIILCM            U    0000000C           1   696
+SVCNPSW             F    00000060           8   683
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER ***                                                     21 Nov 2020 04:41:55  Page    31
+
+     SYMBOL        TYPE   VALUE      LENGTH    DEFN  REFERENCES
+
+SVCOPSW             F    00000020           8   676
+SVFC                U    001B0001           1   821
+SVFD                U    001A0001           1   820
+SWEVT               U    00760005           1   824
+SWEVTM              U    00780005           1   826
+TEXT                H    0000059E           2   348  342
+TRAPS               X    00000730          40   569  149
+TXTID               X    00000644           1   450  341
+UA0                 F    00000010           8   673
+UA2                 F    000000A4           4   719
+UA5                 X    000000CC           8   727
+UA6                 X    000000EC           8   734
+UNEQMOVE            I    000006B4           4   507  222
+UNITERR             I    00000706           6   557  334
+WAIT                I    00000532           6   314  305  329  338
+XCARD               2    00000400         952   137  453  457  458  462
+XCARDALC            A    00000668           4   462  207
+XCARDCCA            R    00000684           4   484  251
+XCARDCCC            X    00000680           1   481
+XCARDCCF            X    00000681           1   482
+XCARDCCL            R    00000682           2   483
+XCARDCP             D    00000680           8   479  252
+XCARDCPA            R    00000678           4   476  253
+XCARDCPY            A    00000690           4   489  210
+XCARDIPL            A    0000065C           4   457  212
+XCARDORB            F    00000670           4   470  304
+XCARDRGN            J    00000400         952   137
+XCARDSIZ            A    00000660           4   458  218
+ZMKFAILA            F    000000F8           8   736
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER ***                                                     21 Nov 2020 04:41:55  Page    32
+
+ MACRO    DEFN  REFERENCES
+
+ARCHIND     20
+ARCHLVL     19
+ASAREA     663
+DSECTS     744
+DWAIT      564
+IOFMT      745
+MEMSZ      155
+REGEQU      81
+SCPI       811
+XCARD       18
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER ***                                                     21 Nov 2020 04:41:55  Page    33
+
+   DESC     SYMBOL   SIZE    POS      ADDR
+
+Entry: 400
+
+Image      IMAGE      952  000-3B7  400-7B7
+  Region   XCARD      952  000-3B7  400-7B7
+    CSECT  XCARDRGN   952  000-3B7  400-7B7
+
+
+  ADDR     POS                                OBJECT CONTENT                                         CHARACTER CONTENT
+
+
+Region: XCARD
+
+00000400   000   0DC0D207 0000C326 D2270058 C32E5850  C2525840 C07AD707 50005000 D2025000   |..K...C.K...C..& B.. .:P.&.&.K.&.|
+00000420   020   C082B220 0045D501 5006C085 A7740140  41505008 1B661876 95005002 A7840006   |.b....N.&..ex..  .&&.....n.&.xd..|
+00000440   040   43605002 A7F40004 5860505C D207C24A  50104C60 50005560 C07647D0 C0605860   |.-&.x4...-&*K.B¢ &.<-&..-.....-.-|
+00000460   060   C0768960 00141846 18545F50 C07E010D  95005000 A7F4000B 00000800 00020001   |..i-......ª&.=.. n.&.x4..........|
+00000480   080   00000001 10008000 10005040 C2865F40  C2665040 C28A5040 C28E1834 5860C25A   |..........& Bfª  B.& B.& B....-B!|
+000004A0   0A0   1F365030 C2925850 C25E1875 A8460000  4710C0AA 4760C2B2 1EC347F0 C0BC41B0   |..&.Bk.&B;..y... .....-B..C.0....|
+000004C0   0C0   C3B6D20B B00400B8 4100B012 5000C282  4100C27E 5000C276 4100C13A 5000C2A2   |C.K.........&.Bb ..B=&.B...A.&.Bs|
+000004E0   0E0   9680C2A2 9845C252 18641E65 1B77A846  00004710 C0EC5840 C28A5F40 C2565040   |o.Bsq.B.......y. ....... B.ª B.& |
+00000500   100   C28A5040 B00018E4 D207E000 C31EB766  C26A5810 B0044120 B0641B88 D701B010   |B.& ...UK...C... B¦.........hP...|
+00000520   120   B010B233 C26E4780 C1304720 C2CE4710  C2BAD207 0078C29E 8200C296 D2070078   |....B>..A...B... B.K...B.b.BoK...|
+00000540   140   C34EB235 B0644780 C1544710 C2C24740  C2DA4720 C2E2D503 00B8B004 4770C130   |C+......A...BB.  B...BSN.......A.|
+00000560   160   D601B010 200891FF B0114770 C2F691F2  B0104770 C3049101 B0104710 C312910C   |O.....j.....B6j2 ....C.j.....C.j.|
+00000580   180   B01047E0 C130D503 B012C242 4780C19C  D503B012 C2464780 C21247F0 C11ABF87   |....A.N...B...A. N...B...B..0A..g|
+000005A0   1A0   B0174890 B01C41A9 800015AE 4720C2EE  5580C256 4740C1C6 06904490 C1C047F0   |.......z......B. ..B.. AF....A..0|
+000005C0   1C0   C11AD200 8000B022 55A0C256 4720C1E2  41A8E000 06904490 C1DC47F0 C11AD200   |A.K.......B...AS .y......A..0A.K.|
+000005E0   1E0   A000B022 5870C256 184A1F47 18591F54  4165B022 06404440 C20C41A8 E0000650   |......B..¢...... ..... . B..y...&|
+00000600   200   4450C206 47F0C11A D200A000 B022D200  70006000 B766C356 D20BE0B8 B0041B44   |.&B..0A.K.....K. ..-...C.K.......|
+00000620   220   5850C256 18F5A84E 00004710 C22458D0  C2865FD0 C26241A0 C356D25F D000C356   |.&B..5y+....B... Bfª.B...C.Kª..C.|
+00000640   240   47F0D034 02E3E7E3 02C5D5C4 00000000  00000000 00001000 00001000 00000400   |.0...TXT.END.... ................|
+00000660   260   000003B8 00000060 00001000 FF000000  E7C3D9C4 0080FF00 00000000 00000000   |.......-........ XCRD............|
+00000680   280   02000050 00000000 00000000 00000000  00000000 00000000 020A0000 00000001   |...&............ ................|
+000006A0   2A0   00080000 00000000 8200C31E 9204C325  8200C31E 9208C325 8200C31E 9233C324   |........b.C.k.C. b.C.k.C.b.C.k.C.|
+000006C0   2C0   47F0C2C6 9235C324 9210C325 8200C31E  9233C324 9214C325 8200C31E 9235C324   |.0BFk.C.k.C.b.C. k.C.k.C.b.C.k.C.|
+000006E0   2E0   9218C325 9235C324 921CC325 8200C31E  9220C325 8200C31E D200C324 B0119224   |k.C.k.C.k.C.b.C. k.C.b.C.K.C...k.|
+00000700   300   C3258200 C31ED200 C324B010 9228C325  8200C31E D207C325 002C8200 C31E0000   |C.b.C.K.C...k.C. b.C.K.C...b.C...|
+00000720   320   000A0000 00010000 000A0000 00000008  000A0000 00000018 000A0000 00000020   |................ ................|
+00000740   340   000A0000 00000028 000A0000 00000030  000A0000 00000038 00000000 00000000   |................ ................|
+00000760   360   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+00000780   380   00000000 00000000 00000000 5840B000  18645F60 C256185D 1F541B77 A8460000   |............. .. ..ª-B..)....y...|
+000007A0   3A0   4710D044 980CD000 98EFD000 D725D034  D0341BDD 82000000                     |....q...q...P... ....b...        |
+ASMA Ver. 0.2.1  *** XCARD EXTENDEND LOADER ***                                                     21 Nov 2020 04:41:55  Page    34
+
+   STMT                  FILE NAME
+
+1     /home/harold/SATKREPO/SATK/xcard/xcard.asm
+
+
+** NO ERRORS FOUND **
+
+[79] MNOTE *,ARCHLVL - ARCHITECTURE LEVEL SET - 8
+

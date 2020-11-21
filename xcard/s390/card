@@ -1,0 +1,48 @@
+#!/bin/sh
+# Copyright (C) 2020 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+# Create an IPL capable emulated card file containing XCARD and its object
+# module test program XCARDTST
+
+# This script MUST be executed from SATK's xcard/s390 directory or your local
+# copy.
+# Just type ./card in the XCARD directory to create the emulated
+# card deck IPL medium: load.deck
+
+datetime()
+{
+	sfx=$(date +%Y%m%d.%H%M%S)
+}
+datetime   # set $sfx (the date and time of the run) for later use
+
+# Change this variable for your environment
+REPO=${HOME}/SATKREPO/SATK      # SATK repository from github
+
+# This variable is for the author's use.  Just leave it alone
+#REPO=${HOME}/SATKCLONE
+
+# IPLASMA related script variables
+DECK=${REPO}/tools/deck.py           # The IPL deck utility
+
+# Environment variable used to search for decks
+export DECKS=${REPO}/xcard/s390
+
+# Work with card decks
+${DECK} --card load.deck --boot xcard.deck xcardtst.deck
+
+
