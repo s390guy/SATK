@@ -1,4 +1,4 @@
-# Copyright (C) 2014-2017 Harold Grovesteen
+# Copyright (C) 2014-2020 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -15,7 +15,7 @@
 #     You should have received a copy of the GNU General Public License
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
-# Instruction Formats in Machine Specification Language 
+# Instruction Formats in Machine Specification Language
 
 # Formats are in FORMAT NAME sequence
 
@@ -222,7 +222,7 @@ format RIEC
     source M3 M3
     source RELI4 RELI4
 
-    
+
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | R1  | M3  |         RELI4         |    I2     |    XOP    |
@@ -371,7 +371,7 @@ format RILC
     source M1 M1
     source RELI2 RELI2
 
-    
+
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | R1  | XOP |                      RI2                      |
@@ -451,7 +451,7 @@ format RIS1
 #
 # RN: MNEMONIC R1
 #
-format RN            # Used only by NSSC-II 
+format RN            # Used only by NSSC-II
     length 2
     mach R1 12 15
     source R1 R1
@@ -505,7 +505,7 @@ format RRE
     source R1 R1
     source R2 R2
 
-    
+
 #     0     4     8     12    16    20    24    28   31
 #     +-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    |    XOP    |0000 |0000 | R1  |0000 |
@@ -683,7 +683,7 @@ format RRFH
     source R3 R3
     source R2 R2
 
-    
+
 #     0     4     8     12    16    20    24    28   31
 #     +-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    |    XOP    | R3  |0000 | R1  | R2  |
@@ -756,7 +756,7 @@ format RSA1
     source R1 R1
     source S B2 D2
 
-    
+
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | R1  | R3  | B2  |        D2       |0000 |0000 |    XOP    |
@@ -872,7 +872,7 @@ format RSLB
 #
 # RSYA: MNEMONIC R1,R3,D2(B2)
 #
-#  Note: D2 contributes to DL2 and DH2 fields. 
+#  Note: D2 contributes to DL2 and DH2 fields.
 #        DH2 contains the high-order 8 bits of the 20-bit signed D2 displacement
 #        DL2 contains the low-order 12 bits of the 20-bit signed D2 displacement
 #
@@ -896,7 +896,7 @@ format RSYA
 #
 # RSYB: MNEMONIC R1,M3,D2(B2)
 #
-#  Note: D2 contributes to DL2 and DH2 fields. 
+#  Note: D2 contributes to DL2 and DH2 fields.
 #        DH2 contains the high-order 8 bits of the 20-bit signed D2 displacement
 #        DL2 contains the low-order 12 bits of the 20-bit signed D2 displacement
 #
@@ -912,7 +912,7 @@ format RSYB
      source M3 M3
      source SY B2 DL2 DH2
 
-     
+
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | R1  | M3  | B2  |       DL2       |    DH2    |    XOP    |
@@ -920,7 +920,7 @@ format RSYB
 #
 # RSYB1: MNEMONIC R1,D2(B2),M3
 #
-#  Note: D2 contributes to DL2 and DH2 fields. 
+#  Note: D2 contributes to DL2 and DH2 fields.
 #        DH2 contains the high-order 8 bits of the 20-bit signed D2 displacement
 #        DL2 contains the low-order 12 bits of the 20-bit signed D2 displacement
 #
@@ -991,7 +991,7 @@ format RXE
 
 # RXF
 # ---
-# 
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | R3  | X2  | B2  |       D2        | R1  |0000 |    XOP    |
@@ -1042,7 +1042,7 @@ format RXFE
 #
 # RXYA: MNEMONIC R1,D2(X2,B2)
 #
-#  Note: D2 contributes to DL2 and DH2 fields. 
+#  Note: D2 contributes to DL2 and DH2 fields.
 #        DH2 contains the high-order 8 bits of the 20-bit signed D2 displacement
 #        DL2 contains the low-order 12 bits of the 20-bit signed D2 displacement
 #
@@ -1065,7 +1065,7 @@ format RXYA
 #
 # RXYB: MNEMONIC M1,D2(X2,B2)
 #
-#  Note: D2 contributes to DL2 and DH2 fields. 
+#  Note: D2 contributes to DL2 and DH2 fields.
 #        DH2 contains the high-order 8 bits of the 20-bit signed D2 displacement
 #        DL2 contains the low-order 12 bits of the 20-bit signed D2 displacement
 #
@@ -1128,7 +1128,7 @@ format SIL
     source S1 B1 D1
     source I2 I2
 
-    
+
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    |    XOP    | B1  |        D1       |           I2          |
@@ -1153,7 +1153,7 @@ format SIL1
 #
 # SIY: MNEMONIC B1(D1),I2
 #
-#  Note: D1 contributes to DL1 and DH1 fields. 
+#  Note: D1 contributes to DL1 and DH1 fields.
 #        DH1 contains the high-order 8 bits of the 20-bit signed D1 displacement
 #        DL1 contains the low-order 12 bits of the 20-bit signed D1 displacement
 #
@@ -1167,7 +1167,7 @@ format SIY
     source SY1 B1 DL1 DH1
     source I2 I2
 
-    
+
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    |     I2    | B1  |       DL1       |    DH1    |    XOP    |
@@ -1175,7 +1175,7 @@ format SIY
 #
 # SIY1: MNEMONIC B1(D1),I2
 #
-#  Note: D1 contributes to DL1 and DH1 fields. 
+#  Note: D1 contributes to DL1 and DH1 fields.
 #        DH1 contains the high-order 8 bits of the 20-bit D1 signed displacement
 #        DL1 contains the low-order 12 bits of the 20-bit D1 signed displacement
 #
@@ -1381,7 +1381,7 @@ format SSF2
     source S2 B2 D2
     source R3 R3
 
-    
+
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | R3  | XOP | B1  |       D1        | B2  |       D2        |
@@ -1404,7 +1404,7 @@ format SSF3
 
 # VRI-a
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  |0000 |           I2          |0000 | RXB |    XOP    |
@@ -1416,15 +1416,15 @@ format VRIA
     length 6
     xopcode 40 47
     mach V1  8 11
-    mach I2 16 31 signed
+    mach I2 16 31
     mach RXB 36 39
     source V1 V1
     source I2 I2
 
 
-# VRI-a - with M3
+# VRI-a - with M3 and signed I2
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  |0000 |           I2          | M3  | RXB |    XOP    |
@@ -1446,7 +1446,7 @@ format VRIA1
 
 # VRI-b
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  |0000 |     I2    |     I3    | M4  | RXB |    XOP    |
@@ -1470,7 +1470,7 @@ format VRIB
 
 # VRI-c
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V3  |          I2           | M4  | RXB |    XOP    |
@@ -1494,7 +1494,7 @@ format VRIC
 
 # VRI-d
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  | V3  |0000 |    I4     | M5  | RXB |    XOP    |
@@ -1520,7 +1520,7 @@ format VRID
 
 # VRI-d - without M5
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  | V3  |0000 |    I4     |0000 | RXB |    XOP    |
@@ -1544,7 +1544,7 @@ format VRID1
 
 # VRI-e
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  |        I3       | M5  | M4  | RXB |    XOP    |
@@ -1570,7 +1570,7 @@ format VRIE
 
 # VRR-a
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  |0000 |0000 | M5  | M4  | M3  | RXB |    XOP    |
@@ -1596,7 +1596,7 @@ format VRRA
 
 # VRR-a - without M4 and M5
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  |0000 |0000 |0000 |0000 | M3  | RXB |    XOP    |
@@ -1619,7 +1619,7 @@ format VRRA1
 
 # VRR-a - without M3, M4 and M5
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  |0000 |0000 |0000 |0000 |0000 | RXB |    XOP    |
@@ -1640,7 +1640,7 @@ format VRRA2
 
 # VRR-a - without M4
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  |0000 |0000 | M5  |0000 | M3  | RXB |    XOP    |
@@ -1662,10 +1662,10 @@ format VRRA3
     source M3 M3
     source M5 M5
 
-    
+
 # VRR-a - without M5
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  |0000 |0000 |0000 | M4  | M3  | RXB |    XOP    |
@@ -1690,7 +1690,7 @@ format VRRA4
 
 # VRR-b
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  | V3  |0000 | M5  |0000 | M4  | RXB |    XOP    |
@@ -1718,7 +1718,7 @@ format VRRB
 
 # VRR-c
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  | V3  |0000 | M6  | M5  | M4  | RXB |    XOP    |
@@ -1747,7 +1747,7 @@ format VRRC
 
 # VRR-c - without M6 and M5
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  | V3  |0000 |0000 |0000 | M4  | RXB |    XOP    |
@@ -1772,7 +1772,7 @@ format VRRC1
 
 # VRR-c - without M6 and M5 and M4
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  | V3  |0000 |0000 |0000 |0000 | RXB |    XOP    |
@@ -1795,7 +1795,7 @@ format VRRC2
 
 # VRR-c - without M6
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  | V3  |0000 |0000 | M5  | M4  | RXB |    XOP    |
@@ -1822,7 +1822,7 @@ format VRRC3
 
 # VRR-d
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  | V3  | M5  | M6  |0000 | V4  | RXB |    XOP    |
@@ -1848,10 +1848,10 @@ format VRRD
     source M5 M5
     source M6 M6
 
-    
+
 # VRR-d - without M6
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  | V3  | M5  |0000 |0000 | V4  | RXB |    XOP    |
@@ -1875,10 +1875,10 @@ format VRRD1
     source V4 V4
     source M5 M5
 
-    
+
 # VRR-e
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  | V3  | M6  |0000 | M5  | V4  | RXB |    XOP    |
@@ -1907,7 +1907,7 @@ format VRRE
 
 # VRR-e - without M5 and M6
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  | V3  |0000 |0000 |0000 | V4  | RXB |    XOP    |
@@ -1932,7 +1932,7 @@ format VRRE1
 
 # VRR-f
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  | V3  |0000 |0000 |0000 |0000 | RXB |    XOP    |
@@ -1952,7 +1952,7 @@ format VRRE1
 
 # VRR-f - with GRs
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | R2  | R3  |0000 |0000 |0000 |0000 | RXB |    XOP    |
@@ -1975,7 +1975,7 @@ format VRRF1
 
 # VRS-a
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V3  | B2  |        D2       | M4  | RXB |    XOP    |
@@ -2000,7 +2000,7 @@ format VRSA
 
 # VRS-a - without M4
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V3  | B2  |        D2       |0000 | RXB |    XOP    |
@@ -2023,7 +2023,7 @@ format VRSA1
 
 # VRS-b
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | R3  | B2  |        D2       | M4  | RXB |    XOP    |
@@ -2048,7 +2048,7 @@ format VRSB
 
 # VRS-b - without M4
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | R3  | B2  |        D2       |0000 | RXB |    XOP    |
@@ -2071,7 +2071,7 @@ format VRSB1
 
 # VRS-c
 # -----
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | R1  | V3  | B2  |        D2       | M4  | RXB |    XOP    |
@@ -2096,7 +2096,7 @@ format VRSC
 
 # VRV
 # ---
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | V2  | B2  |        D2       | M3  | RXB |    XOP    |
@@ -2120,13 +2120,13 @@ format VRV
 
 # VRX
 # ---
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | X2  | B2  |        D2       | M3  | RXB |    XOP    |
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #
-# VRX: MNEMONIC 
+# VRX: MNEMONIC
 # (VECTOR LOAD LOGICAL ELEMENT AND ZERO)
 format VRX
     length 6
@@ -2144,7 +2144,7 @@ format VRX
 
 # VRX - without M3
 # ---
-#    
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  | X2  | B2  |        D2       |0000 | RXB |    XOP    |
@@ -2236,7 +2236,7 @@ format ERILC
 
 # VRI-a - Extended Mnemonic for RI2
 # -----
-#  
+#
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | V1  |0000 |          RI2          |0000 | RXB |    XOP    |
