@@ -347,12 +347,19 @@ class OperMgr(asmbase.ASMOperTable):
             
         # The MACROProcessor object should return exception objects, not
         # uncaught exceptions.  This exception handler should not be required.
-        # This is why the caught exceptions generate a WARNING message.
+        # This is why the exceptions caught here generate a WARNING message.
         except assembler.AssemblerError as ae:
             # Fetching of the macro from the macro library failed for some reason
-            # We need to treat this as a LineError of the physical line
-            print("WARNING: asmoper.OperMgr.getMacLib - AssemblerError may "\
-                "require cleanup in assembler.MACROProcessor")
+            # We need to treat this as a LineError of the physical line.
+            #
+            # This uncaught exception occurs when a macro can not be found
+            # for the operation.
+            #
+            # Perhaps a separate excecption class just for the "not found"
+            # condition is appropriate?  Further research is required on
+            # this.  For now, just commenting out the WARNING message.
+            #print("WARNING: asmoper.OperMgr.getMacLib - AssemblerError may "\
+            #    "require cleanup in assembler.MACROProcessor")
             raise asmline.LineError(msg=ae.msg) from None
         except asmline.LineError as le:
             print("WARNING: asmoper.OperMgr.getMacLib - LineError may "\
