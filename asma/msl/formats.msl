@@ -883,7 +883,7 @@ format RSYA
     mach R3 12 15
     mach B2 16 19
     mach DL2 20 31
-    mach DH2 32 39
+    mach DH2 32 39 signed
     source R1 R1
     source R3 R3
     source SY B2 DL2 DH2
@@ -907,7 +907,7 @@ format RSYB
      mach M3 12 15
      mach B2 16 19
      mach DL2 20 31
-     mach DH2 32 39
+     mach DH2 32 39 signed
      source R1 R1
      source M3 M3
      source SY B2 DL2 DH2
@@ -931,7 +931,7 @@ format RSYB1
      mach M3 12 15
      mach B2 16 19
      mach DL2 20 31
-     mach DH2 32 39
+     mach DH2 32 39 signed
      source R1 R1
      source SY B2 DL2 DH2
      source M3 M3
@@ -949,7 +949,7 @@ format RXA
      mach R1 8 11
      mach X2 12 15
      mach B2 16 19
-     mach D2 20 31
+     mach D2 20 31 
      source R1 R1
      source SX X2 B2 D2
 
@@ -1053,7 +1053,7 @@ format RXYA
     mach X2 12 15
     mach B2 16 19
     mach DL2 20 31
-    mach DH2 32 39
+    mach DH2 32 39 signed
     source R1 R1
     source SYX X2 B2 DL2 DH2
 
@@ -1076,7 +1076,7 @@ format RXYB
     mach X2 12 15
     mach B2 16 19
     mach DL2 20 31
-    mach DH2 32 39
+    mach DH2 32 39 signed
     source M1 M1
     source SYX X2 B2 DL2 DH2
 
@@ -1163,7 +1163,7 @@ format SIY
     mach I2 8 15
     mach B1 16 19
     mach DL1 20 31
-    mach DH1 32 39
+    mach DH1 32 39 signed
     source SY1 B1 DL1 DH1
     source I2 I2
 
@@ -1185,7 +1185,7 @@ format SIY1
     mach I2 8 15 signed
     mach B1 16 19
     mach DL1 20 31
-    mach DH1 32 39
+    mach DH1 32 39 signed
     source SY1 B1 DL1 DH1
     source I2 I2
 
