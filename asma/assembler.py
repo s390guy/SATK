@@ -1879,6 +1879,29 @@ class BaseMgr(object):
         else:    # All other systems only support direct mode with register 0
             BaseMgr.direct=BaseMgr.direct1
 
+    # This internal method is used to test whether a potential base is indeed
+    # possible.
+    # Method Arguments:
+    #   possible   a list of possible bases
+    #   baseo      a Base object being tested for use with the address being
+    #              resolved
+    #   addr       The address object being resolved to a base/displacement pair
+    #   size       Size of the base displacement field in bits (12 or 20)
+    #   signed     Whether the displacement is signed or unsigned.
+    #   asm        The global assembler object.
+    # Returns:
+    #   the possible list.  May add to the list or not
+    def __isPossible(self,possible,baseo,addr,size,signed,asm):
+        disp=baseo.getDisp(addr)
+        try:
+            asm.builder.range_check(size,disp,signed=signed)
+        except insnbldr.RangeCheckError:
+             # will not fit, not a candidate.  Return list without addition
+             return possible
+        baseo.disp=disp
+        possible.append(baseo)
+        return possible
+
     # This method selects a base register from a list of possible candidates.
     # All of the bases supplied to this method ARE eligible for use in resolving
     # a symbol to a base/displacement combination.
@@ -1912,7 +1935,9 @@ class BaseMgr(object):
     # reporting.
     # Method Arguments:
     #   addr    The Address object being resolved into a base/displacment pair
-    #   size    Size of the displacement field in bits
+    #   size    Size of the displacement field in bits (12 or 20)
+    #           12 bit displacements are unsigned, 20 bit displacements are
+    #           signed.
     #   asm     The Assembler object providing assistance
     #   trace   Enable trace messages if True
     # Note: A KeyError actually originates in the __select() method, but to the
@@ -1921,37 +1946,30 @@ class BaseMgr(object):
         assert isinstance(addr,lnkbase.Address),\
             "%s 'addr' argument must be an instance of lnkbase.Address: %s" \
                 % (eloc(self,"find"),addr)
+                
+        signed = size == 20   # Whether the displacement is signed or not
 
         possible=[]
         if addr.isAbsolute():
             for base in self.cur.abases.values():
-                if base.address <= addr.address:
-                    disp=base.getDisp(addr)
-                    try:
-                        asm.builder.range_check(size,disp)
-                    except insnbldr.RangeCheckError:
-                        # will not fit, not a candidate
-                        continue
-                    base.disp=disp
-                    possible.append(base)
+                if (not signed) and (base.address > addr.address):
+                    continue
+                possible=self.__isPossible(possible,base,addr,size,signed,asm)
+
             # This can raise an uncaught KeyError when resolution is not possible
             return self.__select(addr,possible,trace=trace)
 
         for base in self.cur.rbases.values():
-            #if base.section == addr.section and base.address <= addr.address:
             base_addr=addr.base()
             assert base_addr is not None,\
                 "%s Base address is None: %s" % (eloc(self,"find"),repr(addr))
 
-            if base.section == addr.section and base.address <= addr.base():
-                disp=base.getDisp(addr)
-                try:
-                    asm.builder.range_check(size,disp)
-                except insnbldr.RangeCheckError:
-                    # will not fit, not a candidate
-                    continue
-                base.disp=disp
-                possible.append(base)
+            if base.section != addr.section: 
+                continue
+            if (not signed) and (base.address > addr.base()):
+                continue
+            possible=self.__isPossible(possible,base,addr,size,signed,asm)
+
         # This can raise an uncaught KeyError when resolution is not possible
         return self.__select(addr,possible,trace=trace)
 
