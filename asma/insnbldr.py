@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014-2016 Harold Grovesteen
+# Copyright (C) 2014-2020 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -223,6 +223,7 @@ class AOper(object):
                         fmt.ID,mfield))
 
             mf_typ=mf.typ    # This is the machine field type
+
             # The Operand object now provides its value for this mfield type
             value=self.operand.field(mf_typ)
             if mf_typ=="V":
@@ -296,8 +297,9 @@ class Field(object):
             v="None"
         else:
             v=hex(self.value)
-        s="%s %s size: %s value: %s (%s)" \
-           % (self.__class__.__name__,self.name,self.size,self.value,v)
+        s="%s %s size: %s value: %s (%s) signed: %s" \
+           % (self.__class__.__name__,self.name,self.size,self.value,v,\
+               self.signed)
         return s
 
     # This presents the contents of the 
