@@ -92,6 +92,13 @@ cpu 24              # All instructions with a 24-bit influence
     features s390x-msa-5              # March, 2015
     features s390x-store-hypervisor   # March, 2015          STFLE:74
     features s390x-vector             # March, 2015
+    features s390x-guarded-storage    # September, 2017
+    features s390x-insert-ref-bits-multiple  # September, 2017
+    features s390x-msa-8              # September, 2017
+    features s390x-misc-inst-ext-2    # September, 2017
+    features s390x-test-ext-intrp     # September, 2017
+    features s390x-vector-enh-fac-1   # September, 2017
+    features s390x-vector-packed-1    # September, 2017
     features s390x-vm
     include IPTE
 
@@ -159,6 +166,13 @@ cpu 31             # All instructions with a 31-bit influence
     features s390x-msa-5              # March, 2015
     features s390x-store-hypervisor   # March, 2015          STFLE:74
     features s390x-vector             # March, 2015
+    features s390x-guarded-storage    # September, 2017
+    features s390x-insert-ref-bits-multiple  # September, 2017
+    features s390x-msa-8              # September, 2017
+    features s390x-misc-inst-ext-2    # September, 2017
+    features s390x-test-ext-intrp     # September, 2017
+    features s390x-vector-enh-fac-1   # September, 2017
+    features s390x-vector-packed-1    # September, 2017
     features s390x-vm
     include IPTE
 
@@ -226,12 +240,13 @@ cpu 64             # All instructions with a 64-bit influence
     features s390x-msa-5              # March, 2015
     features s390x-store-hypervisor   # March, 2015          STFLE:74
     features s390x-vector             # March, 2015
-    #features s390x-guarded-storage    # September, 2017
-    #features s390x-msa-8              # September, 2017
-    #features s390x-misc-inst-ext-2    # September, 2017
-    #features s390x-test-ext-intrp     # September, 2017
-    #features s390x-vector-enh-fac-1   # September, 2017
-    #features s390x-vector-packed-1    # September, 2017
+    features s390x-guarded-storage    # September, 2017
+    features s390x-insert-ref-bits-multiple  # September, 2017
+    features s390x-msa-8              # September, 2017
+    features s390x-misc-inst-ext-2    # September, 2017
+    features s390x-test-ext-intrp     # September, 2017
+    features s390x-vector-enh-fac-1   # September, 2017
+    features s390x-vector-packed-1    # September, 2017
     features s390x-vm
     include IPTEE
     rename IPTEE IPTE  # replaces IPTE old syntax with IPTE new syntax
@@ -1548,6 +1563,16 @@ iset s390x-gen-inst-ext
     mnemonics MVGHI MVHHI MVHI PFD PFDRL RISBG RNSBG ROSBG RXSBG STGRL STHRL
     mnemonics STRL
 
+# GUARDED STORAGE FACILITY (September, 2017)
+inst LGG    E34C RXYA           # LOAD GUARDED
+inst LGSC   E44D RXYA           # LOAD GUARDED STORAGE CONTROLS
+inst LLGFSG E348 RXYA           # LOAD GUARDED AND SHIFT CONTROLS
+inst STGSC  E349 RXYA           # STORE GUARDED STORAGE CONTROLS
+
+# See IBM z/Architecture Principles of Operation, SA22-7832-11, September, 2017
+# GF instrucstions
+iset s390x-guarded-storage
+     mnemonics LGG LGSC LLGFSG STGSC
 
 # HFP MULTIPLY ADD/SUBTRACT FACILITY (October, 2001)
 inst MAD    ED3E RXF            # MULTIPLY AND ADD (LH)
@@ -1633,6 +1658,15 @@ inst SFASR  B385 RRE1           # SET FPC AND SIGNAL
 # XF instructions
 iset s390x-IEEE-exception-sim
     mnemonics LFAS SFASR
+
+
+# INSERT REFERENCE BITS MULTIPLE FACILITY
+inst IRBM   B9AC RRE     P      # INSERT REFERENCE BITS MULTIPLE
+
+# See IBM z/Architecture Principles of Operation, SA22-7832-11, September 2017
+# IM instruction
+iset s390x-insert-ref-bits-multiple
+    mnemonics IRBM
 
 
 # INTERLOCKED ACCESS FACILITY (August, 2010)
@@ -1795,14 +1829,28 @@ iset s390x-msa-4
 
 # MESSAGE SECURITY ASSIST 5 FACILITY (March, 2015)
 inst PPNO   B93C RRE            # PERFORM PSEUDORANDOM NUMBER OPERATION
+inst PRNO   B93C RRE            # PERFORM RANDOM NUMBER OPERATION
+# Note: the PPNO instruction functionality was changed by SA22-7832-11,
+# September, 2017.  The mnemonic was changed to reflect the change in function,
+# but the machine instruction is the same as the previous implementation.
 
 # See IBM z/Architecture Principles of Operation, SA22-7832-10, March, 2015
 # M5 instructions
 iset s390x-msa-5
     mnemonics PPNO
+    mnemonics PRNO     # Added by SA22-7832-11, September, 2017
 
 
-# MISCELANEOUS-INSTUCTIONS-EXTENSION FACILITY
+# MESSAGE SECURITY ASSIST 8 FACILITY (September, 2017)
+inst KMA    B929 RRFB3          # CIPHER MESSAGE WITH AUTHENTICATION
+
+# See IBM z/Architecture Principles of Operation, SA22-7832-11, September, 2017
+# M8 instruction
+iset s390x-msa-8
+    mnemonics KMA
+
+
+# MISCELANEOUS-INSTUCTIONS-EXTENSION FACILITY 1
 inst CLGT   EB2B RSYB           # COMPARE LOGICAL AND TRAP (64)
 inst CLT    EB23 RSYB           # COMPARE LOGICAL AND TRAP (32)
 inst RISBGN EC59 RIEF           # ROTATE THEN INSERT SELECTED BITS
@@ -1811,6 +1859,24 @@ inst RISBGN EC59 RIEF           # ROTATE THEN INSERT SELECTED BITS
 # MI instructions
 iset s390x-misc-inst-ext
     mnemonics CLGT CLT RISBGN
+
+
+# MISCELANEOUS-INSTUCTIONS-EXTENSION FACILITY 2
+inst AGH    E338 RXYA
+inst BIC    E347 RXYB
+inst MG     E384 RXYA
+inst MGRK   B9EC RRFA1
+inst MGH    E33C RXYA
+inst MSC    E353 RXYA
+inst MSRKC  B9FD RRFA1
+inst MSGC   E383 RXYA
+inst MSGRKC B9ED RRFA1
+inst SGH    E339 RXYA
+
+# See IBM z/Architecture Principles of Operation, SA22-7832-11, September, 2017
+# MI2 instructions
+iset s390x-misc-inst-ext-2
+    mnemonics AGH BIC MG MGRK MGH MSC MSRKC MSGC MSGRKC SGH
 
 
 # MOVE-WITH-OPTIONAL-SPECIFICATIONS FACILITY (February, 2008)
@@ -1916,6 +1982,15 @@ iset s390x-store-hypervisor
     mnemonics STHYI
 
 
+# TEST-PENDING-EXTERNAL-INTERRUPTION FACILITY
+inst TPEI   B9A1 RRE     P      # TEST PENDING EXTERNAL INTERRUPTION
+
+# See IBM z/Architecture Principles of Operation, SA22-7832-11, September, 2017
+# TE instruction
+iset s390x-test-ext-intrp
+    mnemonics TPEI
+
+
 # TOD-CLOCK-STEERING FACILITY (September, 2005)
 inst PTFF   0104 E              # PERFORM TIMING FACILITY FUNCTION
 
@@ -1936,6 +2011,54 @@ inst TEND   B2F8 RRE2           # TRANSACTION END
 # TX instructions
 iset s390x-trans-exe
     mnemonics ETND NTSTG TABORT TBEGIN TEND
+
+
+# VECTOR PACKED-DECIMAL FACILITY
+inst VAP    E671 VRIF           # VECTOR ADD DECIMAL
+inst VCP    E677 VRRH           # VECTOR COMPARE DECIMAL
+inst VCVB   E650 VRRI           # VECTOR CONVERT TO BINARY
+inst VCVBG  E652 VRRI           # VECTOR CONVERT TO BINARY
+inst VCVD   E658 VRII           # VECTOR CONVERT TO DECIMAL
+inst VCVDG  E65A VRII           # VECTOR CONVERT TO DECIMAL
+inst VDP    E67A VRIF           # VECTOR DIVIDE DECIMAL
+inst VLIP   E649 VRIH           # VECTOR LOAD IMMEDIATE DECIMAL
+inst VLRL   E635 VSI            # VECTOR LOAD RIGHTMOST WITH LENGTH
+inst VLRLR  E637 VRSD           # VECTOR LOAD RIGHTMOST WITH LENGTH
+inst VMP    E678 VRIF           # VECTOR MULTIPLY DECIMAL
+inst VMSP   E679 VRIF           # VECTOR MULTIPLY AND SHIFT DECIMAL
+inst VPKZ   E634 VSI            # VECTOR PACK ZONED
+inst VPSOP  E65B VRIG           # VECTOR PERFORM SIGN OPERATION DECIMAL
+inst VRP    E67B VRIF           # VECTOR REMAINDER DECIMAL
+inst VSDP   E67E VRIF           # VECTOR SHIFT AND DIVIDE DECIMAL
+inst VSP    E673 VRIF           # VECTOR SUBTRCT DECIMAL
+inst VSRP   E659 VRIG           # VECTOR SHIFT AND ROUND DECIMAL
+inst VSTRL  E63D VSI            # VECTOR STORE RIGHTMOST WITH LENGTH
+inst VSTRLR E63F VRSD           # VECTOR STORE RIGHTMOST WITH LENGTH
+inst VTP    E65F VRRG           # VECTOR TEST DECIMAL
+inst VUPKZ  E63C VSI            # VECTOR UNPACK ZONED
+
+# See z/Architecture Principles of Operation, SA22-7832-11, September, 2017
+# VD instructions
+iset s390x-vector-packed-1
+    mnemonics VAP VCP VCVB VCVBG VCVD VCVDG VDP VLIP VLRL VLRLR VMP VMSP VPKZ
+    mnemonics VPSOP VRP VSDP VSP VSRP VSTRL VSTRLR VTP VUPKZ
+
+
+# VECTOR-ENHANCEMENTS FACILITY 1
+inst VBPERM E785 VRRC2          # VECTOR BIT PERMUTE
+inst VFMAX  E7EF VRRC           # VECTOR FP MAXIMUM
+inst VFMIN  E7EE VRRC           # VECTOR FP MINIMUM
+inst VFNMA  E79F VRRE           # VECTOR FP NEGATIVE MULTIPLY AND ADD
+inst VFNMS  E79E VRRE           # VECTOR FP NEGATIVE MULTIPLY AND SUBTRACT
+inst VMSL   E7B8 VRRD           # VECTOR MULTIPLY SUM LOGICAL
+inst VNN    E76E VRRC           # VECTOR NAND
+inst VNX    E76C VRRC           # VECTOR NOT EXCLUSIVE OR
+inst VOC    E76F VRRC           # VECTOR OR WITH COMPLEMENT
+
+# See IBM z/Architecture Principles of Operation, SA22-7832-11, September, 2017
+# V1 instructions
+iset s390x-vector-enh-fac-1
+    mnemonics VBPERM VFMAX VFMIN VFNMA VFNMS VMSL VNN VNX VOC
 
 
 # VECTOR FACILITY
