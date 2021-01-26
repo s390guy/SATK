@@ -40,6 +40,7 @@ The following directories are provided:
                          asma.py - command-line interface to ASMA
                          codepage.py - ASMA code page customization
                          config.py - local tool configuration management and testing
+                         deck.py - Card deck and AWS tape merge / creation tool
                          fp.py - floating point utility
                          hopcodes.py - Hercules instruction audit tool
                          msl.py - Machine Specification Language (MSL) processor
