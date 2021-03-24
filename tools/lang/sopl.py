@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2014, 2017 Harold Grovesteen
+# Copyright (C) 2014-2021 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -185,16 +185,24 @@ class Statement(Parameter):
 #   default    Default directory if path environment variable is missing
 #   pathmgr    An satkutil.PathMgr object.  If None a PathMgr object is built
 #              from the 'variable' and 'default' arguments.
+#   cmtchr     A list of individual characters that may initiate a comment.
 #   debug      Specify True to enable PathMgr debugging
 class SOPL(object):
-    def __init__(self,variable="PATH",default=None,pathmgr=None,debug=False):
+    def __init__(self,variable="PATH",default=None,pathmgr=None,\
+        cmtchr=["#","*"],debug=False):
         self.fail=False         # If True fail immediately on an error
         self.soplpath=variable  # Environment variable used for includes
         if pathmgr is None:
             self.opath=\
-                satkutil.PathMgr(variable=self.soplpath,default=default,debug=debug)
+                satkutil.PathMgr(variable=self.soplpath,default=default,\
+                    debug=debug)
         else:
             self.opath=pathmgr
+
+        self.cmtchr=cmtchr      # List of characters that may start a comment
+        # Note, each character must be a separate string object.  Multiple
+        # characters may not be coded a single string.  Use ["#","*"] not
+        # ["#*",].
 
         # This is a dictionary of statement line id's mapped to a list of valid
         # parameter line id's.  It is built by the subclass calling regStmt() method.
@@ -207,19 +215,22 @@ class SOPL(object):
         # Attributes supplied by SOPL.readfile() method
         self.lines=[]            # List of stripped Line objects
         self.files=[]            # list of include files.
-        # Attribute supplied by SOPL.pre_process() method.  Return by getStmts() method
+
+        # Attribute supplied by SOPL.pre_process() method.
         self.stmts=[]            # List of Statement objects
+        # Returned by getStmts() method
 
         # Used by __badchars() method to detect invalid input characters.
-        translate="\x00" * 0x20                               # 32 chars   (0x20)
-        translate="%s%s" % (translate,"\xFF" * (0x7F-0x20))   # 95 chars   (0x5F)
-        translate="%s%s" % (translate,"\x00" * (0x100-0x7F))  # 129 chars  (0x81)
+        translate="\x00" * 0x20                              # 32 chars   (0x20)
+        translate="%s%s" % (translate,"\xFF" * (0x7F-0x20))  # 95 chars   (0x5F)
+        translate="%s%s" % (translate,"\x00" * (0x100-0x7F)) # 129 chars  (0x81)
         if len(translate)!=256:
-            raise ValueError("translate table is not 256 bytes: %s" % len(translate))
+            raise ValueError("translate table is not 256 bytes: %s" \
+                % len(translate))
         self._translate=translate # Used to detect invalid characters
 
         # Force subclass to register its statements
-        self.register()          # Subclass calls regStmt() method in this method
+        self.register()      # Subclass calls regStmt() method in this method
 
     # Make sure an input line contains only valid ASCII characters
     def __badchars(self,source,string):
@@ -239,15 +250,23 @@ class SOPL(object):
         parts=stmt.split()
         if len(parts)>2:
             self._do_error(line=source,\
-                msg="too many arguements in 'include' statement: %s" % len(parts))
+                msg="too many arguements in 'include' statement: %s" \
+                    % len(parts))
         self.__readfile(parts[1],line=source)
 
-    # Recognize a comment  or empty line
+    # Recognize a comment or empty line
+    #
+    # Method Argument:
+    #   text   A string tested for being a comment line
+    # Returns:
+    #   True if the text is a comment line
+    #   False if the text is not a comment line
     def __is_comment(self,text):
         if len(text)==0:
             return True
         cont=text[0]
-        return cont in ["#","*"]
+        #return cont in ["#","*"]
+        return cont in self.cmtchr    # Return whether the line is a comment
 
     # Convert Line objects from readfile() method into Statement objects.
     def __pre_process(self,debug=False):
@@ -285,7 +304,8 @@ class SOPL(object):
         # Ignore previously included file
         if abspath in self.files:
             self._do_warning(line=line,\
-                msg="file may not be included more than once, ignored: %s" % abspath)
+                msg="file may not be included more than once, ignored: %s" \
+                    % abspath)
             fo.close()              # close the open file without reading it
             return
 
@@ -311,28 +331,22 @@ class SOPL(object):
 
                 # Ignore a comment line
                 cont=text[0]
-                if cont in ["#","*"]:
+                if cont in self.cmtchr:
                     continue
 
                 # Look for and remove a comment at the end of a line
-                try:
-                    comment=text.index("#")
-                    stmt=text[:comment-1]
-                except ValueError:
-                    try:
-                        comment=text.index("*")
-                        stmt=text[:comment-1]
-                    except ValueError:
-                        stmt=text
+                stmt=self.__remove_comment(text)
 
                 # Most likely, now have some text needing to be processed
                 source=Source(fileno=fileno,lineno=lineno)
 
-                # Generate an error is bad characters in line and cease processing it
+                # Generate an error if bad characters in line and cease
+                # processing it
                 if self.__badchars(source,stmt):
                     continue   # Error message queued so just ignore it here
 
-                # Remove any trailing blanks (between statment and comment/end-of-line)
+                # Remove any trailing blanks (between statment and
+                # comment/end-of-line)
                 stmt=stmt.rstrip()  # Remove trailing blanks.
                 if len(stmt)==0:
                     continue
@@ -343,7 +357,8 @@ class SOPL(object):
                     # The include statement itself is removed from the input
                     continue
 
-                # This is a valid statement or parameter line add it for processing
+                # This is a valid statement or parameter line add it for
+                # processing
                 ln=Line(source,stmt)
                 self.lines.append(ln)
 
@@ -358,18 +373,24 @@ class SOPL(object):
 
         # self.lines contains the list of recognized Line objects
 
-    # Removes an comment at the end of a line
+    # Removes a comment at the end of a line
+    # Method Argument:
+    #   text   A text string from which an comment at the end of the line is
+    #          removed.
+    # Returns:
+    #   a text string without the end of line comment, or the entire text
+    #   string if a comment is not present.
     def __remove_comment(self,text):
-        try:
-            comment=text.index("#")
-            stmt=text[:comment-1]
-        except ValueError:
+        for char in self.cmtchr:
             try:
-                comment=text.index("*")
-                stmt=text[:comment-1]
+                comment=text.index(char)
+                # Raises a ValueError if char is not found in the text.
+                return text[:comment-1]  # Return text without the comment
             except ValueError:
-                stmt=text
-        return stmt
+                pass
+
+        # No comment.  Return the original text without change
+        return text
 
     # Execute the -f, --fail protocol during pre-processing
     def _do_error(self,line=None,msg="",error=None):
@@ -409,8 +430,8 @@ class SOPL(object):
         return len(self.errors)>0
 
     # This method is the logical equivalent of recognize, except file inclusions
-    # are not recognized.  It is strictly for the use of an embedded multiline string
-    # obviating the need for paths or filenames.
+    # are not recognized.  It is strictly for the use of an embedded multiline
+    # string obviating the need for paths or filenames.
     def multiline(self,string,fail=False,debug=False):
         if not isinstance(string,str):
             cls_str="sopl.py - %s.multiline() -" % self.__class__.__name__
@@ -423,9 +444,9 @@ class SOPL(object):
         lineno=0
         for line in lines:
             lineno+=1
-            if self.__is_comment(line):
+            if self.__is_comment(line):   # Ignore a comment line
                 continue
-            stmt=self.__remove_comment(line)
+            stmt=self.__remove_comment(line)  # Remove a comment at end of line
             source=Source(lineno=lineno)
             # Generate an error is bad characters in line and cease processing it
             if self.__badchars(source,stmt):
