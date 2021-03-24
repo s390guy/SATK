@@ -106,7 +106,8 @@ class Parameter(object):
         units=aline.text.split()
         if len(units)==0:
             cls_str="msldb.py - %s.__init__() -" % self.__class__.__name__
-            raise ValueError("%s Parameter contains zero text units, SHOULD NOT OCCUR")
+            raise ValueError("%s Parameter contains zero text units, "\
+                "SHOULD NOT OCCUR",cls_str)
         self.units=units
         self.typ=None
         self.attr=[]
@@ -119,6 +120,7 @@ class Parameter(object):
         print(s)
 
     def parse_units(self):
+        # Note: Method overriden by Statement subclass
         #     [0]       [1]...    self.unit indexes
         #  parm-type  attributes
         self.typ=self.units[0]
@@ -126,16 +128,18 @@ class Parameter(object):
 
 # Encapsulates a statement, its attributes and related parameter lines
 class Statement(Parameter):
-    def __init__(self,aline,stmtd):
+    def __init__(self,aline,stmtd,isID=True):
         self.ID=None           # Statement identifier
         self.parms=[]          # Parameters are added as they are encountered
+        self.isID=isID         # Whether statement ID is required
 
         super().__init__(aline)
-        if len(self.units)<2:
+
+        if self.isID and len(self.units)<2:
             raise SOPLError(loc=aline.source,\
                 msg="statement requires at least two text units in line: %s" \
-                    % len(units))
-
+                    % len(self.units))
+        
         try:
             self.valid_parms=stmtd[self.typ]
         except KeyError:
@@ -159,12 +163,18 @@ class Statement(Parameter):
         print(s)
 
     def parse_units(self):
-        #     [0]       [1]         [2]...      self.unit indexes
-        #  stmt-type  stmt-id   attributes
-        self.typ=self.units[0]
-        self.ID=self.units[1]
-        if len(self.units)>2:
-            self.attr=self.units[2:]
+        if self.isID:
+            #     [0]       [1]         [2]...      self.unit indexes
+            #  stmt-type  stmt-id   attributes
+            self.typ=self.units[0]
+            self.ID=self.units[1]
+            if len(self.units)>2:
+                self.attr=self.units[2:]
+        else:
+            #     [0]        [1]...                 self.unit indexes
+            #  stmt-type  attributes
+            self.typ=self.units[0]
+            self.attr=self.units[1:]
 
 #
 #  +-------------------------------------------+
@@ -189,7 +199,7 @@ class Statement(Parameter):
 #   debug      Specify True to enable PathMgr debugging
 class SOPL(object):
     def __init__(self,variable="PATH",default=None,pathmgr=None,\
-        cmtchr=["#","*"],debug=False):
+        cmtchr=["#","*"],isID=True,debug=False):
         self.fail=False         # If True fail immediately on an error
         self.soplpath=variable  # Environment variable used for includes
         if pathmgr is None:
@@ -203,6 +213,17 @@ class SOPL(object):
         # Note, each character must be a separate string object.  Multiple
         # characters may not be coded a single string.  Use ["#","*"] not
         # ["#*",].
+        # Note: MSL uses the default ["#","*"]
+        #       ASF uses the explicit value ["*",]
+        
+        # Whether SOPL requires an ID field in a statement or parameter line.
+        self.isID=isID
+        # When True the Statement.ID and Parameter.ID attributes are set and
+        # each Parameter and Statement must contain at least two elements
+        # When False, Statement.ID an Parameter.ID are set to None and
+        # only one elements is required.
+        # Note: MSL uses the default True.
+        #       ASF uses isID=False.
 
         # This is a dictionary of statement line id's mapped to a list of valid
         # parameter line id's.  It is built by the subclass calling regStmt() method.
@@ -265,7 +286,6 @@ class SOPL(object):
         if len(text)==0:
             return True
         cont=text[0]
-        #return cont in ["#","*"]
         return cont in self.cmtchr    # Return whether the line is a comment
 
     # Convert Line objects from readfile() method into Statement objects.
@@ -278,7 +298,7 @@ class SOPL(object):
                     self.stmts.append(stmt)
                     stmt=None
                 try:
-                    stmt=Statement(x,stmtd)
+                    stmt=Statement(x,stmtd,isID=self.isID)
                 except SOPLError as me:
                     self._do_error(error=me)
             else:
