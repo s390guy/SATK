@@ -1,0 +1,30 @@
+#!/bin/sh
+# Copyright (C) 2021 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+# This module creates a text file usable by ASMA for testing Python handling
+# of characters.
+
+TEST=./chrstst.py
+PY128="py128.txt"
+ASMA_SRC="chars.asm"
+
+# Change this variable for your environment
+REPO=${HOME}/SATKREPO/SATK      # SATK repository from github
+ASMA=${REPO}/tools/asma.py      # The ASMA tool
+
+${TEST} -d -w=${PY128} -s=${ASMA_SRC}

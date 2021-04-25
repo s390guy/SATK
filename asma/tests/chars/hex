@@ -1,0 +1,32 @@
+#!/bin/sh
+# Copyright (C) 2021 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+# This module creates a text file that is the hexadecimal translation of
+# each byte in the ASMA source file.
+
+# Note: xxd is a simple command-line based hexadecimal editor.  It is a Linux
+# application.  If you are not using Linux or prefer a different hex editor
+# simply use your preference.
+
+ASMA_SRC="chars.asm"
+ASMA_HEX="chars.hex"
+ASMA_LST="asma-20210416.102259.txt"  # Alter to match date and time of listing
+LST_HEX="listing.hex"
+
+xxd -g 4 ${ASMA_SRC} ${ASMA_HEX}    # output source as hex
+#xxd -g 4 ${ASMA_LST} ${LST_HEX}     # output listing as hex
