@@ -276,7 +276,7 @@ MSZA&SYSNDX SLL   &R2,20             Convert to bytes from megabytes
          AIF  (NOT &INITPUL).EXIT
 .*
 .* Initialize a memory pool
-.*  This code assumes that the MEMPOOL DSECT has been assigned a base registe
+.*  This code assumes that the MEMPOOL DSECT has been assigned a base register
 .*  with a USING before the MEMSZ macro was called.
          &SLR  &R2,&R2         Set starting pool address to start of memory
          &LR   &R2+1,&R1+1     Set ending pool address to last memory address
@@ -285,6 +285,7 @@ MSZA&SYSNDX SLL   &R2,20             Convert to bytes from megabytes
 * Last sanity check on the results...
          CLI   0(&R1+1),X'00'  This should not result in a program interruption
 * This should not result in a program interruption. Hence, the sanity check.
+         AIF   (&ARCHLVL LE 4).MEND
          $B    MSZD&SYSNDX            Leave the macro
          AIF   (&ARCHLVL GE 9 OR &ARCHLVL LT 5).NO31MAX
 MSZE&SYSNDX DC A(X'800')  Maximum memory size for 31-bit addressing system
@@ -294,4 +295,4 @@ MSZ1&SYSNDX DC F'1'       Constant of 1.
 MSZL&SYSNDX DC HL2'4096',AL1(SCCBFS)  Size of SCCB in use. Synchronous command
 MSZR&SYSNDX DC AL1(SCCVROK,SCCBCIR)   Good response for this command
 MSZD&SYSNDX DC 0H                     Exit the macro here
-         MEND
+.MEND       MEND
