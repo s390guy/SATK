@@ -1,0 +1,242 @@
+* Copyright (C) 2021 Harold Grovesteen
+*
+* This file is part of SATK.
+*
+*     SATK is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, either version 3 of the License, or
+*     (at your option) any later version.
+*
+*     SATK is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   RTBL  &ADDR,&FMT=,&LEN=,&DISP=,&RESTORE=
+.* Generate a relocation table entry.
+.*
+.*     &LABEL   Assign a label to the relocation table entry.  Why?  Not clear,
+.*              but allows normal usage.  No surprise.
+.*
+.* Positional Parameters:
+.*
+.*     &ADDR    The label associated with the address being relocated.
+.*              Required.  All address constants being relocated must have a
+.*              label.
+.*
+.* Keyword Parameters:
+.*
+.*     &FMT     Allows an explicit structure format to be applied to the
+.*              address label.  If omitted, defaults to the XMODE CCW or PSW
+.*              value depending on the &ADDR label T (type) attribute.  May
+.*              also specify 'ORB' when the &ADDR value is that of an I/O
+.*              ORB structure when relocation of the CCW address within the
+.*              ORB is required.
+.*     &LEN     Allows the address constant's length to be explicitly supplied.
+.*              If omitted, the length associated with the &ADDR label is used.
+.*     &DISP    Allows the location of the address constant to be displaced
+.*              from the &ADDR parameter by an explicit amount.  If omitted,
+.*              no displacement is applied to the &ADDR label.
+.*     &RESTORE Specify STOP to cease preserving the entry control section.
+.*              Omit if not changing the preservation status.
+.*
+         GBLA  &ARCHLVL
+         GBLA  &RELLF     Relocation entry length shift factor (From RTABLE)
+         GBLA  &RELNTYS   Number of relocation table entries.
+         GBLB  &RELFIN    Relocation table finished (See RTBLEND)
+         GBLB  &RELSTOP   Cease restoring entry section  (From RTABLE)
+         GBLC  &RELREGN   Region name of the relocation table (From RTABLE)
+         GBLB  &RELSTRT   Relocation table started (From RTABLE)
+         GBLC  &RELSECT   Relocation section name (From RTABLE)
+         GBLC  &RELSIZE   Relocation entry size (From RTABLE)
+         LCLA  &RDISP     Displacement of this address from &ADDR label
+         LCLA  &RLEN      Length of this &ADDR label
+         LCLC  &RELSRS    Section name to be restored
+         AIF   (&ARCHLVL GT 0).ARCHOK
+         MNOTE 1,'RTBL - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+.*
+.* Make sure relocation table has been started but not completed.
+         AIF   (NOT &RELFIN).CKSTART
+         MACRO 1,'RTBL - RELOCATION TABLE FINISHED - MACRO IGNORED'
+.* Currently only one relocation table is allowed per assembly.
+         MEXIT
+.CKSTART ANOP
+         AIF   (&RELSTRT).CONT
+         MACRO 1,'RTBL - RELOCATION TABLE NOT STARTED - MACRO IGNORED'
+         MEXIT
+.CONT    ANOP
+.*
+.* Check RTBL parameters
+         AIF   ('&ADDR' NE '').ADDROK
+         MNOTE 1,'RTBL - ADDR PARAMETER REQUIRED - MISSING'
+         MEXIT
+.ADDROK  ANOP
+.* Extract &ADDR information
+&RTYP    SETC  T'&ADDR
+         AIF   ('&RTYP' EQ 'U').REJECT
+&RLEN    SETA  L'&ADDR   Length valid for A and Y types
+&RDISP   SETA  0
+.* Note: It is impossible to distinguish based upon the T' attribute whether
+.* an unaligned address constant is an SLx or SYLx.  Both get the 'R' attribute.
+.* Programmer beware.  'R' type must be included for address constants with
+.* explicit lengths, specifically ALx, ADLx, or YLx.  Use of RTBL with
+.* an &ADDR label associated with an SLx or SYLx will result in unpredictable
+.* results undetectable during the assembly.
+.USETYP  ANOP
+         AIF   ('&RTYP' EQ 'A').OVERRID
+         AIF   ('&RTYP' EQ 'R').OVERRID
+         AIF   ('&RTYP' EQ 'Y').OVERRID
+         AIF   ('&RTYP' EQ 'W').CCW     Check &SYSCCW and &FMT if needed
+         AIF   ('&RTYP' EQ '3').PSW     Check &SYSPSW and &FMT if needed
+         AIF   ('&FMT' EQ 'ORB').ORB    Relocate CCW address in an ORB
+.* If LEN= and DISP= are present, then any type is supported.
+         AIF   ('&LEN' NE '' AND '&DISP' NE '').OVERRID
+.REJECT  ANOP
+         MNOTE 1,'RTBL - ''&ADDR'' NOT RELOCATABLE - TYPE &RTYP'
+         MEXIT
+.ORB     ANOP
+.*
+.* Relocate CCW address in an ORB
+&RDISP   SETA  8
+&RLEN    SETA  4
+         AGO   .OVERRID
+.CCW     ANOP
+.*
+.* Relocate a CCW address
+.*
+.* Explicit use of &FMT has a priority over implicit use of &SYSCCW
+         AIF   ('&FMT' EQ '').USECCW
+         AIF   ('&FMT' EQ 'CCW0').CCW0
+         AIF   ('&FMT' EQ 'CCW1').CCW1
+         MNOTE 1,'RTBL - UNRECOGNIZED CCW FMT PARAMETER: ''&FMT'''
+         MEXIT
+.USECCW  ANOP
+         AIF   ('&SYSCCW' EQ 'CCW0').CCW0
+         AIF   ('&SYSCCW' EQ 'CCW1' OR '&FMT' EQ 'CCW1').CCW1
+         AIF   ('&LEN' NE '' AND '&DISP' NE '').OVERRID
+         MNOTE 1,'RTBL - ''&ADDR'' CCW FORMAT UNKNOWN'
+         MEXIT
+.CCW0    ANOP
+&RDISP   SETA  1
+&RLEN    SETA  3
+         AGO   .OVERRID
+.CCW1    ANOP
+&RDISP   SETA  4
+&RLEN    SETA  4
+         AGO   .OVERRID
+.PSW     ANOP
+.*
+.* Relocate a PSW address
+.*
+.* Explicit use of &FMT has a priority over implicit use of &SYSPSW
+         AIF   ('&FMT' EQ '').USEPSW
+         AIF   ('&FMT' EQ 'PSWS').PSW2
+         AIF   ('&FMT' EQ 'PSW360').PSW3
+         AIF   ('&FMT' EQ 'PSWBC').PSW3
+         AIF   ('&FMT' EQ 'PSWEC').PSW3
+         AIF   ('&FMT' EQ 'PSW380').PSW4
+         AIF   ('&FMT' EQ 'PSWXA').PSW4
+         AIF   ('&FMT' EQ 'PSWE370').PSW4
+         AIF   ('&FMT' EQ 'PSWE390').PSW4
+         AIF   ('&FMT' EQ 'PSWZ').PSW8
+         MNOTE 1,'RTBL - UNRECOGNIZED PSW FMT PARAMETER: ''&FMT'''
+         MEXIT
+.USEPSW  ANOP
+         AIF   ('&SYSPSW' EQ 'PSWS').PSW2
+         AIF   ('&SYSPSW' EQ 'PSW360').PSW3
+         AIF   ('&SYSPSW' EQ 'PSWBC').PSW3
+         AIF   ('&SYSPSW' EQ 'PSWEC').PSW3
+         AIF   ('&SYSPSW' EQ 'PSW380').PSW4
+         AIF   ('&SYSPSW' EQ 'PSWXA').PSW4
+         AIF   ('&SYSPSW' EQ 'PSWE370').PSW4
+         AIF   ('&SYSPSW' EQ 'PSWE390').PSW4
+         AIF   ('&SYSPSW' EQ 'PSWZ').PSW8
+         AIF   ('&LEN' NE '' AND '&DISP' NE '').OVERRID
+         MNOTE 1,'RTBL - ''&ADDR'' PSW FORMAT UNKNOWN: ''&SYSPSW'''
+         MEXIT
+.PSW2    ANOP
+&RDISP   SETA  2
+&RLEN    SETA  2
+         AGO   .OVERRID
+.PSW3    ANOP
+&RDISP   SETA  5
+&RLEN    SETA  3
+         AGO   .OVERRID
+.PSW4    ANOP
+&RDISP   SETA  4
+&RLEN    SETA  4
+         AGO   .OVERRID
+.PSW8    ANOP
+&RDISP   SETA  8
+&RLEN    SETA  8
+.OVERRID ANOP
+.*
+.* Override with explicit values when specified
+         AIF   ('&LEN' EQ '').NOLEN
+         AIF   (K'&LEN EQ 1).LENOK
+         MNOTE 1,'RTBL - LEN PARAMETER MUST BE ONE CHARACTER: ''&LEN'''
+         MEXIT
+.LENOK   ANOP
+&RLEN    SETA  &LEN        Overide assembled label length
+.NOLEN   ANOP
+         AIF   ('&DISP' EQ '').CKLENA
+&RDISP   SETA  &DISP
+.CKLENA  ANOP
+         AIF   (&ARCHLVL LE 3).CK3MAX               24-bit addresses
+         AIF   (&ARCHLVL GE 9).CK8MAX               64-bit addresses
+         AIF   (&RLEN GE 2 AND &RLEN LE 4).CREATE   31-bit addresses
+.TOOBIG  ANOP
+         MNOTE 1,'RTBL - CAN NOT RELOCATE FIELD OF LENGTH: &RLEN'
+         MEXIT
+.CK3MAX  ANOP
+.* This causes RTBL to treat 4-byte addresses in 24-bit CPU's as 3-byte
+.* This eliminates the need to preserve byte 0 of 4-byte address fields when
+.* dealing with a 24-bit address mode only CPU.
+         AIF   (&RLEN LT 2 OR &RLEN GT 4).TOOBIG
+         AIF   (&RLEN LT 4).CREATE
+&RLEN    SETA  3
+&RDISP   SETA  &RDISP+1
+         AGO   .CREATE
+.CK8MAX  ANOP
+         AIF   (&RLEN LT 2 OR &RLEN GT 8).TOOBIG
+.CREATE  ANOP
+.*
+.* Determine if we are ceasing to restore the entry section
+         AIF   ('&RESTORE' EQ '').PRESERV
+         AIF   ('&RESTORE' EQ 'STOP').CEASE
+         MNOTE 1,'RTBL - RESTORE PARAMETER INVALID: ''&RESTORE'''
+         MEXIT
+.CEASE   ANOP
+&RELSTOP SETB  1
+.*
+.* Preserve entry section name for restoration?
+.PRESERV ANOP
+&RELSRS  SETC  '&SYSECT'
+         AIF   (&RELSTOP).NOCHANG
+         AIF   ('&SYSECT' EQ '&RELSECT').NOCHANG
+         SPACE 1
+&RELSECT CSECT
+.NOCHANG ANOP
+.*
+.* Create the relocation table entry
+&LENFACT SETA  (&RLEN-1)*&RELLF
+         AIF   (&RDISP EQ 0).NODISP
+&LABEL   DC    AL&RELSIZE.(&LENFACT+(&ADDR-&RELREGN)+&RDISP)
+         AGO   .SECTR
+.NODISP  ANOP
+&LABEL   DC    AL&RELSIZE.(&LENFACT+(&ADDR-&RELREGN))
+.SECTR   ANOP
+.*
+.* Determine if we need to restore entry control section
+         AIF   (&RELSTOP).NORESTR
+         AIF   ('&RELSRS' EQ '&RELSECT').NORESTR
+&RELSRS  CSECT
+.NORESTR ANOP
+         SPACE 1
+         MEND

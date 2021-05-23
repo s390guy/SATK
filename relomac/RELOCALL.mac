@@ -1,0 +1,104 @@
+* Copyright (C) 2021 Harold Grovesteen
+*
+* This file is part of SATK.
+*
+*     SATK is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, either version 3 of the License, or
+*     (at your option) any later version.
+*
+*     SATK is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   RELOCALL &RELOCATE=,&RTABLE=,&START=,&MASK=
+.* RELOCALL performs a call to the relocation subroutine created by RELOCATE.
+.*
+.* Lable Field: associated with the first instruction of the macro
+.*
+.* Positional Parameters: None
+.*
+.*  Keyword Parameters:
+.*
+.*    &RELOCATE  The label assocated with the RELOCATE macro.  Required
+.*    &TABLE     The label associated with the RTABLE macro.  Required
+.*    &START     The label of a A 4- or 8-byte field containing the new
+.*               starting address for the region or program being relocated.
+.*               Required.  The size of the field is dictated by the target
+.*               architecture of the program.
+.*    &MASK      The transfer register mask, four hex digits.  Optional.
+.*
+.* Programming Note:
+.*
+.* The register used for entry to the RELOCATE macro becomes the base register
+.* of the subroutine.  This register must not be the base register of the
+.* program making the call.  The RELOCATE subroutine uses most all registers.
+.* Altering the base register of the subroutine is not feasible either.
+.* Therefore, when a program uses RELOCATE, the calling program must not use
+.* R13, the base register of the RELOCATE subroutine, as its own base register.
+.* Nor may the calling program use R15 as the base.  R15 is altered with the
+.* subroutine's return code.
+         GBLA  &ARCHLVL
+         GBLC  &ARCHATP
+         AIF   (&ARCHLVL GT 0).ARCHOK
+         MNOTE 1,'RELOCALL - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   ('&RELOCATE' NE '').RELOK
+         MNOTE 1,'RELOCALL - RELOCATE PARAMETER REQUIRED'
+         MEXIT
+.RELOK   ANOP
+         AIF   ('&RTABLE' NE '').TBLOK
+         MNOTE 1,'RELOCALL - RTABLE PARAMETER REQUIRED'
+         MEXIT
+.TBLOK   ANOP
+         AIF   ('&START' NE '').STROK
+         MNOTE 1,'RELOCALL - START PARAMETER REQUIRED'
+         MEXIT
+.STROK   ANOP
+.*
+.* Generate the call to RELOCATE
+&LABEL   $L    2,RCLT&SYSNDX
+         AIF   ('&MASK' NE '').MASKPR
+         $SR   3,3      No register relocation mask
+         AGO   .DOCALL
+.MASKPR  ANOP
+         AIF    (K'&MASK EQ 4).MASKOK
+         MNOTE  1,'RELOCALL - MASK MUST BE FOUR HEXADECIMAL DIGITS: ''&MASK'''
+         MEXIT
+.MASKOK  ANOP
+         L     3,RCLM&SYSNDX    Pass the register relocation mask
+.DOCALL  ANOP
+         AIF   (&ARCHLVL GE 9).START64
+         L     0,&START         Pass the new starting address
+         AGO   .RELOMAC
+.START64 ANOP
+         AIF   (T'&START EQ 'U').GENERIC
+         AIF   (T'&START EQ 'A').CKLEN
+         AIF   (T'&START EQ 'R').CKLEN
+         AGO   .GENERIC
+.CKLEN   ANOP
+         AIF   (L'&START EQ 4).LOAD31
+         AGO   .GENERIC
+.LOAD31  ANOP
+         LLGT  0,&START          Pass the new starting address
+         AGO   .RELOMAC
+.GENERIC ANOP
+         LG    0,&START          Pass the new starting address
+.RELOMAC ANOP
+         $L    13,RCLR&SYSNDX   Pass the address of the RELOCATE macro
+         $BASR 14,13            Call the RELOCATE macro
+         $B    RCLS&SYSNDX      Branch around my constants
+RCLT&SYSNDX DC &ARCHATP.(&RTABLE)
+RCLR&SYSNDX DC &ARCHATP.(&RELOCATE)
+         AIF   ('&MASK' EQ '').NOMASK
+RCLM&SYSNDX DC XL4'0000&MASK'      Transfer register relocation mask
+.NOMASK  ANOP
+RCLS&SYSNDX DS 0H     No transfer register relocation mask
+* Can now check return code in register 15
+         MEND

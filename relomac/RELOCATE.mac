@@ -1,0 +1,559 @@
+* Copyright (C) 2021 Harold Grovesteen
+*
+* This file is part of SATK.
+*
+*     SATK is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, either version 3 of the License, or
+*     (at your option) any later version.
+*
+*     SATK is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   RELOCATE
+.* RELOCATE actually performs the relocation of addresses based upon the
+.* relocation table created by a series of RTBL macros.  RELOCATE must execute
+.* in the target architecture of the program and is serial reusable.
+.*
+.*     &LABEL  Associated with the first instruction of the subroutine.
+.*             Required.
+.*
+.*  Positional Parameters: None
+.*
+.*  Keyword Parameters: None
+.*
+.*  Before any register is used, it is saved in the relocation save area.
+.*  Registers are saved as established by the RELOCALL macro.
+.*
+.*  Only registers specified in the register relocation mask are adjusted
+.*  during relocation and the relocation does not take effect when control
+.*  returns to the program following execution of the macro.
+.*
+.*  NOTE: RELOCATE uses a non-standard linkage structure.  It supplies its
+.*  own register save area for the macro caller's registers.
+.*
+         GBLA  &ARCHLVL
+         GBLA  &ARCHASZ  Size of an address constant based upon architecture
+         GBLC  &ARCHATP  Address constant type
+         GBLC  &ARCHITP  Integer constant type
+         LCLA  &ALEN     Maximum address length
+         LCLA  &MSKR     The relocation mask
+         LCLB  &IS64     64-bit registers in use
+         AIF   (&ARCHLVL GT 0).ARCHOK
+         MNOTE 1,'RELOCATE - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   (&ARCHLVL LT 9).NOT64
+&IS64    SETB  1
+.NOT64   ANOP
+         AIF   ('&LABEL' NE '').LBLOK
+         MNOTE 1,'RELOCATE - LABEL FIELD REQUIRED'
+         MEXIT
+.LBLOK   ANOP
+&ALEN    SETA  &ARCHASZ
+.*
+.* Generate the relocation process
+.*
+*
+*  RELOCATION SUBROUTINE
+*
+* Register Usage On Entry:
+* These values are set by the RELOCALL macro prior to calling the subroutine
+*
+*   R0  - Relocation starting address of the region
+*   R2  - Address of the relocation table driving the region's relocation
+*   R3  - The transfer register mask when TRNSFER=asmlbl (may be zero)
+*   R13 - Relocation process entry address (becomes the base register)
+*   R14 - Address to which the subroutine returns upon completion
+*
+* NOTE: All of these values (as well as the other entry register contents)
+* are preserved in the subroutine save area during relocation.  R15 is the
+* exception.  R15 is set to zero in the save area anticipating eventual return.
+*
+         SPACE 3
+         PUSH  USING
+&LABEL   DS    0H    Relocation Process
+         USING RELOTBL,2
+         USING &LABEL,13
+         $STM  0,15,RTSA&SYSNDX      Save my caller's registers
+         STH   3,RTRM&SYSNDX+2       Save the register relocation mask
+.* All registers except 2 (the relocation table), and 13 (local memory
+.* addressing) may be used during the relocation process.  Registers
+.* that are altered for exit from the process should be altered in the save
+.* area.  When the caller's registers are restored from memory the changes take
+.* effect.
+         XC    RTRF&SYSNDX,RTRF&SYSNDX   Set optimistically the RC==0
+         SPACE 1
+* Perform sanity checks on the RTABLE address in R2
+         CLC   REYE&SYSNDX,RELOEYEC  Is R2 pointing to a RTABLE?
+         $BNE  RE12&SYSNDX           ..No, exit with RC==12
+         SPACE 1
+* Has the RTABLE already been processed?
+         TM    RELOSTAT,RELOSTRT     Has this RTABLE been previously relocated?
+         $BO   RE16&SYSNDX           ..Yes, exit with RC==16
+         SPACE 1
+* Does RTABLE contain addresses longer than the subroutine can relocate?
+.* This condition can only occur when a separate program is being relocated.
+.* Self-relocation will always result in the same address size maximums
+         CLC   RELOMAXE,RRSZ&SYSNDX
+         $BH   RE20&SYSNDX           ..Yes, exit with RC==20
+         SPACE 3
+*
+*   RTABLE INITIALIZATION
+*
+* Register Usage During Relocation Initialization
+*
+*   R0  - Absolute factor to the relocated region addresses
+*   R1  - Initialization control table entry address and adjustment work reg.
+*   R2  - Address of the relocation table driving the region's relocation
+*   R3  - AVAILABLE
+*   R4  - AVAILABLE
+*   R5  - AVAILABLE
+*   R6  - AVAILABLE
+*   R7  - AVAILABLE
+*   R8  - AVAILABLE
+*   R9  - AVAILABLE
+*   R10 - AVAILABLE
+*   R11 - AVAILABLE
+*   R12 - AVAILABLE
+*   R13 - RELOCATE subroutine base register
+*   R14 - AVAILABLE
+*   R15 - AVAILABLE
+*
+         SPACE 1
+* Determine the adjustment factor and direction of the adjustment
+         MVI   RFLG&SYSNDX,X'00'     Clear the status flag, just in case
+         $ST   0,RNEW&SYSNDX         Save the new region address
+         CLC   RNEW&SYSNDX,RELOABAS  Is the new address >= the assembled base?
+         $BL   RASB&SYSNDX           ..No, so we will adjust by subtracting
+         $SL   0,RELOABAS            adjustment = new - assembled
+         $ST   0,RRAF&SYSNDX         Save the adjustment factor
+         AIF   (&ARCHLVL LE 3).SETA24
+         AIF   (&ARCHLVL GT 8).SETA64
+.* Set ADD LOGICAL (32) for 31-bit addressing adjustment
+         MVI   RAAI&SYSNDX,X'5E'     Make instruction AL
+         AGO   .SAVADJF
+.SETA24  ANOP
+.* Set ADD LOGICAL (32) for 24-bit addressing adjustment instruction
+         MVI   RAAI&SYSNDX,X'5E'     Make instruction AL
+         AGO   .SAVADJF
+.SETA64  ANOP
+.* Set ADD LOGICAL (64) for 64-bit addressing adjustment instruction
+         MVI   RAAI&SYSNDX+5,X'0A'   Make instruction ALG
+.SAVADJF ANOP
+         $B    RRTI&SYSNDX           Procced with RTABLE entry processing init.
+         SPACE 1
+RASB&SYSNDX DS 0H   Determine adjustment factor for subtraction
+         $LR   1,0                   Move new region address to R1
+         $L    0,RELOABAS            Set R0 to assembled region address
+         $SLR  0,1                   adjustment = assembled - new
+         $ST   0,RRAF&SYSNDX         Save the adjustment factor
+         AIF   (&ARCHLVL LE 3).SETS24
+         AIF   (&ARCHLVL GE 9).SETS64
+.* Set SUBTRACT LOGICAL (32) as the instruction for 31-bit addressing adjustment
+         MVI   RAAI&SYSNDX,X'5F'     Make instruction SL
+         AGO   .SAVSADJ
+.SETS24  ANOP
+.* Set SUBTRACT LOGICAL (32) as the instruction for 24-bit addressing adjustment
+         MVI   RAAI&SYSNDX,X'5F'     Make instruction SL
+         AGO   .SAVSADJ
+.SETS64  ANOP
+.* Set SUBTRACT LOGICAL (64) as the instruction for 64-bit addressing adjustment
+         MVI   RAAI&SYSNDX+5,X'0B'   Make instruction SLG
+.SAVSADJ ANOP
+         SPACE 1
+RRTI&SYSNDX DS 0H   Initialize the RTABLE relocation process
+         $SR   1,1                   Set the work register to 0
+         $L    1,RELOELEN            Fetch the relocation table entry length
+         SH    1,RTWO&SYSNDX         Subtract 2 for controls index
+         AIF   (&IS64).USESLG1
+         SLL   1,4                   Multiply by 16 for control displacement
+         AGO   .SLG1DON
+.USESLG1 ANOP
+         SLLG  1,1,4                 Multiply by 16 for control displacement
+.SLG1DON ANOP
+         LA    1,RTBC&SYSNDX.(1)     R1 now points to the required controls
+         MVC   RAMV&SYSNDX+1(1),13(1)    Set RTBL entry fetch length
+         LA    11,REWK&SYSNDX        Point to work area start for RAMV&SYSNDX
+         MVC   RAMV&SYSNDX+3(1),12(1)    Set RTBL entry fetch displacement
+         XC    REWK&SYSNDX,REWK&SYSNDX   Clear the work area, just in case
+* Entry processing can now fetch the entry into REWK&SYSNDX
+         SPACE 1
+* Initialize the separation of the length and region displacement logic
+         MVC   RTLM&SYSNDX,0(1)     Set the address length isolation mask
+         MVC   RTDM&SYSNDX,4(1)     Set the address displacement isolation mask
+         XC    REWK&SYSNDX,REWK&SYSNDX   Clear the work area, just in case
+         MVC   RESR&SYSNDX+3(1),9(1)  Set the right shift amount in the inst.
+         SPACE 1
+* Initialize the processing of an individual RTABLE entry
+         $LM   5,7,RELOAFAD          Initialize the RTABLE entry access controls
+         OI    RFLG&SYSNDX,RSTR&SYSNDX  Starting the relocation process
+         OI    RELOSTAT,RELOSTRT     Reloction of the RTABLE initiated
+         SPACE 3
+*
+*   RTBL ENTRY RELOCATION
+*
+* Register Usage During Relocation
+*
+*   R0  - Absolute adjustment to relocated addresses
+*   R1  - Used during reloaction of the RTABLE ENTER address
+*   R2  - Address of the relocation table driving the region's relocation
+*   R3  - Length of the RTBL address being relocated
+*   R4  - Assembled displacement from region start / RTBL entry address
+*   R5  - Current pointer to RTBL entry (changes as RTABLE processed)
+*   R6  - Size of each relocation entry (static through relocation process)
+*   R7  - Address of last byte of RTABLE entry (static through the process)
+*   R8  - Used to adjust the ADCON from the work area
+*   R9  - Return address from the Address Adjustment Subroutine
+*   R10 - Transfer register relocation mask when relocating register content
+*   R11 - RTBL entry work area starting address
+*   R12 - AVAILABLE
+*   R13 - RELOCATE subroutine base register
+*   R14 - AVAILABLE
+*   R15 - AVAILABLE
+*
+         SPACE 1
+RFET&SYSNDX DS 0H   Fetch the RTBL relocation entry from the RTABLE
+         SPACE 1
+* WARNING: THIS INSTRUCTION IS MODIFIED DURING RTABLE INITIALIZATION
+RAMV&SYSNDX MVC 0(1,11),0(5)      Copy the RTBL entry to the work area
+         SPACE 1
+.*
+.* 32-bit register relocation...
+.* Need to add $N to ARCHIND
+         AIF   (&IS64).RELOG
+* Separate the length and displacement fields
+         L     3,REWK&SYSNDX      Fetch the RTABLE entry (w/len and disp.)
+         LR    4,3                Prepare for displacement isolation
+         N     3,RTLM&SYSNDX      Isolate the address' length
+         BZ    RE08&SYSNDX        Error if the length is zero (or 1)
+         SPACE 1
+* WARNING: THIS INSTRUCTION IS MODIFIED DURING RTABLE INITIALIZATION
+RESR&SYSNDX SRL 3,0               Move length to low order bits
+* R3 can now be used as EXECUTE register for moving the address
+         SPACE 1
+         N     4,RTDM&SYSNDX      Isolate the address' disp. from region start
+         AL    4,RNEW&SYSNDX      Calculate ADCON's address in the new region
+* This is the address of the ADCON containing the assembled address being
+* relocated.  It resides in the other program or the copy of this one
+         SPACE 1
+* Move ADCON that is to be relocated to a work area
+         SR    1,1                  Clear the work register and the..
+         ST    1,RADR&SYSNDX        ..work area of ADCON being relocated
+         IC    1,RWKD&SYSNDX-1(3)   Get the offset into work area for length
+         STC   1,RA2W&SYSNDX+3      ADCON moved to work area by offset
+         STC   3,RA2W&SYSNDX+1      Actual length of ADCON moved to work area
+         STC   1,RW2A&SYSNDX+5      ADCON moved from work area by offset
+         STC   3,RW2A&SYSNDX+1      Actual length of ADCON moved from work area
+         LA    1,RADR&SYSNDX        Address of the ADCON work area
+         SPACE 1
+* WARNING: THIS INSTRUCTION IS MODIFIED DURING RTBL ENTRY PROCESSING
+RA2W&SYSNDX MVC 0(1,1),0(4)       Move the ADCON to the work area
+         BAL   9,RAAS&SYSNDX             Adjust the work area ADCON
+         SPACE 1
+* WARNING: THIS INSTRUCTION IS MODIFIED DURING RTBL ENTRY PROCESSING
+RW2A&SYSNDX MVC 0(1,4),0(1)       Move adjusted ADCON back to the region
+         SPACE 1
+         AGO   .RELODN
+.RELOG   ANOP
+.*
+.* 64-bit register relocation
+* Separate the length and displacement fields
+         LGF   3,REWK&SYSNDX      Fetch the RTABLE entry (w/len and disp.)
+         LGR   4,3                Prepare for displacement isolation
+         N     3,RTLM&SYSNDX      Isolate the address' length
+         BZ    RE08&SYSNDX        Error if the length is zero (or 1)
+         SPACE 1
+* WARNING: THIS INSTRUCTION IS MODIFIED DURING INITIALIZATION
+RESR&SYSNDX SRLG 3,3,0            Move length to low order bits
+         SPACE 1
+         N     4,RTDM&SYSNDX      Isolate the address' disp. from region start
+         ALG   4,RNEW&SYSNDX      Calculate ADCON's address in the new region
+* This is the address of the ADCON containing the assembled address being
+* relocated.  It resides in the other program or the copy of this one.
+         SPACE 1
+* Set up instructions to move ADCON to/from region and internal work area
+         IC    1,RWKD&SYSNDX-1(3)   Get the offset into work area for length
+         STC   1,RA2W&SYSNDX+3      ADCON moved to work area by offset
+         STC   3,RA2W&SYSNDX+1      Actual length of ADCON moved to work area
+         STC   1,RW2A&SYSNDX+5      ADCON moved from work area by offset
+         STC   3,RW2A&SYSNDX+1      Actual length of ADCON moved from work area
+         LA    1,RADR&SYSNDX        Address of the work area
+         SPACE 1
+* WARNING: THIS INSTRUCTION IS MODIFIED DURING RTBL ENTRY PROCESSING, ABOVE
+RA2W&SYSNDX MVC 0(1,1),0(4)         Move the ADCON to the work area
+         SPACE 1
+         $BAS  9,RAAS&SYSNDX        Adjust the work area ADCON
+         SPACE 1
+* WARNING: THIS INSTRUCTION IS MODIFIED DURING RTBL ENTRY PROCESSING, ABOVE
+RW2A&SYSNDX MVC 0(1,4),0(1)         Move adjusted ADCON back to the region
+         SPACE 1
+.RELODN  ANOP
+* Relocate the next RTABLE entry
+         $BXLE 5,6,RFET&SYSNDX      Fetch the next entry until done.
+* RTBL completely relocated!
+         SPACE 3
+*
+*   Transfer Register Content Relocation
+*
+         SPACE 1
+         AIF   (&ARCHLVL LT 9).NOSR10
+         SGR   10,10                 Clear the mask register 
+.NOSR10  ANOP
+         L     10,RTRM&SYSNDX        Fetch the caller supplied register mask
+         N     10,RTRI&SYSNDX        Ignore registers 0 and 15. Zero?
+         $BZ   REAA&SYSNDX           ..Yes, just relocate the entry address
+         LA    11,RTR1&SYSNDX        Point to R1 in the save area
+         AIF   (&ARCHLVL GE 9).RTMSK64
+         SLL   10,17                 Put register 1 mask in bit 0 of register
+         AGO   .MSKLOOP
+.RTMSK64 ANOP
+         SLLG  10,10,49              Put register 1 mask in bit 0 of register
+.MSKLOOP ANOP
+         SPACE 1
+RTRL&SYSNDX DS 0H   Transfer register relocation loop
+         $LTR  10,10                 Test the bit mask content
+         $BZ   REAA&SYSNDX           ..If all bits now zero, done
+         $BP   RTRN&SYSNDX           ..Bit 0 is zero, ignore the register
+*                                    ..Bit 0 is one, relocate it
+         XC    RADR&SYSNDX,RADR&SYSNDX  Clear the work area
+         AIF   (&ARCHLVL LE 3).MSK24
+.*
+.* 31-bit or 64-bit addressing transfer register relocation
+         MVC   RADR&SYSNDX,0(11)     Move saved register to the work area
+         $BAS  9,RAAS&SYSNDX         Relocate its contents
+         MVC   0(&ARCHASZ,11),RADR&SYSNDX  Move to save area relocated register
+         AGO   .MASKINC
+.MSK24   ANOP
+.*
+.* 24-bit addressing transfer register relocation
+         MVC   RADR&SYSNDX+1(3),1(11) Move register's address to the work area
+         $BAS  9,RAAS&SYSNDX         Relocate its contents
+         MVC   1(3,11),RADR&SYSNDX   Move to save area relocated register
+.MASKINC ANOP
+         SPACE 1
+RTRN&SYSNDX DS 0H   Increment register pointer and try again
+         LA    11,&ARCHASZ.(,11)      Point to next save area register
+         AIF   (&ARCHLVL GE 9).RTRM164
+         SLL   10,1                  Shift next register mask bit into bit 0
+         AGO   .RTR1DN
+.RTRM164 ANOP
+         SLLG  10,10,1               Shift next register mask bit into bit 0
+.RTR1DN  ANOP
+         $B    RTRL&SYSNDX           Test to see if it is being relocated
+         SPACE 3
+*
+*   Relocate entry address when provided in the RTABLE
+*
+         SPACE 1
+REAA&SYSNDX DS 0H   Relocate the entry address (when provided)
+         $L    1,RELOTRNA          Fetch the RTABLE ENTER address
+         $LTR  1,1                 Was the ENTER address provided (not zero)?
+* Note: If R14 is used to transfer control by relocating it, there is no
+* need to provide an ENTER address on the RTABLE macro.  If the ENTER address
+* is omitted, then RELOCATE will return in the program at its new locateion 
+* with a RC of 4.
+         $BZ   RE04&SYSNDX         ..No, Done with return code of 4
+         XC    RADR&SYSNDX,RADR&SYSNDX   ..Yes, clear the work area
+         AIF   (&ARCHLVL LE 3).TRN24
+.*
+.* 31-bit or 64-bit address relocation
+         MVC   RADR&SYSNDX,RELOTRNA       Move 31-bit address to work area
+         $BAS  9,RAAS&SYSNDX              Relocate the address
+         MVC   RELOTRNA,RADR&SYSNDX       Adjusted TOC address moved to RTABLE
+         $B    RE00&SYSNDX                Return to caller with RC==0
+         AGO   .AAS
+.*
+.* 24-bit address relocation
+.TRN24   ANOP
+         MVC   RADR&SYSNDX+1(3),RELOTRNA+1  Move 24-bit address to work area
+         $BAS  9,RAAS&SYSNDX                Relocate the address
+         MVC   RELOTRNA+1(3),RADR&SYSNDX+1  Adjusted TOC address moved to RTABLE
+         $B    RE00&SYSNDX                  Return to caller with RC==0
+.AAS     ANOP
+* RTABLE completely processed!
+         SPACE 3
+*
+*  RELOCATE Address Adjustment Subroutine
+*
+* Register Usage During Address Adjustment Subroutine
+*
+*   R8  - Work register used to adjust the address in the work area
+*   R9  - Return address to caller of the subroutine
+*   R13 - Base register (same as the RELOCATE subroutine)
+*
+         SPACE 1
+         AIF   (&IS64).AAS64
+.*
+.* 32-bit register Address Adjustment Subroutine - operates on work area
+RAAS&SYSNDX L  8,RADR&SYSNDX             Fetch the ADCON from the work area
+         AIF   (&ARCHLVL LE 3).TESTD
+.* Used for 31-bit addressing
+         MVC   RBT0&SYSNDX,RADR&SYSNDX   Preserve byte 0 of the work area
+         NI    RBT0&SYSNDX,X'80'    Only preserve bit 0 for 31-bit address
+         NI    RADR&SYSNDX,X'7F'    Make sure bit 0 is 0 in 31-bit address
+.TESTD   ANOP
+        SPACE 1
+* WARNING: THIS INSTRUCTION IS MODIFIED DURING RTABLE INITIALIZATION, ABOVE
+RAAI&SYSNDX AL 8,RRAF&SYSNDX             Adjust the ADCON's value (AL or SL)
+         SPACE 1
+         ST    8,RADR&SYSNDX     Update the work area with the adjusted ADCON
+         AIF   (&ARCHLVL LE 3).RETNAAS
+.* Used for 31-bit addressing (the effect is memory wrapping above X'7FFFFFFF')
+.* and the high order bit (bit 0) never changes in a 4-byte address field).
+         NI    RADR&SYSNDX,X'7F'         Clear bit 0 of the work area
+         OC    RADR&SYSNDX.(1),RBT0&SYSNDX  Set bit 0 to its preserved value
+.RETNAAS ANOP
+         BR    9    Return to caller of the adjustment subroutine
+         AGO   .EXIT
+.AAS64   ANOP
+.*
+.* 64-bit register Address Adjustment Subroutine
+         SPACE 1
+RAAS&SYSNDX LG 8,RADR&SYSNDX             Fetch the ADCON from the work area
+         SPACE 1
+* WARNING: THIS INSTRUCTION IS MODIFIED DURING RTABLE INITIALIZATION, ABOVE
+RAAI&SYSNDX ALG 8,RRAF&SYSNDX         Adjust the ADCON's value (ALG or SLG)
+         SPACE 1
+         STG   8,RADR&SYSNDX
+         BR    9    Return to caller of the adjustment subroutine
+.EXIT    ANOP
+         SPACE 3
+*
+*  RELOCATE subroutine exit conditions
+*
+         SPACE 1
+RE00&SYSNDX DS 0H    Return with transfer address in R0
+         MVC   RTR0&SYSNDX,RELOTRNA  Move transfer address to caller's R0
+         OI    RELOSTAT,RELOENDD     RTABLE processing completed successfully
+         OI    RFLG&SYSNDX,RSTR&SYSNDX+REND&SYSNDX   This call is done
+         $B    REZZ&SYSNDX           Exit with the R15 set and R0 set
+         SPACE 1
+RE04&SYSNDX DS 0H    Return without returning a transfer address, R0==0
+         OI    RELOSTAT,RELOENDD     RTABLE processing completed successfully
+         OI    RFLG&SYSNDX,RSTR&SYSNDX+REND&SYSNDX   This call is done
+         XC    RTR0&SYSNDX,RTR0&SYSNDX    Set R0 to 0
+         MVI   RRRC&SYSNDX,4         Set the RC to 4
+         $B    REZZ&SYSNDX           Exit with the R15 set and R0 is zero
+         SPACE 1
+RE08&SYSNDX DS 0H    RTBL entry length zero (or 1 byte length)
+         $ST   5,RTR0&SYSNDX         Set exit R0 to RTBL entry address
+         MVI   RRRC&SYSNDX,8         Set the RC to 8
+         $B    REZZ&SYSNDX           Exit with the R15 and R0 set
+         SPACE 1
+RE12&SYSNDX DS 0H    On entry R2 is not pointing to an RTABLE
+         $ST   2,RTR0&SYSNDX         Set exit R0 to R2 pointer
+         MVI   RRRC&SYSNDX,16        Set the RC to 12
+         $B    REZZ&SYSNDX           Exit with the R15 and R0 set
+         SPACE 1
+RE16&SYSNDX DS 0H    RTABLE has been previously relocated
+         $ST   2,RTR0&SYSNDX         Set exit R0 to R2 pointer
+         MVI   RRRC&SYSNDX,16        Set the RC to 16
+         $B    REZZ&SYSNDX           Exit with the R15 and R0 set
+         SPACE 1
+RE20&SYSNDX DS 0H    RTABLE addresses larger than subroutine can relocate
+         $ST   2,RTR0&SYSNDX         Set exit R0 to R2 pointer
+         MVI   RRRC&SYSNDX,20        Set the RC to 20
+         $B    REZZ&SYSNDX           Exit with the R15 and R0 set
+         SPACE 3
+*
+* Storage used by RELOCATE
+*
+         SPACE 1
+REYE&SYSNDX DC CL8'RELOCATE'          Eye catcher used for sanity check
+RRLA&SYSNDX DC &ARCHATP.(0)           Region Relocated Address (from pair)
+RRAF&SYSNDX DC &ARCHATP.(0)           Relocation Adjustment Factor
+RADR&SYSNDX DC &ARCHATP.(0)           Address being relocated (work area)
+         SPACE 1
+RTSA&SYSNDX DC 0&ARCHITP'0'           Transfer register Save Area
+RTR0&SYSNDX DC &ARCHITP'0'            Transfer register 0
+RTR1&SYSNDX DC &ARCHITP'0'            Transfer register 1
+RTR2&SYSNDX DC &ARCHITP'0'            Transfer register 2
+RTR3&SYSNDX DC &ARCHITP'0'            Transfer register 3
+RTR4&SYSNDX DC &ARCHITP'0'            Transfer register 4
+RTR5&SYSNDX DC &ARCHITP'0'            Transfer register 5
+RTR6&SYSNDX DC &ARCHITP'0'            Transfer register 6
+RTR7&SYSNDX DC &ARCHITP'0'            Transfer register 7
+RTR8&SYSNDX DC &ARCHITP'0'            Transfer register 8
+RTR9&SYSNDX DC &ARCHITP'0'            Transfer register 9
+RTRA&SYSNDX DC &ARCHITP'0'            Transfer register 10
+RTRB&SYSNDX DC &ARCHITP'0'            Transfer register 11
+RTRC&SYSNDX DC &ARCHITP'0'            Transfer register 12
+RTRD&SYSNDX DC &ARCHITP'0'            Transfer register 13
+RTRE&SYSNDX DC &ARCHITP'0'            Transfer register 14
+RTRF&SYSNDX DC &ARCHITP'0'            Transfer register 15
+RRRC&SYSNDX EQU *-1                   Return code in R15
+RTLN&SYSNDX EQU *-RTR0&SYSNDX         Length of the register transfer area
+         SPACE 1
+RNEW&SYSNDX DC &ARCHITP'0'    New region address (from R0)
+REWK&SYSNDX DC F'00000000'    RTBL entry work area (not the ADCON itself)
+RTRI&SYSNDX DC XL4'00007FFE'  Ignore registers 0, and 15 for relocation
+* Registers 0 and 15 are changed upon macro exit. No need to relocate them.
+RTLM&SYSNDX DC F'0'           RTBL entry address length isolation mask
+RTDM&SYSNDX DC F'0'           RTBL entry address isolation mask
+RTRM&SYSNDX DC F'0'           Transfer register Relocation Mask (from R3)
+RONE&SYSNDX DC H'1'           Constant of 1
+RTWO&SYSNDX DC H'2'           Constant of 2
+RRSZ&SYSNDX DC AL1(&ALEN)     Maximum size of addresses being relocated
+         AIF   (&IS64).NOPRESV
+         AIF   (&ARCHLVL LE 3 OR &ARCHLVL GE 9).NOPRESV
+.* This byte is used only for 31-bit address mode capable CPU's
+RBT0&SYSNDX DC XL1'00'        Preserves high-order byte from address work area
+.NOPRESV ANOP
+RFLG&SYSNDX DC XL1'00'        Relocation flags
+RDIR&SYSNDX EQU  B'10000000'  Direction flag -> Subtract adjustment
+RSTR&SYSNDX EQU  B'01000000'  RELOCATE process started
+REND&SYSNDX EQU  B'00100000'  RELOCATE successfully completed
+         AIF   (&IS64).WK64
+RWKD&SYSNDX DC AL1(2,1,0)
+         AGO   .WKDONE
+.WK64    ANOP
+RWKD&SYSNDX DC AL1(6,5,4,3,2,1,0)
+.WKDONE  ANOP
+         SPACE 1
+* RTBL Entry controls:
+*
+* All RTBL entries are either 2, 3, or 4 bytes in length regardless of the
+* maximum address field being relocated.  One of these three sets of address
+* controls will be chosen based upon the RTABLE entry size.
+*
+*  +0  Address length isolation mask
+*  +4  Address displacement from region start mask
+*  +8  Right shift to move address length to low order bits
+*  +10 reserved
+*  +12 Displacement into the four byte work field that the RTBL entry is placed
+*  +13 Length of the RTBL entry as an EXECUTE value
+*  +14 reserved
+* Control table entry length is 16-bytes.
+         SPACE 1
+         AIF   (&ALEN EQ 8).RTBL8C
+RTBC&SYSNDX EQU *  Four-byte maximum address length RTBL Entry controls
+         DC    XL4'0000C000',XL4'00003FFF',AL2(14,0),AL1(2,1,0,0) 2-byte entries
+RTBL&SYSNDX EQU *-RTBC&SYSNDX   Control entry length
+         DC    XL4'00C00000',XL4'003FFFFF',AL2(22,0),AL1(1,2,0,0) 3-byte entries
+         DC    XL4'C0000000',XL4'3FFFFFFF',AL2(30,0),AL1(0,3,0,0) 4-byte entries
+         AGO   .RTBLDN
+.RTBL8C  ANOP
+RTBC&SYSNDX EQU *  Eight-byte maximum address length RTBL Entry controls
+         DC    XL4'0000E000',XL4'00001FFF',AL2(13,0),AL1(2,1,0,0) 2-byte entries
+RTBL&SYSNDX EQU *-RTBC&SYSNDX   Control entry length
+         DC    XL4'00E00000',XL4'001FFFFF',AL2(21,0),AL1(1,2,0,0) 3-byte entries
+         DC    XL4'E0000000',XL4'1FFFFFFF',AL2(29,0),AL1(0,3,0,0) 4-byte entries
+.RTBLDN  ANOP
+         SPACE 1
+*
+* Return to RELOCATE subroutine caller.
+*
+REZZ&SYSNDX $LM 0,15,RTSA&SYSNDX     Restore caller's relocated registers
+* Note: If R14 is relocated, control is transfered to the relocated program
+* immediately following the RELOCATE macro.  R0 and R15 altered before
+* restoration of the registers (they change).
+         BR    14                    Return to the caller...
+         POP   USING
+         MEND

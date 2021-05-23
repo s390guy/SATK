@@ -1,0 +1,76 @@
+* Copyright (C) 2021 Harold Grovesteen
+*
+* This file is part of SATK.
+*
+*     SATK is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, either version 3 of the License, or
+*     (at your option) any later version.
+*
+*     SATK is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+         RTBLEND &RESTORE=
+.* This macro terminates the relocation table by supplying the terminating
+.* symbol
+         GBLB  &RELFIN    Relocation table finished
+         GBLB  &RELSTOP   Whether the current csect is restored after the macro
+         GBLB  &RELSTRT   Relocation table started (From RTABLE)
+         GBLC  &RELSECT   Relocation section name (From RTABLE)
+         GBLC  &RELEND    Symbol of the table end (From RTABLE)
+         LCLC  &RELSRS    Name of entry section name
+.*
+.* &LABLE is not supported
+.*
+.* Positional Paramaters: None
+.*
+.* Keyword Parameters:
+.*
+.*   &RESTORE  Specify STOP to cease restoration of the entry control section.
+.*             If omitted, the state of entry control section management is
+.*             unchanged.  Once stopped it can not be enabled.
+.*
+.* Make sure relocation table has been started but not completed.
+         AIF   (NOT &RELFIN).CKSTART
+         MACRO 1,'RTBLEND - RELOCATION TABLE FINISHED - MACRO IGNORED'
+.* Currently only one relocation table is allowed per assembly.
+         MEXIT
+.CKSTART ANOP
+         AIF   (&RELSTRT).CONT
+         MACRO 1,'RTBLEND - RELOCATION TABLE NOT STARTED - MACRO IGNORED'
+         MEXIT
+.CONT    ANOP
+.*
+.* Determine if we are ceasing to restore the entry section
+         AIF   ('&RESTORE' EQ '').PRESERV
+         AIF   ('&RESTORE' EQ 'STOP').CEASE
+         MNOTE 1,'RTBLEND - RESTORE PARAMETER INVALID: ''&RESTORE'''
+         MEXIT
+.CEASE   ANOP
+&RELSTOP SETB  1
+.*
+.* Preserve entry section name for restoration?
+.PRESERV ANOP
+&RELSRS  SETC  '&SYSECT'
+         AIF   (&RELSTOP).NOCHANG
+         AIF   ('&SYSECT' EQ '&RELSECT').NOCHANG
+         SPACE 1
+&RELSECT CSECT
+.NOCHANG ANOP
+&RELEND  EQU   *-1     End of last relocation table entry
+.*
+.* Determine if we need to restore entry control section
+         AIF   (&RELSTOP).NORESTR
+         AIF   ('&RELSRS' EQ '&RELSECT').NORESTR
+&RELSRS  CSECT
+.NORESTR ANOP
+         SPACE 1
+.* Relocation Table is now finished
+&RELFIN  SETB  1
+         MEND

@@ -1,0 +1,195 @@
+* Copyright (C) 2021 Harold Grovesteen
+*
+* This file is part of SATK.
+*
+*     SATK is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, either version 3 of the License, or
+*     (at your option) any later version.
+*
+*     SATK is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   RTABLE &REGION=,&ENTER=,&SIZE=3,&RESTORE=YES,&DSECT=NO
+.* The RTABLE macro assembles the relocation table.  The table resides in its
+.* own control section identified by the &LABEL.
+.*
+.* RTABLE is sensitive to the target architecture of the program.  The table
+.* preamble is sensitive to the architecture.  The entry size itself is not
+.* sensitive to the architecture, but the number of bits reserved for the
+.* length is.
+.*
+.*     &LABEL   Required.  Establishes the relocation table's control section
+.*
+.*   Positional Parameters: None
+.*
+.*   Keyword Parameters:
+.*
+.*     &REGION  The region name that is the relocation assembled base.
+.*              Required.
+.*     &ENTER   Optional assembled entry address
+.*     &SIZE    Relocation table entry length in bytes.  Must be 2, 3, or 4.
+.*              If omitted, defaults to 3.
+.*     &DSECT   Whether a DSECT of the relocation header is generated. Must be
+.*              YES or NO.  If omitted, defaults to NO.  When YES, all other
+.*              parameters are ignored.
+.*     &RESTORE Establishes how the entry control section is handled.  NO
+.*              indicates that the control section permanently changes to the
+.*              relocation table control section.  Only use if manually
+.*              managing the control section or the relocation table is built
+.*              at the end of the assembly.  If omitted, defaults to YES.
+.*              YES preserves upon exit from the macro the entry control
+.*              section.
+.*
+         GBLA  &ARCHLVL
+         GBLA  &RELLF     Relocation entry length shift factor (See RTBL)
+         GBLA  &RELNTYS   Number of relocation table entries (See RTBL)
+         GBLB  &RELFIN    Relocation table finished (See RTBLEND)
+         GBLB  &RELSTOP   Whether the current csect is restored after the macro
+         GBLB  &RELSTRT   Relocation table started
+         GBLC  &ARCHATP   Address constant type from ARCHIND
+         GBLC  &ARCHITP   Integer constant type from ARCHIND
+         GBLC  &RELEND    Symbol of the table end
+         GBLC  &RELREGN   Region name of the relocation table
+         GBLC  &RELSECT   Relocation section name
+         GBLC  &RELSIZE   Relocation entry size
+         LCLC  &RELSRS    Section name to be restored
+         AIF   (&ARCHLVL GT 0).ARCHOK
+         MNOTE 1,'RTABLE - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   ('&DSECT' EQ 'NO').GEN
+         AIF   ('&DSECT' EQ 'YES').DS
+         MNOTE 1,'RTABLE - DSECT PARAMETER MUST BE YES OR NO: ''&DSECT'''
+         MEXIT
+.GEN     ANOP
+.* Make sure table has not been completed and not started.
+         AIF   (NOT &RELFIN).CKSTART
+         MACRO 1,'RTABLE - RELOCATION TABLE FINISHED - MACRO IGNORED'
+.* Currently only one relocation table is allowed per assembly.
+         MEXIT
+.CKSTART ANOP
+         AIF   (NOT &RELSTRT).CONT
+         MACRO 1,'RTABLE - RELOCATION TABLE ALREADY STARTED - MACRO IGNORED'
+         MEXIT
+.CONT    ANOP
+.* Check DSECT=NO (Generate the table) parameters
+         AIF   ('&LABEL' NE '').CSTPR
+         MNOTE 1,'RTABLE - LABEL REQUIRED FOR RELOCATION TABLE CSECT'
+         MEXIT
+.CSTPR   ANOP
+         AIF   ('&REGION' NE '').RGNPR
+         MNOTE 1,'RTABLE - REGION PARAMETER REQUIRED'
+         MEXIT
+.RGNPR   ANOP
+         AIF   ('&SIZE' EQ '2').SIZE2
+         AIF   ('&SIZE' EQ '3').SIZE3
+         AIF   ('&SIZE' EQ '4').SIZE4
+         MNOTE 1,'RTABLE - SIZE PARAMETER MUST BE 2, 3, OR 4: ''&SIZE'''
+         MEXIT
+.*
+.* Specify the length adjustment factor for the relocation entry.  This is
+.* architecture sensitive.  Ensures the length is placed in bits 0 and 1 (for
+.* 32-bit registers) or bits 0-2 (for 64-bit registers) of the relocation
+.* entry.  Value is also dictated by the entry size.
+.SIZE2   ANOP
+         AIF   (&ARCHLVL GE 9).FAC2
+.*  Bits 0 and 1 of two byte address
+&RELLF   SETA  X'4000'
+         AGO   .CKREST
+.FAC2    ANOP
+.*  Bits 0-2 of two byte address
+&RELLF   SETA  X'2000'
+         AGO   .CKREST
+.SIZE3   ANOP
+         AIF   (&ARCHLVL GE 9).FAC3
+.*  Bits 0 and 1 of three byte address
+&RELLF   SETA  X'400000'
+         AGO   .CKREST
+.FAC3    ANOP
+.*  Bits 0-2 of three byte address
+&RELLF   SETA  X'200000'
+         AGO   .CKREST
+.SIZE4   ANOP
+         AIF   (&ARCHLVL GE 9).FAC4
+.*  Bits 0 and 1 of four byte address
+&RELLF   SETA  X'40000000'
+         AGO   .CKREST
+.FAC4    ANOP
+.*  Bits 0-2 of four byte address
+&RELLF   SETA  X'20000000'
+.*
+.* Manage the entry control section
+.CKREST  ANOP
+         AIF   ('&RESTORE' EQ 'YES').SETVARS
+         AIF   ('&RESTORE' EQ 'NO').CEASE
+         MNOTE 1,'RTABLE - RESTORE PARAMETER INVALID: ''&RESTORE'''
+         MEXIT
+.CEASE   ANOP
+&RELSTOP SETB  1
+.*
+.* Parameters OK, set variable
+.SETVARS ANOP
+&RELREGN SETC  '&REGION'     Region that is the relocation base
+&RELSIZE SETC  '&SIZE'       Remember the entry size for RTBL.
+&RELEND  SETC  'RTEN&SYSNDX' Label used at the end of the table. See RTABLEND.
+.*
+.* If macro is managing the entry control section state, preserve section name
+         AIF   (&RELSTOP).NOSAVE
+         AIF   ('&SYSECT' EQ '&LABEL').NOSAVE
+&RELSRS  SETC  '&SYSECT'     Current section name to be restored
+.NOSAVE  ANOP
+.*
+.*  Create the Relocation Table Header
+* Relocation Table Header
+&RELSTRT SETB  1
+&RELSECT SETC  '&LABEL'
+&RELSECT CSECT
+         DC    CL8'RELOCATE'          Eye-catcher and used as sanity check
+         DC    &ARCHATP.(&RELREGN)    Assembled region relocation base
+         AIF   ('&ENTER' EQ '').NOENTER
+         DC    &ARCHATP.(&ENTER)      Assembled transfer of control address
+         AGO   .RELTBLS
+.NOENTER ANOP
+         DC    &ARCHATP.(0)           Assembled transfer of control address
+.RELTBLS ANOP
+         DC    &ARCHATP.(RTE&SYSNDX)  Start of the relocation table entries
+         DC    &ARCHATP.(&SIZE)       Length of each relocation table entry
+         DC    &ARCHATP.(&RELEND)     Last byte of the table
+         AIF   ('&ARCHITP' EQ 'FD').REG64
+         DC    AL1(4)                 Register size in bytes
+         AGO   .TBLFLG
+.REG64   ANOP
+         DC    AL1(8)                 Register size in bytes
+.TBLFLG  ANOP
+         DC    XL1'00'               * Relocation flags
+*                                    * This feild is set by RELOCATE
+RTE&SYSNDX EQU *                      Start of relocation table entries
+         AIF   (&RELSTOP).ENDMAC
+         AIF   ('&RELSRS' EQ '&RELSECT').ENDMAC
+&RELSRS  CSECT
+.ENDMAC  ANOP
+         SPACE 1
+         MEXIT
+.DS      ANOP
+.*
+.* Create the definition of the relocation table header (DSECT=YES)
+.* This definition uses the same field names for 32-bit or 64-bit registers.
+RELOTBL  DSECT
+RELOEYEC DS    CL8          Eye-catcher used for sanity check
+RELOABAS DS    &ARCHATP.(0) Assembled region starting address
+RELOTRNA DS    &ARCHATP.(0) Assembled transfer of control address
+RELOAFAD DS    &ARCHATP.(0) Assembled address of the first table entry
+RELOELEN DS    &ARCHATP.(0) Assembled length of each relocation address entry
+RELOALAD DS    &ARCHATP.(0) Assembled address of the last byte of the table
+RELOMAXE DS    X            Maximum possible relocation field size in bytes
+RELOSTAT DS    X'00'        Table relocation status
+RELOSTRT EQU   B'01000000'  Relocation process started
+RELOENDD EQU   B'00100000'  Relocation successfully completed
+         MEND

@@ -1,0 +1,88 @@
+* Copyright (C) 2021 Harold Grovesteen
+*
+* This file is part of SATK.
+*
+*     SATK is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, either version 3 of the License, or
+*     (at your option) any later version.
+*
+*     SATK is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   COPYSELF &R1,&R2,&DST=,&SRC=,&LEN=
+.*  Copies from the source location to the destination the number of bytes
+.*  indicated by the length.
+.*
+.*  Positional Parameters:
+.*     &R1, and &R2 are even/odd register pairs used by VMOVE.  Both required
+.*     See VMOVE.mac for details on register usage.
+.*
+.*  Keywork Parameters:
+.*     &DST   Identifies the label of a field containing the location to 
+.*            which the program content will be copied.  Required.
+.*     &SRC   The source of the content being copied.  Required.
+.*     &LEN   The length of the source data being copied.  If omitted the
+.*            length is assumed to be that of the label specified in &SRC.
+.*            In this case, usually either a CSECT or REGION name is used.
+.*            When explicitly used length is usually a symbol that calculates
+.*            the length.
+         GBLA  &ARCHLVL
+         GBLC  &ARCHATP   Type of address for architecture
+         LCLA  &LENGTH    Length of &DEST label
+         AIF   (&ARCHLVL GE 0).ARCHOK
+         MNOTE 1,'COPYSELF - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   ('&R1' NE '').R1OK
+         MNOTE 1,'COPYSELF - REQUIRED FIRST POSITIONAL PARAMETER OMITTED'
+         MEXIT
+.R1OK    ANOP
+         AIF   ('&R2' NE '').R2OK
+         MNOTE 1,'COPYSELF - REQUIRED SECOND POSITIONAL PARAMETER OMITTED'
+         MEXIT
+.R2OK    ANOP
+         AIF   ('&DST' NE '').DSTOK
+         MNOTE 1,'COPYSELF - REQUIRED DST KEYWORD PARAMETER OMITTED'
+         MEXIT
+.DSTOK  ANOP
+         AIF   ('&SRC' NE '').SRCOK
+         MNOTE 1,'COPYSELF - REQUIRED SRC KEYWORD PARAMETER OMITTED'
+         MEXIT
+.SRCOK   ANOP
+         AIF   (&ARCHLVL GE 9).L64
+&LABEL   L     &R1,&DST            Destination address of the copied program
+         AGO   .CONT
+.L64     ANOP
+&LENGTH  SETA  L'&DST
+         AIF   (&LENGTH EQ 8).LG
+         AIF   (&LENGTH EQ 4).LLGT
+         MNOTE 1,'COPYSELF - DEST &DEST NOT 4 OR 8 BYTES: &LENGTH'
+         MEXIT
+.LG      ANOP
+&LABEL   LG    &R1,&DST            Destination address of the copied program
+         AGO   .CONT
+.LLGT    ANOP
+&LABEL   LLGT  &R1,&DST            Destination address of the copied program
+.CONT    ANOP
+         $L    &R2,CSTR&SYSNDX     Starting address of the region being copied
+         $L    &R2+1,CSLN&SYSNDX   Program length
+         VMOVE &R1,&R2             Copy to destination address
+         $B    CSXX&SYSNDX
+         SPACE 1
+.* NEWADDR  DC    &ARCHATP.(&DST)
+CSTR&SYSNDX DC &ARCHATP.(&SRC)
+         AIF   ('&LEN' EQ '').DFLTLEN
+CSLN&SYSNDX DC &ARCHATP.(&LEN)
+         AGO   .EXPLLEN
+.DFLTLEN ANOP
+CSLN&SYSNDX DC &ARCHATP.(L'&SRC)
+.EXPLLEN ANOP
+CSXX&SYSNDX DS 0H
+         MEND
