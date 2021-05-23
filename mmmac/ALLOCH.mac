@@ -1,0 +1,129 @@
+* Copyright (C) 2021 Harold Grovesteen
+*
+* This file is part of SATK.
+*
+*     SATK is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, either version 3 of the License, or
+*     (at your option) any later version.
+*
+*     SATK is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   ALLOCH &ADDR,&SIZE
+.* This macro allocates memory out of a memory pool from the higher bound.
+.* Addressing of the memory pool structure dictates which memory pool is used.
+.* The architecture level being targated dictates the sizes of the memory
+.* pool's fields.
+.*
+.* No memory is actually changed by the macro.  Only allocation occurs.
+.* Operation of the macro is independent of the current addressing mode.
+.*
+.* Positional Parameters:
+.*   &ADDR    Returned address of the allocated memory if &SIZE register is
+.*            not zero.  If &SIZE is zero, contents of &ADDR are unpredictable.
+.*            &ADDR is required.
+.*   &SIZE    An even/odd register pair.  The even register contains the
+.*            amount of memory requested by the program.
+.*            Upon exit, register &SIZE contains the actual amount of memory
+.*            allocated and register &ADDR contains the starting address of
+.*            the allocated memory.  &SIZE+1 is a work register used for
+.*            allocation and its contents are unpredictable upon macro exit
+.*
+.* Keyword Parameters: None
+.*
+.* Memory is allocated in this manner:
+.*
+.*     0 ______LO - - - - >..................< - - - - - HI______EOM
+.*             |  &SIZE  |      AVAILABLE     |   &SIZE   |
+.*             |  ALLOCL                      |   ALLOCH
+.*             |                              |
+.*             +-- Start of allocation        +-- Start of allocation
+.*                       &ADDR                          &ADDR
+.*
+.* Macro action:
+.*   &SIZE    Register validated for sufficient memory for the allocation
+.*
+.*   Current ending address (next available) is decremented by &SIZE within the
+.*   memory pool creating the new available ending address.
+.*   The new ending address plus 1 is returned in &ADDR (the start of the allocated
+.*   memory).
+.*
+.* On Macro Exit:
+.*   &SIZE   Contains the size of the memory allocated.  Zero if an error
+.*           or insufficient memory.
+.*   &ADDR   Contains the STARTING address of the allocated memory.
+.*
+.* Programming Note:
+.*   Addressed memory pool is assumed by the macro.  The macro's action
+.*   operates on this addressed memory pool by means of the memory pool DSECT.
+.*   Essentially there is another register used during the allocation, namely,
+.*   the register that is the base for the memory pool DSECT.
+.*
+         GBLA  &ARCHLVL
+         AIF   (&ARCHLVL GT 0).ARCHOK
+         MNOTE 1,'ALLOCH - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   (&ARCHLVL GE 9).ARCH64
+.*
+.*  32-bit registers (used by both 24-bit and 31-bit addressing modes)
+&LABEL   CL    &SIZE,MPAVL          Is there memory to satisfy the request?
+         $BH   ALER&SYSNDX          ..No, an error
+         SPACE 1
+* Reduce available memory in the pool by the amount being allocated
+         L     &SIZE+1,MPAVL        Get the current available bytes.
+         SLR   &SIZE+1,&SIZE        Reduce available by requested amount
+         $BC   B'0100',ALER&SYSNDX  A borrow, so something went wrong.
+         ST    &SIZE+1,MPAVL        Update the memory pool available address
+         SPACE 1
+* Update the next available ENDING address for the next allocation by
+* subtracting the amount being allocated
+         L     &SIZE+1,MPCH         The current ENDING address
+         SLR   &SIZE+1,&SIZE        Create the next ENDING address
+         ST    &SIZE+1,MPCH         Update with the new ENDING address
+         SPACE 1
+* Return the beginning address of the area just allocated
+         LA    &ADDR,1(,&SIZE+1)
+         $B    ALEX&SYSNDX          Leave the macro
+         SPACE 1
+ALER&SYSNDX DS 0H    Error detected
+* Allocation request has not been satisfied due to an error
+         SLR   &SIZE,&SIZE          ..No, return zero bytes allocated.
+         SPACE 1
+ALEX&SYSNDX DS 0H    Exit the macro
+         MEXIT
+.*
+.*  64-bit registers
+.ARCH64  ANOP
+&LABEL   CLG   &SIZE,MPAVLG         Is there memory to satisfy the request?
+         $BH   ALER&SYSNDX          ..No, an error
+         SPACE 1
+* Reduce available memory in the pool by the amount being allocated
+         LG    &SIZE+1,MPAVLG       Get the current available ending byte.
+         SLGR  &SIZE+1,&SIZE        Reduce available by requested amount
+         $BC   B'0100',ALER&SYSNDX  A borrow, so something went wrong.
+         STG   &SIZE+1,MPAVLG       Update the memory pool available address
+         SPACE 1
+* Update the next available ENDING address for the next allocation by
+* subtracting the amount being allocated
+         LG    &SIZE+1,MPCHG        The current ENDING address
+         SLGR  &SIZE+1,&SIZE        Create the next ENDING address
+         STG   &SIZE+1,MPCHG        Update with the new ENDING address
+         SPACE 1
+* Return the beginning address of the area just allocated (not its ending)
+         LA    &ADDR,1(,&SIZE+1)
+         $B    ALEX&SYSNDX          Leave the macro
+         SPACE 1
+ALER&SYSNDX DS 0H    Error detected
+* Allocation request has not been satisfied due to insuffient memory
+         SLGR  &SIZE,&SIZE          ..No, return zero allocated.
+         SPACE 1
+ALEX&SYSNDX DS 0H    Exit the macro
+         MEND

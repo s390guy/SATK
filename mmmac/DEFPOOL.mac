@@ -1,0 +1,109 @@
+* Copyright (C) 2021 Harold Grovesteen
+*
+* This file is part of SATK.
+*
+*     SATK is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, either version 3 of the License, or
+*     (at your option) any later version.
+*
+*     SATK is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   DEFPOOL &BOUNDS,&DSECT=NO
+.* Assemble a memory pool.
+.*
+.*  &LABEL   Associates the label with the assembled memory pool if present
+.*
+.* Positional parameter:
+.*    &BOUNDS  a sublist consisting of two elements: the lower bound of the
+.*             sublist, element 1, and the upper bound of the sublist, element
+.*             2: (lower,upper).
+.*             If omitted all fields are set to zero and the memory pool must
+.*             be initialized using the MEMPOOL macro.
+.*   &DSECT=YES  creates a memory pool DSECT consistent with the current
+.*               architecture target.  When YES is specified all other
+.*               parameters are ignored if present.
+.*         =NO   creates a structure in memory for the pool consistent with
+.*               the current architecture target.  Addressing to the
+.*               architecture's DEFPOOL DSECT is required.  DSECT defaults to
+.*               NO.
+.*
+.* WARNING: This macro must be consistent with the DSECT's created by this
+.* macro.
+         GBLA  &ARCHLVL
+         GBLA  &ARCHASZ   Size of an address constant
+         GBLC  &ARCHATP   Integer type from ARCHIND macro (called by ARCHLVL)
+         LCLA  &COUNT     Count of elements in &BOUNDS positional parameter
+         AIF   (&ARCHLVL GE 0).ARCHOK
+         MNOTE 1,'DEFPOOL - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   ('&DSECT' EQ 'YES').DS
+         AIF   ('&DSECT' EQ 'NO').GEN
+         MNOTE 1,'DEFPOOL - DSECT KEYWORD PARAMETER MUST BE YES OR NO: ''&DSECT'''
+         MEXIT
+.GEN     ANOP
+&COUNT   SETA  N'&BOUNDS
+         AIF   (&COUNT EQ 2).SETBND
+         AIF   (&COUNT EQ 0).OMITTED
+         MNOTE 1,'DEFPOOL - BOUNDS MUST BE 2 ELEMENTS: &COUNT'
+         MEXIT
+.OMITTED ANOP
+         DS    0&ARCHATP
+&LABEL   DC    XL(5*&ARCHASZ)'00'  My memory pool
+         MEXIT
+.SETBND  ANOP
+&LOW     SETC  '&BOUNDS(1)'
+&HIGH    SETC  '&BOUNDS(2)'
+&LABEL   DS    0XL(5*&ARCHASZ)
+         DC    &ARCHATP.((&HIGH)-(&LOW)+1)  Size of memory pool in bytes
+         DC    &ARCHATP.(&LOW)          Initial lower bound of the pool
+         DC    &ARCHATP.(&LOW)          Current lower bound of the pool
+         DC    &ARCHATP.(&HIGH)         Current higher bound of the pool
+         DC    &ARCHATP.(&HIGH)         Initial higher bound of the pool
+         MEXIT
+.DS      ANOP
+         AIF   ('&LABEL' NE '').LABELOK
+         MNOTE 1,'DEFPOOL - LABEL FIELD REQUIRED FOR DSECT CREATION'
+         MEXIT
+.LABELOK ANOP
+.* Generate a DSECT for a memory pool
+.*
+.* WARNING: IF FIELDS ARE ADDED, REMOVED, OR CHANGED macro MEMPOOL must be
+.* reviewed for corresponding changes.
+&LABEL   DSECT
+         AIF   (&ARCHLVL GE 9).DS64
+.* 24-bit or 31-bit addressing memory pool structure
+MPAVL    DS    A(0)        Size of available memory within the pool
+.* Available memory managed by the pool.  Initially the size of the pool
+MPIL     DS    A(0)        Initial low address of the pool
+.* Always initialized to zero or some other program selected value
+MPCL     DS    A(0)        Current low address allocation from the pool
+.* Always initialized to the same value as MPIL
+MPCH     DS    A(0)        Current high address allocation from the pool
+.* Always initialized to the same value as MPCH
+MPIH     DS    A(0)        Initial high address allocation of the pool
+.* MEMSZ can provide the address for MPIH or program provided.
+MPLEN    EQU   *-&LABEL    Length of a memory pool control structure
+         MEXIT
+.DS64    ANOP
+.* 64-bit addressing memory pool structure
+MPAVLG    DS   AD(0)       Size of available memory within the pool
+.* Available memory managed by the pool.  Initially the size of the pool
+MPILG    DS    AD(0)       Initial low address of the pool
+.* Always initialized to zero
+MPCLG    DS    AD(0)       Current low address allocation from the pool
+.* Always initialized to the same value as MPILG
+MPCHG    DS    AD(0)       Current high address allocation from the pool
+.* Always initialized to the same value as MPIHG
+MPIHG    DS    AD(0)       Initial high address allocation of the pool
+.* MEMSZ can provide the address for MPIHG or program provided
+MPGLEN   EQU   *-&LABEL    Length of a memory pool control structure
+         MEND

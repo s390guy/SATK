@@ -1,0 +1,130 @@
+* Copyright (C) 2021 Harold Grovesteen
+*
+* This file is part of SATK.
+*
+*     SATK is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, either version 3 of the License, or
+*     (at your option) any later version.
+*
+*     SATK is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   MEMPOOL &BOUNDS,&ERROR=
+.* &LABEL   MEMPOOL &BOUNDS,&ERROR=,&DSECT=NO
+.* MEMPOOL generates a structure used during macro execution for memory pool 
+.* management. Multiple memory pools may be created with different higer and
+.* lower bounds.
+.*
+.*  &LABEL   Associates the label with the generated structure (DSECT=YES) or
+.*           the first initializing instruction (DSECT=NO).
+.*
+.* Keyword Parameters:
+.*   &BOUNDS An even/odd pair of registers defining the memory pool boundarys.
+.*           The even register specifies the low address value of the pool
+.*           The odd register specifies the high address value of the pool.
+.*           Parameter is required.
+.*   &ERROR=label  Specifies the label to which control is passed if an error is
+.*           detected.  Omitting this parameter eliminates error checking.
+.*
+         GBLA  &ARCHLVL
+         LCLA  &HICLR
+         AIF   (&ARCHLVL GT 0).ARCHOK
+         MNOTE 1,'MEMPOOL - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+.*          AIF   ('&DSECT' EQ 'YES').DS
+.*          AIF   ('&DSECT' EQ 'NO').GEN
+.*          MNOTE 1,'MEMPOOL - DSECT KEYWORD PARAMETER MUST BE YES OR NO: ''&DSECT'''
+.*          MEXIT
+.*
+.* Initialize a MEMPOOL pool structure
+.* .GEN     ANOP
+         AIF   (&ARCHLVL GE 9).GEN64
+         AIF   (&ARCHLVL LE 3).GEN24
+&HICLR   SETA  1
+         AGO   .GENMX
+.GEN24   ANOP
+&HICLR   SETA  8
+.GENMX   ANOP
+.*
+.* Generate 24-bit or 31-bit MEMPOOL structure
+&LABEL   XC    MPIL(MPLEN),MPIL      Set memory pool to zero
+         ZEROH &BOUNDS,&HICLR        Clear high order bit(s) as needed..
+         ZEROH &BOUNDS+1,&HICLR      ..for low and high bounds respectively
+         ST    &BOUNDS,MPIL          Initialize pool initial low address
+         ST    &BOUNDS,MPCL          Initialize pool current low address
+         ST    &BOUNDS+1,MPIH        Initialize pool initial high address
+         ST    &BOUNDS+1,MPCH        Initialize pool current high address
+         SLR   &BOUNDS+1,&BOUNDS     Calculate pool size
+         AL    &BOUNDS+1,MP1&SYSNDX  Increment by 1 for full size from address
+         ST    &BOUNDS+1,MPAVL       Initialize pool size field
+         $B    MPE&SYSNDX
+MP1&SYSNDX DC  F'1'                  Constant of 1
+MPE&SYSNDX DS  0H
+         AIF   ('&ERROR' EQ '').EXITMIX
+         CLC   MPIL,MPIH    Is start of pool less than end of pool
+         $BNL  &ERROR       ..No, an error
+.EXITMIX ANOP
+         MEXIT
+.GEN64   ANOP
+.*
+.* Generate 64-bit MEMPOOL structure
+&LABEL   XC    MPILG(MPGLEN),MPILG   Set memory pool to zero
+         STG   &BOUNDS,MPILG         Initialize pool initial low address
+         STG   &BOUNDS,MPCLG         Initialize pool current low address
+         STG   &BOUNDS+1,MPIHG       Initialize pool initial high address
+         STG   &BOUNDS+1,MPCHG       Initialize pool current high address
+         SLGR  &BOUNDS+1,&BOUNDS     Calculate pool size
+         ALGFI &BOUNDS+1,1           Increment by 1 for full size from address
+         STG   &BOUNDS+1,MPAVLG      Initialize pool size field
+.CKERRG  ANOP
+         AIF   ('&ERROR' EQ '').EXIT64
+         CLC   MPILG,MPIHG  Is start of pool less than end of pool
+         $BNL  &ERROR       ..No, an error
+.EXIT64  ANOP
+.*         MEXIT
+.* .DS     ANOP
+.*         IF   ('&LABEL' NE '').LABELOK
+.*         MNOTE 1,'MEMPOOL - LABEL FIELD REQUIRED FOR DSECT CREATION'
+.*         MEXIT
+.* .LABELOK ANOP
+.* Generate a DSECT for a memory pool
+.*
+.* WARNING: IF FIELDS ARE ADDED, REMOVED, OR CHANGED macro DEFPOOL must be
+.* reviewed for corresponding changes.
+.* &LABEL   DSECT
+.*         AIF   (&ARCHLVL GE 9).DS64
+.* 24-bit or 31-bit addressing memory pool structure
+.* MPAVL    DS    A(0)        Size of available memory within the pool
+.* Available memory managed by the pool.  Initially the size of the pool
+.* MPIL     DS    A(0)        Initial low address of the pool
+.* Always initialized to zero or some other program selected value
+.* MPCL     DS    A(0)        Current low address allocation from the pool
+.* Always initialized to the same value as MPIL
+.* MPCH     DS    A(0)        Current high address allocation from the pool
+.* Always initialized to the same value as MPCH
+.* MPIH     DS    A(0)        Initial high address allocation of the pool
+.* MEMSZ can provide the address for MPIH or program provided.
+.* MPLEN    EQU   *-&LABEL    Length of a memory pool control structure
+.*         MEXIT
+.* .DS64    ANOP
+.* 64-bit addressing memory pool structure
+.* MPAVLG    DS   AD(0)       Size of available memory within the pool
+.* Available memory managed by the pool.  Initially the size of the pool
+.* MPILG    DS    AD(0)       Initial low address of the pool
+.* Always initialized to zero
+.* MPCLG    DS    AD(0)       Current low address allocation from the pool
+.* Always initialized to the same value as MPILG
+.* MPCHG    DS    AD(0)       Current high address allocation from the pool
+.* Always initialized to the same value as MPIHG
+.* MPIHG    DS    AD(0)       Initial high address allocation of the pool
+.* MEMSZ can provide the address for MPIHG or program provided
+.* MPGLEN   EQU   *-&LABEL    Length of a memory pool control structure
+         MEND
