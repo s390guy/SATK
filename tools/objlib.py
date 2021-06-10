@@ -300,7 +300,7 @@ def a2e(string):
     assert isinstance(string,str),\
         "'string' argument must be a string: %s" % string
     return string.encode(EBCDIC)
-    
+
 def e2a(byt):
     assert isinstance(byt,(bytes,bytearray)),\
         "'byt' argument must be a byte sequence: %s" % byt
@@ -343,6 +343,21 @@ class OBJFileError(Exception):
 
 # Reports issues related to object module records
 class OBJRecordError(Exception):
+    def __init__(self,msg=""):
+        self.msg=msg          # Text associated with the error
+        super().__init__(msg)
+
+
+#
+#  +----------------------+
+#  |                      |
+#  |   Object Exception   |
+#  |                      |
+#  +----------------------+
+#
+
+# Reports issues related to language translator related errors
+class OBJError(Exception):
     def __init__(self,msg=""):
         self.msg=msg          # Text associated with the error
         super().__init__(msg)
@@ -505,9 +520,10 @@ class PMOD(object):
                     self.zero_length=item
                 else:
                     raise ObjectRecord(msg="%s.%s._process_ESD_rec() - "\
-                        "More than one zero length SD, already found '%s': "\
-                          "'%s'" % (this_module,self.__class__.__name__,\
-                              self.zero_length.symbol,item.symbol))
+                        "More than one zero length section, already found "
+                            "'%s': '%s'" \
+                                % (this_module,self.__class__.__name__,\
+                                    self.zero_length.symbol,item.symbol))
             self.esditems.append(item)
 
     # Adds an RLD record to the list of RLD records and its RLD items to a list
@@ -522,7 +538,9 @@ class PMOD(object):
             if self.zero_length is not None:
                 self.zero_length.length=endrec.sdlen
             else:
-                raise ObjectRecordError(msg="")
+                raise ObjectRecordError(msg="%s.%s._process_END_rec() - "\
+                    "No zero length section, but END record contains length"\
+                        % (this_module,self.__class__.__name__))
 
         self.end.append(endrec)
         self.enditems.append(endrec.items)
@@ -577,19 +595,298 @@ class PMOD(object):
 # object is subclassed.
 
 class MODULE(PMOD):
+    alignment_values=[8,16]
+    amode_values={None:None,24:24,31:31,64:64,"ANY":True}
+    rmode_values=[None,24,31,64]
+    rsect_values={True:1,False:0}
 
     def __init__(self,recs=[]):
         super().__init__(recs=recs)
         self.esdict=ExternalSymbolDict()   # Create the External Symbol Dict.
 
-    # This internal method is used when the MODULE object is being created
-    # from a series of OBJREC objects
+        # These two attributes are set when items are added to an Area (PC/SD)
+        # See self._current_area() method
+        self.curarea=None                  # Current area's Area instance
 
+        self.txtitems=[]                   # TXTITEMS in the order presented
+
+    # Add items to External Symbol Dictionary
+    # This internal method is used when the MODULE object is being populated
+    # from a series of OBJREC objects supplied to the instantiated PMOD
+    # superclass as well as when a language translator adds individual items
+    # via the MODULE.ESD_xx() methods.
     def _add_item(self,item):
-        self.esdict.add(item)
+        self.esdict.add_ESD(item)
 
-    # The collection of 'add_XX' methods are intended for a language translator
-    # adding content to the module.
+    # Adds text from a TXT record to the area as a TXTITEM object.
+    # This internal method is used when the MODULE object is being populated
+    # from a series of OBJREC objects supplied to the instantiated PMOD
+    # superclass.  The TXT() method used by a language translator also uses
+    # this method for addition of TXTITEM objects.
+    # Exception:
+    #   OBJError if section is not defined
+    def _add_text(self,txt):
+        assert isinstance(txt,TXT),\
+            "%s.%s._add_text() - 'txt' argument must be a TXT record: %s" \
+                % (this_module,self.__class__.__name__,txt)
+
+        try:
+            area=self._current_area(txt.esdid)
+        except KeyError:
+            raise OBJError(msg="Record %s - "\
+                "ESDID to which text is being added does not exist: %s"\
+                    % (txt.recnum,txt.esdid)) from None
+
+        txt=TXTITEM(txt.esdid,txt.address,txt.text)
+        area.TXT(txt)
+        self.txtitems.append(txt)
+        
+    def _add_rld(self,rld):
+        assert isinstance(rld,RLDITEM),\
+            "%s.%s._add_rld() - 'rld' argument must be a RLDITEM object: %s" \
+                % (this_module,self.__class__.__name__,rld)
+        
+        try:
+            area=self._current_area(rld.pptr)
+        except KeyError:
+            raise OBJError(msg=\
+                "ESDID to which RLD item is being added does not exist: %s"\
+                    % (txt.recnum,rld.pptr)) from None
+            
+        area.RLD(rld)
+
+    # Checks the validity of an amode value.  Valid values are: None, the
+    # integers 24, 31, or 64, and the string "ANY".
+    # Returns:
+    #   The internal representation of the AMODE used by the library when valid
+    #   False if not valid.  Caller must
+    # Note: the caller must explicitly test for False.  Using an if will cause
+    # incorrect results when None is returned.
+    def _check_amode(self,amode):
+        try:
+            return MODULE.amode_values[amode]
+        except KeyError:
+            return False
+
+    # Checks the validity of an address.  An address is valid if it is an
+    # integer and is between X'000000'-X'FFFFFF', inclusive
+    # Returns:
+    #   True if the addess is valid
+    #   False if the address is invalid
+    def _check_address(self,address):
+        return isinstance(address,int) and address >=0 and address <= 0xFFFFFF
+
+    # Checks the validity of an area's alignment.  Valid values are an integer
+    # of 8 or 16.
+    # Returns:
+    #   True if the alignment is valid
+    #   False if the address is invalid
+    def _check_align(self,align):
+        return align in [8, 16]
+
+    # Checks the common language translator arguments supplied for ESD areas.
+    # Method Arguments:
+    #   symbol   the name of the symbol being defined as a string.  None is
+    #            ignored, allowing case where symbol is not provided.
+    #            None is used by PC items that do not have a name.
+    #   address  address of the start of the area
+    #   amode    amode argument: None, "24", "31", "64", "ANY"
+    #   rmode    residency mode: None, "24", "31", "64"
+    #   length   area length in bytes
+    #   align    area alignment requirement: 8, 16
+    #   minimum  minimim length of a valid symbol. Defaults to 1. 0 allows
+    #            an empty string to be valid (used by CM items)
+    # Returns:
+    #   Python amode numeric value:
+    #      None for None
+    #       24  for "24"
+    #       31  for "31"
+    #       64  for "64"
+    #      True for "ANY"
+    # Exceptions:
+    #   AssertionError if invalid argument encountered
+    def _check_area(self,symbol,address,amode,rmode,length,align,minimum=1):
+        assert symbol is not None or self._check_symbol(\
+            symbol,minimum=minimum),"%s.%s.check_area() - "\
+                "'symbol' argument not a valid symbol: %s" \
+                    % (this_module,self.__class__.__name__,symbol)
+        assert self._check_address(address),\
+            "%s.%s.check_area() - 'address' argument not a valid address: %s" \
+                % (this_module,self.__class__.__name__,address)
+        assert self._check_rmode(rmode),\
+            "%s.%s.check_area() - 'rmode' argument not a valid mode: %s" \
+                % (this_module,self.__class__.__name__,rmode)
+        assert self._check_length(length),\
+            "%s.%s.ESD_CM() - 'length' argument not a valid length: %s" \
+                % (this_module,self.__class__.__name__,length)
+        assert self._check_align(align),\
+            "%s.%s.ESD_CM() - 'align' argument not a valid alignment: %s" \
+                % (this_module,self.__class__.__name__,align)
+        am=self._check_amode(amode)
+        assert am != False,\
+            "%s.%s.check_area() - 'amode' argument not a valid mode: %s" \
+                % (this_module,self.__class__.__name__,amode)
+        return am
+
+    # Checks the validity of a byte sequence.
+    # Returns:
+    #   True if the binary is a bytes or bytearray object
+    #   False if not a valid binary object
+    def _check_binary(self,bin):
+        return isinstance(bin,(bytes,bytearray))
+
+    # Checks the validity of a length.  A length is valid if it is an
+    # integer and is between X'000000'-X'FFFFFF', inclusive
+    # Returns:
+    #   True if the length is valid
+    #   False if the length is invalid
+    def _check_length(self,length):
+        return isinstance(length,int) and length >= 0 and length <= 0xFFFFFF
+
+    # Checks the validity of the length in relocation dictionary items.
+    # A valid length is an integer between 1 and 8, inclusive
+    # Returns:
+    #   True if the length is valid
+    #   False if the length is not valid
+    def _check_length_rld(self,length):
+        return isinstance(length,int) and length >=1 and length <=8
+
+    def _check_rld(self,rname,pname,address,length,sign,r=True):
+        if r:
+            assert self._check_symbol(rname) or rname is None,\
+                "%s.%s._check_rld() - 'rname' argument not a valid symbol: %s" \
+                    % (this_module,self.__class__.__name__,rname)
+        else:
+            assert self._check_symbol(rname),\
+                "%s.%s._check_rld() - 'rname' argument not a valid symbol: %s" \
+                    % (this_module,self.__class__.__name__,rname)
+
+        assert self._check_symbol(pname) or pname is None,\
+            "%s.%s._check_rld() - 'pname' argument not a valid symbol: %s" \
+                % (this_module,self.__class__.__name__,pname)
+        assert self._check_address(address),\
+             "%s.%s._check_rld() - 'address' argument not a valid address: %s" \
+                % (this_module,self.__class__.__name__,address)
+        assert self._check_length_rld(length),\
+            "%s.%s._check_rld() - 'length' argument not a valid length: %s" \
+                % (this_module,self.__class__.__name__,length)
+        assert sign in [1, -1],\
+            "%s.%s._check_rld() - 'sign' argument not 1 or -1: %s" \
+                % (this_module,self.__class__.__name__,sign)
+
+    # Checks the validity of an rmode value. Valid values are: None, 24, 31, 64.
+    # Returns:
+    #   True if the residency mode is valid
+    #   False if the residency mode is invalid
+    def _check_rmode(self,rmode):
+        return rmode in MODULE.rmode_values
+
+    # Checks the validity of an rsect value. Valid values are: True, False
+    # Returns:
+    #   0 if the rsect value is False
+    #   1 if the rsect value if True
+    #   False if the rsect value is invalid.  Caller must check for False.
+    # Note: this language translator uses True and False as valid values for
+    # rsect.  The ESD items that use rsect use 0 and 1.  This method converts
+    # the external value for rsect into the internal value used by this module.
+    def _check_rsect(self,rsect):
+        try:
+            return rsect in MODULE.rsect_values[rsect]
+        except KeyError:
+            return False
+
+    # Checks the validity of a symbol.  A symbol is valid if it is a string
+    # of length 0-8, or 1-8 inclusive.
+    # Method Arguments:
+    #   symbol   the symbol being validated
+    #   minimim  the shortest valid symbol. Defaults to 1. May be 0.
+    # Returns:
+    #   True if symbol is valid
+    #   False if symbol in not valid
+    def _check_symbol(self,symbol,minimum=1):
+        return isinstance(symbol,str) \
+            and len(symbol)>=minimum and len(symbol)<=8
+
+    # This method maintains the current area information
+    # Returns the current area.
+    # Method Argument:
+    #   areaid   either a string of the area's symbol, or an integer of the
+    #            area's ESDID, or None for the PC area.
+    # Returns:
+    #   the current active area as identified by the id.
+    # Exception:
+    #   KeyError if requested areaid does not exist.
+    def _current_area(self,areaid):
+        if isinstance(areaid,str):
+            if self.curarea and self.curarea.symbol == section:
+                # Still working with the current area
+                return self.curarea
+        elif areaid is None and self.pc:
+            if self.curarea and self.curarea.esdid == self.pc.esdid:
+               return self.curarea
+        else:
+            if self.curarea and self.curarea.esdid == areaid:
+                return self.curarea
+
+        # Current area being initialized or changing areas
+        area=self.esdict[areaid]
+        assert isinstance(area,Area),\
+             "%s.%s._current_area() - symbol '%s' must be an Area instance: %s" \
+                % (this_module,self.__class__.__name__,section,area)
+        self.curarea=area
+        return area
+
+    # Populate this MODULE object from the superclass PMOD object records
+    # Returns:
+    #   Number of records populating the module
+    def populate(self):
+        if self.isempty():
+            # No records, so no items to add to MODULE
+            return 0
+
+        # Populate the MODULE with ESD items
+        for item in self.esditems:
+            self._add_item(item)
+        for txt in self.txts:
+            self._add_text(txt)
+        return len(self.recs)
+
+  # 
+  # Language Translator Interface
+  #
+  
+    # The collection of ESD_xx, RLD_xx, and TXT methods constitute the library's
+    # interface exposed to a language translator.  These methods add various
+    # pieces of information to the MODULE object.
+
+    # Adds a CM item to the External Symbol Dictionary
+    # Method Arguments:
+    #    symbol   The name of the CM item being added
+    #    address  The starting address of the CM item
+    #    amode    The CM item's amode: None, 24, 31, 64, "ANY"
+    #    rmode    The CM item's rmode: None, 24, 31, 64
+    #    length   The CM item's length in bytes
+    #    align    The CM item's alignment: 8, 16
+    # Returns:
+    #   The ESDID of the item added to the dictionary for use by the language
+    #   translator.
+    # Exceptions:
+    #   AssertionError if any argument is invalid
+    def ESD_CM(self,symbol,address,amode,rmode,length,align):
+        am=self._check_area(symbol,address,amode,rmode,length,align,minimum=0)
+        return self.esdict.ESD_CM(symbol,address,am,rmode,length,align)
+
+    # This method adds an ER item to the External Sybmol Dictionary.
+    # Method Arguments:
+    #   symbol   The name of the ER item being added.
+    # Returns:
+    #   the ESDID value of the added ER item
+    def ESD_ER(self,symbol):
+        assert self._check_symbol(symbol),\
+            "%s.%s.ESD_ER() - 'symbol' argument not a valid symbol: %s" \
+                % (this_module,self.__class__.__name__,symbol)
+
+        return self.esdict.ESD_ER(symbol)
 
     # Adds a LD item to the External Symbol Dictionary
     # Method Arguments:
@@ -601,35 +898,237 @@ class MODULE(PMOD):
     # Exceptions:
     #   AssertionError if an arguments is invalid
     #   KeyError       if the section is not found or the label is a duplicate
-    def add_LD(self,label,section,address):
-        assert isinstance(label,str),\
-            "%s.%s.add_LD() - 'label' argument must be a string: %s" \
+    def ESD_LD(self,label,section,address):
+        assert self._check_symbol(lable),\
+            "%s.%s.ESD_LD() - 'label' argument not a valid symbol: %s" \
                 % (this_module,self.__class__.__name__,label)
-        assert isinstance(section,str),\
-            "%s.%s.add_LD() - 'section' argument must be a string: %s" \
+        assert self._check_symbol(section),\
+            "%s.%s.ESD_LD() - 'section' argument not a valid symbol: %s" \
                 % (this_module,self.__class__.__name__,section)
-        sect=self.esdict[section]    # Can raise KeyError
-        #assert address
-        pass
+        assert self._check_address(address),\
+            "%s.%s.ESD_LD() - 'address' argument not a valid address: %s" \
+                % (this_module,self.__class__.__name__,address)
+
+        self.esdict.ESD_LD(label,section,address)
+
+    # Adds a PC item to the External Symbol Dictionary
+    # Method Arguments:
+    #    address  The starting address of the SD item
+    #    amode    The PC item's amode: None, 24, 31, 64, "ANY"
+    #    rmode    The PC item's rmode: None, 24, 31, 64
+    #    rsect    The PC item's read-only value (rsect): True, False
+    #    length   The PC item's length in bytes
+    #    align    The PC item's alignment: 8, 16
+    # Returns:
+    #   The ESDID of the item added to the dictionary for use by the language
+    #   translator.
+    # Exceptions:
+    #   AssertionError if any argument is invalid
+    #   OBJError if a PC item is already defined
+    def ESD_PC(self,address,amode,rmode,rsect,length,align):
+        am=self._check_area(None,address,amode,rmode,length,align,minimum=0)
+        rs=self._check_rsect(rsect)
+        assert rs is not False,\
+            "%s.%s.ESD_PC() - 'rsect' argument not a valid rsect value: %s" \
+                % (this_module,self.__class__.__name__,rsect)
+        return self.esdict.ESD_PC(address,am,rmode,rs,length,align)
+
+    # Adds a SD item to the External Symbol Dictionary
+    # Method Arguments:
+    #    symbol   The name of the SD item being added
+    #    address  The starting address of the SD item
+    #    amode    The SD item's amode: None, 24, 31, 64, "ANY"
+    #    rmode    The SD item's rmode: None, 24, 31, 64
+    #    rsect    The SD item's read-only value (rsect): True, False
+    #    length   The SD item's length in bytes
+    #    align    The SD item's alignment: 8, 16
+    # Returns:
+    #   The ESDID of the item added to the dictionary for use by the language
+    #   translator.
+    # Exceptions:
+    #   AssertionError if any argument is invalid
+    def ESD_SD(self,symbol,address,amode,rmode,rsect,length,align):
+        am=self._check_area(symbol,address,amode,rmode,length,align)
+        rs=self._check_rsect(rsect)
+        assert rs is not False,\
+            "%s.%s.ESD_SD() - 'rsect' argument not a valid rsect value: %s" \
+                % (this_module,self.__class__.__name__,rsect)
+        return self.esdict.ESD_SD(symbol,address,am,rmode,rs,length,align)
+
+    # This method adds an WX item to the External Sybmol Dictionary.
+    # Method Arguments:
+    #   symbol   The name of the WX item being added.
+    # Returns:
+    #   the ESDID value of the added WX item
+    def ESD_WX(self,symbol):
+        assert self._check_symbol(symbol),\
+            "%s.%s.ESD_WX() - 'symbol' argument not a valid symbol: %s" \
+                % (this_module,self.__class__.__name__,symbol)
+
+        return self.esdict.ESD_WX(symbol)
+
+    # This method adds a XD (aka PR) item to the External Symbol Dictionary.
+    # An XD item is created by an assembler DXD (Define External Dummy)
+    # directive or when a dummy section defined by a DSECT directive appears
+    # in a Q-type address constant.  Access to the DXD defined dummy section
+    # also requires it to appear in a Q-type address constant.  The Q-type
+    # address constant generates a RLD Q item that supplies to the program the
+    # address of the first byte of the external dummy section as allocated by
+    # the linkage editor.
+    # Method Arguments:
+    #   symbol   the name of the external dummy section being defined
+    #   align    the alignment required by the external dummy section:
+    #            1, 2, 4, or 8.
+    #   length   the length of the external dummy section.  Must be a non-
+    #            negative integer.
+    def ESD_XD(self,symbol,align,length):
+        assert self._check_symbol(symbol),\
+            "%s.%s.ESD_XD() - 'symbol' argument not a valid symbol: %s" \
+                % (this_module,self.__class__.__name__,symbol)
+        assert isinstance(align,int) and align in [1,2,4,8],\
+            "%s.%s.ESD_XD() - 'align' argument must be 1, 2, 4, or 8: %s" \
+                % (this_module,self.__class__.__name__,align)
+        assert isinstance(length,int) and length>=0,\
+            "%s.%s.ESD_XD() - 'length' argument must a non-negative integer: "\
+                "%s" % (this_module,self.__class__.__name__,length)
+
+        return self.esdict.ESD_XD(symbol,align,length)
+
+    # This method adds a A-type address constant to the module
+    # Method Arguments:
+    #   rname    the name of the SD or None (PC) being referenced.
+    #   pname    the name of the SD or None (PC) containing the address constant
+    #   address  the address of the A-type constant within the section
+    #   length   the length of the A-type address constant
+    #   sign     the sign factor applied to the offset contained in the address
+    #            constant text data.
+    def RLD_A(self,rname,pname,address,length,sign):
+        self._check_rld(rname,pname,address,length,sign)
+        self.esdict.RLD_A(rname,pname,address,length,sign)
+
+    # Add a CXD RLD item to an object deck. The CXD item is a fullword into
+    # which the linkage editor stores the combined lengths of all external
+    # dummy sections.
+    # Method Arguments:
+    #   pname    the name of the SD in which the CXD resides, or None (PC)
+    #   address  the address within the SD/PC at which the CXD starts
+    #   length   the length of the CXD item in the SD/PC.  Must be four.
+    def RLD_CXD(self,pname,address,length):
+        assert self._check_symbol(pname) or pname is None,\
+            "%s.%s.RLD_CXD() - 'pname' argument not a valid symbol: %s" \
+                % (this_module,self.__class__.__name__,pname)
+        assert self._check_address(address),\
+            "%s.%s.RLD_CXD() - 'address' argument not a valid address: %s" \
+                % (this_module,self.__class__.__name__,address)
+        assert length == 4,\
+            "%s.%s.RLD_CXD() - 'length' argument muse be 4: %s" \
+                % (this_module,self.__class__.__name__,length)
+        
+        self.esdict.RLD_CXD(pname,address,length,sign)
+
+    # This method adds a Q-type address constant to the module
+    # Method Arguments:
+    #   qname  the name of the external dummy section being referenced
+    #   pname  the name of the SD or None (PC) containing the address constant
+    #   length the length of the Q-type address constant
+    #   sign   the sign factor applied to the offset contained in the address
+    #          constant text data.
+    def RLD_Q(self,qname,pname,address,length,sign):
+        self._check_rld(qname,pname,address,length,sign,r=False)
+        self.esdict.RLD_Q(qname,pname,address,length,sign)
+
+    # This method adds a V-type address constant to the module
+    # Method Arguments:
+    #   rname    the external name being referenced.
+    #   pname    the name of the SD or None (PC) containing the address constant
+    #   address  the address of the V-type constant within the section
+    #   length   the length of the V-type address constant
+    #   sign     the sign factor applied to the offset contained in the address
+    #            constant text data.
+    def RLD_V(self,vname,pname,address,length,sign):
+        self._check_rld(vname,pname,address,length,sign,r=False)
+        self.esdict.RLD_V(qname,pname,address,length,sign)
+
+    # Adds text data to the module
+    # Method Arguments:
+    #   section   The name of the SD or None (PC) to which the text data belongs
+    #   address   The address within the SD/PC of the first byte of text data
+    #   binary    The data being added to the section as a byte sequence
+    # Returns: None
+    # Exceptions:
+    #   AssertionError if any argument is invalid
+    def TXT(self,section,address,binary):
+        assert self._check_symbol(section) or section is None,\
+            "%s.%s.TXT() - 'symbol' argument not a valid symbol: %s" \
+                % (this_module,self.__class__.__name__,section)
+        assert self._check_address(address),\
+            "%s.%s.TXT() - 'address' argument not a valid address: %s" \
+                % (this_module,self.__class__.__name__,address)
+        assert self._check_binary(binary),\
+            "%s.%s.TXT() - 'binary' argument not a valid byte seq: %s" \
+                % (this_module,self.__class__.__name__,binary)
+
+        try:
+            area=self._current_area(section)
+        except KeyError:
+            if section is None:
+                sc="PC"
+            else:
+                sc=section
+            raise OBJError(msg=\
+                "section to which text is being added is not defined: %s" \
+                    % sc) from None
+
+        txt=TXTITEM(area.esdid,address,binary)
+        area.TXT(txt)
+        self.txtitems.append(txt)
+
 
 # This class manages the external symbol dictionary. It operates exclusively
 # upon ESDITEM subclasses.
 class ExternalSymbolDict(object):
     def __init__(self):
+        # These three attributes manage Global symbols.
+        # Access to these attributes are arbitrated through __getitem__() and
+        # __setitem__() methods.  They should not be access directly
         self.dct={}             # Symbols accessed by name
         self.esdids={}          # Symbols accessed by ESDID
-        self.items=[]           # Symbols in creation sequence
+        # Note: LD items are not assigned an ESDID.  They will appear in
+        # self.dct (accessed by name) but not in self.esdids.  LD items
+        # are added to the Area in which they reside.
+        # PC items have no name but do have an ESDID.  They will appear in
+        # self.esdids but not in self.dct.
+        # All other items will have a presence in both self.dct and self.esdids,
+        # including a blank COM.  The blank COM symbol is the empty string "".
 
-    # This internal method returns the next available ESD ID
-    def _next_esdid():
-        return len(self.esdids)+1
+        # The PC item when defined. Only one may exist
+        self.pc=None  # See __getitem__() and __setitem__() methods for access
 
+        # Symbols in creation sequence. This is the sequence in ESD records
+        self.items=[]
+
+    # Overload:  self[symbol]
+    #            self[ESDID]
+    #            self[None]    - for PC item access
+    # Returns:
+    #   the ESDITEM object referenced by the symbol or ESDID or PC (None)
+    # Exception:
+    #   KeyError if the symbol or ESDID value does not exist
     def __getitem__(self,key):
-        assert isinstance(key(str,int)),\
-            "%s.%s() - 'key' argument must be a string or integer: %s" \
-                % (this_module,self.__class__.__name__,key)
+        if key is None:
+            if self.pc:
+                return self.pc
+            else:
+                raise KeyError(\
+                    "%s.%s.__getitem__() - PC item not defined" \
+                        % (this_module,self.__class__.__name__,key))
+        assert isinstance(key,(str,int)),\
+            "%s.%s.__getitem__() - "\
+                "'key' argument must be a string or integer: %s" \
+                    % (this_module,self.__class__.__name__,key)
 
         if isinstance(key,str):
+            # Key is a symbol name
             try:
                 return self.dct[key]
             except KeyError:
@@ -637,6 +1136,7 @@ class ExternalSymbolDict(object):
                     "%s.%s.__getitem__() - ESD symbol not defined: %s" \
                         % (this_module,self.__class__.__name__,key)) from None
 
+        # Assume key is for an ESDID
         try:
             return self.esdids[key]
         except KeyError:
@@ -644,11 +1144,329 @@ class ExternalSymbolDict(object):
                 "%s.%s.__getitem__() - ESDID not defined: %s" \
                     % (this_module,self.__class__.__name__,key)) from None
 
-    def add(self,item):
+    # Overload self[symbol]=ESDITEM
+    #          self[ESDID]=ESDITEM
+    #          self[None]=PC
+    # Sets the symbol name, ESDID value or PC to the ESDITEM
+    # Exception:
+    #   KeyError if the symbol or ESDID value has already been associated with
+    #   an ESDITEM object.
+    def __setitem__(self,key,value):
+        if key is None:
+            if self.pc:
+                raise KeyError("%s.%s.__setitem__() - "\
+                    "PC item already defined, can not add" \
+                        % (this_module,self.__class__.__name__))
+            else:
+                assert isinstance(value,PC),\
+                    "%s.%s.__setitem__() - "\
+                        "'value' argument must be a PC item for key None: %s" \
+                            % (this_module,self.__class__.__name__,value)
+                self.pc=value
+        assert isinstance(key,(str,int)),\
+            "%s.%s.__setitem__() - "\
+                "'key' argument must be a string or integer: %s" \
+                    % (this_module,self.__class__.__name__,key)
+        assert isinstance(value,ESDITEM),\
+            "%s.%s.__setitem__() - "\
+                "'value' argument must be an ESDITEM object: %s" \
+                    % (this_module,self.__class__.__name__,value)
+
+        if isinstance(key,str):
+            # Adding an item by its symbol name
+            try:
+                item=self.dct[key]
+            except KeyError:
+                self.dct[key]=value
+                return
+            raise KeyError("%s.%s.__setitem__() - "\
+                "symbol '%s' already defined by %s item, can not add: %s" \
+                    % (this_module,self.__class__.__name__,\
+                        key,item.__class__.__name__,value.__class__.__name__))
+
+        # Adding an item by its ESDID
+        try:
+            item=self.esdids[key]
+        except KeyError:
+            self.esdids[key]=value
+            return
+        raise KeyError("%s.%s.__setitem__() - "\
+            "ESDID %s already defined by %s item, can not add: %s" \
+                % (this_module,self.__class__.__name__,\
+                    key,item.__class__.__name__,value.__class__.__name__))
+
+    # Locate related ESD items used by an RLD item.  Checks for validity
+    # of item types
+    # Returns:
+    #   a tuple:
+    #     [0] - the ESDITEM object related to the rname
+    #     [1] - the ESDITEM object related to the pname
+    #     [2] - numeric coding of the address constant type
+    # Method Arguments:
+    #   rname   the name of the RLD referenced item or None for PC. O indicates
+    #           no rname.  CXD items have no rname reference.
+    #   pname   the name of the RLD position SD item or None for PC
+    #   rcls    a class or tuple of classes for which the rname is valid
+    #   pcls    a class or tuple of classes for which the pname is valid
+    #   atyp    the address constant type being created as a string
+    # Raises:
+    #   OBJError if any inconsistency of item types or undefined items
+    #   encountered
+    def _locate_rld_ESD_items(self,rname,pname,rcls,pcls,atyp,ckr=True):
+        atyp=RLDITEM.adcons[atyp]
+        if ckr:
+            try:
+                rarea=self[rname]
+            except KeyError:
+                if rname is None:
+                    raise OBJError(\
+                        msg="%s-type PC ESD item reference undefined" % atyp)
+                raise OBJError(\
+                    msg="%s-type %s ESD item reference undefined: %s" \
+                        % (atyp,rcls.__name__,rname))
+            if not isinstance(rarea,rcls):
+                raise OBJError(\
+                    msg="%s-type %s reference ESD '%s' not a valid item: %s" \
+                        % (atyp,rcls.__name__,rname,rarea.__class__.__name__))
+        else:
+            rarea=None
+
+        try:
+            parea=self[pname]
+        except KeyError:
+            if pname is None:
+                raise OBJError(msg="%s-type position ESD PC is undefined")
+            raise OBJError(msg="%s-type position ESD undefined: %s" \
+                % (atyp,pname))
+        if not isinstance(parea,pcls):
+            raise OBJError(msg="%s-type position ESD '%s' not a SD/PC: %s" \
+                % (atyp,pname,parea.__class__.__name__))
+            
+        return (rarea,parea,atyp)
+
+    # This internal method returns the next available ESD ID
+    def _next_esdid():
+        return len(self.esdids)+1
+
+    # This method is used to add ESDITEM objects to the External Symbol
+    # Dictionary.  The caller must supply an ESDITEM object.  Language
+    # translators must call one of the MODULE.ESD_xx methods with the
+    # appropriate arguments.  The MODULE.ESD_xx method will call one of the
+    # ESD_xx methods of this class for ESDITEM creation and addition to the
+    # dictionary.
+    #
+    # The ESD_xx methods that call this method will assign the item's ESDID.
+    #
+    # Note: the module object may directly call this method becase the decoding
+    # process of object records creates ESDITEM's from the object file.
+    #
+    # Method Argument:
+    #   item   the ESDITEM object being added to the External Symbol Dictionary
+    # Returns:
+    #   None
+    # Exceptions:
+    #   KeyError for duplicate ESDID or symbols encountered
+    #   AssertionError for various argument errors.
+    def add_ESD(self,item):
         assert isinstance(item,ESDITEM),\
-            "%s %s.add() - 'item' must be an ESDITEM object: %s" \
+            "%s %s.add_ESD() - 'item' must be an ESDITEM object: %s" \
                 % (this_module,self.__class__.__name__,item)
-        #if isinstance(item,SD
+
+        if isinstance(item,PC):
+            self[item.esdid]=item       # Add the PC item to the ESDID
+            self[None]=item             # Add the PC item as an attribute
+        elif isinstance(item,LD):
+            self[item.sd].ESD_LD(item)  # Add the LD item to the SD/PC
+            self[item.symbol]=item      # Add the LD item to the dictionay
+        else:
+            self[item.symbol]=item      # Add the item to the dictionary
+            self[item.esdid]=item       # Add the item to the ESDID
+
+        self.items.append(item)         # Add the item to the list of items
+
+    # This method, similar to the add_ESD() method, is used to add RLD items
+    # when the module is being populated from a decoded object deck, or when
+    # a language translator is supplying an RLD item.
+    def add_RLD(self,rld):
+        assert isinstance(rld,RLDITEM),\
+            "%s.%s.add_RLD() - 'rld' argument must be an RLDITEM object: %s" \
+                % (this_module,self.__class__.__name__,rld)
+        parea=self[rld.p]
+        parea.RLD(rld)
+
+  #
+  #  MODULE to External Symbol Dictionary Interface
+  #
+
+    # These methods are used by the MODULE object when a language translator
+    # provides object module information destined for objects within the
+    # External Symbol Dictionary.  The method names correspond to the same
+    # method name used by the MODULE object.
+
+    # Create a CM item and add it to the external symbol dictionary
+    # Method Arguments:
+    #   symbol    Name of the CM item being added
+    #   amode     Address Mode: integers 24, 31, or 64 or True for ANY
+    #   rmode     Residnce Mode: integers 24, 31, or 64.
+    #   rsect     Read-Only: integer 0 for not read only, 1 for read-only
+    #   length    Length of the CM item in bytes
+    #   align     CM item alignment: 8 or 16
+    # Returns:
+    #   the ESDID assigned to the CM item for use by the language translator
+    def ESD_CM(self,symbol,amode,rmode,length,align):
+        esdid=self._next_esdid()
+
+        cm=CM(symbol,length=length,align=align,amode=amode,rmode=rmode,\
+            esdid=esdid)
+        self.add_ESD(cm)
+        return esdid
+
+    # Add an ER item to the External Symbol Dictionary
+    # Method Argument:
+    #   symbol  the name of the ER item being added
+    # Returns:
+    #   ESDID value of the added ER item
+    def ESD_ER(self,symbol):
+        esdid=self._next_esdid()
+        
+        er=ER(symbol,esdid=esdid)
+        self.add_ESD(er)
+        return esdid
+
+    # Create an LD item and add it to the external symbol dictionary
+    # Method Argments:
+    #   label     The symbol to be assigned to the LD item
+    #   section   The section name to which the LD item belongs
+    #   address   Address of the LD item within the section
+    # Returns:
+    #   None
+    def ESD_LD(self,label,section,address):
+        sect=self[section]    # Validate the section already exists
+        ld=LD(label,address,sect.esdid)
+        self.add_ESD(ld)
+
+    # Create a PC item and add it to the external symbol dictionary
+    # Method Arguments:
+    #   address   Starting address of the PC item
+    #   amode     Address Mode: integers 24, 31, or 64 or True for ANY
+    #   rmode     Residnce Mode: integers 24, 31, or 64.
+    #   rsect     Read-Only: integer 0 for not read only, 1 for read-only
+    #   length    Length of the PC item in bytes
+    #   align     PC item alignment: 8 or 16
+    # Returns:
+    #   the ESDID assigned to the PC item for use by the language translator
+    # Exception:
+    #   OBJError if a PC item already exists
+    def ESD_PC(self,address,amode,rmode,rsect,length,align):
+        if self.pc:
+            raise OBJError(msg="%s.%s.add_PC - "\
+                "PC item already defined - ESDID: %s" \
+                    % (this_module,self.__class__.__name__,self.pc.esdid))
+
+        esdid=self._next_esdid()
+        pc=PC(address,rmode=rmode,amode=amode,rsect=rsect,length=length,\
+            align=align,esdid=esdid)
+        self.add_ESD(PC)
+        return esdid
+
+    # Create an SD item and add it to the external symbol dictionary
+    # Method Arguments:
+    #   symbol    Name of the SD item being added
+    #   address   Starting address of the SD item
+    #   amode     Address Mode: integers 24, 31, or 64 or True for ANY
+    #   rmode     Residnce Mode: integers 24, 31, or 64.
+    #   rsect     Read-Only: integer 0 for not read only, 1 for read-only
+    #   length    Length of the SD item in bytes
+    #   align     SD item alignment: 8 or 16
+    # Returns:
+    #   the ESDID assigned to the SD item for use by the language translator
+    def ESD_SD(self,symbol,address,amode,rmode,rsect,length,align):
+        esdid=self._next_esdid()
+        
+        sd=SD(symbol,address,amode=amode,rmode=rmode,resect=rsect,\
+            length=length,align=align,esdid=esdid)
+        self.add_ESD(sd)
+        return esdid
+
+    # Add an WX item to the External Symbol Dictionary
+    # Method Argument:
+    #   symbol  the name of the WX item being added
+    # Returns:
+    #   ESDID value of the added WX item
+    def ESD_WX(self,symbol):
+        esdid=self._next_esdid()
+        
+        wx=WX(symbol,esdid=esdid)
+        self.add_ESD(wx)
+        return esdid
+
+    # Add a XD item to the External Symbol Dictionary
+    # Method Arguments:
+    #   symbol   the name of the XD item as defined by a DXD or Q-type DSECT
+    #            reference
+    #   align    the alignment required by the dummy section: 1, 2, 4, 8
+    #   length   the length of the dummy section.  A 0 lengh is allowed.
+    # Returns:
+    #    ESDID of the added XD item
+    def ESD_XD(self,symbol,align,length):
+        esdid=self._next_esdid()
+        
+        xd=XD(symbol,align,length,esdid=esdid)
+        self.add_ESD(xd)
+        return esdid
+
+    # This method creates a A-type RLD item and adds it to its position area
+    # Method Arguments:
+    #   rname   The name of the section being referenced
+    #   pname   The name of the Area object in which the A-type RLD resides
+    #   address The address of the A-type constant in the position area
+    #   length  The length of the A-type address constant
+    #   sign    The sign factor applied to the A-type constant's offset
+    # Exceptions:
+    #   OBJError if ESD items incorrect or undefined for addres constant type
+    def RLD_A(self,rname,pname,address,length,sign):
+        rarea,parea,atyp=\
+            self._locate_rld_ESD_items(rname,pname,(SD,PC),(SD,PC),"A")
+        
+        a=RLDITEM(qarea.esdid,parea.esdid,address,atyp,length,sign)
+        self.add_RLD(a)
+
+    # Create a CXD-type RLD item and add it to the SD/PC item in which it
+    # resides
+    def RLD_CXD(self,pname,address,length,sign):
+        rarea,parea,atyp=\
+            self._locate_rld_ESD_items(None,pname,None,(SD,PC),"CXD",ckr=False)
+
+        cxd=RLDITEM(0,parea.esdid,address,atyp,length,sign)
+        self.add_RLD(cxd)
+
+    # This method creates a Q-type RLD item and adds it to its position area
+    # Method Arguments:
+    #   qname   The name of the external dummy section being referenced
+    #   pname   The name of the Area object in which the Q-type RLD resides
+    #   address The address of the Q-type constant in the position area
+    #   length  The length of the Q-type address constant
+    #   sign    The sign factor applied to the Q-type constant's offset
+    def RLD_Q(self,qname,pname,address,length,sign):
+        qxd,parea,atyp=self._locate_rld_ESD_items(qname,pname,XD,(SD,PC),"Q")
+
+        q=RLDITEM(qxd.esdid,parea.esdid,address,atyp,length,sign)
+        self.add_RLD(q)
+
+    # This method creates a V-type RLD item and adds it to its position area
+    # Method Arguments:
+    #   rname   The name of the section being referenced
+    #   pname   The name of the Area object in which the A-type RLD resides
+    #   address The address of the A-type constant in the position area
+    #   length  The length of the A-type address constant
+    #   sign    The sign factor applied to the A-type constant's offset
+    # Exceptions:
+    #   OBJError if ESD items incorrect or undefined for addres constant type
+    def RLD_V(self,rname,pname,address,length,sign):
+        rex,parea,atyp=self._locate_rld_ESD_items(rname,pname,EX,(SD,PC),"V")
+        
+        v=RLDITEM(rex.esdid,parea.esdid,address,atyp,length,sign)
+        self.add_RLD(v)
 
 
 #
@@ -712,9 +1530,6 @@ class RLDBLDR(OBJBLDR):
 # [13:16]   14-16     External symbol attribute, varies with type
 class ESDITEM(object):
     types=None    # Defined below after all ESDITEM subclasses defined
-    #amodes={64:0x20,31:0x02,24:0x01,True:0x03,None:0x00}
-    #amode_flags=[24,24,31,True]    # True implies any
-    #rmode_flags=[24,31,64,None]
 
     # Template for a new bytearray of an ESD item containing 16 EBCDIC spaces.
     new=[0x40,0x40,0x40,0x40,0x40,0x40,0x40,0x40,\
@@ -841,6 +1656,9 @@ class ESDITEM(object):
     # Exceptions:
     #   AssertionError if the name is not valid
     def _check_name(self,name,empty=False):
+        if name is None:
+            # PC item name is None
+            return
         assert isinstance(name,str),\
             "%s ESD item name must be a string: %s"\
                 % (self.__class__.__name__,name)
@@ -903,9 +1721,9 @@ class Area(ESDITEM):
 
     @staticmethod
     def decode_amode(flag):
-        print("Area.decode_amode() - flag: %02X" % flag)
+        #print("Area.decode_amode() - flag: %02X" % flag)
         amode_flags = flag & Area.amode_mask
-        print("Area.decode_amode() - amode flags: %02X" % amode_flags)
+        #print("Area.decode_amode() - amode flags: %02X" % amode_flags)
         try:
             return Area.amode_settings[flag & Area.amode_mask]
         except KeyError:
@@ -944,36 +1762,37 @@ class Area(ESDITEM):
     #              11 - AMODE ANY
     @staticmethod
     def decode_SDPC_flag(flag):
-        #try:
-        #    rmode=Area.rmode_settings[flag & Area.rmode_mask]
-        #except KeyError:
-        #    raise ValueError("%s.Area.decode_SDPC_flag() - "\
-        #        "unrecognized RMODE value: %02X" \
-        #            % (this_module,flag & Area.rmode_mask)) from None
         rmode=Area.decode_rmode(flag)
-
-        #try:
-        #    amode=Area.amode_settings[flag & Area.amode_mask]
-        #except KeyError:
-        #    raise ValueError("%s.Area.decode_SDPC_flag() - "\
-        #        "unrecognized AMODE value: %02X" \
-        #            % (this_module, flag & Area.amode_mask)) from None
         amode=Area.decode_amode(flag)
-
         rsect = flag & 0x08 == 0x08
         return (rmode,amode,rsect)
 
     def __init__(self,typ,esdid,name,address,length,align):
         super().__init__(typ,esdid)
         self.symbol=name      # ESD item's name, may be an empty string
-        self.address=address  # ESD item's address, may be None
+        self.address=address  # Area's starting address, may be None
         self.length=length    # ESD item's length, may be 0
         self.align=align      # ESD item's alignment
 
-        # List of LD items associated with the area in the order provided
-        self.lds=[]           # See add_LD() method
+      #
+      # The following attributes are populated by the MODULE object as
+      # driven by a language translator, or the MODULE.populate() method
+      # from a decoded object deck.
+      #
+
+        # List of LD items associated with this area in the order provided
+        self.lds=[]           # See ESD_LD() method
         # Dictionary of LD items associated with the area by name
-        self.ldict={}         # See add_LD() method
+        self.ldict={}         # See ESD_LD() method
+
+        # List of TXTITEM objects associated with this area in the order
+        # provided
+        self.txts=[]
+
+        # List of RLDITEM objects associated with this area in the order
+        # provided.  The position ESDID of the RLD item determines its
+        # presence here.
+        self.rlds=[]
 
     # This method checks the alignment argument.
     # Method Argument:
@@ -1066,7 +1885,7 @@ class Area(ESDITEM):
             raise ValueError("%s.%s._encode_amode() - "\
                 "invalid amode value for ESD item %s %s: %s" \
                     % (this_module,cls,cls,self.symbol,self.amode)) from None
-            
+
         return amode_flag
 
     # Encode the item's rmode flag setting
@@ -1121,13 +1940,6 @@ class Area(ESDITEM):
                     "must be 4 or 8: %s" % (this_module,\
                         self.__class__.__name__,self.align))
 
-    def _LD_not_supported(self,ld):
-        raise NotImplementedError(\
-            "%s %s._LD_not_supported() - "\
-                "LD items can not be added to %s '%s': %s"\
-                    % (this_module,self.__class__.__name__,self.__class.__name,\
-                        self.symbol,ld))
-
     # This method adds a LD item to this area's list of LD items.
     # Method Argument:
     #   ld    Must be an LD object
@@ -1138,21 +1950,78 @@ class Area(ESDITEM):
     #
     # Warning: Area objects that do not support LD items must override this
     # method with one that calls _LD_not_supported() method
-    def add_LD(self,ld):
+    def ESD_LD(self,ld):
         assert isinstance(ld,LD),\
-            "%s %s.add_LD() - 'ld' argument must be an LD object: %s" \
+            "%s %s.ESD_LD() - 'ld' argument must be an LD object: %s" \
                 % (this_module,self.__class__.__name__,ld)
         assert ld.sd == self.esdid,\
-            "%s %s.add_LD() - LD '%s' section must match %s '%s' ESDID, %s: %s"\
+            "%s %s.ESD_LD() - LD '%s' section must match %s '%s' ESDID, %s: %s"\
                 % (this_module,self.__class__.__name__,ld.symbol,\
                     self.__class.__name,self.symbol,self.esdid,ld.sd)
+        assert self.__class__.lds,\
+            "%s %s.ESD_LD() - %s '%s' does not support LD items: LD '%s'"\
+                % (this_module,self.__class__.__name__,self.__class__.__name__,\
+                    self.symbol,ld.symbol)
         assert not ld.symbol in self.ldict,\
-            "%s %s.add_LD() - duplicate LD '%s' encountered for %s '%s'" \
+            "%s %s.ESC_LD() - duplicate LD '%s' encountered for %s '%s'" \
                 % (this_module,self.__class__.__name__,ld.symbol,\
                     self.__class__.__name__,self.symbol)
 
         self.ldict[ld.symbol]=ld
         self.lds.append(ld)
+
+    # Add a RLD item to this Area's list of position relocation items
+    def RLD(self,rld):
+        assert isinstance(rld,RLDITEM),\
+            "%s %s.RLD() - 'rld' argument must be a RLDITEM object: %s" \
+                % (this_module,self.__class__.__name__,rld)
+        assert self.__class__.rlds,\
+            "%s %s.RLD() - Area '%s' does not support RLD item data" \
+                % (this_module,self.__class__.__name__,self.symol)
+        assert rld.pptr == self.esdid,\
+            "%s %s.RLD() - Area '%s' ESDID %s does not match RLD item pos "\
+                "ESDID: %s"  % (this_module,self.__class__.__name__,self.symol,
+                    self.esdid,rld.p)
+
+        self.rlds.append(rld)
+
+    # This method adds a TXTITEM instance to the list of TXTITEMs belonging to
+    # this area.
+    def TXT(self,txt):
+        assert isinstance(txt,TXTITEM),\
+            "%s %s.TXT() - 'txt' argument must be a TXTITEM object: %s" \
+                % (this_module,self.__class__.__name__,txt)
+        assert self.__class__.text,\
+            "%s %s.TXT() - Area '%s' does not support TXT item data" \
+                % (this_module,self.__class__.__name__,self.symol)
+
+        #print("%s.%s.TXT() - adding %s" \
+        #    % (this_module,self.__class__.__name__,txt))
+
+        # Validate the text resides completely within the area
+        assert self.iswithin(txt.address),\
+            "%s %s.TXT() - TXTITEM starting address must be within Area '%s'"\
+                " %06X-%06X: %06X" % (this_module,self.__class__.__name__,\
+                    self.symbol,self.address,self.address+self.length-1,\
+                        txt.address)
+        end=txt.address+len(txt)-1
+        assert self.iswithin(end),\
+            "%s %s.TXT() - TXTITEM ending address must be within Area '%s' "\
+                "%06X-%06X: %06X" % (this_module,self.__class__.__name__,\
+                    self.symbol,self.address,self.address+self.length-1,end)
+
+        # Add this TXTITEM to the area. This preserves the order of text data
+        # presented to the MODULE maintaining any overlay sequence
+        self.txts.append(txt)
+        # Note: this is done to allow easy stand-alone images to be built by
+        # the linkage editor.
+
+    # This method validates than an address is within the range of the Area
+    def iswithin(self,address):
+        assert isinstance(address,int) and address>=0,\
+            "%s.%s.iswithin() - 'address' argument must be a non-negative "\
+                "integer: %s" % (this_module,self.__class__.__name__,address)
+        return address >= self.address and address < (self.address+self.length)
 
 
 # Superclass for ESD items defining locations: ER, LD, WX
@@ -1211,19 +2080,9 @@ class CM(Area):
 
         super().__init__(typ,esdid,sym,None,length,align)
         self.bin=bin      # Decoded binary content
-        
+
         self.amode=amode  # Default
         self.rmode=rmode
-
-    # Overrides Area superclass method
-    # Excpetions:
-    #   NotImplementedError if an LD item is being added to a CM area
-    #   AssertionError      if an item other than LD is being added.
-    def add_LD(self,ld):
-        assert isinstance(ld,LD),\
-           "%s %s.add_LD() - 'ld' argument must be an LD object: %s" \
-                % (this_module,self.__class__.__name__,ld)
-        self._LD_not_supported(ld)
 
     # Convert the CM object into a byte sequence
     def encode(self):
@@ -1469,9 +2328,9 @@ class XD(Area):
     # Excpetions:
     #   NotImplementedError if an LD item is being added to a CM area
     #   AssertionError      if an item other than LD is being added.
-    def add_LD(self,ld):
+    def ESD_LD(self,ld):
         assert isinstance(ld,LD),\
-           "%s %s.add_LD() - 'ld' argument must be an LD object: %s" \
+           "%s %s.ESD_LD() - 'ld' argument must be an LD object: %s" \
                 % (this_module,self.__class__.__name__,ld)
         self._LD_not_supported(ld)
 
@@ -1543,7 +2402,7 @@ ESDITEM.types={CM.typ:CM,ER.typ:ER,LD.typ:LD,SD.typ:SD,PC.typ:PC,XD.typ:XD,\
 #          attributes at which time the valid attribute will be set True.
 class RLDITEM(object):
     types=["A","V","Q","CXD","RI"]
-    adcons={"A":0,"V":2,"Q":3,"CXD":4,"RI":5}
+    adcons={"A":0,"V":1,"Q":2,"CXD":3,"RI":5}
 
     # Target adjustment direction
     incdir={-1:0b00000010,1:0}
@@ -1669,6 +2528,7 @@ class RLDITEM(object):
         self.ebin=None     # Encoded binary data.  May be None
 
         self.rptr=r        # ESDID of target address being relocated
+        # Note: rptr is 0 for CXD RLD items
         # Target address being relocated is located at the following position
         self.pptr=p        # Position ESDID of constant being relocated
         self.address=a     # Assigned address of the constant being relocated
@@ -2082,7 +2942,7 @@ class ESD(OBJREC):
 class PUNCH(OBJREC):
     ID=None
 
-    # Returns an PUNCH'd object record containing EBCDIC text
+    # Returns a PUNCH'd object record containing EBCDIC text
     @classmethod
     def decode(cls,binary,recnum=None,items=True):
         return cls(recnum=recnum,bin=binary)
@@ -2196,6 +3056,21 @@ class TXT(OBJREC):
             "%s.%s.encode() - ebin not 80 bytes: %s" \
                 % (this_module,self.__class__.__name__,len(ebin))
         self.ebin=bytes(ebin)
+
+
+# While TXT records do not contain any items, this class is used when a
+# language translator provides a byte sequence to be added to TXT records.
+# The MODULE object uses instances of this class to create full TXT records.
+class TXTITEM(object):
+    def __init__(self,esdid,address,binary):
+        self.esdid=esdid
+        self.address=address
+        self.bin=binary
+    def __len__(self):
+        return len(self.bin)
+    def __str__(self):
+        return "TXTITEM - ESDID:%s, address:%0X, length:%s" \
+            % (self.esdid,self.address,len(self.bin))
 
 
 # PSW record -- defines the IPL PSW used for stand alone program
