@@ -1,0 +1,210 @@
+* Copyright (C) 2021 Harold Grovesteen
+*
+* This file is part of SATK.
+*
+*     SATK is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, either version 3 of the License, or
+*     (at your option) any later version.
+*
+*     SATK is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   MEMSZS &R1,&R2,&PAGESZ=4K
+.* The MEMSZS macro locates the end of memory.  A sequential search of memory
+.* pages is used to detect the installed memory size.
+.*
+.* The rule of thumb is that any table with 50 or fewer entries is searched
+.* more efficiently with a sequential search, rather than a binary search.
+.* Viewing each memory page as a "table" entry, would suggest that MEMSZS is
+.* more efficient for memory sizes less than or equal to 100K (for 2K pages) or
+.* 200K (for 4K pages).
+.*
+.* ESA/390 and later architectures can utilize a service processor call to
+.* determine memory size without any memory search.  For this reason MEMSZS is
+.* not recommended for these systems, although it is supported for them.
+.* Rather, MEMSZ is recommended for these systems.
+.*
+.* Positional Parameters, all required:
+.*   &R1    is an even/odd pair of registers.
+.*   &R2    a different even/odd pair of registers.
+.*
+.* Keyword Parameters:
+.*   &PAGESZ   Specify 2K for a physical page size of 2048 bytes.
+.*             Specify 4K for a physical page size of 4096 bytes.
+.*             If omitted, the default is 4K.
+.*
+.* Upon Exit Register Content
+.*   &R1    contains the SIZE of available memory
+.*   &R1+1  contains the last available memory ADDRESS. (&R1 minus 1)
+.*   &R2    unpredictable
+.*   &R2+1  unpredictable
+.*
+.* Refer to the individual addressing mode for a description of register usage.
+.* This includes how the macro's registers are used.
+.*
+.* The macro assumes a base register has been established for the program.
+.* The base register must not be a register used by the macro.  The macro
+.* also requires access to the hardware assigned address locations.  R0
+.* is usually used for this purpose.
+         GBLA  &ARCHLVL     Architecture level (from ARCHLVL)
+         GBLC  &ARCHATP     Address constant type (from ARCHLVL)
+         GBLC  &ARCHITP     Integer constant type (from ARCHLVL)
+         LCLA  &MAXMEM      Maximum physical memory address
+         LCLA  &PGSIZE      Size of a physical page in bytes
+         LCLB  &IS360,&IS370,&IS390,&ISZ   Which architecture is in use
+         LCLB  &IS24,&IS31,&IS64           Which addressing mode is possible
+         LCLC  &AM          Memory scan PSW address mode
+         LCLC  &PGMICOD     ASA label for program interrupt code
+         LCLC  &PGMNPSW     ASA label for program new PSW
+         LCLC  &PSWHOLD     Number of full words required to holp a PSW
+         LCLC  &SAM         Set address mode instruction when needed
+.*
+         AIF   (&ARCHLVL GT 0).ARCHOK
+         MNOTE 1,'MEMSZS - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   ('&R1' NE '').CKR2
+         MNOTE 1,'MEMSZS - FIRST POSITIONAL PARAMETER REQUIRED'
+         MEXIT
+.CKR2    ANOP
+         AIF   ('&R2' NE '').CKPGSZ
+         MNOTE 1,'MEMSZS - SECOND POSITION PARAMETER REQUIRED'
+         MEXIT
+.CKPGSZ  ANOP
+         AIF   ('&PAGESZ' EQ '2K').PAGE2K
+         AIF   ('&PAGESZ' EQ '4K').PAGE4K
+         MNOTE 1,'MEMSZS - PAGESZ KEYWORD VALUE NOT SUPPORTED - &PAGESZ'
+.PAGE2K  ANOP
+&PGSIZE  SETA  2048
+         AGO   .SETARCH
+.PAGE4K  ANOP
+&PGSIZE  SETA  4096
+.SETARCH ANOP
+         AIF   (&ARCHLVL LE 2).IS360
+         AIF   (&ARCHLVL EQ 3).IS370
+         AIF   (&ARCHLVL GE 5 AND &ARCHLVL LE 8).IS390
+.*
+.* 64-bit Memory Scan
+&ISZ     SETB  1
+&IS64    SETB  1
+&AM      SETC  '64'
+&MAXMEM  SETA  X'7FFFFFFFFFFFFFFF'
+&OLDPSWA SETC  '150'
+&PGMICOD SETC  'PGMICODE'
+&PGMNPSW SETC  'ZPGMNPSW'
+&PSWHOLD SETC  '4'
+&SAM     SETC  'SAM64'
+         AGO   .GENSRCH
+.*
+.* S/360 Memory Scan
+.IS360   ANOP
+&IS360   SETB  1
+&IS24    SETB  1
+&MAXMEM  SETA  X'00FFFFFF'
+&AM      SETC  '24'
+&OLDPSWA SETC  '28'
+&PGMICOD SETC  'BCPGMCOD'
+&PGMNPSW SETC  'PGMNPSW'
+&PSWHOLD SETC  '2'
+.* &SAM     SETC  ''       Reminder that &SAM set to '' by LCLC
+         AGO   .GENSRCH
+.*
+.* S/370 Memory Scan
+.IS370   ANOP
+&IS370   SETB  1
+&IS24    SETB  1
+&MAXMEM  SETA  X'00FFFFFF'
+&AM      SETC  '24'
+&OLDPSWA SETC  '28'
+&PGMICOD SETC  'PGMICODE'
+&PGMNPSW SETC  'PGMNPSW'
+&PSWHOLD SETC  '2'
+.* &SAM     SETC  ''       Reminder that &SAM set to '' by LCLC
+         AGO   .GENSRCH
+.*
+.* ESA/390 Memory Scan
+.IS390   ANOP
+&IS390   SETB  1
+&IS31    SETB  1
+&MAXMEM  SETA  X'7FFFFFFF'
+&AM      SETC  '31'
+&OLDPSWA SETC  '28'
+&PGMICOD SETC  'PGMICODE'
+&PGMNPSW SETC  'PGMNPSW'
+&PSWHOLD SETC  '2'
+&SAM     SETC  'SAM31'
+.*
+.GENSRCH ANOP
+.*   &R1   - memory size (&R1+1 plus 1) - maintains previous successful end of
+.*           page during search.
+.*   &R1+1 - the current address being examined (also BXLE R1 incremented value)
+.*   &R2 is the register pair used in BXLE R3 for search:
+.*      &R2   - the size of a page - BXLE R3 increment register
+.*      &R2+1 - the maximum address size - BXLE R3 compare value
+.*   
+&LABEL   DS    0H    Determine installed memory using a sequential scan 
+         $L    &R1+1,MSSM&SYSNDX      Last address of the last possible page
+* Save current program PSW for later restoration        
+         MVC   MSSH&SYSNDX.(4*&PSWHOLD),&PGMNPSW
+.*         MVC   &PGMNPSW,MSSS&SYSNDX   Establish new PSW for first check
+         AIF   ('&SAM' EQ '').NOSAM
+         &SAM  ,                      Set maximum addressing mode
+.NOSAM   ANOP
+         AIF   (&ISZ).NOTST
+         MVC   &PGMNPSW,MSSS&SYSNDX   Establish new PSW for first check
+         CLI   0(&R1+1),0             Test if all memory is installed
+         SPACE 1
+* CLI succeeded, so all memory IS installed
+         MVC   &PGMNPSW,MSSH&SYSNDX   Restore program interruption new PSW
+         $LR   &R1,&R1+1              Set register to maximum address
+         $B    MSSY&SYSNDX            Set registers for final result
+         SPACE 1
+* CLI failed, so all of memory is probably not installed
+MSSF&SYSNDX DS 0H   Program interruption occurred during memory check
+         CLC   &PGMICOD,MSS5&SYSNDX   Did an addressing exception occur?
+         $BE   MSSI&SYSNDX           ..Yes, initalize for actual scan
+         LPSW  MSSW&SYSNDX           ..No, some other problem, issue trap
+         SPACE 1
+.NOTST   ANOP
+MSSI&SYSNDX DS 0H   Initialize sequential search
+         $LM   &R2,&R2+1,MSSP&SYSNDX  Initialize BXLE R3 register pair
+         $L    &R1+1,MSSA&SYSNDX      Last address of the first page
+         MVC   &PGMNPSW,MSSC&SYSNDX   Set program new PSW for scan termination
+         SPACE 1
+MSSL&SYSNDX DS 0H   Sequential page scan searching for end of memory
+         CLI   0(&R1+1),X'00'         Access the last byte of the page
+* If the CLI instruction fails, the program new PSW will break the loop
+         LR    &R1,&R1+1              Remember last successful test
+         $BXLE &R1+1,&R2,MSSL&SYSNDX  Test the next page
+         SPACE 1
+MSSE&SYSNDX DS 0H   End of memory scan
+         CLC   &PGMICOD,MSS5&SYSNDX   Did an addressing exception occur?
+         $BE   MSSR&SYSNDX            ..Yes, set up exit registers
+         LPSW  MSSW&SYSNDX            ..No, some other problem, use trap
+         SPACE 1
+         AIF   (&ISZ).NOFULL
+MSSS&SYSNDX PSW 0,0,0,0,MSSF&SYSNDX,&AM  New PSW for initial memory check
+.NOFULL  ANOP
+MSSC&SYSNDX PSW 0,0,0,0,MSSE&SYSNDX,&AM  Program New PSW for scan termination
+MSSH&SYSNDX DC &PSWHOLD.F'0'          Holds the macro entry program new PSW
+MSSW&SYSNDX DWAIT CODE=&OLDPSWA       Program interrupt trap PSW.
+MSSP&SYSNDX DC &ARCHATP.(&PGSIZE)     Sets BXLE R3...
+MSSM&SYSNDX DC &ARCHATP.(&MAXMEM)     ...register pair 
+MSSA&SYSNDX DC &ARCHATP.(&PGSIZE-1)   Last address of first page
+MSS1&SYSNDX DC &ARCHITP'1'            Fullword constant of one
+MSS5&SYSNDX DC XL2'0005'        Addressing exception program interrupt code
+         SPACE 1
+MSSR&SYSNDX DS 0H   Set macro exit registers
+         MVC   &PGMNPSW,MSSH&SYSNDX   Restore program interruption new PSW
+         $LR   &R1+1,&R1              Reset the last byte of last physical page
+         SPACE 1
+MSSY&SYSNDX DS 0H   Convert last address to a size
+         $AL   &R1,MSS1&SYSNDX        Add 1 to last address
+.MEND    MEND

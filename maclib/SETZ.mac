@@ -1,0 +1,72 @@
+* Copyright (C) 2021 Harold Grovesteen
+*
+* This file is part of SATK.
+*
+*     SATK is free software: you can redistribute it and/or modify
+*     it under the terms of the GNU General Public License as published by
+*     the Free Software Foundation, either version 3 of the License, or
+*     (at your option) any later version.
+*
+*     SATK is distributed in the hope that it will be useful,
+*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*     GNU General Public License for more details.
+*
+*     You should have received a copy of the GNU General Public License
+*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+*
+* NOTICE: z/Architecture is a registered trade mark of International Business
+* Machines Corporation.
+
+         MACRO
+&LABEL   SETZ  &R1,&R2,&OK,&CODE=004
+.* The SETZ macro takes advantage of conditional assembly available within
+.* ASMA macros to determine if an architecture change is required based upon
+.* the targeted SATK architecture level.
+.*
+.* SETZ is targeted at source programs that support multiple architectures.
+.* It is a convenience macro.  It combines the ZARCH macro and DWAIT macro
+.* into a single macro statement.  When the targeted architecture level
+.* requires a change from the executing architecture, these macros are used.
+.* Otherwise, the macro generates no statements.
+.*
+.* &LABEL field generates a label for the first generated instruction.
+.* No label is generated when SETZ generates no statements.
+.*
+.* Positional Parameters, all are required:
+.*   &R1    is an even/odd pair of registers passed to the ZARCH macro
+.*          when changing architectectures.
+.*   &R2    a different even/odd pair of registers passed to ZARCH macro when
+.*          changing architectures.
+.*   &OK    An assembly label of the instruction to execute following
+.*          a successful architecture change.  The value is passed to the
+.*          ZARCH SUCCESS= keyword parameter.
+.*
+.* Keyword Parameter
+.*   &CODE=  An SATK program termination code if the architecture change is
+.*           unsuccessful.  Defaults to 004 in the last 24 bits of the
+.*           disabled wait PSW.  The &CODE= parameter is passed to a DWAIT
+.*           macro for termination PSW generation.
+         GBLA  &ARCHLVL
+         AIF   (&ARCHLVL GE 0).ARCHOK
+         MNOTE 1,'SETZ - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.ARCHOK  ANOP
+         AIF   ('&R1' NE '').R1OK
+         MNOTE 1,'SETZ - FIRST POSITIONAL PARAMETER REQUIRED'
+         MEXIT
+.R1OK    ANOP
+         AIF   ('&R2' NE '').R2OK
+         MNOTE 1,'SETZ - SECOND POSITIONAL PARAMETER REQUIRED'
+         MEXIT
+.R2OK    ANOP
+         AIF   ('&OK' NE '').OKOK
+         MNOTE 1,'SETZ - THIRD POSITIONAL PARAMETER REQUIRED'
+         MEXIT
+.OKOK    ANOP
+         AIF   (&ARCHLVL LT 9).EXIT
+&LABEL   ZARCH &R1,&R2,10,SUCCESS=&OK
+         LPSW  SETZ&SYSNDX
+SETZ&SYSNDX DWAIT CODE=&CODE 
+.EXIT    ANOP
+         MEND
