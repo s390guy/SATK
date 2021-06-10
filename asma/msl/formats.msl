@@ -1,4 +1,4 @@
-# Copyright (C) 2014-2020 Harold Grovesteen
+# Copyright (C) 2014-2021 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -614,8 +614,8 @@ format RRFB3        # RRFB = R1,R3,R2[,M4]  RRFB3 -- R1,R3,R2
 #     |     OP    |    XOP    | M3  |0000 | R1  | R2  |
 #     +-----+-----+-----+-----+-----+-----+-----+-----+
 #
-# RRFC: MNEMONIC R1,R2,M3
-# Note: M3 is not optional
+# RRFC: MNEMONIC R1,R2[,M3]
+# Note: M3 is sometimes optional
 #
 format RRFC
     length 4
