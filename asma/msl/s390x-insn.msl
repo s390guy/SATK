@@ -1,4 +1,4 @@
-# Copyright (C) 2014-2020 Harold Grovesteen
+# Copyright (C) 2014-2021 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -437,7 +437,7 @@ inst SQXR   B336 RRE            # SQUARE ROOT (EH)
 inst SRNM   B299 S0             # SET ROUNDING MODE
 inst SRST   B25E RRE            # SEARCH STRING
 inst SSAR   B225 RRE            # SET SECONDARY ADDRESS SPACE NUMBER
-inst SSKE   B22B RRE     P      # SET STORAGE KEY EXTENDED
+inst SSKE   B22B RRFC    P      # SET STORAGE KEY EXTENDED
 inst SSM    8000 S0      P      # SET SYSTEM MASK
 inst ST     50   RXA            # STORE (32)
 inst STAM   9B   RSA            # STORE ACCESS MULTIPLE
@@ -1734,10 +1734,13 @@ iset s390x-pfpo
 
 
 # POPULATION COUNT FACILITY (August, 2010)
-inst POPCNT B9E1 RRE            # POPULATION COUNT
+# MISCELANEOUS-INSTUCTION EXTENSIONS FACILITY 3 (September, 2019)
+inst POPCNT B9E1 RRFC           # POPULATION COUNT
 
 # See IBM z/Architecture Principles of Operation, SA22-7832-08, August, 2010
 # PK instruction
+# See IBM z/Architecture Principles of Operation, SA22-7832-12, September, 2019
+# MI3 instructions
 iset s390x-pop-count
      mnemonics POPCNT
 
