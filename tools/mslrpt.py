@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014, 2017 Harold Grovesteen
+# Copyright (C) 2014-2021 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -21,7 +21,8 @@
 # module msldb.py.
 
 this_module="mslrpt.py"
-copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2014, 2017")
+copyright="%s Copyright (C) %s Harold Grovesteen" \
+    % (this_module,"2014-2021")
 
 # Python imports:
 import sys               # Access the exit method
@@ -41,7 +42,6 @@ import msldb             # Access the database
 
 # SATK imports
 from listing import *    # Access the formatted report tools
-
 
 # This wraps a msldb.CPUX object with report information
 class CPU(object):
@@ -74,6 +74,107 @@ class inst_format(object):
 
     def __setitem__(self,ndx,value):
         self.slots[ndx]=value
+
+
+# This class encapsulates the extended mnemonics as defined by a version of
+# the Reference Summary.  This provides something to compare the instructions
+# against.  Hopefully this improves the accurracy of the extended mnemonics
+# defined in the MSL file.  Obviously, errors can occur in the definitions
+# supplied here or the MSL file.  Hopefully this will help find missing or
+# extended mnemonics in error.
+#
+# Each new version will subclass this method or a subcalss and add its new 
+# extended mnemonics to the master dictionary.
+#
+# This base method supports all systems preceding ESA/370 and earlier.
+class EM(object):
+    # Branch, branch register and branch indirect base mnemonics
+    branch_ext=["B","BH","BL","BE","BNH","BNL","BNE","BP","BM","BZ","BO",\
+                "BNP","BNM","BNZ","BNO","NOP"]
+    
+    def __init__(self):
+        self.extmnem={}           # Master dictionary of extended mnemonics
+        
+        for i in EM.branch_ext:
+            self._addExt(i)           # Add branch mnemonics
+            self._addExt("%sR" % i)   # Add branch register mnemonics
+
+    # Method Argument:
+    #   mnemonic  an extended instruction mnemonic added for the CPU
+    def _addExt(self,mnemonic):
+        try:
+            self.extmnem[mnemonic]
+        except KeyError:
+            self.extmnem[mnemonic]=None
+            return
+        raise ValueError("Mnemonic already defined: %s" % mnemonic)
+        #print("Mnemonic already defined: %s" % mnemonic)
+
+# Extended mnemonics for s390x-insn.msl CPU: s390
+class EM_ESA390(EM):
+    branch_rel_immed_ext=["BRU","BRH","BRL","BRE","BRNH","BRNL","BRNE",\
+                          "BRP","BRM","BRZ","BRO","BRNP","BRNM","BRNZ",\
+                          "BRNO"]
+    jump_rel_immed_ext=["JNOP","JH","JL","JE","JNH","JNL","JNE","JP",\
+                        "JM","JZ","JO","JNP","JNM","JNZ","JNO"]
+    jump_rel_unique=["J",]
+    def __init__(self):
+        super().__init__()
+        
+        for i in EM_ESA390.branch_rel_immed_ext:
+            self._addExt(i)      # Add BRC extended mnemonic
+        for i in EM_ESA390.jump_rel_unique:
+            self._addExt(i)      # Add unique "jump" extended mnemonic
+        for i in EM_ESA390.jump_rel_immed_ext:
+            self._addExt(i)      # Add BRC "jump" extended mnemonic
+        
+# Extended mnemonics for s390x-insn.msl CPU: s390x
+class EM_ALL(EM_ESA390):
+    new_long_jump_ext=["JLU","JAS","JASL","JCT","JCTG","JXH",\
+                       "JXHG","JXLE","JXLEG"]
+    
+    def __init__(self):
+        super().__init__()
+
+    # Add branch indirect extended mnemonics
+        for i in EM.branch_ext:
+            self._addExt("BI%s" % i[1:])  # Add branch indirect mnemonic
+
+    # Relative branch extended mnemonics
+        for i in EM_ESA390.branch_rel_immed_ext:
+            self._addExt("%sL" % i)       # Add BRCL extended mnemonic
+        for i in EM_ESA390.jump_rel_immed_ext:
+            #print("adding %s" % i)
+            self._addExt("JL%s" % i[1:])  # Add BRCL "jump" extended mnemonic
+        for i in EM_ALL.new_long_jump_ext:
+            self._addExt(i)               # Add new jump extended mnemonics
+
+    # Compare and branch and compare and trap extended mnemonics
+        # To be added
+
+    # Load/Store on Condition extended mnemonics
+        # To be added
+
+    # Rotate then insert and / or / exclusive or selected bits extended mnemonic
+        # To be added
+        
+# This object encapsulates the results of an extended mnemonics comparison in
+# the --report ext processing.
+class EMFOUND(object):
+    
+    @staticmethod
+    def sort_by_mnem(item):
+        return item.mnem
+    
+    def __init__(self,mnem,format=None,report=False,msl=False):
+        self.mnem=mnem        # Encountered extended mnemonic
+        self.format=format    # Instruction format name
+        self.report=report    # Whether found in the report database
+        self.msl=msl          # Whether found in the MSL file CPU definition
+        
+    def __str__(self):
+        return "EMFOUND(%s,format=%s,report=%s,msl=%s)" \
+            % (self.mnem,self.format,self.report,self.msl)
 
 
 # This object creates the instruction table report.
@@ -240,8 +341,8 @@ class ITBL(Listing):
     #   True   if the two objects are equal
     #   False  if the two objects are not equal
     def check_inst(self, this, that):
-        #if this.ID in ["IPTE",]:   # Known exceptions
-        #    return True
+        if this.ID in ["SSKE",]:   # Known exceptions
+            return True
         if this.mnemonic != that.mnemonic:
             return False
         if this.format != that.format:
@@ -654,6 +755,7 @@ class ITBLE(object):
 class MSLRPT(object):
     PATHVAR="MSLPATH"
     DEFAULT=satkutil.satkdir("asma/msl",debug=False)
+    
     def __init__(self,args):
 
         # Process the --report argument
@@ -688,11 +790,58 @@ class MSLRPT(object):
         # A MSL DB is captured so the INTBL object can create format statistics
         # for all defined formats, not just the ones in the selected cpu(s).
         self.msldb=None   # A MSL DB is captured so the INTBL object can create
+        
+        # --report ext attributes
+        self.emfound={}       # See method __add_emfound()
 
+
+    # Add an EMFOUND object for --report ext processing
+    #
+    # Method Arguments:
+    #   emf  The EMFOUND object being added to the extended mnemonic dictionary
+    #   dup  Whether duplicate EMFOUND objects are ignored, True, or generate
+    #        an error, False
+    # Returns:
+    #   True if the EMFOUND object has been successfully added or ignored when
+    #        dup=True.
+    #   False if the EMFOUND object has not been successfully added because
+    #   an EMFOUND object already exists for the instruction
+    def __add_emfound(self,emf,dup=False):
+        try:
+            emo=self.emfound[emf.mnem]
+            # Found!
+            if dup:
+                return True
+            return False
+        except KeyError:
+            # Not found! (so not a duplicate either)
+            self.emfound[emf.mnem]=emf
+
+        return True
+
+    # Return a a path object for the MSL data
     def __find_files(self):
         msl=msldb.MSL(default=MSLRPT.DEFAULT)
         path=msl.opath # Reach in and get the path manager
         return path.files(MSLRPT.PATHVAR,ext=".msl")
+
+    # Method Arguments:
+    #    filename  The MSL file's name being read by this method
+    # Returns:
+    #    The MSL database if successful.  An msldb.MSL object
+    #    None if unsuccessful.  Messages from the msldb module will identify
+    #         any problems encountered
+    #      
+    # WARNING: This method must be called from this object!
+    def __read_MSL_FILE_DB(self,filename):
+        msl=msldb.MSL(default=MSLRPT.DEFAULT)
+        errors=msl.build(filename,fail=True)
+        if errors:
+            print("MSL errors encountered in file: %s" % filename)
+            return None
+           
+        # No errors, so return the MSL file as an object
+        return msl
 
     # Process command line --report cpu
     def cpu_report(self):
@@ -719,6 +868,154 @@ class MSLRPT(object):
             strcpus=strcpus[2:]
             print("    %s: %s" % (f,strcpus))
 
+    # Process command line --report ext
+    def ext_report(self):
+        if self.cpus:
+            if len(self.cpus)>1:
+                print("only first --cpu argument used by --report ext")
+        else:
+            print("--cpu argument required by --report ext")
+            return
+        
+        # Instantiate the correct EM class for the requested file/cpu
+        filename,cpu=self.cpus[0]
+        if filename == "all-insn.msl":
+            cls=EM_ALL
+        elif filename == "s390x-insn.msl":
+            if cpu == "s390":
+                cls=EM_ESA390
+            elif cpu == "s390x":
+                cls=EM_ALL
+        else:
+            # All other files use the default EM extended mnemonics class
+            cls=EM
+        ems=cls()
+        
+        print("\nExtended Mnemonic Report for file %s, CPU: %s" \
+            % (filename,cpu))
+        print("Extended mnemonics defined by class: %s\n" \
+            % ems.__class__.__name__)
+        
+        # Convert the identified MSL file into a msl.MSLDB object.  Object may
+        # contain multiple CPU's.
+        filemsl=self.__read_MSL_FILE_DB(filename)
+        # filemsl is an msldb.MSL object or None
+        if not filemsl:
+            print("report --ext terminated")
+            return
+ 
+        # Extract the defined CPU and expand it into a msldb.CPUX object for
+        # instruction processing.
+        cpux=filemsl.expand(cpu)
+        # cpux is an msldb.CPUX object
+        
+        # The extended mnemonics in an EM object can now be compared to those in
+        # the MSL file for the requested CPU.  Each comparison results in
+        # an EMFOUND object.
+        #
+        # At the end, all instructions are examined for flag extended being
+        # specified and added to the list if not already present.  These are
+        # extended mnemonics that are defined in the MSL file for the CPU, but
+        # are NOT in the EM object definition.  These need researching and
+        # either the EM object is updated or the MSL file removes the
+        # intstruction.
+        #
+        # Where only an EM object defines the extended mnemonic, the MSL file
+        # must be fixed to include the mnemonic.  In this comparison, the
+        cpui=cpux.inst        # Dictionary of CPU's instructions from MSL
+        
+        # Pass 1
+        ikeys=ems.extmnem.keys()  # Defined extended mnemonics from EM object
+        for i in ikeys:
+            try:
+                msli=cpui[i]        # Fetch the instruction (msldb.Inst object)
+                mslfmt=msli.format  # Instruction's format
+                emf=EMFOUND(i,format=mslfmt,report=True,msl=True)
+            except KeyError:
+                # Extended mnemonic defined in EM object, but not in MSL file
+                # for the CPU
+                emf=EMFOUND(i,format=None,report=True,msl=False)
+
+            result=self.__add_emfound(emf,dup=False)
+            if not result:
+                print("Duplicate extended mnemonic in EM object: %s" % i)
+            
+        # Pass 2
+        mkeys=cpui.keys()         # MSL CPU instruction mnemonics
+        for m in mkeys:
+            msli=cpui[m]          # Fetch the instruction (msldb.Inst object)
+            if not msli.extended: # Ignore regular instructions
+                continue
+            # This is an extended mnemonic from the MSL CPU
+            emf=EMFOUND(m,format=msli.format,report=False,msl=True)
+            
+            # Only add if not found in Pass 1
+            result=self.__add_emfound(emf,dup=True)
+            if not result:
+                print("Duplicate extended mnemonic in MSL file for CPU: %s" % m)
+                
+        # Comparison results
+        #ekeys=self.emfound.keys()
+        
+        # Separate each group of mnemonic sources into separate lists
+        both=[]
+        em_only=[]
+        msl_only=[]
+        no_source=[]
+        max_length=0
+        
+        for i in self.emfound.keys():
+            emf=self.emfound[i]
+            # Calculate the maximum nmemonic length
+            max_length=max(len(emf.mnem),max_length)
+            if emf.report and emf.msl:
+                both.append(emf)
+            elif emf.report and not emf.msl:
+                em_only.append(emf)
+            elif not emf.report and emf.msl:
+                msl_only.append(emf)
+            else:
+                no_source.append(emf)
+                
+        # Print each group separately in mnemonic colating sequence
+        # Note: the sorting of the list that occurs below is in place.
+        
+        print("Extended Mnemonics defined in both EM object and MSL file: %s" \
+            % len(both))
+        both.sort(key=EMFOUND.sort_by_mnem)
+        for emf in both:
+            inst=emf.mnem.ljust(max_length)
+            print("    %s fmt: %s" % (inst,emf.format))
+                
+        print("\nExtended Mnemonics defined only by EM object: %s" \
+            % len(em_only))
+        if len(em_only) != 0:
+            print("These extended mnemonics are missing from the MSL file %s"
+                " CPU %s" % (filename,cpu))
+        em_only.sort(key=EMFOUND.sort_by_mnem)
+        for emf in em_only:
+            print("    %s" % emf.mnem)
+                
+        print("\nExtended Mnemonics only defined in MSL for CPU: %s" \
+            % len(msl_only))
+        if len(msl_only) != 0:
+            print("These extended mnemonics are missing from EM object %s" \
+                % ems.__class__.__name__)
+        msl_only.sort(key=EMFOUND.sort_by_mnem)
+        for emf in msl_only:
+            inst=emf.mnem.ljust(max_length)
+            print("    %s fmt: %s" % (inst,emf.format))
+            
+        if len(no_source) == 0:
+            return
+            
+        print("\nExtended Mnemonics with no source: %s" \
+            % len(no_source))
+        print("THIS SITUATION SHOULD NOT OCCUR!")
+        no_source.sort(key=EMFOUND.sort_by_mnem)
+        for emf in no_source:
+            print("    %s" % emf.mnem)
+                
     # Process command line --report files
     def files_report(self):
         files=self.__find_files()
@@ -785,7 +1082,9 @@ class MSLRPT(object):
             itbl.generate(filename=self.listing)
 
     def run(self):
-        if self.report=="files":
+        if self.report=="ext":
+            self.ext_report()
+        elif self.report=="files":
             self.files_report()
         elif self.report=="inst":
             self.inst_report()
@@ -824,12 +1123,13 @@ def parse_args():
         description="reporting tool for MSL database files in MSLPATH")
 
     # Specify the report being created:
-    # 'cpu' reports on all cpus defined in the MSL files in the MSLPATH.
+    # 'cpu'   reports on all cpus defined in the MSL files in the MSLPATH.
+    # 'ext'   reports on extended mnemonics
     # 'files' reports on the MSL files found in the MSLPATH
     # 'inst'  reports on instructions for CPUs identified by the --cpu argument
     # 'PoO'   Principles of Operation 'inst' report
-    parser.add_argument("-r","--report",choices=["cpu","files","inst","PoO"],\
-        required=True,\
+    parser.add_argument("-r","--report",\
+        choices=["cpu","ext","files","inst","PoO"],required=True,\
         help="report action.")
 
     # Identify MSL files and cpus on which to base the 'inst' report
