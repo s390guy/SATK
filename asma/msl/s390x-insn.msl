@@ -107,6 +107,7 @@ cpu s390x        # Generic z/Architecture CPU in z/Architecture Mode
     features s390x-test-ext-intrp     # September, 2017
     features s390x-vector-enh-fac-1   # September, 2017
     features s390x-vector-packed-1    # September, 2017
+    features s390x-misc-inst-ext-3    # September, 2019
     features s390x-vm
 
 
@@ -1705,6 +1706,29 @@ iset s390x-misc-inst-ext-2
     mnemonics AGH BIC MG MGRK MGH MSC MSRKC MSGC MSGRKC SGH
 
 
+# MISCELANEOUS-INSTUCTIONS-EXTENSION FACILITY 3
+inst NCRK   B9F5 RRFA1          # AND WITH COMPLEMENT (32)
+inst NCGRK  B9E5 RRFA1          # AND WITH COMPLEMENT (64)
+inst MVCRL  E50A SSE2           # MOVE RIGHT TO LEFT
+inst NNRK   B974 RRFA1          # NAND (32)
+inst NNGRK  B964 RRFA1          # NAND (64)
+inst NORK   B976 RRFA1          # NOR (32)
+inst NOGRK  B966 RRFA1          # NOR (64)
+inst NXRK   B977 RRFA1          # NOT EXCLUSIVE OR (32)
+inst NXGRK  B967 RRFA1          # NOT EXCLUSIVE OR (64)
+inst OCRK   B975 RRFA1          # OR WITH COMPLEMENT (32)
+inst OCGRK  B965 RRFA1          # OR WITH COMPLEMENT (64)
+inst SELR   B9F0 RRFA2          # SELECT (32)
+inst SELGR  B9E3 RRFA2          # SELECT (64)
+inst SELFHR B9C0 RRFA2          # SELECT HIGH (32)
+
+# See IBM z/Architecture Principles of Operation, SA22-7832-12, September, 2019
+# MI3 instructions
+iset s390x-misc-inst-ext-3
+    mnemonics NCRK NCGRK MVCRL NNRK NNGRK NORK NOGRK NXRK NXGRK OCRK OCGRK
+    mnemonics SELR SELGR SELFHR
+
+
 # MOVE-WITH-OPTIONAL-SPECIFICATIONS FACILITY (February, 2008)
 inst MVCOS  C80  SSF2           # MOVE WITH OPTIONAL SPECIFICATIONS
 
@@ -1734,7 +1758,7 @@ iset s390x-pfpo
 
 
 # POPULATION COUNT FACILITY (August, 2010)
-# MISCELANEOUS-INSTUCTION EXTENSIONS FACILITY 3 (September, 2019)
+# MISCELANEOUS-INSTUCTION-EXTENSIONS FACILITY 3 (September, 2019)
 inst POPCNT B9E1 RRFC           # POPULATION COUNT
 
 # See IBM z/Architecture Principles of Operation, SA22-7832-08, August, 2010
