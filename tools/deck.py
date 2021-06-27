@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2020 Harold Grovesteen
+# Copyright (C) 2020-2021 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -18,7 +18,7 @@
 
 
 this_module="deck.py"
-copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2020")
+copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2020-2021")
 
 # Python imports
 import argparse
@@ -54,6 +54,8 @@ class DECKTOOL(object):
 
         # The output file format: card (False), tape (True)
         self.tape=False
+        self.tms=args.tm        # Tape marks to be added to end of tape
+        #print("tms: %s" % self.tms)
 
         self.dump=args.dump     # Whether input files are dumped in hex
 
@@ -171,7 +173,7 @@ class DECKTOOL(object):
      #
         if self.tape:
             # Create the Tape Output File object
-            ofile=TFILE(self.output,self.fileos)
+            ofile=TFILE(self.output,self.fileos,tms=self.tms)
         else:
             # Create the Card Deck Output File object
             ofile=OFILE(self.output,self.fileos)
@@ -329,10 +331,12 @@ class OFILE(object):
 # Instance arguments:
 #   filepath    The file path to which output card deck is written
 #   fileos      List of CFILE object constituting the input decks
+#   tms         Number of tape marks added to the end of the tape
 # AWS tape file output
 class TFILE(OFILE):
-    def __init__(self,filepath,fileos):
+    def __init__(self,filepath,fileos,tms=0):
         super().__init__(filepath,fileos)
+        self.tms=tms     # Number of tape marks added to the tape
 
     # Returns the input decks combined into a list of 80-byte records
     # suitable for an AWS tape
@@ -349,9 +353,18 @@ class TFILE(OFILE):
         for rec in self.output:
             tape_rec=recsutil.tape(data=rec)
             device.record(tape_rec)
+        for tm in range(self.tms):
+            tape_rec=recsutil.tm()
+            device.record(tape_rec)
 
-        print("%s - writing output AWS tape file: %s (80-byte records %s)" \
-            % (this_module,self.filepath,len(self.output)))
+        if self.tms:
+            print("%s - writing output AWS tape file: %s (80-byte records %s)" \
+                " with ending tape mark(s): %s" \
+                    % (this_module,self.filepath,len(self.output),self.tms))
+        else:
+            print("%s - writing output AWS tape file: %s (80-byte records %s)" \
+                " without ending tape mark(s)"
+                    % (this_module,self.filepath,len(self.output)))
         device.create(self.filepath)   # Write the AWS tape file
 
 
@@ -406,6 +419,10 @@ def parse_args():
         help="an output EBCDIC deck in AWS tape file format is created. May "\
             "be used with --card. If omitted no AWS tape file is produced. "
             "May not be used with --card.")
+    
+    parser.add_argument("--tm",type=int,default=0,\
+        help="number of tape marks added to the end of the --tape file. "\
+            "Default is 0. Ignored if --tape not supplied.")
 
     return parser.parse_args()
 
