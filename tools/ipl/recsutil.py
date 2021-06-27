@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2012, 2013, 2018 Harold Grovesteen
+# Copyright (C) 2012-2021 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -245,7 +245,7 @@ class tape(rec):
 
 class tm(tape):
     def __init__(self):
-        tape.__init__(self,recid="TM",data="")
+        tape.__init__(self,recid="TM",data=bytes(0))
 
     def pythonize(self,hdr="",append="",indent=""):
         return "%s%stm()" % (hdr,append)
