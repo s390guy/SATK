@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2015-2020 Harold Grovesteen
+# Copyright (C) 2015-2021 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -3338,8 +3338,8 @@ class LiteralStmt(DC):
             tracing=self.trace
 
         # Make sure we have an active current section before doing anything more
-        asm._check_cur_sec(debug=tracing)
-        first=self.buildArea(asm,self.values,debug=tracing)
+        asm._check_cur_sec(debug=trace)
+        first=self.buildArea(asm,self.values,debug=trace)
 
         # Supply the Literal object with the literals attributes.  Currently only
         # the L' as implied by the literal definition is supported for Storage-to-
