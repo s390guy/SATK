@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014-2017 Harold Grovesteen
+# Copyright (C) 2014-2021 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -146,9 +146,11 @@ class PLitCur(pratt3.PLit):
         assert self.stmt is not None,\
             "%s self.stmt must not be None" \
                 %  assembler.eloc(self,"value",module=this_module)
-        assert self.stmt.location is not None,\
-            "%s [%s] stmt.location must not be None" \
-                % (assembler.eloc(self,"value",module=this_module),self.stmt.lineno)
+
+        if self.stmt.location is None:
+            raise assembler.AssemblerError(line=self.stmt.lineno,\
+                msg="location counter reference, *, can not be used outside "\
+                    "of a control section")
 
         #cur=external.cur_loc.retrieve()
         cur=self.stmt.location
