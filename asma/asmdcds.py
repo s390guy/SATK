@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014, 2015, 2017 Harold Grovesteen
+# Copyright (C) 2014-2021 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -1522,7 +1522,7 @@ class DC_B(BinaryBits):
 
 class DC_C(Characters):
     attr=(1,0)       # implied length, alignment
-    max_len=256      # maximum explicit length
+    max_len=65535    # maximum explicit length
     atyp="C"
     utyp="C"
     def __init__(self,ltok):
@@ -1531,7 +1531,7 @@ class DC_C(Characters):
 
 class DC_CA(Characters):
     attr=(1,0)       # implied length, alignment
-    max_len=256      # maximum explicit length
+    max_len=65535    # maximum explicit length
     atyp="C"
     utyp="C"
     def __init__(self,ltok):
@@ -1540,7 +1540,7 @@ class DC_CA(Characters):
 
 class DC_CE(Characters):
     attr=(1,0)       # implied length, alignment
-    max_len=256      # maximum explicit length
+    max_len=65535    # maximum explicit length
     atyp="C"
     utyp="C"
     def __init__(self,ltok):
@@ -1597,7 +1597,7 @@ class DC_F(TwosCompBin):
 
 class DC_FD(TwosCompBin):
     attr=(8,8)       # implied length, alignment
-    max_len=8        # meximum explicit length
+    max_len=8        # maximum explicit length
     atyp="F"
     utyp="U"
     def __init__(self,ltok):
@@ -1657,7 +1657,7 @@ class DC_SY(SConstant):
 
 class DC_X(BinaryBits):
     attr=(1,0,2,16)  # implied length, alignment, char/byte, base
-    max_len=256      # maximum explicit length
+    max_len=65535    # maximum explicit length
     atyp="X"
     utyp="X"
     def __init__(self,ltok):
