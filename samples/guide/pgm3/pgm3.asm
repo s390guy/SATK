@@ -59,6 +59,9 @@
          PRINT DATA,GEN
 * Uncomment the next statement if you do not want the ASA DSECT in the listing         
 *        PRINT OFF
+* Inform the SATK macros of the architecture being targeted.  Inferred from
+* the ASMA -t command-line argument.
+         ARCHLVL
          SPACE 1
 *
 * Hardware Assigned Storage Locations
@@ -70,9 +73,6 @@ ASA      ASAREA DSECT=YES
          EJECT
 * Uncomment this statement if you have disabled printing of the ASA
 *        PRINT ON,GEN
-* Inform the SATK macros of the architecture being targeted.  Inferred from
-* the ASMA -t command-line argument.
-         ARCHLVL
 * Ensure interrupt traps are loaded by iplasma.py before program execution
 * begins.  This macro will create the memory region that will also contain
 * the IPL PSW.  The region name defaults to ASAREGN.  iplasma.py knows how
