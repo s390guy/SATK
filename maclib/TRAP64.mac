@@ -24,16 +24,28 @@
 .*   &RESTART Specify 'YES' to cause the restart new PSW to be created
 .*            Specify 'ONLY' to cause just the new restart PSW to be created
 .*            Otherwise, a new restart PSW is not created.  Default is 'NO'.
+.*
+.* It is expected that the caller of this macro has used ORG to ensure
+.* generated PSWs are generated in the desired place.
+.*
+         GBLC  &ARCHLVL            ARCHLVL in effect for assembly
          AIF    ('&LABEL' EQ '').NOLBL
 &LABEL   DS     0AD
 .NOLBL   ANOP
+.*
+&PSWFM   SETC  '&PSW'              Set suffix for PSW directive
+         AIF   ('&PSW' NE '').TRAP64    PSW= specified? Yes, generate traps
+         AIF   (&ARCHLVL LE 8).TRAP64   Pre-z/Arch target? Yes, generate traps
+&PSWFM   SETC  'E390'              Force ESA/390 64-bit trap PSWs
+.TRAP64 ANOP
+.*
          AIF    ('&RESTART' NE 'YES' AND '&RESTART' NE 'ONLY').NOFILL
-         PSW&PSW 0,0,2,0,X'008'    64-bit Restart ISR Trap New PSW
+         PSW&PSWFM 0,0,2,0,X'008'    64-bit Restart ISR Trap New PSW
          AIF    ('&RESTART' EQ 'ONLY').DONE
 .NOFILL  ANOP
-         PSW&PSW 0,0,2,0,X'018'    64-bit External ISR Trap New PSW
-         PSW&PSW 0,0,2,0,X'020'    64-bit Supervisor Call ISR Trap New PSW
-         PSW&PSW 0,0,2,0,X'028'    64-bit Program ISR Trap New PSW
-         PSW&PSW 0,0,2,0,X'030'    64-bit Machine Check Trap New PSW
-         PSW&PSW 0,0,2,0,X'038'    64-bit Input/Output Trap New PSW
+         PSW&PSWFM 0,0,2,0,X'018'    64-bit External ISR Trap New PSW
+         PSW&PSWFM 0,0,2,0,X'020'    64-bit Supervisor Call ISR Trap New PSW
+         PSW&PSWFM 0,0,2,0,X'028'    64-bit Program ISR Trap New PSW
+         PSW&PSWFM 0,0,2,0,X'030'    64-bit Machine Check Trap New PSW
+         PSW&PSWFM 0,0,2,0,X'038'    64-bit Input/Output Trap New PSW
 .DONE    MEND
