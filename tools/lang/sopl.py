@@ -302,6 +302,10 @@ class SOPL(object):
                 except SOPLError as me:
                     self._do_error(error=me)
             else:
+                if stmt is None:
+                    self._do_error(error=SOPLError(loc=x.source,\
+                        msg="parameter missing preceding statement"))
+                    continue
                 try:
                     stmt.addParm(x)
                 except SOPLError as me:
