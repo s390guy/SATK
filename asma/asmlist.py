@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014-2017 Harold Grovesteen
+# Copyright (C) 2014-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -71,7 +71,7 @@ class AsmListing(Listing):
     addr_max={16:0xFFFF,24:0xFFFFFF,31:0x7FFFFFFF,64:0xFFFFFFFFFFFFFFFF}
     def __init__(self,asm):
         self.linesize=132
-        super().__init__(linesize=self.linesize,lines=55)
+        super().__init__(linesize=self.linesize,lines=59)
         self.asm=asm     # Access to the assembler for listing generation
 
         # Established by create() method when these structures actually exist
@@ -904,7 +904,7 @@ class AsmListing(Listing):
         hdr.append(CharCol(mac_col,just="center",sep=2,colnum=0,default="MACRO"))
 
         # Defn Column
-        maximum=max(self.max_line,99990)
+        maximum=max(self.max_line,9999)
         size=Column.dec_size(maximum)
         det.append(DecCol(maximum=maximum,sep=2,colnum=1))
         hdr.append(CharCol(size,just="center",sep=2,colnum=1,default="DEFN"))
@@ -925,6 +925,7 @@ class AsmListing(Listing):
         colsize=self.max_char
         ref_size=colsize+2
         self.macrpl=available_chars // ref_size
+        self.macrpl=self.macrpl-2
 
         refcol=[]
         for n in range(self.macrpl):
@@ -944,7 +945,7 @@ class AsmListing(Listing):
         data_lines=[]
         for chunk in rlist:
             vals=rpl * [None,]
-            for ndx in range(min(len(chunk),rpl)):
+            for ndx in range(min(len(chunk),self.macrpl)):
                 ref=chunk[ndx]
                 #vals[ndx]=ref
                 # ref is an asmbase.xref object
