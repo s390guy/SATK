@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014-2020 Harold Grovesteen
+# Copyright (C) 2014-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -17,12 +17,12 @@
 #     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
 # Other Notices:
-# z/Architecture is a registered trademark of International Business Machines
-# Corporation.
+# IBM, z/Architecture, z/OS, z/VM, and z/VSE are a registered trademarks of
+# International Business Machines Corporation.
 
-# This module provides an Python based mainframe assembler for the creation of
-# binary image files from a simple source language.  It is intended for import use
-# only.  Use asma.py for a command line interface.
+# This module provides a Python based mainframe assembler for the creation of
+# binary image files from a simple source language.  It is intended for import 
+# use only.  Use asma.py for a command line interface.
 
 #
 #  +---------------------+
@@ -41,7 +41,7 @@
 #    length.
 #  - ORG only operates with relative addresses within the active CSECT or DSECT
 #  - REGION statement specific to ASMA.
-#  - Multiple START statements allowed supporting multiple region
+#  - Multiple START statements allowed supporting multiple regions
 #
 # Supported assembler directives:
 #    CCW, CCW0, CCW1, CSECT, DC, DROP, DS, DSECT, END, EQU, ORG, PRINT, REGION,
@@ -1619,46 +1619,130 @@ class Base(object):
     # This method is used to comapre two Base instances for sorting purposes.
     # The staticmethod BaseMgr.compare() is just a wrapper for this method.
     # The staticmethod is required because functools requires an unbound
-    # method or function.
+    # method or function, that is, a method or function not bound to an object
+    # instance by "self".
     #
-    # The rules for selection are as follows:
+    # The rules for selection are described in "IBM(R) High Level Assembler for
+    # z/OS(R) & z/VM(R) & z/VSE(R) Language Reference, Release 6", pages 220,
+    # and 221:
     #
-    # 1. Select the base register with the smallest displacement.
-    # 2. If the displacement's are equal select the highest numbered register
-    #    unless direct mode base register, in which case select the lowest
-    #    numbered register.
+    # 1. Select the base register with the smallest non-negative displacement.
+    # 2. If no non-negative displacement can be found, for long-displacement
+    #    instructions, the base register giving the smallest negative
+    #    displacement.
+    # 3. If the displacements are the same, the highest register is chosen
+    #    for the displacement.
     #
-    # Because the actual displacement has not been calculated the highest
-    # address results in the smallest displacement.  (We know that a base
-    # location is eligible or it would not be in the list being sorted.
-    # Eligible means the base address or displacement is less than or equal to
-    # the address for which a base is sought.)
+    # We know that a base location is eligible or it would not be in the list
+    # being sorted.  Eligible means the base address or displacement is within
+    # the range of a base and is compatible with the instruction being
+    # assembled.
+    #
+    # This method, __cmp__, is called when sorting the list of eligible base
+    # registers to determine which is selected.  The "lowest" as sorted by this
+    # method is selected, the "lowest" being the first Base object in the
+    # result of sorting the list.  When the sorting process is determining
+    # the order for two Base objects in the list, this method is used.
+    #
+    # Returns:                 Index in sorted result list
+    #   -1   if self < other   self index < other index
+    #    0   if self == other  self index will be before other index (no change)
+    #    1   if self > other   self index > other index
+    #
+    # Note __cmp__ method has no special meaning in Python 3.  Usage for
+    # sorting in Python 3 results from static method compare() calling this
+    # method.
     def __cmp__(self,other):
         assert self.disp is not None,\
             "%s displacement not set, can not sort Base instance: reg=%s,address=%s"\
                 % (eloc(self,"__cmp__"),self.reg,self.loc)
 
-        if self.disp<other.disp:
+        # Selection method 1 above results in three cases between self and
+        # other:
+        #   Case 1 - both displacements are non-negative
+        #   Case 2 - self is non-negative and other is negative
+        #   Case 3 - self is negative and other is non-negative
+        # Selection method 2 above results in a single case:
+        #   Case 4 - self and other are both negative
+        #
+        # Cases 1 and 4 can further require the application of selection
+        # method 3 based upon the register number, selecting the highest
+        # register number.
+
+        # Case 1 - both displacements are non-negative
+        if self.disp >=0 and other.disp >=0:
+            if self.disp < other.disp:
+                return -1
+            if self.disp > other.disp:
+                return 1
+
+            # This means the displacements are equal so select by highest
+            # register nummber:
+            return self.__cmp__reg(other)
+
+        # Case 2 - self is non-negative and other is negative
+        if self.disp >= 0 and other.disp < 0:
             return -1
-        if self.disp>other.disp:
+
+        # Case 3 - self is negative and other is non-negative
+        if self.disp < 0 and other.disp >= 0:
             return 1
+
+        # Case 4 - both displacements are negative
+        if self.disp <= 0 and other.disp <= 0:
+            self_disp = abs(self.disp)
+            other_disp = abs(other.disp)
+
+            if self_disp < other_disp:
+                return -1
+            if self_disp > other_disp:
+                return 1
+
+            # This means the displacements are equal so select by highest
+            # register nummber:
+            return self.__cmp__reg(other)
+
+        raise ValueError("%s two base register candidates failed to be placed "\
+            "in a selection case: %s:%s" % (eloc(self,"__cmp__"),self,other))
 
         # displacements are equal so select on register, highest register is
         # chosen.  For direct registers always pick the lowest.
+        #if self.direct is not None:
+        #    # pick the lowest direct register candidate
+        #    if self.reg<other.reg:
+        #        return -1
+        #    if self.reg>other.reg:
+        #        return 1
+        #else:
+            # pick the higest base/displacement register candidate
+        #    if self.reg<other.reg:
+        #        return 1
+        #    if self.reg>other.reg:
+        #        return -1
+        #raise ValueError("%s two base register candidates with the same register "
+        #    "and displacement detected: %s:%s" % (eloc(self,"__cmp__"),self,other))
+
+    # Used to compare two base registers and sorts Base objects based upon
+    # the base register.  Called by __cmp__() method.
+    def __cmp__reg(self,other):
         if self.direct is not None:
             # pick the lowest direct register candidate
-            if self.reg<other.reg:
+            if self.reg < other.reg:
                 return -1
-            if self.reg>other.reg:
+            if self.reg > other.reg:
                 return 1
         else:
-            # pick the higest base/displacement register candidate
-            if self.reg<other.reg:
+            # pick the highest base/displacement register candidate
+            if self.reg < other.reg:
                 return 1
-            if self.reg>other.reg:
+            if self.reg > other.reg:
                 return -1
-        raise ValueError("%s two base register candidates with the same register "
-            "and displacement detected: %s:%s" % (eloc(self,"__cmp__"),self,other))
+
+        # Two candidates with the same base register and displacement
+        # encountered.  This is an internal error and should not occur.
+        raise ValueError("%s two base register candidates with the same "\
+            "register and displacement detected: %s:%s" \
+                % (eloc(self,"__cmp__reg"),self,other))
 
     def __repr__(self):
         return self.__str__()
@@ -1946,7 +2030,7 @@ class BaseMgr(object):
         assert isinstance(addr,lnkbase.Address),\
             "%s 'addr' argument must be an instance of lnkbase.Address: %s" \
                 % (eloc(self,"find"),addr)
-                
+
         signed = size == 20   # Whether the displacement is signed or not
 
         possible=[]
@@ -1964,7 +2048,7 @@ class BaseMgr(object):
             assert base_addr is not None,\
                 "%s Base address is None: %s" % (eloc(self,"find"),repr(addr))
 
-            if base.section != addr.section: 
+            if base.section != addr.section:
                 continue
             if (not signed) and (base.address > addr.base()):
                 continue
