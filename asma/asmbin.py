@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014 Harold Grovesteen
+# Copyright (C) 2014-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -18,7 +18,7 @@
 
 # This module generates the binary output for ASMA.
 
-this_module="%s.py" % __name__
+this_module="asmbin.py"
 
 # Python imports: None
 
@@ -118,7 +118,7 @@ class AsmBinary(object):
             chunks.extend(c.chunks(16))  # maximum of 16 bytes stored
         cmdfile=""
         for c in chunks:
-            cmdfile="%s%sSTORE R S %X %s\n" \
+            cmdfile="%s%sSTORE RS%X %s\n" \
                 % (cmdfile,cpcmd,c.addr,self.bytes_in_hex(c.data))
         #print("cmdfile:\n%s" % cmdfile)
         return cmdfile
