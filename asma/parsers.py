@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2015-2017 Harold Grovesteen
+# Copyright (C) 2015-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -18,7 +18,7 @@
 
 # This module manages all ASMA parsers.
 
-this_module="%s.py" % __name__
+this_module="parsers.py"
 
 # Python imports: None
 # SATK imports: None
@@ -204,7 +204,7 @@ class CSLA(lexer.CSLA):
     def init_lparen(self,ldebug=False,tdebug=False):
         c="lpren"
         self.ctx(c,debug=ldebug)
-        types=[LPAREN,COMMA]
+        types=[LPAREN,COMMA,EOO]
         self.type(c,types,debug=tdebug)
 
     # DC/DS Explict Length Modifier started
