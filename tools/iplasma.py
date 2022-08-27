@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2015-2020 Harold Grovesteen
+# Copyright (C) 2015-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -51,7 +51,7 @@
 
 
 this_module="iplasma.py"
-copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2015-2020")
+copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2015-2022")
 
 # Python imports
 import sys
@@ -2101,7 +2101,8 @@ class IPLVOL(object):
             self.r0_area.dump(indent="    ")
 
         # Allocate LOD1 in the memory allocation map
-        self.mem.allocate(self.lod1_area)
+        if self.booted and not self.deck:
+            self.mem.allocate(self.lod1_area)
 
         # Allocate booted program in the memory map allocation
         # And set boot loader I/O area
