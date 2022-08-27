@@ -1,4 +1,4 @@
-* Copyright (C) 2020 Harold Grovesteen
+* Copyright (C) 2022 Harold Grovesteen
 *
 * This file is part of SATK.
 *
@@ -81,6 +81,10 @@
 * Hardware and Software Assigned Storage Locations
 *
          SPACE 1
+* Inform the SATK macros of the architecture being targeted.  Inferred from
+* the ASMA -t command-line argument.
+         ARCHLVL
+         SPACE 1
 * This DSECT allows symbolic access to these locations.  The DSECT created is 
 * named ASA.
 ASA      ASAREA DSECT=YES
@@ -88,9 +92,7 @@ ASA      ASAREA DSECT=YES
          EJECT
 * Uncomment this statement if you have disabled printing of the ASA
 *        PRINT ON,GEN
-* Inform the SATK macros of the architecture being targeted.  Inferred from
-* the ASMA -t command-line argument.
-         ARCHLVL
+         SPACE 1
 * Ensure interrupt traps are loaded by iplasma.py before program execution
 * begins.  This macro will create the memory region that will also contain
 * the IPL PSW.  The region name defaults to ASAREGN.  iplasma.py knows how
