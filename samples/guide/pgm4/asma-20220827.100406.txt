@@ -1,0 +1,599 @@
+ASMA Ver. 0.2.1                                                                                     27 Aug 2022 10:04:06  Page     1
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+                                               1 * Copyright (C) 2022 Harold Grovesteen
+                                               2 *
+                                               3 * This file is part of SATK.
+                                               4 *
+                                               5 *     SATK is free software: you can redistribute it and/or modify
+                                               6 *     it under the terms of the GNU General Public License as published by
+                                               7 *     the Free Software Foundation, either version 3 of the License, or
+                                               8 *     (at your option) any later version.
+                                               9 *
+                                              10 *     SATK is distributed in the hope that it will be useful,
+                                              11 *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+                                              12 *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+                                              13 *     GNU General Public License for more details.
+                                              14 *
+                                              15 *     You should have received a copy of the GNU General Public License
+                                              16 *     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+                                              17 *
+ASMA Ver. 0.2.1  PGM4 - HELLO WORLD WITH CONSOLE I/O                                                27 Aug 2022 10:04:06  Page     2
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+                                              19 * Program Description:
+                                              20 *
+                                              21 * PGM4 is a bare-metal 'Hello World' program.  It requires input/output
+                                              22 * commands to the console device to issue the message.  The program is
+                                              23 * executed by means of FBA DASD boot loader.
+                                              24 *
+                                              25 * Target Architecture: S/370
+                                              26 *
+                                              27 * Devices Used:
+                                              28 *   00F - Console device
+                                              29 *   110 - FBA IPL volume
+                                              30 *
+                                              31 * Program Register Usage:
+                                              32 *
+                                              33 *   R0   Base register for access to the ASA.  Required by DSECT usage
+                                              34 *   R1   Device Channel and Unit Address for I/O instructions
+                                              35 *   R12  The program base register
+                                              36 *
+                                              37 * Disabled Wait State PSW's address field values used by the program:
+                                              38 *    X'000000' - Successful execution of the program
+                                              39 *    X'000008' - Unexpected Restart interruption occurred. Old Restart PSW at
+                                              40 *                address X'8'
+                                              41 *    X'000018' - Unexpected External interruption occurred.  Old External PSW at
+                                              42 *                address X'18'
+                                              43 *    X'000020' - Unexpected Supervisor interruption occurred.  Old Supervisor
+                                              44 *                PSW at address X'20'
+                                              45 *    X'000028' - Unexpected Program interruption occurred. Old Program PSW at
+                                              46 *                address X'28'
+                                              47 *    X'000030' - Unexpected Machine Check interruption occurred.  Old Machine
+                                              48 *                Check PSW at address X'30'
+                                              49 *    X'000038' - Unexpected Input/Output interruption occurred.  Old Input/Output
+                                              50 *                PSW at address X'38'
+                                              51 *    X'041004' - Console Device X'00F' or channel not operational
+                                              52 *    X'041008' - Console Device X'00F' or channel busy
+                                              53 *    X'04100C' - Console Device X'00F' or channel had a problem. See CSW.
+                                              54 *    X'041010' - Unexpected interruption from some other device. See ASA X'BA'
+                                              55 *    X'041014' - Console channel error occurred
+                                              56 *    X'041018' - Console device did not complete the I/O without a problem
+ASMA Ver. 0.2.1  PGM4 - HELLO WORLD WITH CONSOLE I/O                                                27 Aug 2022 10:04:06  Page     3
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+                                              58 * See all object data and macro generated model statements in the listing
+                                              59          PRINT DATA,GEN
+                                              60 * Uncomment the next statement if you do not want the ASA DSECT in the listing
+                                              61 *        PRINT OFF
+
+                                              63 *
+                                              64 * Hardware Assigned Storage Locations
+                                              65 *
+
+                                              67 * Inform the SATK macros of the architecture being targeted.  Inferred from
+                                              68 * the ASMA -t command-line argument.
+                                              69          ARCHLVL
+                                              71+$AL      OPSYN AL
+                                              72+$ALR     OPSYN ALR
+                                              73+$B       OPSYN B
+                                              74+$BAS     OPSYN BAS
+                                              75+$BASR    OPSYN BASR
+                                              76+$BC      OPSYN BC
+                                              77+$BCTR    OPSYN BCTR
+                                              78+$BE      OPSYN BE
+                                              79+$BH      OPSYN BH
+                                              80+$BL      OPSYN BL
+                                              81+$BM      OPSYN BM
+                                              82+$BNE     OPSYN BNE
+                                              83+$BNH     OPSYN BNH
+                                              84+$BNL     OPSYN BNL
+                                              85+$BNM     OPSYN BNM
+                                              86+$BNO     OPSYN BNO
+                                              87+$BNP     OPSYN BNP
+                                              88+$BNZ     OPSYN BNZ
+                                              89+$BO      OPSYN BO
+                                              90+$BP      OPSYN BP
+                                              91+$BXLE    OPSYN BXLE
+                                              92+$BZ      OPSYN BZ
+                                              93+$CH      OPSYN CH
+                                              94+$CLR     OPSYN CLR
+                                              95+$L       OPSYN L
+                                              96+$LH      OPSYN LH
+                                              97+$LM      OPSYN LM
+                                              98+$LNR     OPSYN LNR
+                                              99+$LPSW    OPSYN LPSW
+                                             100+$LR      OPSYN LR
+                                             101+$LTR     OPSYN LTR
+                                             102+$NR      OPSYN NR
+                                             103+$SL      OPSYN SL
+                                             104+$SLR     OPSYN SLR
+                                             105+$SR      OPSYN SR
+                                             106+$ST      OPSYN ST
+                                             107+$STM     OPSYN STM
+                                             108+$X       OPSYN X
+                                             109+         MNOTE *,'ARCHLVL - ARCHITECTURE LEVEL SET - 3'
+        ** [109] MNOTE *,ARCHLVL - ARCHITECTURE LEVEL SET - 3
+
+                                             111 * This DSECT allows symbolic access to these locations.  The DSECT created is
+                                             112 * named ASA.
+                                             113 ASA      ASAREA DSECT=YES
+ASMA Ver. 0.2.1  PGM4 - HELLO WORLD WITH CONSOLE I/O                                                27 Aug 2022 10:04:06  Page     4
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+                                             114+ASA      DSECT
+                            000000  000001   115+ASBEGIN  EQU   *                   Start of absolute/real assigned storage areas
+000000  00000000 00000000                    116+IPLPSW   DC    FD'0'        000 A  Initial Program Load Program Status Word
+000008  00000000 00000000                    117+IPLCCW1  DC    FD'0'        008 A  Initial Program Load first Channel Command Word
+000010  00000000 00000000                    118+IPLCCW2  DC    FD'0'        010 A  Initial program Load second Channel Command Word
+                                             119+* RESTART RELATED PROGRAM STATUS WORDS
+000018                      000018  000000   120+         ORG   ASBEGIN
+000000  00000000 00000000                    121+RSTNPSW  DC    FD'0'        000 R  Restart New PSW
+000008  00000000 00000000                    122+RSTOPSW  DC    FD'0'        008 R  Restart Old PSW
+000010  00000000 00000000                    123+UA0      DC    FD'0'        010 R  Unassigned Area 0
+                                             124+* INTERRUPTION OLD PROGRAM STATUS WORD SAVE AREAS
+000018  00000000 00000000                    125+EXTOPSW  DC    FD'0'        018 R  External Interrupt Old PSW
+000020  00000000 00000000                    126+SVCOPSW  DC    FD'0'        020 R  Supervisor Call Old PSW
+000028  00000000 00000000                    127+PGMOPSW  DC    FD'0'        028 R  Program Old PSW
+000030  00000000 00000000                    128+MCKOPSW  DC    FD'0'        030 R  Machine Check Old PSW
+000038  00000000 00000000                    129+IOOPSW   DC    FD'0'        038 R  Input/Output Old PSW
+                                             130+* CHANNEL-BASED INPUT/OUTPUT INTERRUPT RELATED
+000040  00000000 00000000                    131+CSW      DC    FD'0'        040 R  Channel Status Word
+000048                                       132+CAW      DC    0F'0'        048 R  Channel Address Word
+000048  00                                   133+CAWKEY   DC    X'00'        048 R  Channel Storage Key (bits 0-3)
+                            000008  000001   134+CAWSUSP  EQU   X'08'        048 R  Suspend Control (bit 4)
+000049  000000                               135+CAWADDR  DC    AL3(0)       049 R  Channel Command Address
+00004C  00000000                             136+UA1      DC    F'0'         04C R  Unassigend Area 1
+                                             137+* MISCELANEOUS AREAS
+000050  00000000                             138+TIMER    DC    F'0'         050 R  System/360 and System/370 Interval Timer
+000054  00000000                             139+TTDES    DC    F'0'         054 R  System/370 Trace-Table-Designation
+                                             140+* INTERRUPTION NEW PROGRAM STATUS WORD AREAS
+000058                      000058  000058   141+         ORG   ASBEGIN+X'58'
+000058  00000000 00000000                    142+EXTNPSW  DC    FD'0'        058 R  External New PSW
+000060  00000000 00000000                    143+SVCNPSW  DC    FD'0'        060 R  Supervisor Call New PSW
+000068  00000000 00000000                    144+PGMNPSW  DC    FD'0'        068 R  Program New PSW
+000070  00000000 00000000                    145+MCKNPSW  DC    FD'0'        070 R  Machine Check New PSW
+000078  00000000 00000000                    146+IONPSW   DC    FD'0'        078 R  Input/Output New PSW
+                                             147+* EXTERNAL INTERRUPTION INFORMATION
+000080                      000080  000080   148+         ORG   ASBEGIN+X'80'
+000080  00000000                             149+EXTIPARM DC    F'0'         080 R  External-interruption Parameter
+000084  0000                                 150+EXTCPUAD DC    H'0'         084 R  External-interruption CPU Address
+000086  0000                                 151+EXTICODE DC    H'0'         086 R  External-interruption Code
+                                             152+* SUPERVISOR CALL INTERRUPTION INFORMATION
+000088                                       153+SVCIID   DC    0F'0'        088 R  Supervisor-Call Interuption Identification
+000088  00                                   154+         DC    X'00'        088 R  not-used - zeros stored
+000089  00                                   155+SVCIILC  DC    X'00'        089 R  Supervisor-Call instruction length code
+                            00000C  000001   156+SVCIILCM EQU   B'00001100'         Supervisor-Call ILC mask, zeros stored in other bits
+00008A  0000                                 157+SVCICODE DC    H'0'         08A R  Supervisor-Call Interruption Code
+                                             158+* PROGRAM INTERRUPTION INFORMATION
+00008C                                       159+PGMIID   DC    0F'0'        08C R  Program-interruption identification
+00008C  00                                   160+         DC    X'00'        08C R  not-used - zeros stored
+00008D  00                                   161+PGMIILC  DC    X'00'        08D R  Program instruction lengh code
+                            00000C  000001   162+PGMIILCM EQU   B'00001100'         Progrtam ILC mask, zeros stored in other bits
+00008E  0000                                 163+PGMICODE DC    H'0'         08E R  Program Interruption Code
+000090                                       164+PGMDXC   DC    0F'0'        090 R  Data-Exception Code
+000090  00000000                             165+PGMTRX   DC    F'0'         090 R  Translation-Exception Identification
+000094                                       166+MONCLS   DC    0H'0'        094 R  Monitor-Class Number
+000094  00                                   167+         DC    X'00'        094 R  not-used - zeros stored
+000095  00                                   168+MONNUMBR DC    X'00'        095 R  Monitor-Class Number stored
+000096  00                                   169+PERCODE  DC    X'00'        096 R  Program-Event-Recording Code
+ASMA Ver. 0.2.1  PGM4 - HELLO WORLD WITH CONSOLE I/O                                                27 Aug 2022 10:04:06  Page     5
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+                            0000F0  000001   170+PERCODMK EQU   B'11110000'         Program-Event-Recordind Code mask in bits 0-3
+000097  00                                   171+         DC    X'00'        097 R  PER Code not used - zeros stored
+000098  00000000                             172+PERADDR  DC    F'0'         098 R  PER Address
+00009C  00000000                             173+MONCODE  DC    F'0'         09C R  Monitor Event Code in bytes 1-3, zeros in byte 0
+0000A0  00                                   174+PGMACCID DC    X'00'        0A0 R  Exception access identification
+0000A1  00                                   175+PERACCID DC    X'00'        0A1 R  PER access identification
+0000A2  00                                   176+MPGACCID DC    X'00'        0A2 R  MOVE PAGE Operand access identification
+0000A3                                       177+SSARCHMD DC    0X'00'       0A3 A  Store Status Architectural Mode Identification
+0000A3  00                                   178+MKARCHMD DC    X'00'        0A3 R  Machine-Check Architectural Mode Identification
+0000A4  00000000                             179+UA2      DC    F'0'         0A4 R  Unused area
+                                             180+* System/370 CHANNEL INPUT/OUTPUT INFORMATION
+0000A8                      0000A8  0000A8   181+         ORG   ASBEGIN+X'A8'
+0000A8  00000000                             182+CHANID   DC    F'0'         0A8 R  System/370 STORE CHANNEL ID location
+0000AC  00000000                             183+IOELADDR DC    F'0'         0AC R  System/370 I/O Extended Logout Address
+0000B0  00000000                             184+LCHANLOG DC    F'0'         0B0 R  System/370 Limited Channel Logout Area
+0000B4  00000000                             185+UA3      DC    F'0'         0B4 R  unused by System/370
+0000B8  00                                   186+UA4      DC    X'00'        0B8 R  unused by System/370
+0000B9  00                                   187+MEASUREB DC    X'00'        0B9 R  System/370 Measurement Byte
+0000BA  0000                                 188+IOICODE  DC    H'0'         0BA R  System/370 Input/Output Interruption Device Address
+                                             189+* MACHINE-CHECK INTERRUPTION INFORMATION
+0000BC                      0000BC  0000D4   190+         ORG   ASBEGIN+X'D4'
+0000D4  00000000                             191+MKXSAA   DC    F'0'         0D4 R  Machine-Check Extended Save Area Address
+0000D8  00000000 00000000                    192+MKCPUTIM DC    FD'0'        0D8 R  Machine-Check CPU timer save area
+0000E0  00000000 00000000                    193+MKCLKCMP DC    FD'0'        0E0 R  Machine-Check clock comparator save area
+0000E8  00000000                             194+MKICODE  DC    F'0'         0E8 R  Machine-Check interruption code
+0000EC  00000000 00000000                    195+UA6      DC    XL8'00'      0EC R  unused area
+0000F4  00000000                             196+MKDMGCOD DC    F'0'         0F4 R  Machine-Check external damage code
+0000F8                                       197+ZMKFAILA DC    0FD'0'       0F8 R  Machine-Check failing storage address
+0000F8  00000000                             198+MKFAILA  DC    F'0'         0F8 R  Machine-Check failing storage address
+0000FC  00000000                             199+MKMODEL  DC    F'0'         0FC R  Machine-Check model dependent information
+000100  00000000 00000000                    200+MKLOGOUT DC    4F'0'        100 R  ESA machine-check fixed logout area
+000108  00000000 00000000
+000110                      000110  000120   201+         ORG   ASBEGIN+X'120'
+000120  00000000 00000000                    202+MKARS    DC    16F'0'       120 R  Machine-Check access register save area
+000128  00000000 00000000
+000130  00000000 00000000
+000138  00000000 00000000
+000140  00000000 00000000
+000148  00000000 00000000
+000150  00000000 00000000
+000158  00000000 00000000
+000160                      000160  000100   203+         ORG   ASBEGIN+X'100'
+000100  00000000 00000000                    204+MCKLOG   DC    24F'0'       100 R  System/370, 370-XA machine-Check fixed logout area.
+000108  00000000 00000000
+000110  00000000 00000000
+000118  00000000 00000000
+000120  00000000 00000000
+000128  00000000 00000000
+000130  00000000 00000000
+000138  00000000 00000000
+000140  00000000 00000000
+000148  00000000 00000000
+000150  00000000 00000000
+000158  00000000 00000000
+000160  00000000 00000000                    205+MKFPRS   DC    4D'0'        160 R  Machine-Check floating point register save area
+000168  00000000 00000000
+ASMA Ver. 0.2.1  PGM4 - HELLO WORLD WITH CONSOLE I/O                                                27 Aug 2022 10:04:06  Page     6
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+000170  00000000 00000000
+000178  00000000 00000000
+000180  00000000 00000000                    206+NKGRS    DC    16F'0'       180 R  Machine-Check general register save area
+000188  00000000 00000000
+000190  00000000 00000000
+000198  00000000 00000000
+0001A0  00000000 00000000
+0001A8  00000000 00000000
+0001B0  00000000 00000000
+0001B8  00000000 00000000
+0001C0  00000000 00000000                    207+MKCRS    DC    16F'0'       1C0 R  Machine-Check control register save area
+0001C8  00000000 00000000
+0001D0  00000000 00000000
+0001D8  00000000 00000000
+0001E0  00000000 00000000
+0001E8  00000000 00000000
+0001F0  00000000 00000000
+0001F8  00000000 00000000
+                            000200  000001   208+ASEND    EQU   *                   End of absolute/real assigned storage areas
+                            000200  000001   209+ASLENGTH EQU   ASEND-ASBEGIN       Length of absolute/real assigned storage area
+                                             210+* LOGICAL ADDRESS USAGE
+                            00031B  000001   211+CPUID    EQU   *+X'11B'     31B L  System/370 CPU Identity used during DAS tracing
+ASMA Ver. 0.2.1  PGM4 - HELLO WORLD WITH CONSOLE I/O                                                27 Aug 2022 10:04:06  Page     7
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+                                             213 * Uncomment this statement if you have disabled printing of the ASA
+                                             214 *        PRINT ON,GEN
+                                             215 * Ensure interrupt traps are loaded by iplasma.py before program execution
+                                             216 * begins.  This macro will create the memory region that will also contain
+                                             217 * the IPL PSW.  The region name defaults to ASAREGN.  iplasma.py knows how
+                                             218 * to deal with this situation.
+                                             219 ASASECT  ASALOAD
+                            000000  0001FF   220+ASASECT  START 0,ASAREGN
+000000  000A0000 00000008                    222+         PSW   0,0,2,0,X'008'      64-bit Restart ISR Trap New PSW
+000008                      000008  000058   223+         ORG   ASASECT+X'058'
+000058  000A0000 00000018                    225+         PSW   0,0,2,0,X'018'      64-bit External ISR Trap New PSW
+000060  000A0000 00000020                    226+         PSW   0,0,2,0,X'020'      64-bit Supervisor Call ISR Trap New PSW
+000068  000A0000 00000028                    227+         PSW   0,0,2,0,X'028'      64-bit Program ISR Trap New PSW
+000070  000A0000 00000030                    228+         PSW   0,0,2,0,X'030'      64-bit Machine Check Trap New PSW
+000078  000A0000 00000038                    229+         PSW   0,0,2,0,X'038'      64-bit Input/Output Trap New PSW
+000080                      000080  000200   230+         ORG   ASASECT+512
+                                             231          ASAIPL IA=PGMSTART    Define the bare-metal program's IPL PSW
+                            000000  0001FF   232+ASASECT  CSECT
+000200                      000200  000000   233+         ORG   ASASECT
+000000  00080000 00002000                    234+         PSW   0,0,0,0,PGMSTART,24
+000008                      000008  000200   235+         ORG   ASASECT+512      Reset CSECT to end of assigned storage area
+                            000000  0001FF   236+ASASECT  CSECT
+
+
+                                             238 *
+                                             239 * The Bare-Metal Hello World Program
+                                             240 *
+
+                            002000  00210F   242 PGMSECT  START X'2000',BOOTED4 Start a second region for the program itself
+                                             243 * This results in BOOTED4.bin being created in the list directed IPL directory
+002000                      000000           244          USING ASA,0           Give me instruction access to the ASA CSECT
+002000  05C0                                 245 PGMSTART BALR  12,0            Establish my base register
+002002                      002002           246          USING *,12            Tell the assembler
+
+                                             248 * Ensure program is not re-entered by a Hercules console initiated restart.
+                                             249 * Address 0 changed from its absolute storage role (IPL PSW) to its real
+                                             250 * storage role (Restart New PSW) after the IPL.
+                                             251 * Change from the IPL PSW at address 0 to Restart New PSW trap
+002002  D207 0000 C0B6      000000  0020B8   252          MVC   RSTNPSW,PGMRS
+
+                                             254 * Prepare channels for use by the bare-metal program
+002008  B722 C086                   002088   255          LCTL  2,2,CR2     Enable only channel 0 for I/O interruptions
+
+                                             257 * Determine if the device, subchannel and channel are ready for use.
+00200C  4810 C08E                   002090   258          LH    1,CONDEV    Set up I/O device address in I/O instruction register
+002010  9D00 1000                   000000   259          TIO   0(1)        Determine if the console is there
+002014  4740 C06E                   002070   260          BC    B'0100',DEVNOAVL  ..No, CC=1 might have a different config address
+002018  4720 C072                   002074   261          BC    B'0010',DEVBUSY   ..No, CC=2 console device or channel is busy
+00201C  4710 C076                   002078   262          BC    B'0001',DEVCSW    ..No, CC=3 CSW stored in ASA at X'40'
+                                             263 * Console device is available (CC=0)!
+
+                                             265 * Prepare for I/O to console
+002020  D207 0048 C08A              00208C   266          MVC   CAW(8),CCWADDR    Identify in ASA where first CCW resides
+
+                                             268 * Send the Hello World message to the console
+002026  9C00 1000                   000000   269          SIO   0(1)        Request console channel program to start, did it?
+ASMA Ver. 0.2.1  PGM4 - HELLO WORLD WITH CONSOLE I/O                                                27 Aug 2022 10:04:06  Page     8
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+00202A  4740 C06E                   002070   270          BC    B'0100',DEVNOAVL  ..No, CC=1 don't know why, but tell someone.
+00202E  4720 C072                   002074   271          BC    B'0010',DEVBUSY   ..No, CC=2 console device or channel is busy
+002032  4710 C076                   002078   272          BC    B'0001',DEVCSW    ..No, CC=3 CSW stored in ASA at X'40'
+                                             273 * Console device is now receiving the message (CC=0)
+
+                                             275 * Wait for an I/O interruption
+002036  D207 0078 C0C6              0020C8   276 DOWAIT   MVC   IONPSW(8),CONT  Set up continuation PSW for after I/O interrupt
+00203C  8200 C0BE                   0020C0   277          LPSW  WAIT       Wait for I/O interruption and CSW from channel
+                            002040  000001   278 IODONE   EQU   *          The bare-metal program continues here after I/O
+002040  D207 0078 C0CE              0020D0   279          MVC   IONPSW(8),IOTRAP     Restore I/O trap PSW
+
+                                             281 * I/O results can now be checked.
+                                             282 *   Did the interruption come from the console device?
+002046  4910 00BA                   0000BA   283          CH    1,IOICODE           Is the interrupt from the console?
+00204A  4770 C07A                   00207C   284          BNE   DEVUNKN             ..No, end program with an error
+                                             285 *   Yes, check the CSW conditions to determine if the I/O worked
+00204E  D601 C090 0044      002092  000044   286          OC    STATUS,CSW+4        Accummulate Device and Channel status
+002054  9500 C091                   002093   287          CLI   STATUS+1,X'00'      Did the channel have, a problem?
+002058  4770 C07E                   002080   288          BNE   CHNLERR             ..Yes, end with a channel error
+00205C  91F3 C090                   002092   289          TM    STATUS,X'F3'        Did the unit encounnter a problem?
+002060  4770 C082                   002084   290          BNZ   UNITERR             ..Yes, end with a unit error
+002064  910C C090                   002092   291          TM    STATUS,X'0C'        Did both channel and unit end?
+002068  47E0 C034                   002036   292          BNO   DOWAIT              Wait again for both to be done
+                                             293 * Both channel and unit have ended
+
+                                             295 * HURRAY!  Program 4 delivered its Hello World message!
+00206C  8200 C0D6                   0020D8   296          LPSW  DONE      Normal program termination
+
+                                             298 * End the bare-metal program with an error indicated in PSW
+002070  8200 C0DE                   0020E0   299 DEVNOAVL LPSW  NODEV     Code 004 End console device is not available
+002074  8200 C0E6                   0020E8   300 DEVBUSY  LPSW  BUSYDEV   Code 008 End because device is busy (no wait)
+002078  8200 C0EE                   0020F0   301 DEVCSW   LPSW  CSWSTR    Code 00C End because CSW stored in ASA
+00207C  8200 C0F6                   0020F8   302 DEVUNKN  LPSW  NOTCON    Code 010 End unexpected device caused I/O interruption
+002080  8200 C0FE                   002100   303 CHNLERR  LPSW  CHERROR   Code 014 End because console channel error occurred
+002084  8200 C106                   002108   304 UNITERR  LPSW  DVERROR   Code 018 End because console device error occurred
+
+                                             306 * Control Register 2 - Enables channels for interruptions
+002088  80000000                             307 CR2      DC    XL4'80000000'  Enable only channel 0 where console is connected
+
+                                             309 * I/O related information
+00208C  00002098                             310 CCWADDR  DC    A(CONCCW) Address of first CCW to be executed by console device.
+002090  000F                                 311 CONDEV   DC    XL2'000F'   Console device address
+002092  0000                                 312 STATUS   DC    XL2'0000'   Used to accumulate unit and channel status
+
+                                             314 * CCW used by the program to write the Hello World message
+002098  090020A0 00000017                    315 CONCCW   CCW0  X'09',MESSAGE,0,MSSGLEN      Write Hello World message with CR
+                                             316 *         CCW0  X'03',0,0,1                   ..then a NOP.
+                                             317 * If the preceding NOP CCW command is enabled, then the CONCCW must set
+                                             318 * command chaining in the flag byte, setting the third operand to X'40'
+0020A0  C8859393 9640C281                    319 MESSAGE  DC    C'Hello Bare-Metal World!'   Data sent to console device
+0020A8  998560D4 85A38193
+0020B0  40E69699 93845A
+                            000017  000001   320 MSSGLEN  EQU   *-MESSAGE                    Length of Hello World text data
+
+                                             322 * PSW's used by the bare-metal program
+                                             323 PGMRS    DWAIT CODE=008     Restart New PSW trap.  Points to Restart Old PSW
+ASMA Ver. 0.2.1  PGM4 - HELLO WORLD WITH CONSOLE I/O                                                27 Aug 2022 10:04:06  Page     9
+
+ LOC       OBJECT CODE      ADDR1   ADDR2   STMT
+
+0020B8  000A0000 00010008                    324+PGMRS    PSW   0,0,2,0,X'010008'
+0020C0  020A0000 00000000                    325 WAIT     PSWEC 2,0,2,0,0    Causes CPU to wait for I/O interruption
+0020C8  00080000 00002040                    326 CONT     PSWEC 0,0,0,0,IODONE   Causes the CPU to continue after waiting
+0020D0  000A0000 00000038                    327 IOTRAP   PSWEC 0,0,2,0,X'38'    I/O trap New PSW (restored after I/O)
+
+                                             329 * PSW's terminating program execution
+                                             330 DONE     DWAITEND              Successful execution of the program
+0020D8  000A0000 00000000                    332+DONE     PSW   0,0,2,0,X'000000'
+                                             333 NODEV    DWAIT PGM=04,CMP=1,CODE=004  Console device not available
+0020E0  000A0000 00041004                    334+NODEV    PSW   0,0,2,0,X'041004'
+                                             335 BUSYDEV  DWAIT PGM=04,CMP=1,CODE=008  Console device busy
+0020E8  000A0000 00041008                    336+BUSYDEV  PSW   0,0,2,0,X'041008'
+                                             337 CSWSTR   DWAIT PGM=04,CMP=1,CODE=00C  CSW stored in ASA
+0020F0  000A0000 0004100C                    338+CSWSTR   PSW   0,0,2,0,X'04100C'
+                                             339 NOTCON   DWAIT PGM=04,CMP=1,CODE=010  Unexpected interruption from other device
+0020F8  000A0000 00041010                    340+NOTCON   PSW   0,0,2,0,X'041010'
+                                             341 CHERROR  DWAIT PGM=04,CMP=1,CODE=014  Console channel error occurred
+002100  000A0000 00041014                    342+CHERROR  PSW   0,0,2,0,X'041014'
+                                             343 DVERROR  DWAIT PGM=04,CMP=1,CODE=018  Console device error occurred
+002108  000A0000 00041018                    344+DVERROR  PSW   0,0,2,0,X'041018'
+                                             345          END
+ASMA Ver. 0.2.1  PGM4 - HELLO WORLD WITH CONSOLE I/O                                                27 Aug 2022 10:04:06  Page    10
+
+     SYMBOL        TYPE  VALUE   LENGTH  DEFN  REFERENCES
+
+ASA                 4    000000     512   114  244
+ASAREGN             2    000000     512   220
+ASASECT             J    000000     512   220  223  230  233  235
+ASBEGIN             U    000000       1   115  120  141  148  181  190  201  203  209
+ASEND               U    000200       1   208  209
+ASLENGTH            U    000200       1   209
+BOOTED4             2    002000     272   242
+BUSYDEV             3    0020E8       8   336  300
+CAW                 F    000048       4   132  266
+CAWADDR             R    000049       3   135
+CAWKEY              X    000048       1   133
+CAWSUSP             U    000008       1   134
+CCWADDR             A    00208C       4   310  266
+CHANID              F    0000A8       4   182
+CHERROR             3    002100       8   342  303
+CHNLERR             I    002080       4   303  288
+CONCCW              W    002098       8   315  310
+CONDEV              X    002090       2   311  258
+CONT                3    0020C8       8   326  276
+CPUID               U    00031B       1   211
+CR2                 X    002088       4   307  255
+CSW                 F    000040       8   131  286
+CSWSTR              3    0020F0       8   338  301
+DEVBUSY             I    002074       4   300  261  271
+DEVCSW              I    002078       4   301  262  272
+DEVNOAVL            I    002070       4   299  260  270
+DEVUNKN             I    00207C       4   302  284
+DONE                3    0020D8       8   332  296
+DOWAIT              I    002036       6   276  292
+DVERROR             3    002108       8   344  304
+EXTCPUAD            H    000084       2   150
+EXTICODE            H    000086       2   151
+EXTIPARM            F    000080       4   149
+EXTNPSW             F    000058       8   142
+EXTOPSW             F    000018       8   125
+IMAGE               1    000000     784     0
+IODONE              U    002040       1   278  326
+IOELADDR            F    0000AC       4   183
+IOICODE             H    0000BA       2   188  283
+IONPSW              F    000078       8   146  276  279
+IOOPSW              F    000038       8   129
+IOTRAP              3    0020D0       8   327  279
+IPLCCW1             F    000008       8   117
+IPLCCW2             F    000010       8   118
+IPLPSW              F    000000       8   116
+LCHANLOG            F    0000B0       4   184
+MCKLOG              F    000100       4   204
+MCKNPSW             F    000070       8   145
+MCKOPSW             F    000030       8   128
+MEASUREB            X    0000B9       1   187
+MESSAGE             C    0020A0      23   319  320  315
+MKARCHMD            X    0000A3       1   178
+MKARS               F    000120       4   202
+MKCLKCMP            F    0000E0       8   193
+MKCPUTIM            F    0000D8       8   192
+MKCRS               F    0001C0       4   207
+ASMA Ver. 0.2.1  PGM4 - HELLO WORLD WITH CONSOLE I/O                                                27 Aug 2022 10:04:06  Page    11
+
+     SYMBOL        TYPE  VALUE   LENGTH  DEFN  REFERENCES
+
+MKDMGCOD            F    0000F4       4   196
+MKFAILA             F    0000F8       4   198
+MKFPRS              D    000160       8   205
+MKICODE             F    0000E8       4   194
+MKLOGOUT            F    000100       4   200
+MKMODEL             F    0000FC       4   199
+MKXSAA              F    0000D4       4   191
+MONCLS              H    000094       2   166
+MONCODE             F    00009C       4   173
+MONNUMBR            X    000095       1   168
+MPGACCID            X    0000A2       1   176
+MSSGLEN             U    000017       1   320  315
+NKGRS               F    000180       4   206
+NODEV               3    0020E0       8   334  299
+NOTCON              3    0020F8       8   340  302
+PERACCID            X    0000A1       1   175
+PERADDR             F    000098       4   172
+PERCODE             X    000096       1   169
+PERCODMK            U    0000F0       1   170
+PGMACCID            X    0000A0       1   174
+PGMDXC              F    000090       4   164
+PGMICODE            H    00008E       2   163
+PGMIID              F    00008C       4   159
+PGMIILC             X    00008D       1   161
+PGMIILCM            U    00000C       1   162
+PGMNPSW             F    000068       8   144
+PGMOPSW             F    000028       8   127
+PGMRS               3    0020B8       8   324  252
+PGMSECT             J    002000     272   242
+PGMSTART            I    002000       2   245  234
+PGMTRX              F    000090       4   165
+RSTNPSW             F    000000       8   121  252
+RSTOPSW             F    000008       8   122
+SSARCHMD            X    0000A3       1   177
+STATUS              X    002092       2   312  286  287  289  291
+SVCICODE            H    00008A       2   157
+SVCIID              F    000088       4   153
+SVCIILC             X    000089       1   155
+SVCIILCM            U    00000C       1   156
+SVCNPSW             F    000060       8   143
+SVCOPSW             F    000020       8   126
+TIMER               F    000050       4   138
+TTDES               F    000054       4   139
+UA0                 F    000010       8   123
+UA1                 F    00004C       4   136
+UA2                 F    0000A4       4   179
+UA3                 F    0000B4       4   185
+UA4                 X    0000B8       1   186
+UA6                 X    0000EC       8   195
+UNITERR             I    002084       4   304  290
+WAIT                3    0020C0       8   325  277
+ZMKFAILA            F    0000F8       8   197
+ASMA Ver. 0.2.1  PGM4 - HELLO WORLD WITH CONSOLE I/O                                                27 Aug 2022 10:04:06  Page    12
+
+ MACRO    DEFN  REFERENCES
+
+ARCHIND     70
+ARCHLVL     69
+ASAIPL     231
+ASALOAD    219
+ASAREA     113
+DWAIT      323   331   333   335   337   339   341   343
+DWAITEND   330
+TRAP64     221   224
+ASMA Ver. 0.2.1  PGM4 - HELLO WORLD WITH CONSOLE I/O                                                27 Aug 2022 10:04:06  Page    13
+
+   DESC     SYMBOL  SIZE    POS       ADDR
+
+Entry: 0
+
+Image      IMAGE     784  000-30F  0000-030F
+  Region   ASAREGN   512  000-1FF  0000-01FF
+    CSECT  ASASECT   512  000-1FF  0000-01FF
+  Region   BOOTED4   272  200-30F  2000-210F
+    CSECT  PGMSECT   272  200-30F  2000-210F
+
+
+ ADDR    POS                                OBJECT CONTENT                                         CHARACTER CONTENT
+
+
+Region: ASAREGN
+
+000000   000   00080000 00002000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000020   020   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000040   040   00000000 00000000 00000000 00000000  00000000 00000000 000A0000 00000018   |................ ................|
+000060   060   000A0000 00000020 000A0000 00000028  000A0000 00000030 000A0000 00000038   |................ ................|
+000080   080   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0000A0   0A0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0000C0   0C0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0000E0   0E0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000100   100   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000120   120   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000140   140   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000160   160   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+000180   180   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0001A0   1A0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0001C0   1C0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+0001E0   1E0   00000000 00000000 00000000 00000000  00000000 00000000 00000000 00000000   |................ ................|
+
+Region: BOOTED4
+
+002000   200   05C0D207 0000C0B6 B722C086 4810C08E  9D001000 4740C06E 4720C072 4710C076   |..K........f.... ..... .>........|
+002020   220   D2070048 C08A9C00 10004740 C06E4720  C0724710 C076D207 0078C0C6 8200C0BE   |K.......... .>.. ......K....Fb...|
+002040   240   D2070078 C0CE4910 00BA4770 C07AD601  C0900044 9500C091 4770C07E 91F3C090   |K............:O. ....n..j...=j3..|
+002060   260   4770C082 910CC090 47E0C034 8200C0D6  8200C0DE 8200C0E6 8200C0EE 8200C0F6   |...bj.......b..O b...b..Wb...b..6|
+002080   280   8200C0FE 8200C106 80000000 00002098  000F0000 00000000 090020A0 00000017   |b...b.A........q ................|
+0020A0   2A0   C8859393 9640C281 998560D4 85A38193  40E69699 93845A00 000A0000 00010008   |Hello Bare-Metal  World!.........|
+0020C0   2C0   020A0000 00000000 00080000 00002040  000A0000 00000038 000A0000 00000000   |...............  ................|
+0020E0   2E0   000A0000 00041004 000A0000 00041008  000A0000 0004100C 000A0000 00041010   |................ ................|
+002100   300   000A0000 00041014 000A0000 00041018                                        |................                 |
+ASMA Ver. 0.2.1  PGM4 - HELLO WORLD WITH CONSOLE I/O                                                27 Aug 2022 10:04:06  Page    14
+
+   STMT                FILE NAME
+
+1     /home/harold/asma/tests/pgm4c/pgm4.asm
+
+
+** NO ERRORS FOUND **
+
+[109] MNOTE *,ARCHLVL - ARCHITECTURE LEVEL SET - 3
+
