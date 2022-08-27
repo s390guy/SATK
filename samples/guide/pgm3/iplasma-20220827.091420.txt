@@ -1,4 +1,9 @@
-iplasma.py Copyright (C) 2015-2020 Harold Grovesteen
+iplasma.py Copyright (C) 2015-2022 Harold Grovesteen
+
+IPL program - list-directed load: ldipl/pgm3.txt
+    PSW    None
+    ASA   000000  ASAREGN.bin   Length: 512 (0x200)
+    Load  000300  IPLPGM3.bin   Length: 272 (0x110)
 iplasma.py - IPL HWM:  00040F
 iplasma.py - Used HWM: 000410
 iplasma.py - IPL PSW: 0008000000000300
@@ -21,11 +26,12 @@ iplasma.py - IPL Record 0:
     000000  00080000 00000300 02000610 40000200
     000010  08000628 00000001
 Memory Map:
-    IPL0: 000000-000017
     ASA: 000000-0001FF
+    IPL0: 000000-000017
     CCW0: 000008-000017
     IPLPGM3.bin: 000300-00040F
     IPL1: 000628-000657
+LOD1 IPL Record 4 not created
 iplasma.py - emulated medium pgm3.3310 created with file size: 2048
 FBA sector 0
    000000  00080000 00000300 02000610 40000200
