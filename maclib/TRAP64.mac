@@ -1,4 +1,4 @@
-.* Copyright (C) 2017 Harold Grovesteen
+.* Copyright (C) 2017-2022 Harold Grovesteen
 .*
 .* This file is part of SATK.
 .*
@@ -18,22 +18,49 @@
          MACRO
 &LABEL   TRAP64 &RESTART=NO,&PSW=
 .* Generate 64-bit ISR Trap PSWs
+.*
+.* May be used within Assigned Storage Area region generation setting trap
+.* PSW's during IPL or within executed code for setting trap PSW's post IPL.
+.* TRAP64 requires two separate uses, one for generating the restart trap PSW
+.* and another for generating all of the other PSW's when generating ASA
+.* content or when two labels are required, one label for the restart PSW and 
+.* another for the other contiguous trap PSW's.  This is because the
+.* restart New PSW is not adjacent to the other New PSW's within the assigned
+.* storage area.
+.*
+.* If the assembly target is s390x, TRAP64 will generate PSWE390 format
+.* PSW's.
+.*
 .* Optional Parameter Usage:
 .*   &LABEL   Associate a symbol with the generated PSWs
-.*   &PSW=''  Override XMODE PSW setting for generated PSWs
+.*   &PSW=''  Override XMODE PSW setting for generated PSWs.  If omitted,
+.*            XMODE PSW setting is used (except for s390x target)
 .*   &RESTART Specify 'YES' to cause the restart new PSW to be created
 .*            Specify 'ONLY' to cause just the new restart PSW to be created
 .*            Otherwise, a new restart PSW is not created.  Default is 'NO'.
+         LCLC   &GEN    PSW format used for generating 64-bit traps
+         AIF    ('&PSW' NE 'Z').PROCEED
+         MNOTE  1,'TRAP64 CAN NOT GENERATE 128-BIT TRAP PSW''S'
+         MEXIT
+.PROCEED ANOP
+         AIF    ('&SYSPSW' NE 'PSWZ').USEPSW  XMODE PSW setting for s390x?
+.* Generating 64-bit trap PSW's in a 128-bit PSW environment.
+.* Force PSW3E390 format
+&GEN     SETC   'E390'
+         AGO    .GENTRAP
+.USEPSW  ANOP
+&GEN     SETC   '&PSW'
+.GENTRAP ANOP
          AIF    ('&LABEL' EQ '').NOLBL
 &LABEL   DS     0AD
 .NOLBL   ANOP
          AIF    ('&RESTART' NE 'YES' AND '&RESTART' NE 'ONLY').NOFILL
-         PSW&PSW 0,0,2,0,X'008'    64-bit Restart ISR Trap New PSW
+         PSW&GEN 0,0,2,0,X'008'    64-bit Restart ISR Trap New PSW
          AIF    ('&RESTART' EQ 'ONLY').DONE
 .NOFILL  ANOP
-         PSW&PSW 0,0,2,0,X'018'    64-bit External ISR Trap New PSW
-         PSW&PSW 0,0,2,0,X'020'    64-bit Supervisor Call ISR Trap New PSW
-         PSW&PSW 0,0,2,0,X'028'    64-bit Program ISR Trap New PSW
-         PSW&PSW 0,0,2,0,X'030'    64-bit Machine Check Trap New PSW
-         PSW&PSW 0,0,2,0,X'038'    64-bit Input/Output Trap New PSW
+         PSW&GEN 0,0,2,0,X'018'    64-bit External ISR Trap New PSW
+         PSW&GEN 0,0,2,0,X'020'    64-bit Supervisor Call ISR Trap New PSW
+         PSW&GEN 0,0,2,0,X'028'    64-bit Program ISR Trap New PSW
+         PSW&GEN 0,0,2,0,X'030'    64-bit Machine Check Trap New PSW
+         PSW&GEN 0,0,2,0,X'038'    64-bit Input/Output Trap New PSW
 .DONE    MEND
