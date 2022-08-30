@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2015-2017 Harold Grovesteen
+# Copyright (C) 2015-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -848,10 +848,10 @@ class LogLine(object):
         text=pline.text
         mo=re.match(LogLine.fieldre,text)
         if mo is None:
-            # If we are here there should be an non-blank operation field.  If
-            # not something unexpected happened
-            raise ValueError("%s pline: %s\n    field match failed, returned None" \
-                % (assembler.eloc(self,"fields",module=this_module),pline))
+            self.error=LineError(source=pline.source,\
+                msg="malformed or missing label and/or operation field, "\
+                    "line text: '%s'" % text)
+            return
 
         # match object returned
         groups=mo.groupdict()
