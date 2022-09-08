@@ -483,6 +483,7 @@ LAX       RSYA     EBF7   -     -     -      -      -     -     -      G     G  
 LAXG      RSYA     EBE7   -     -     -      -      -     -     -      G     G     G     G
 LAY       RXYA     E371   -     -     -      -      -     -     -      G     G     G     G
 LB        RXYA     E376   -     -     -      -      -     -     -      G     G     G     G
+LBEAR     S0       B200   -     -     -      -      -     -     -      P     P     P     P
 LBH       RXYA     E3C0   -     -     -      -      -     -     -      G     G     G     G
 LBR       RRE      B926   -     -     G      -      -     -     -      G     G     G     G
 LCBB      RXFE     E727   -     -     -      -      -     -     -      G     G     G     G
@@ -501,11 +502,11 @@ LCXBR     RRE      B343   -     -     G      -      -     G     G      G     G  
 LCXR      RRE      B363   -     -     G      -      -     G     G      G     G     G     G
 LD        RXA      68     G     G     G      G      G     G     G      G     G     G     G
 LDE       RXE      ED24   -     -     G      -      -     G     G      G     G     G     G
-LDEB      RXE      ED04   -     -     G      -      -     G     G      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+LDEB      RXE      ED04   -     -     G      -      -     G     G      G     G     G     G
 LDEBR     RRE      B304   -     -     G      -      -     G     G      G     G     G     G
 LDER      RRE      B324   -     -     G      -      -     G     G      G     G     G     G
 LDETR     RRFD     B3D4   -     -     -      -      -     -     -      G     G     G     G
@@ -557,11 +558,11 @@ LLC       RXYA     E394   -     -     G      -      -     -     -      G     G  
 LLCH      RXYA     E3C2   -     -     -      -      -     -     -      G     G     G     G
 LLCR      RRE      B994   -     -     G      -      -     -     -      G     G     G     G
 LLGC      RXYA     E390   -     -     -      -      -     -     -      G     G     G     G
-LLGCR     RRE      B984   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+LLGCR     RRE      B984   -     -     -      -      -     -     -      G     G     G     G
 LLGF      RXYA     E316   -     -     -      -      -     -     -      G     G     G     G
 LLGFAT    RXYA     E39D   -     -     -      -      -     -     -      G     G     G     G
 LLGFR     RRE      B916   -     -     -      -      -     -     -      G     G     G     G
@@ -613,11 +614,11 @@ LPD       SSF3     C84    -     -     G      -      -     -     -      G     G  
 LPDBR     RRE      B310   -     -     G      -      -     G     G      G     G     G     G
 LPDFR     RRE      B370   -     -     -      -      -     -     -      G     G     G     G
 LPDG      SSF3     C85    -     -     -      -      -     -     -      G     G     G     G
-LPDR      RR       20     G     G     G      G      G     G     G      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+LPDR      RR       20     G     G     G      G      G     G     G      G     G     G     G
 LPEBR     RRE      B300   -     -     G      -      -     G     G      G     G     G     G
 LPER      RR       30     G     G     G      G      G     G     G      G     G     G     G
 LPGFR     RRE      B910   -     -     -      -      -     -     -      G     G     G     G
@@ -627,6 +628,7 @@ LPQ       RXYA     E38F   -     -     -      -      -     -     -      G     G  
 LPR       RR       10     G     G     G      G      G     G     G      G     G     G     G
 LPSW      S0       8200   P     P     P      P      P     P     P      P     P     P     P
 LPSWE     S0       B2B2   -     -     -      -      -     -     -      P     P     P     P
+LPSWEY    SIY0     EB71   -     -     -      -      -     -     -      P     P     P     P
 LPTEA     RRFB2    B9AA   -     -     -      -      -     -     -      P     P     P     P
 LPXBR     RRE      B340   -     -     G      -      -     G     G      G     G     G     G
 LPXR      RRE      B360   -     -     G      -      -     G     G      G     G     G     G
@@ -668,12 +670,12 @@ LXE       RXE      ED26   -     -     G      -      -     G     G      G     G  
 LXEB      RXE      ED06   -     -     G      -      -     G     G      G     G     G     G
 LXEBR     RRE      B306   -     -     G      -      -     G     G      G     G     G     G
 LXER      RRE      B326   -     -     G      -      -     G     G      G     G     G     G
-LXR       RRE      B365   -     -     -      -      -     G     G      G     G     G     G
-LY        RXYA     E358   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+LXR       RRE      B365   -     -     -      -      -     G     G      G     G     G     G
+LY        RXYA     E358   -     -     -      -      -     -     -      G     G     G     G
 LZDR      RRE1     B375   -     -     -      -      -     G     G      G     G     G     G
 LZER      RRE1     B374   -     -     -      -      -     G     G      G     G     G     G
 LZRF      RXYA     E33B   -     -     -      -      -     -     -      G     G     G     G
@@ -724,12 +726,12 @@ ML        RXYA     E396   -     -     -      -      -     -     G      G     G  
 MLG       RXYA     E386   -     -     -      -      -     -     -      G     G     G     G
 MLGR      RRE      B986   -     -     -      -      -     -     -      G     G     G     G
 MLR       RRE      B996   -     -     G      -      -     -     G      G     G     G     G
-MP        SSB      FC     G     G     G      G      G     G     G      G     G     G     G
-MR        RR       1C     G     G     G      G      G     G     G      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+MP        SSB      FC     G     G     G      G      G     G     G      G     G     G     G
+MR        RR       1C     G     G     G      G      G     G     G      G     G     G     G
 MS        RXA      71     -     -     G      -      -     G     G      G     G     G     G
 MSC       RXYA     E353   -     -     -      -      -     -     -      G     G     G     G
 MSCH      S0       B232   -     -     -      P      P     P     P      P     P     P     P
@@ -780,12 +782,12 @@ MXD       RXA      67     -     G     G      G      G     G     G      G     G  
 MXDB      RXE      ED07   -     -     G      -      -     G     G      G     G     G     G
 MXDBR     RRE      B307   -     -     G      -      -     G     G      G     G     G     G
 MXDR      RR       27     -     G     G      G      G     G     G      G     G     G     G
-MXR       RR       26     -     G     G      G      G     G     G      G     G     G     G
-MXTR      RRFA1    B3D8   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+MXR       RR       26     -     G     G      G      G     G     G      G     G     G     G
+MXTR      RRFA1    B3D8   -     -     -      -      -     -     -      G     G     G     G
 MXTRA     RRFA2    B3D8   -     -     -      -      -     -     -      G     G     G     G
 MY        RXF      ED3B   -     -     G      -      -     -     -      G     G     G     G
 MYH       RXF      ED3D   -     -     G      -      -     -     -      G     G     G     G
@@ -836,12 +838,12 @@ OILL      RIAU     A5B    -     -     -      -      -     -     -      G     G  
 OIY       SIY      EB56   -     -     -      -      -     -     -      G     G     G     G
 OR        RR       16     G     G     G      G      G     G     G      G     G     G     G
 ORK       RRFA1    B9F6   -     -     -      -      -     -     -      G     G     G     G
-OY        RXYA     E356   -     -     -      -      -     -     -      G     G     G     G
-PACK      SSB      F2     G     G     G      G      G     G     G      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+OY        RXYA     E356   -     -     -      -      -     -     -      G     G     G     G
+PACK      SSB      F2     G     G     G      G      G     G     G      G     G     G     G
 PALB      RRE2     B248   -     -     -      -      G     G     G      G     G     G     G
 PC        S0       B218   -     G     G      G      G     G     G      G     G     G     G
 PCC       RRE2     B92C   -     -     -      -      -     -     -      G     G     G     G
@@ -869,9 +871,11 @@ PTLB      S0       B20D   -     P     P      P      P     P     P      P     P  
 QADTR     RRFB2    B3F5   -     -     -      -      -     -     -      G     G     G     G
 QAXTR     RRFB2    B3FD   -     -     -      -      -     -     -      G     G     G     G
 QCTRI     S0       B28E   -     -     -      -      -     -     -      P     P     P     P
+QPACI     S0       B28F   -     -     -      -      -     -     -      P     P     P     P
 QSI       S0       B386   -     -     -      -      -     -     -      P     P     P     P
 RCHP      S0       B23B   -     -     -      P      P     P     P      P     P     P     P
 RDD       SI       85     P     P     -      -      -     -     -      -     P     P     P
+RDP       RRFB2    B98B   -     -     -      -      -     -     -      P     P     P     P
 RIO       S0       9C02   -     P     P      -      -     -     -      -     P     P     P
 RISBG     RIEF     EC55   -     -     -      -      -     -     -      G     G     G     G
 RISBGN    RIEF     EC59   -     -     -      -      -     -     -      G     G     G     G
@@ -890,14 +894,14 @@ RRXTR     RRFB2    B3FF   -     -     -      -      -     -     -      G     G  
 RSCH      S0       B238   -     -     -      P      P     P     P      P     P     P     P
 RXSBG     RIEF     EC57   -     -     -      -      -     -     -      G     G     G     G
 S         RXA      5B     G     G     G      G      G     G     G      G     G     G     G
-SAC       S0       B219   -     P     P      P      P     P     P      P     P     P     P
-SACF      S0       B279   -     -     -      -      -     G     G      G     G     G     G
-SAL       S0       B237   -     -     -      P      P     P     P      P     P     P     P
-SAM24     E        010C   -     -     -      -      -     -     G      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+SAC       S0       B219   -     P     P      P      P     P     P      P     P     P     P
+SACF      S0       B279   -     -     -      -      -     G     G      G     G     G     G
+SAL       S0       B237   -     -     -      P      P     P     P      P     P     P     P
+SAM24     E        010C   -     -     -      -      -     -     G      G     G     G     G
 SAM31     E        010D   -     -     -      -      -     -     G      G     G     G     G
 SAM64     E        010E   -     -     -      -      -     -     -      G     G     G     G
 SAR       RRE      B24E   -     -     -      -      G     G     G      G     G     G     G
@@ -946,14 +950,14 @@ SLBG      RXYA     E389   -     -     -      -      -     -     -      G     G  
 SLBGR     RRE      B989   -     -     -      -      -     -     -      G     G     G     G
 SLBR      RRE      B999   -     -     G      -      -     -     G      G     G     G     G
 SLDA      RSA1     8F     G     G     G      G      G     G     G      G     G     G     G
-SLDL      RSA1     8D     G     G     G      G      G     G     G      G     G     G     G
-SLDT      RXF      ED40   -     -     -      -      -     -     -      G     G     G     G
-SLFI      RILD     C25    -     -     G      -      -     -     -      G     G     G     G
-SLG       RXYA     E30B   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+SLDL      RSA1     8D     G     G     G      G      G     G     G      G     G     G     G
+SLDT      RXF      ED40   -     -     -      -      -     -     -      G     G     G     G
+SLFI      RILD     C25    -     -     G      -      -     -     -      G     G     G     G
+SLG       RXYA     E30B   -     -     -      -      -     -     -      G     G     G     G
 SLGF      RXYA     E31B   -     -     -      -      -     -     -      G     G     G     G
 SLGFI     RILD     C24    -     -     -      -      -     -     -      G     G     G     G
 SLGFR     RRE      B91B   -     -     -      -      -     -     -      G     G     G     G
@@ -1002,14 +1006,14 @@ SRP       SSC      F0     -     G     G      G      G     G     G      G     G  
 SRST      RRE      B25E   -     -     G      -      -     G     G      G     G     G     G
 SRSTU     RRE      B9BE   -     -     G      -      -     -     -      G     G     G     G
 SRXT      RXF      ED49   -     -     -      -      -     -     -      G     G     G     G
-SSAIR     RRE      B99F   -     -     -      -      -     -     -      G     G     G     G
-SSAR      RRE      B225   -     G     G      G      G     G     G      G     G     G     G
-SSCH      S0       B233   -     -     -      P      P     P     P      P     P     P     P
-SSK       RR       08     P     P     P      -      -     -     -      -     P     P     P
 MSL DATABASE REPORT - Instruction List by Mnemonics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+SSAIR     RRE      B99F   -     -     -      -      -     -     -      G     G     G     G
+SSAR      RRE      B225   -     G     G      G      G     G     G      G     G     G     G
+SSCH      S0       B233   -     -     -      P      P     P     P      P     P     P     P
+SSK       RR       08     P     P     P      -      -     -     -      -     P     P     P
 SSKE      RRE      B22B   -     P     P      P      P     P     -      -     -     -     -
 SSKE      RRFC     B22B   -     -     -      -      -     -     P      P     P     P     P
 SSM       S0       8000   P     P     P      P      P     P     P      P     P     P     P
@@ -1017,6 +1021,7 @@ ST        RXA      50     G     G     G      G      G     G     G      G     G  
 STAM      RSA      9B     -     -     -      -      G     G     G      G     G     G     G
 STAMY     RSLB     EB9B   -     -     -      -      -     -     -      G     G     G     G
 STAP      S0       B212   -     P     P      P      P     P     P      P     P     P     P
+STBEAR    S0       B201   -     -     -      -      -     -     -      P     P     P     P
 STC       RXA      42     G     G     G      G      G     G     G      G     G     G     G
 STCCTM    RSYB     EB17   -     -     -      -      -     -     -      G     G     G     G
 STCH      RXYA     E3C3   -     -     -      -      -     -     -      G     G     G     G
@@ -1057,15 +1062,15 @@ STMY      RSYA     EB90   -     -     -      -      -     -     -      G     G  
 STNSM     SI       AC     -     P     P      P      P     P     P      P     P     P     P
 STOC      RSYB1    EBF3   -     -     -      -      -     -     -      G     G     G     G
 STOCFH    RSYB1    EBE1   -     -     -      -      -     -     -      G     G     G     G
+MSL DATABASE REPORT - Instruction List by Mnemonics
+
+MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
+
 STOCG     RSYB1    EBE3   -     -     -      -      -     -     -      G     G     G     G
 STOSM     SI       AD     -     P     P      P      P     P     P      P     P     P     P
 STPQ      RXYA     E38E   -     -     -      -      -     -     -      G     G     G     G
 STPT      S0       B209   -     P     P      P      P     P     P      P     P     P     P
 STPX      S0       B211   -     P     P      P      P     P     P      P     P     P     P
-MSL DATABASE REPORT - Instruction List by Mnemonics
-
-MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
-
 STRAG     SSE2     E502   -     -     -      -      -     -     -      P     P     P     P
 STRL      RILB     C4F    -     -     G      -      -     -     -      G     G     G     G
 STRV      RXYA     E33E   -     -     -      -      -     -     G      G     G     G     G
@@ -1113,15 +1118,15 @@ TMH       RIAU     A70    -     -     G      -      -     G     G      G     G  
 TMHH      RIAU     A72    -     -     -      -      -     -     -      G     G     G     G
 TMHL      RIAU     A73    -     -     -      -      -     -     -      G     G     G     G
 TML       RIAU     A71    -     -     G      -      -     G     G      G     G     G     G
+MSL DATABASE REPORT - Instruction List by Mnemonics
+
+MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
+
 TMLH      RIAU     A70    -     -     G      -      -     -     G      G     G     G     G
 TMLL      RIAU     A71    -     -     G      -      -     -     G      G     G     G     G
 TMY       SIY      EB51   -     -     -      -      -     -     -      G     G     G     G
 TP        RSLA     EBC0   -     -     G      -      -     -     G      G     G     G     G
 TPEI      RRE      B9A1   -     -     -      -      -     -     -      P     P     P     P
-MSL DATABASE REPORT - Instruction List by Mnemonics
-
-MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
-
 TPI       S0       B236   -     -     -      P      P     P     P      P     P     P     P
 TPROT     SSE2     E501   -     P     P      P      P     P     P      P     P     P     P
 TR        SSA      DC     G     G     G      G      G     G     G      G     G     G     G
@@ -1169,15 +1174,15 @@ VDP       VRIF     E67A   -     -     -      -      -     -     -      G     G  
 VEC       VRRA1    E7DB   -     -     -      -      -     -     -      G     G     G     G
 VECL      VRRA1    E7D9   -     -     -      -      -     -     -      G     G     G     G
 VERIM     VRID     E772   -     -     -      -      -     -     -      G     G     G     G
+MSL DATABASE REPORT - Instruction List by Mnemonics
+
+MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
+
 VERLL     VRSA     E733   -     -     -      -      -     -     -      G     G     G     G
 VERLLV    VRRC1    E773   -     -     -      -      -     -     -      G     G     G     G
 VESL      VRSA     E730   -     -     -      -      -     -     -      G     G     G     G
 VESLV     VRRC1    E770   -     -     -      -      -     -     -      G     G     G     G
 VESRA     VRSA     E73A   -     -     -      -      -     -     -      G     G     G     G
-MSL DATABASE REPORT - Instruction List by Mnemonics
-
-MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
-
 VESRAV    VRRC1    E77A   -     -     -      -      -     -     -      G     G     G     G
 VESRL     VRSA     E738   -     -     -      -      -     -     -      G     G     G     G
 VESRLV    VRRC1    E778   -     -     -      -      -     -     -      G     G     G     G
@@ -1225,15 +1230,15 @@ VLIP      VRIH     E649   -     -     -      -      -     -     -      G     G  
 VLL       VRSB1    E737   -     -     -      -      -     -     -      G     G     G     G
 VLLEZ     VRX      E704   -     -     -      -      -     -     -      G     G     G     G
 VLM       VRSA1    E736   -     -     -      -      -     -     -      G     G     G     G
+MSL DATABASE REPORT - Instruction List by Mnemonics
+
+MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
+
 VLP       VRRA1    E7DF   -     -     -      -      -     -     -      G     G     G     G
 VLR       VRRA2    E756   -     -     -      -      -     -     -      G     G     G     G
 VLRL      VSI      E635   -     -     -      -      -     -     -      G     G     G     G
 VLRLR     VRSD     E637   -     -     -      -      -     -     -      G     G     G     G
 VLVG      VRSB     E722   -     -     -      -      -     -     -      G     G     G     G
-MSL DATABASE REPORT - Instruction List by Mnemonics
-
-MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
-
 VLVGP     VRRF1    E762   -     -     -      -      -     -     -      G     G     G     G
 VMAE      VRRD1    E7AE   -     -     -      -      -     -     -      G     G     G     G
 VMAH      VRRD1    E7AB   -     -     -      -      -     -     -      G     G     G     G
@@ -1281,15 +1286,15 @@ VSCBI     VRRC1    E7F5   -     -     -      -      -     -     -      G     G  
 VSCEF     VRV      E71B   -     -     -      -      -     -     -      G     G     G     G
 VSCEG     VRV      E71A   -     -     -      -      -     -     -      G     G     G     G
 VSDP      VRIF     E67E   -     -     -      -      -     -     -      G     G     G     G
+MSL DATABASE REPORT - Instruction List by Mnemonics
+
+MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
+
 VSEG      VRRA1    E75F   -     -     -      -      -     -     -      G     G     G     G
 VSL       VRRC2    E774   -     -     -      -      -     -     -      G     G     G     G
 VSLB      VRRC2    E775   -     -     -      -      -     -     -      G     G     G     G
 VSLDB     VRID1    E777   -     -     -      -      -     -     -      G     G     G     G
 VSP       VRIF     E673   -     -     -      -      -     -     -      G     G     G     G
-MSL DATABASE REPORT - Instruction List by Mnemonics
-
-MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
-
 VSRA      VRRC2    E77E   -     -     -      -      -     -     -      G     G     G     G
 VSRAB     VRRC2    E77F   -     -     -      -      -     -     -      G     G     G     G
 VSRL      VRRC2    E77C   -     -     -      -      -     -     -      G     G     G     G
@@ -1553,14 +1558,16 @@ SIGP      RSA      AE     -     P     P      P      P     P     P      P     P  
 MC        SI       AF     -     G     G      G      G     G     G      G     G     G     G
 LRA       RXA      B1     -     P     P      P      P     P     P      P     P     P     P
 CONCS     S0       B200   -     P     P      -      -     -     -      -     P     P     P
+LBEAR     S0       B200   -     -     -      -      -     -     -      P     P     P     P
 DISCS     S0       B201   -     P     P      -      -     -     -      -     P     P     P
+STBEAR    S0       B201   -     -     -      -      -     -     -      P     P     P     P
 STIDP     S0       B202   -     P     P      P      P     P     P      P     P     P     P
-STIDC     S0       B203   -     P     P      -      -     -     -      -     P     P     P
-SCK       S0       B204   -     P     P      P      P     P     P      P     P     P     P
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+STIDC     S0       B203   -     P     P      -      -     -     -      -     P     P     P
+SCK       S0       B204   -     P     P      P      P     P     P      P     P     P     P
 STCK      S0       B205   -     P     P      P      P     P     P      P     P     P     P
 SCKC      S0       B206   -     P     P      P      P     P     P      P     P     P     P
 STCKC     S0       B207   -     P     P      P      P     P     P      P     P     P     P
@@ -1611,12 +1618,12 @@ RCHP      S0       B23B   -     -     -      P      P     P     P      P     P  
 SCHM      S0       B23C   -     -     -      P      P     P     P      P     P     P     P
 BAKR      RRE      B240   -     -     -      -      G     G     G      G     G     G     G
 CKSM      RRE      B241   -     -     G      -      -     G     G      G     G     G     G
-SQDR      RRE      B244   -     -     G      -      -     G     G      G     G     G     G
-SQER      RRE      B245   -     -     G      -      -     G     G      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+SQDR      RRE      B244   -     -     G      -      -     G     G      G     G     G     G
+SQER      RRE      B245   -     -     G      -      -     G     G      G     G     G     G
 STURA     RRE      B246   -     -     -      -      P     P     P      P     P     P     P
 MSTA      RRE1     B247   -     -     -      -      G     G     G      G     G     G     G
 PALB      RRE2     B248   -     -     -      -      G     G     G      G     G     G     G
@@ -1650,6 +1657,7 @@ LCCTL     RRE      B284   -     -     -      -      -     -     -      P     P  
 LPCTL     S0       B285   -     -     -      -      -     -     -      P     P     P     P
 LSCTL     S0       B287   -     -     -      -      -     -     -      P     P     P     P
 QCTRI     S0       B28E   -     -     -      -      -     -     -      P     P     P     P
+QPACI     S0       B28F   -     -     -      -      -     -     -      P     P     P     P
 SRNM      S0       B299   -     -     G      -      -     G     G      G     G     G     G
 STFPC     S0       B29C   -     -     G      -      -     G     G      G     G     G     G
 LFPC      S0       B29D   -     -     G      -      -     G     G      G     G     G     G
@@ -1666,13 +1674,13 @@ SRNMT     S0       B2B9   -     -     -      -      -     -     -      G     G  
 LFAS      S0       B2BD   -     -     -      -      -     -     -      G     G     G     G
 SCCTR     RRE      B2E0   -     -     -      -      -     -     -      P     P     P     P
 SPCTR     RRE      B2E1   -     -     -      -      -     -     -      P     P     P     P
-ECCTR     RRE      B2E4   -     -     -      -      -     -     -      G     G     G     G
-EPCTR     RRE      B2E5   -     -     -      -      -     -     -      P     P     P     P
-PPA       RRFC     B2E8   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+ECCTR     RRE      B2E4   -     -     -      -      -     -     -      G     G     G     G
+EPCTR     RRE      B2E5   -     -     -      -      -     -     -      P     P     P     P
+PPA       RRFC     B2E8   -     -     -      -      -     -     -      G     G     G     G
 ETND      RRE1     B2EC   -     -     -      -      -     -     -      G     G     G     G
 ECPGA     RRE      B2ED   -     -     -      -      -     -     -      P     P     P     P
 IUCV      S0       B2F0   -     P     -      P      P     P     P      P     P     P     P
@@ -1722,13 +1730,13 @@ MEER      RRE      B337   -     -     G      -      -     G     G      G     G  
 MAYLR     RRFH     B338   -     -     G      -      -     -     -      G     G     G     G
 MYLR      RRFH     B339   -     -     G      -      -     -     -      G     G     G     G
 MAYR      RRFH     B33A   -     -     G      -      -     -     -      G     G     G     G
-MYR       RRFH     B33B   -     -     G      -      -     -     -      G     G     G     G
-MAYHR     RRFH     B33C   -     -     G      -      -     -     -      G     G     G     G
-MYHR      RRFH     B33D   -     -     G      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+MYR       RRFH     B33B   -     -     G      -      -     -     -      G     G     G     G
+MAYHR     RRFH     B33C   -     -     G      -      -     -     -      G     G     G     G
+MYHR      RRFH     B33D   -     -     G      -      -     -     -      G     G     G     G
 MADR      RRD      B33E   -     -     G      -      -     -     G      G     G     G     G
 MSDR      RRD      B33F   -     -     G      -      -     -     G      G     G     G     G
 LPXBR     RRE      B340   -     -     G      -      -     G     G      G     G     G     G
@@ -1778,13 +1786,13 @@ FIER      RRE      B377   -     -     G      -      -     G     G      G     G  
 FIDR      RRE      B37F   -     -     G      -      -     G     G      G     G     G     G
 SFPC      RRE1     B384   -     -     G      -      -     G     G      G     G     G     G
 SFASR     RRE1     B385   -     -     -      -      -     -     -      G     G     G     G
-QSI       S0       B386   -     -     -      -      -     -     -      P     P     P     P
-EFPC      RRE1     B38C   -     -     G      -      -     G     G      G     G     G     G
-CELFBR    RRFE     B390   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+QSI       S0       B386   -     -     -      -      -     -     -      P     P     P     P
+EFPC      RRE1     B38C   -     -     G      -      -     G     G      G     G     G     G
+CELFBR    RRFE     B390   -     -     -      -      -     -     -      G     G     G     G
 CDLFBR    RRFE     B391   -     -     -      -      -     -     -      G     G     G     G
 CXLFBR    RRFE     B392   -     -     -      -      -     -     -      G     G     G     G
 CEFBR     RRE      B394   -     -     -      -      -     G     G      G     G     G     G
@@ -1834,13 +1842,13 @@ CGER      RRFG     B3C8   -     -     -      -      -     -     -      G     G  
 CGDR      RRFG     B3C9   -     -     -      -      -     -     -      G     G     G     G
 CGXR      RRFG     B3CA   -     -     -      -      -     -     -      G     G     G     G
 LGDR      RRE      B3CD   -     -     -      -      -     -     -      G     G     G     G
-MDTR      RRFA1    B3D0   -     -     -      -      -     -     -      G     G     G     G
-MDTRA     RRFA2    B3D0   -     -     -      -      -     -     -      G     G     G     G
-DDTR      RRFA1    B3D1   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+MDTR      RRFA1    B3D0   -     -     -      -      -     -     -      G     G     G     G
+MDTRA     RRFA2    B3D0   -     -     -      -      -     -     -      G     G     G     G
+DDTR      RRFA1    B3D1   -     -     -      -      -     -     -      G     G     G     G
 DDTRA     RRFA2    B3D1   -     -     -      -      -     -     -      G     G     G     G
 ADTR      RRFA1    B3D2   -     -     -      -      -     -     -      G     G     G     G
 ADTRA     RRFA2    B3D2   -     -     -      -      -     -     -      G     G     G     G
@@ -1890,13 +1898,13 @@ CXGTR     RRE      B3F9   -     -     -      -      -     -     -      G     G  
 CXGTRA    RRFE     B3F9   -     -     -      -      -     -     -      G     G     G     G
 CXUTR     RRE      B3FA   -     -     -      -      -     -     -      G     G     G     G
 CXSTR     RRE      B3FB   -     -     -      -      -     -     -      G     G     G     G
-CEXTR     RRE      B3FC   -     -     -      -      -     -     -      G     G     G     G
-QAXTR     RRFB2    B3FD   -     -     -      -      -     -     -      G     G     G     G
-IEXTR     RRFI     B3FE   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+CEXTR     RRE      B3FC   -     -     -      -      -     -     -      G     G     G     G
+QAXTR     RRFB2    B3FD   -     -     -      -      -     -     -      G     G     G     G
+IEXTR     RRFI     B3FE   -     -     -      -      -     -     -      G     G     G     G
 RRXTR     RRFB2    B3FF   -     -     -      -      -     -     -      G     G     G     G
 STCTL     RSA      B6     -     P     P      P      P     P     P      P     P     P     P
 LCTL      RSA      B7     -     P     P      P      P     P     P      P     P     P     P
@@ -1946,13 +1954,13 @@ KM        RRE      B92E   -     -     -      -      -     -     G      G     G  
 KMC       RRE      B92F   -     -     -      -      -     -     G      G     G     G     G
 CGFR      RRE      B930   -     -     -      -      -     -     -      G     G     G     G
 CLGFR     RRE      B931   -     -     -      -      -     -     -      G     G     G     G
-PPNO      RRE      B93C   -     -     -      -      -     -     -      G     G     G     G
-PRNO      RRE      B93C   -     -     -      -      -     -     -      G     G     G     G
-KIMD      RRE      B93E   -     -     -      -      -     -     G      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+PPNO      RRE      B93C   -     -     -      -      -     -     -      G     G     G     G
+PRNO      RRE      B93C   -     -     -      -      -     -     -      G     G     G     G
+KIMD      RRE      B93E   -     -     -      -      -     -     G      G     G     G     G
 KLMD      RRE      B93F   -     -     -      -      -     -     G      G     G     G     G
 CFDTR     RRFE     B941   -     -     -      -      -     -     -      G     G     G     G
 CLGDTR    RRFE     B942   -     -     -      -      -     -     -      G     G     G     G
@@ -1990,6 +1998,7 @@ DLGR      RRE      B987   -     -     -      -      -     -     -      G     G  
 ALCGR     RRE      B988   -     -     -      -      -     -     -      G     G     G     G
 SLBGR     RRE      B989   -     -     -      -      -     -     -      G     G     G     G
 CSPG      RRE      B98A   -     -     -      -      -     -     -      P     P     P     P
+RDP       RRFB2    B98B   -     -     -      -      -     -     -      P     P     P     P
 EPSW      RRE      B98D   -     -     G      -      -     -     G      G     G     G     G
 IDTE      RRFA2    B98E   -     -     -      -      -     -     -      P     P     P     P
 CRDTE     RRFB2    B98F   -     -     -      -      -     -     -      P     P     P     P
@@ -2001,14 +2010,14 @@ LLCR      RRE      B994   -     -     G      -      -     -     -      G     G  
 LLHR      RRE      B995   -     -     G      -      -     -     -      G     G     G     G
 MLR       RRE      B996   -     -     G      -      -     -     G      G     G     G     G
 DLR       RRE      B997   -     -     G      -      -     -     G      G     G     G     G
-ALCR      RRE      B998   -     -     G      -      -     -     G      G     G     G     G
-SLBR      RRE      B999   -     -     G      -      -     -     G      G     G     G     G
-EPAIR     RRE      B99A   -     -     -      -      -     -     -      G     G     G     G
-ESAIR     RRE      B99B   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+ALCR      RRE      B998   -     -     G      -      -     -     G      G     G     G     G
+SLBR      RRE      B999   -     -     G      -      -     -     G      G     G     G     G
+EPAIR     RRE      B99A   -     -     -      -      -     -     -      G     G     G     G
+ESAIR     RRE      B99B   -     -     -      -      -     -     -      G     G     G     G
 ESEA      RRE1     B99D   -     -     -      -      -     -     -      P     P     P     P
 PTI       RRE      B99E   -     -     -      -      -     -     -      G     G     G     G
 SSAIR     RRE      B99F   -     -     -      -      -     -     -      G     G     G     G
@@ -2057,14 +2066,14 @@ LOCR      RRFC     B9F2   -     -     -      -      -     -     -      G     G  
 NRK       RRFA1    B9F4   -     -     -      -      -     -     -      G     G     G     G
 NCRK      RRFA1    B9F5   -     -     -      -      -     -     -      G     G     G     G
 ORK       RRFA1    B9F6   -     -     -      -      -     -     -      G     G     G     G
-XRK       RRFA1    B9F7   -     -     -      -      -     -     -      G     G     G     G
-ARK       RRFA1    B9F8   -     -     -      -      -     -     -      G     G     G     G
-SRK       RRFA1    B9F9   -     -     -      -      -     -     -      G     G     G     G
-ALRK      RRFA1    B9FA   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+XRK       RRFA1    B9F7   -     -     -      -      -     -     -      G     G     G     G
+ARK       RRFA1    B9F8   -     -     -      -      -     -     -      G     G     G     G
+SRK       RRFA1    B9F9   -     -     -      -      -     -     -      G     G     G     G
+ALRK      RRFA1    B9FA   -     -     -      -      -     -     -      G     G     G     G
 SLRK      RRFA1    B9FB   -     -     -      -      -     -     -      G     G     G     G
 MSRKC     RRFA1    B9FD   -     -     -      -      -     -     -      G     G     G     G
 CS        RSA      BA     -     G     G      G      G     G     G      G     G     G     G
@@ -2113,14 +2122,14 @@ BPRP      MII      C5     -     -     -      -      -     -     -      G     G  
 EXRL      RILB     C60    -     -     -      -      -     -     -      G     G     G     G
 PFDRL     RILC     C62    -     -     G      -      -     -     -      G     G     G     G
 CGHRL     RILB     C64    -     -     -      -      -     -     -      G     G     G     G
-CHRL      RILB     C65    -     -     G      -      -     -     -      G     G     G     G
-CLGHRL    RILB     C66    -     -     -      -      -     -     -      G     G     G     G
-CLHRL     RILB     C67    -     -     G      -      -     -     -      G     G     G     G
-CGRL      RILB     C68    -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+CHRL      RILB     C65    -     -     G      -      -     -     -      G     G     G     G
+CLGHRL    RILB     C66    -     -     -      -      -     -     -      G     G     G     G
+CLHRL     RILB     C67    -     -     G      -      -     -     -      G     G     G     G
+CGRL      RILB     C68    -     -     -      -      -     -     -      G     G     G     G
 CLGRL     RILB     C6A    -     -     -      -      -     -     -      G     G     G     G
 CGFRL     RILB     C6C    -     -     -      -      -     -     -      G     G     G     G
 CRL       RILB     C6D    -     -     G      -      -     -     -      G     G     G     G
@@ -2169,14 +2178,14 @@ CVBG      RXYA     E30E   -     -     -      -      -     -     -      G     G  
 LRVG      RXYA     E30F   -     -     -      -      -     -     -      G     G     G     G
 LT        RXYA     E312   -     -     G      -      -     -     -      G     G     G     G
 LRAY      RXYA     E313   -     -     -      -      -     -     -      P     P     P     P
-LGF       RXYA     E314   -     -     -      -      -     -     -      G     G     G     G
-LGH       RXYA     E315   -     -     -      -      -     -     -      G     G     G     G
-LLGF      RXYA     E316   -     -     -      -      -     -     -      G     G     G     G
-LLGT      RXYA     E317   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+LGF       RXYA     E314   -     -     -      -      -     -     -      G     G     G     G
+LGH       RXYA     E315   -     -     -      -      -     -     -      G     G     G     G
+LLGF      RXYA     E316   -     -     -      -      -     -     -      G     G     G     G
+LLGT      RXYA     E317   -     -     -      -      -     -     -      G     G     G     G
 AGF       RXYA     E318   -     -     -      -      -     -     -      G     G     G     G
 SGF       RXYA     E319   -     -     -      -      -     -     -      G     G     G     G
 ALGF      RXYA     E31A   -     -     -      -      -     -     -      G     G     G     G
@@ -2225,14 +2234,14 @@ MFY       RXYA     E35C   -     -     -      -      -     -     -      G     G  
 ALY       RXYA     E35E   -     -     -      -      -     -     -      G     G     G     G
 SLY       RXYA     E35F   -     -     -      -      -     -     -      G     G     G     G
 STHY      RXYA     E370   -     -     -      -      -     -     -      G     G     G     G
-LAY       RXYA     E371   -     -     -      -      -     -     -      G     G     G     G
-STCY      RXYA     E372   -     -     -      -      -     -     -      G     G     G     G
-ICY       RXYA     E373   -     -     -      -      -     -     -      G     G     G     G
-LAEY      RXYA     E375   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+LAY       RXYA     E371   -     -     -      -      -     -     -      G     G     G     G
+STCY      RXYA     E372   -     -     -      -      -     -     -      G     G     G     G
+ICY       RXYA     E373   -     -     -      -      -     -     -      G     G     G     G
+LAEY      RXYA     E375   -     -     -      -      -     -     -      G     G     G     G
 LB        RXYA     E376   -     -     -      -      -     -     -      G     G     G     G
 LGB       RXYA     E377   -     -     -      -      -     -     -      G     G     G     G
 LHY       RXYA     E378   -     -     -      -      -     -     -      G     G     G     G
@@ -2281,14 +2290,14 @@ CLHF      RXYA     E3CF   -     -     -      -      -     -     -      G     G  
 LGSC      RXYA     E44D   -     -     -      -      -     -     -      G     G     G     G
 LASP      SSE2     E500   -     P     P      P      P     P     P      P     P     P     P
 TPROT     SSE2     E501   -     P     P      P      P     P     P      P     P     P     P
-STRAG     SSE2     E502   -     -     -      -      -     -     -      P     P     P     P
-MVCRL     SSE2     E50A   -     -     -      -      -     -     -      G     G     G     G
-MVCSK     SSE2     E50E   -     -     -      -      G     G     G      G     G     G     G
-MVCDK     SSE2     E50F   -     -     -      -      G     G     G      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+STRAG     SSE2     E502   -     -     -      -      -     -     -      P     P     P     P
+MVCRL     SSE2     E50A   -     -     -      -      -     -     -      G     G     G     G
+MVCSK     SSE2     E50E   -     -     -      -      G     G     G      G     G     G     G
+MVCDK     SSE2     E50F   -     -     -      -      G     G     G      G     G     G     G
 MVHHI     SIL1     E544   -     -     G      -      -     -     -      G     G     G     G
 MVGHI     SIL1     E548   -     -     G      -      -     -     -      G     G     G     G
 MVHI      SIL1     E54C   -     -     G      -      -     -     -      G     G     G     G
@@ -2337,14 +2346,14 @@ VSCEG     VRV      E71A   -     -     -      -      -     -     -      G     G  
 VSCEF     VRV      E71B   -     -     -      -      -     -     -      G     G     G     G
 VLGV      VRSC     E721   -     -     -      -      -     -     -      G     G     G     G
 VLVG      VRSB     E722   -     -     -      -      -     -     -      G     G     G     G
-LCBB      RXFE     E727   -     -     -      -      -     -     -      G     G     G     G
-VESL      VRSA     E730   -     -     -      -      -     -     -      G     G     G     G
-VERLL     VRSA     E733   -     -     -      -      -     -     -      G     G     G     G
-VLM       VRSA1    E736   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+LCBB      RXFE     E727   -     -     -      -      -     -     -      G     G     G     G
+VESL      VRSA     E730   -     -     -      -      -     -     -      G     G     G     G
+VERLL     VRSA     E733   -     -     -      -      -     -     -      G     G     G     G
+VLM       VRSA1    E736   -     -     -      -      -     -     -      G     G     G     G
 VLL       VRSB1    E737   -     -     -      -      -     -     -      G     G     G     G
 VESRL     VRSA     E738   -     -     -      -      -     -     -      G     G     G     G
 VESRA     VRSA     E73A   -     -     -      -      -     -     -      G     G     G     G
@@ -2393,14 +2402,14 @@ VSRA      VRRC2    E77E   -     -     -      -      -     -     -      G     G  
 VSRAB     VRRC2    E77F   -     -     -      -      -     -     -      G     G     G     G
 VFEE      VRRB     E780   -     -     -      -      -     -     -      G     G     G     G
 VFENE     VRRB     E781   -     -     -      -      -     -     -      G     G     G     G
-VFAE      VRRB     E782   -     -     -      -      -     -     -      G     G     G     G
-VPDI      VRRC1    E784   -     -     -      -      -     -     -      G     G     G     G
-VBPERM    VRRC2    E785   -     -     -      -      -     -     -      G     G     G     G
-VSTRC     VRRD     E78A   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+VFAE      VRRB     E782   -     -     -      -      -     -     -      G     G     G     G
+VPDI      VRRC1    E784   -     -     -      -      -     -     -      G     G     G     G
+VBPERM    VRRC2    E785   -     -     -      -      -     -     -      G     G     G     G
+VSTRC     VRRD     E78A   -     -     -      -      -     -     -      G     G     G     G
 VPERM     VRRE1    E78C   -     -     -      -      -     -     -      G     G     G     G
 VFMS      VRRE     E78E   -     -     -      -      -     -     -      G     G     G     G
 VFMA      VRRE     E78F   -     -     -      -      -     -     -      G     G     G     G
@@ -2449,14 +2458,14 @@ VUPH      VRRA1    E7D7   -     -     -      -      -     -     -      G     G  
 VTM       VRRA2    E7D8   -     -     -      -      -     -     -      G     G     G     G
 VECL      VRRA1    E7D9   -     -     -      -      -     -     -      G     G     G     G
 VEC       VRRA1    E7DB   -     -     -      -      -     -     -      G     G     G     G
-VLC       VRRA1    E7DE   -     -     -      -      -     -     -      G     G     G     G
-VLP       VRRA1    E7DF   -     -     -      -      -     -     -      G     G     G     G
-VFS       VRRC3    E7E2   -     -     -      -      -     -     -      G     G     G     G
-VFA       VRRC3    E7E3   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+VLC       VRRA1    E7DE   -     -     -      -      -     -     -      G     G     G     G
+VLP       VRRA1    E7DF   -     -     -      -      -     -     -      G     G     G     G
+VFS       VRRC3    E7E2   -     -     -      -      -     -     -      G     G     G     G
+VFA       VRRC3    E7E3   -     -     -      -      -     -     -      G     G     G     G
 VFD       VRRC3    E7E5   -     -     -      -      -     -     -      G     G     G     G
 VFM       VRRC3    E7E7   -     -     -      -      -     -     -      G     G     G     G
 VFCE      VRRC     E7E8   -     -     -      -      -     -     -      G     G     G     G
@@ -2505,17 +2514,18 @@ BXHG      RSYA     EB44   -     -     -      -      -     -     -      G     G  
 BXLEG     RSYA     EB45   -     -     -      -      -     -     -      G     G     G     G
 ECAG      RSYA     EB4C   -     -     -      -      -     -     -      G     G     G     G
 TMY       SIY      EB51   -     -     -      -      -     -     -      G     G     G     G
-MVIY      SIY      EB52   -     -     -      -      -     -     -      G     G     G     G
-NIY       SIY      EB54   -     -     -      -      -     -     -      G     G     G     G
-CLIY      SIY      EB55   -     -     -      -      -     -     -      G     G     G     G
-OIY       SIY      EB56   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Opcode
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+MVIY      SIY      EB52   -     -     -      -      -     -     -      G     G     G     G
+NIY       SIY      EB54   -     -     -      -      -     -     -      G     G     G     G
+CLIY      SIY      EB55   -     -     -      -      -     -     -      G     G     G     G
+OIY       SIY      EB56   -     -     -      -      -     -     -      G     G     G     G
 XIY       SIY      EB57   -     -     -      -      -     -     -      G     G     G     G
 ASI       SIY1     EB6A   -     -     G      -      -     -     -      G     G     G     G
 ALSI      SIY1     EB6E   -     -     G      -      -     -     -      G     G     G     G
+LPSWEY    SIY0     EB71   -     -     -      -      -     -     -      P     P     P     P
 AGSI      SIY1     EB7A   -     -     G      -      -     -     -      G     G     G     G
 ALGSI     SIY1     EB7E   -     -     G      -      -     -     -      G     G     G     G
 ICMH      RSC      EB80   -     -     -      -      -     -     -      G     G     G     G
@@ -2560,15 +2570,15 @@ ROSBG     RIEF     EC56   -     -     -      -      -     -     -      G     G  
 RXSBG     RIEF     EC57   -     -     -      -      -     -     -      G     G     G     G
 RISBGN    RIEF     EC59   -     -     -      -      -     -     -      G     G     G     G
 RISBHG    RIEF     EC5D   -     -     -      -      -     -     -      G     G     G     G
+MSL DATABASE REPORT - Instruction List by Opcode
+
+MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
+
 CGRJ      RIEB     EC64   -     -     -      -      -     -     -      G     G     G     G
 CLGRJ     RIEB     EC65   -     -     -      -      -     -     -      G     G     G     G
 CGIT      RIEA     EC70   -     -     -      -      -     -     -      G     G     G     G
 CLGIT     RIEA1    EC71   -     -     -      -      -     -     -      G     G     G     G
 CIT       RIEA     EC72   -     -     G      -      -     -     -      G     G     G     G
-MSL DATABASE REPORT - Instruction List by Opcode
-
-MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
-
 CLFIT     RIEA1    EC73   -     -     G      -      -     -     -      G     G     G     G
 CRJ       RIEB     EC76   -     -     G      -      -     -     -      G     G     G     G
 CLRJ      RIEB     EC77   -     -     G      -      -     -     -      G     G     G     G
@@ -2616,15 +2626,15 @@ MADB      RXF      ED1E   -     -     G      -      -     G     G      G     G  
 MSDB      RXF      ED1F   -     -     G      -      -     G     G      G     G     G     G
 LDE       RXE      ED24   -     -     G      -      -     G     G      G     G     G     G
 LXD       RXE      ED25   -     -     G      -      -     G     G      G     G     G     G
+MSL DATABASE REPORT - Instruction List by Opcode
+
+MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
+
 LXE       RXE      ED26   -     -     G      -      -     G     G      G     G     G     G
 MAE       RXF      ED2E   -     -     G      -      -     -     G      G     G     G     G
 MSE       RXF      ED2F   -     -     G      -      -     -     G      G     G     G     G
 SQE       RXE      ED34   -     -     G      -      -     G     G      G     G     G     G
 SQD       RXE      ED35   -     -     G      -      -     G     G      G     G     G     G
-MSL DATABASE REPORT - Instruction List by Opcode
-
-MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
-
 MEE       RXE      ED37   -     -     G      -      -     G     G      G     G     G     G
 MAYL      RXF      ED38   -     -     G      -      -     -     -      G     G     G     G
 MYL       RXF      ED39   -     -     G      -      -     -     -      G     G     G     G
@@ -3221,17 +3231,18 @@ DIEBR     RRFB2    B353   -     -     G      -      -     G     G      G     G  
 LPTEA     RRFB2    B9AA   -     -     -      -      -     -     -      P     P     P     P
 QADTR     RRFB2    B3F5   -     -     -      -      -     -     -      G     G     G     G
 QAXTR     RRFB2    B3FD   -     -     -      -      -     -     -      G     G     G     G
+RDP       RRFB2    B98B   -     -     -      -      -     -     -      P     P     P     P
 RRDTR     RRFB2    B3F7   -     -     -      -      -     -     -      G     G     G     G
 RRXTR     RRFB2    B3FF   -     -     -      -      -     -     -      G     G     G     G
 KMA       RRFB3    B929   -     -     -      -      -     -     -      G     G     G     G
 CGRT      RRFC     B960   -     -     -      -      -     -     -      G     G     G     G
 CLGRT     RRFC     B961   -     -     -      -      -     -     -      G     G     G     G
 CLRT      RRFC     B973   -     -     G      -      -     -     -      G     G     G     G
-CRT       RRFC     B972   -     -     G      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+CRT       RRFC     B972   -     -     G      -      -     -     -      G     G     G     G
 LOCFHR    RRFC     B9E0   -     -     -      -      -     -     -      G     G     G     G
 LOCGR     RRFC     B9E2   -     -     -      -      -     -     -      G     G     G     G
 LOCR      RRFC     B9F2   -     -     -      -      -     -     -      G     G     G     G
@@ -3283,11 +3294,11 @@ CXGTRA    RRFE     B3F9   -     -     -      -      -     -     -      G     G  
 CXLFBR    RRFE     B392   -     -     -      -      -     -     -      G     G     G     G
 CXLFTR    RRFE     B95B   -     -     -      -      -     -     -      G     G     G     G
 CXLGBR    RRFE     B3A2   -     -     -      -      -     -     -      G     G     G     G
-CXLGTR    RRFE     B95A   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+CXLGTR    RRFE     B95A   -     -     -      -      -     -     -      G     G     G     G
 FIDBRA    RRFE     B35F   -     -     -      -      -     -     -      G     G     G     G
 FIDTR     RRFE     B3D7   -     -     -      -      -     -     -      G     G     G     G
 FIEBRA    RRFE     B357   -     -     -      -      -     -     -      G     G     G     G
@@ -3339,11 +3350,11 @@ CS        RSA      BA     -     G     G      G      G     G     G      G     G  
 DIAG      RSA      83     P     P     P      P      P     P     P      P     P     P     P
 LAM       RSA      9A     -     -     -      -      G     G     G      G     G     G     G
 LCTL      RSA      B7     -     P     P      P      P     P     P      P     P     P     P
-LM        RSA      98     G     G     G      G      G     G     G      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+LM        RSA      98     G     G     G      G      G     G     G      G     G     G     G
 MVCLE     RSA      A8     -     -     -      -      -     G     G      G     G     G     G
 SIGP      RSA      AE     -     P     P      P      P     P     P      P     P     P     P
 STAM      RSA      9B     -     -     -      -      G     G     G      G     G     G     G
@@ -3395,11 +3406,11 @@ STAMY     RSLB     EB9B   -     -     -      -      -     -     -      G     G  
 BXHG      RSYA     EB44   -     -     -      -      -     -     -      G     G     G     G
 BXLEG     RSYA     EB45   -     -     -      -      -     -     -      G     G     G     G
 CDSG      RSYA     EB3E   -     -     -      -      -     -     -      G     G     G     G
-CDSY      RSYA     EB31   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+CDSY      RSYA     EB31   -     -     -      -      -     -     -      G     G     G     G
 CSG       RSYA     EB30   -     -     -      -      -     -     -      G     G     G     G
 CSY       RSYA     EB14   -     -     -      -      -     -     -      G     G     G     G
 ECAG      RSYA     EB4C   -     -     -      -      -     -     -      G     G     G     G
@@ -3451,11 +3462,11 @@ CVB       RXA      4F     G     G     G      G      G     G     G      G     G  
 CVD       RXA      4E     G     G     G      G      G     G     G      G     G     G     G
 D         RXA      5D     G     G     G      G      G     G     G      G     G     G     G
 DD        RXA      6D     G     G     G      G      G     G     G      G     G     G     G
-DE        RXA      7D     G     G     G      G      G     G     G      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+DE        RXA      7D     G     G     G      G      G     G     G      G     G     G     G
 EX        RXA      44     G     G     G      G      G     G     G      G     G     G     G
 IC        RXA      43     G     G     G      G      G     G     G      G     G     G     G
 L         RXA      58     G     G     G      G      G     G     G      G     G     G     G
@@ -3507,11 +3518,11 @@ MDB       RXE      ED1C   -     -     G      -      -     G     G      G     G  
 MDEB      RXE      ED0C   -     -     G      -      -     G     G      G     G     G     G
 MEE       RXE      ED37   -     -     G      -      -     G     G      G     G     G     G
 MEEB      RXE      ED17   -     -     G      -      -     G     G      G     G     G     G
-ML        RXE      E396   -     -     G      -      -     -     -      -     -     -     -
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+ML        RXE      E396   -     -     G      -      -     -     -      -     -     -     -
 MXDB      RXE      ED07   -     -     G      -      -     G     G      G     G     G     G
 SDB       RXE      ED1B   -     -     G      -      -     G     G      G     G     G     G
 SEB       RXE      ED0B   -     -     G      -      -     G     G      G     G     G     G
@@ -3563,11 +3574,11 @@ CG        RXYA     E320   -     -     -      -      -     -     -      G     G  
 CGF       RXYA     E330   -     -     -      -      -     -     -      G     G     G     G
 CGH       RXYA     E334   -     -     -      -      -     -     -      G     G     G     G
 CHF       RXYA     E3CD   -     -     -      -      -     -     -      G     G     G     G
-CHY       RXYA     E379   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+CHY       RXYA     E379   -     -     -      -      -     -     -      G     G     G     G
 CLG       RXYA     E321   -     -     -      -      -     -     -      G     G     G     G
 CLGF      RXYA     E331   -     -     -      -      -     -     -      G     G     G     G
 CLHF      RXYA     E3CF   -     -     -      -      -     -     -      G     G     G     G
@@ -3619,11 +3630,11 @@ LRV       RXYA     E31E   -     -     -      -      -     -     G      G     G  
 LRVG      RXYA     E30F   -     -     -      -      -     -     -      G     G     G     G
 LRVH      RXYA     E31F   -     -     -      -      -     -     G      G     G     G     G
 LT        RXYA     E312   -     -     G      -      -     -     -      G     G     G     G
-LTG       RXYA     E302   -     -     -      -      -     -     -      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+LTG       RXYA     E302   -     -     -      -      -     -     -      G     G     G     G
 LTGF      RXYA     E332   -     -     -      -      -     -     -      G     G     G     G
 LY        RXYA     E358   -     -     -      -      -     -     -      G     G     G     G
 LZRF      RXYA     E33B   -     -     -      -      -     -     -      G     G     G     G
@@ -3675,11 +3686,11 @@ PFD       RXYB     E336   -     -     G      -      -     -     -      G     G  
 CFC       S0       B21A   -     -     -      G      G     G     G      G     G     G     G
 CLRCH     S0       9F01   -     P     P      -      -     -     -      -     P     P     P
 CLRIO     S0       9D01   -     P     P      -      -     -     -      -     P     P     P
-CONCS     S0       B200   -     P     P      -      -     -     -      -     P     P     P
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+CONCS     S0       B200   -     P     P      -      -     -     -      -     P     P     P
 CSCH      S0       B230   -     -     -      P      P     P     P      P     P     P     P
 DISCS     S0       B201   -     P     P      -      -     -     -      -     P     P     P
 HDV       S0       9E01   -     P     P      -      -     -     -      -     P     P     P
@@ -3687,6 +3698,7 @@ HIO       S0       9E00   P     P     P      -      -     -     -      -     P  
 HSCH      S0       B231   -     -     -      P      P     P     P      P     P     P     P
 IPK       S0       B20B   -     P     P      P      P     P     P      P     P     P     P
 IUCV      S0       B2F0   -     P     -      P      P     P     P      P     P     P     P
+LBEAR     S0       B200   -     -     -      -      -     -     -      P     P     P     P
 LFAS      S0       B2BD   -     -     -      -      -     -     -      G     G     G     G
 LFPC      S0       B29D   -     -     G      -      -     G     G      G     G     G     G
 LPCTL     S0       B285   -     -     -      -      -     -     -      P     P     P     P
@@ -3699,6 +3711,7 @@ PC        S0       B218   -     G     G      G      G     G     G      G     G  
 PCF       S0       B218   -     -     -      -      -     G     -      -     G     G     G
 PTLB      S0       B20D   -     P     P      P      P     P     P      P     P     P     P
 QCTRI     S0       B28E   -     -     -      -      -     -     -      P     P     P     P
+QPACI     S0       B28F   -     -     -      -      -     -     -      P     P     P     P
 QSI       S0       B386   -     -     -      -      -     -     -      P     P     P     P
 RCHP      S0       B23B   -     -     -      P      P     P     P      P     P     P     P
 RIO       S0       9C02   -     P     P      -      -     -     -      -     P     P     P
@@ -3723,19 +3736,20 @@ SRNMT     S0       B2B9   -     -     -      -      -     -     -      G     G  
 SSCH      S0       B233   -     -     -      P      P     P     P      P     P     P     P
 SSM       S0       8000   P     P     P      P      P     P     P      P     P     P     P
 STAP      S0       B212   -     P     P      P      P     P     P      P     P     P     P
+STBEAR    S0       B201   -     -     -      -      -     -     -      P     P     P     P
 STCK      S0       B205   -     P     P      P      P     P     P      P     P     P     P
 STCKC     S0       B207   -     P     P      P      P     P     P      P     P     P     P
 STCKE     S0       B278   -     -     -      -      -     G     G      G     G     G     G
 STCKF     S0       B27C   -     -     -      -      -     -     -      P     P     P     P
 STCPS     S0       B23A   -     -     -      P      P     P     P      P     P     P     P
-STCRW     S0       B239   -     -     -      P      P     P     P      P     P     P     P
-STFL      S0       B2B1   -     -     -      -      -     -     P      P     P     P     P
-STFLE     S0       B2B0   -     -     -      -      -     -     -      G     G     G     G
-STFPC     S0       B29C   -     -     G      -      -     G     G      G     G     G     G
 MSL DATABASE REPORT - Instruction List by Format
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+STCRW     S0       B239   -     -     -      P      P     P     P      P     P     P     P
+STFL      S0       B2B1   -     -     -      -      -     -     P      P     P     P     P
+STFLE     S0       B2B0   -     -     -      -      -     -     -      G     G     G     G
+STFPC     S0       B29C   -     -     G      -      -     G     G      G     G     G     G
 STIDC     S0       B203   -     P     P      -      -     -     -      -     P     P     P
 STIDP     S0       B202   -     P     P      P      P     P     P      P     P     P     P
 STPT      S0       B209   -     P     P      P      P     P     P      P     P     P     P
@@ -3777,21 +3791,22 @@ NIY       SIY      EB54   -     -     -      -      -     -     -      G     G  
 OIY       SIY      EB56   -     -     -      -      -     -     -      G     G     G     G
 TMY       SIY      EB51   -     -     -      -      -     -     -      G     G     G     G
 XIY       SIY      EB57   -     -     -      -      -     -     -      G     G     G     G
+LPSWEY    SIY0     EB71   -     -     -      -      -     -     -      P     P     P     P
 AGSI      SIY1     EB7A   -     -     G      -      -     -     -      G     G     G     G
 ALGSI     SIY1     EB7E   -     -     G      -      -     -     -      G     G     G     G
 ALSI      SIY1     EB6E   -     -     G      -      -     -     -      G     G     G     G
 ASI       SIY1     EB6A   -     -     G      -      -     -     -      G     G     G     G
 BPP       SMI      C7     -     -     -      -      -     -     -      G     G     G     G
 CLC       SSA      D5     G     G     G      G      G     G     G      G     G     G     G
+MSL DATABASE REPORT - Instruction List by Format
+
+MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
+
 ED        SSA      DE     G     G     G      G      G     G     G      G     G     G     G
 EDMK      SSA      DF     G     G     G      G      G     G     G      G     G     G     G
 MVC       SSA      D2     G     G     G      G      G     G     G      G     G     G     G
 MVCIN     SSA      E8     -     G     G      G      G     G     G      G     G     G     G
 MVN       SSA      D1     G     G     G      G      G     G     G      G     G     G     G
-MSL DATABASE REPORT - Instruction List by Format
-
-MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
-
 MVZ       SSA      D3     G     G     G      G      G     G     G      G     G     G     G
 NC        SSA      D4     G     G     G      G      G     G     G      G     G     G     G
 OC        SSA      D6     G     G     G      G      G     G     G      G     G     G     G
@@ -3839,15 +3854,15 @@ VGM       VRIB     E746   -     -     -      -      -     -     -      G     G  
 VREP      VRIC     E74D   -     -     -      -      -     -     -      G     G     G     G
 VERIM     VRID     E772   -     -     -      -      -     -     -      G     G     G     G
 VSLDB     VRID1    E777   -     -     -      -      -     -     -      G     G     G     G
+MSL DATABASE REPORT - Instruction List by Format
+
+MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
+
 VFTCI     VRIE     E74A   -     -     -      -      -     -     -      G     G     G     G
 VAP       VRIF     E671   -     -     -      -      -     -     -      G     G     G     G
 VDP       VRIF     E67A   -     -     -      -      -     -     -      G     G     G     G
 VMP       VRIF     E678   -     -     -      -      -     -     -      G     G     G     G
 VMSP      VRIF     E679   -     -     -      -      -     -     -      G     G     G     G
-MSL DATABASE REPORT - Instruction List by Format
-
-MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
-
 VRP       VRIF     E67B   -     -     -      -      -     -     -      G     G     G     G
 VSDP      VRIF     E67E   -     -     -      -      -     -     -      G     G     G     G
 VSP       VRIF     E673   -     -     -      -      -     -     -      G     G     G     G
@@ -3895,15 +3910,15 @@ VFCHE     VRRC     E7EA   -     -     -      -      -     -     -      G     G  
 VFMAX     VRRC     E7EF   -     -     -      -      -     -     -      G     G     G     G
 VFMIN     VRRC     E7EE   -     -     -      -      -     -     -      G     G     G     G
 VNN       VRRC     E76E   -     -     -      -      -     -     -      G     G     G     G
+MSL DATABASE REPORT - Instruction List by Format
+
+MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
+
 VNX       VRRC     E76C   -     -     -      -      -     -     -      G     G     G     G
 VOC       VRRC     E76F   -     -     -      -      -     -     -      G     G     G     G
 VA        VRRC1    E7F3   -     -     -      -      -     -     -      G     G     G     G
 VACC      VRRC1    E7F1   -     -     -      -      -     -     -      G     G     G     G
 VAVG      VRRC1    E7F2   -     -     -      -      -     -     -      G     G     G     G
-MSL DATABASE REPORT - Instruction List by Format
-
-MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
-
 VAVGL     VRRC1    E7F0   -     -     -      -      -     -     -      G     G     G     G
 VERLLV    VRRC1    E773   -     -     -      -      -     -     -      G     G     G     G
 VESLV     VRRC1    E770   -     -     -      -      -     -     -      G     G     G     G
@@ -3951,15 +3966,15 @@ VSTRC     VRRD     E78A   -     -     -      -      -     -     -      G     G  
 VAC       VRRD1    E7BB   -     -     -      -      -     -     -      G     G     G     G
 VACCC     VRRD1    E7B9   -     -     -      -      -     -     -      G     G     G     G
 VGFMA     VRRD1    E7BC   -     -     -      -      -     -     -      G     G     G     G
+MSL DATABASE REPORT - Instruction List by Format
+
+MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
+
 VMAE      VRRD1    E7AE   -     -     -      -      -     -     -      G     G     G     G
 VMAH      VRRD1    E7AB   -     -     -      -      -     -     -      G     G     G     G
 VMAL      VRRD1    E7AA   -     -     -      -      -     -     -      G     G     G     G
 VMALE     VRRD1    E7AC   -     -     -      -      -     -     -      G     G     G     G
 VMALH     VRRD1    E7A9   -     -     -      -      -     -     -      G     G     G     G
-MSL DATABASE REPORT - Instruction List by Format
-
-MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
-
 VMALO     VRRD1    E7AD   -     -     -      -      -     -     -      G     G     G     G
 VMAO      VRRD1    E7AF   -     -     -      -      -     -     -      G     G     G     G
 VSBCBI    VRRD1    E7BD   -     -     -      -      -     -     -      G     G     G     G
@@ -4044,7 +4059,7 @@ MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24
           RRE2               0     0     0       0     1     1     1      4     4     4     4
           RRFA1              0     0     0       0     0     0     0     43    43    43    43
           RRFA2              0     0     0       0     0     0     1     13    12    12    13
-          RRFB2              0     0     2       0     0     2     2      8     8     8     8
+          RRFB2              0     0     2       0     0     2     2      9     9     9     9
           RRFB3              0     0     0       0     0     0     0      1     1     1     1
           RRFC               0     0     4       0     0     0     1     12    12    12    12
           RRFD               0     0     0       0     0     0     0      4     4     4     4
@@ -4075,11 +4090,12 @@ MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24
           RXFE               0     0     0       0     0     0     0      1     1     1     1
           RXYA               0     0     3       0     0     0     8    114   114   114   114
           RXYB               0     0     1       0     0     0     0      2     2     2     2
-          S0                 7    32    34      34    34    43    43     55    69    69    69
+          S0                 7    32    34      34    34    43    43     58    72    72    72
           SI                 8    11     9       9     9     9     9      9    11    11    11
           SIL                0     0     3       0     0     0     0      5     5     5     5
           SIL1               0     0     6       0     0     0     0      6     6     6     6
           SIY                0     0     0       0     0     0     0      6     6     6     6
+          SIY0               0     0     0       0     0     0     0      1     1     1     1
           SIY1               0     0     4       0     0     0     0      4     4     4     4
           SMI                0     0     0       0     0     0     0      1     1     1     1
           SS20               0     0     0       0     0     0     0      0     0     0     0
@@ -4114,11 +4130,11 @@ MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24
           VRRC2              0     0     0       0     0     0     0     12    12    12    12
           VRRC3              0     0     0       0     0     0     0      4     4     4     4
           VRRD               0     0     0       0     0     0     0      2     2     2     2
-          VRRD1              0     0     0       0     0     0     0     12    12    12    12
 MSL DATABASE REPORT - Statistics
 
 MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24    31    64
 
+          VRRD1              0     0     0       0     0     0     0     12    12    12    12
           VRRE               0     0     0       0     0     0     0      4     4     4     4
           VRRE1              0     0     0       0     0     0     0      1     1     1     1
           VRRF1              0     0     0       0     0     0     0      1     1     1     1
@@ -4136,5 +4152,5 @@ MNEMONIC  FORMAT  OPCODE  s360  s370  s380  s370XA  e370  e390  s390  s390x   24
           VRX1               0     0     0       0     0     0     0      2     2     2     2
           VSI                0     0     0       0     0     0     0      4     4     4     4
 
-           Tot.            143   209   447     214   233   399   446   1215  1233  1233  1233
+           Tot.            143   209   447     214   233   399   446   1220  1238  1238  1238
 

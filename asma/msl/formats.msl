@@ -1,4 +1,4 @@
-# Copyright (C) 2014-2021 Harold Grovesteen
+# Copyright (C) 2014-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -1162,6 +1162,26 @@ format SIL1
     mach I2 32 47 signed
     source S1 B1 D1
     source I2 I2
+
+
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    |  00000000 | B1  |       DL1       |    DH1    |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# SIY0: MNEMONIC B1(D1)
+#
+#  Note: D1 contributes to DL1 and DH1 fields.
+#        DH1 contains the high-order 8 bits of the 20-bit signed D1 displacement
+#        DL1 contains the low-order 12 bits of the 20-bit signed D1 displacement
+#
+format SIY0
+    length 6
+    xopcode 40 47
+    mach B1 16 19
+    mach DL1 20 31
+    mach DH1 32 39 signed
+    source SY1 B1 DL1 DH1
 
 
 #     0     4     8     12    16    20    24    28    32    36    40    44   47

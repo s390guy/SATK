@@ -1,4 +1,4 @@
-# Copyright (C) 2014-2021 Harold Grovesteen
+# Copyright (C) 2014-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -108,6 +108,9 @@ cpu s390x        # Generic z/Architecture CPU in z/Architecture Mode
     features s390x-vector-enh-fac-1   # September, 2017
     features s390x-vector-packed-1    # September, 2017
     features s390x-misc-inst-ext-3    # September, 2019
+    features s390x-bear               # May, 2022
+    features s390x-processor-activity # May, 2022
+    features s390x-dat-protect        # May, 2022
     features s390x-vm
 
 
@@ -879,6 +882,17 @@ inst SSAIR  B99F RRE            # SET SECONDARY ASN WITH INSTANCE
 # RA instructions
 iset s390x-reuse-asn
     mnemonics EPAIR ESAIR PTI SSAIR
+
+
+# BEAR-ENHANCEMENT FACILITY (May, 2022)
+inst LBEAR  B200 S0      P      # LOAD BEAR
+inst LPSWEY EB71 SIY0    P      # LOAD PSW EXTENDED
+inst STBEAR B201 S0      P      # STORE BEAR
+
+# See IBM z/Architecture Principles of Operation, SA22-7832-13, May, 2022
+# BE instructions
+iset s390x-bear
+    mnemonics LBEAR LPSWEY STBEAR
 
 
 # COMPARE-AND-SWAP-AND-STORE FACILITY (April, 2007)
@@ -1776,6 +1790,24 @@ inst PPA    B2E8 RRFC           # PERFORM PROCESSOR ASSIST
 # PA instruction
 iset s390x-proc-assist
     mnemonics PPA
+
+
+# PROCESSOR-ACTIVITY-INSTRUMENTATION FACILITY (May, 2022)
+inst QPACI  B28F S0      P
+
+# See IBM z/Architecture Principles of Operation, SA22-7832-13, May, 2022
+# PI instruction
+iset s390x-processor-activity
+    mnemonics QPACI
+
+
+# RESET DAT-PROTECTION FACILITY (May, 2022)
+inst RDP    B98B RRFB2   P
+
+# See IBM z/Architecture Principles of Operation, SA22-7832-13, May, 2022
+# DP instruction
+iset s390x-dat-protect
+    mnemonics RDP
 
 
 # RESET-REFERENCE-BITS-MULTIPLE FACILITY (August, 2010)
