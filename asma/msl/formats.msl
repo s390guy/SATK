@@ -2168,6 +2168,28 @@ format VRRI
     source V2 V2
     source M3 M3
 
+    
+# VRR-k
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  |0000 |0000 | M3  |0000 |0000 | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRRK: MNEMONIC V1,V2,M3
+# (VECTOR CONVERT TO BINARY)
+format VRRK
+    length 6
+    xopcode 40 47
+    mach V1 8 11
+    mach V2 12 15
+    mach M3 24 27
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source M3 M3
+    
 
 # VRS-a
 # -----
@@ -2345,7 +2367,7 @@ format VRV
 #     |     OP    | V1  | X2  | B2  |        D2       | M3  | RXB |    XOP    |
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #
-# VRX: MNEMONIC
+# VRX: MNEMONIC V1,D2(X2,B2),M3
 # (VECTOR LOAD LOGICAL ELEMENT AND ZERO)
 format VRX
     length 6
