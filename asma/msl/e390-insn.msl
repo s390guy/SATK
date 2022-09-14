@@ -1,4 +1,4 @@
-# Copyright (C) 2014,2015 Harold Grovesteen
+# Copyright (C) 2014-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -615,6 +615,7 @@ inst BRU    A7F4 ERIC    E      # UNCONDITIONAL BRANCH RELATIVE        (BRC 15,I
 inst BRZ    A784 ERIC    E      # BRANCH RELATIVE ON ZERO              (BRC 8,IMMED)
 inst J      A7F4 ERIC    E      # UNCONDITIONAL "JUMP" RELATIVE        (BRC 15,IMMED)
 inst JAS    A75  RIB     E      # "JUMP" RELATIVE AND SAVE             (BRAS R,IMMED)
+inst JC     A74  RIC     E      # "JUMP" RELATIVE ON CONDITION         (BRC M,IMMED)
 inst JCT    A76  RIB     E      # "JUMP" RELATIVE ON COUNT             (BRCT R,IMMED)
 inst JE     A784 ERIC    E      # "JUMP" RELATIVE ON EQUAL             (BRC 8,IMMED)
 inst JH     A724 ERIC    E      # "JUMP" RELATIVE ON HIGH              (BRC 2,IMMED)
@@ -639,7 +640,7 @@ iset e390-imme-and-rel
 
 iset e390-imme-and-rel-extended
     mnemonics BRE BRH BRL BRM BRNE BRNH BRNL BRNM BRNO BRNP BRNZ BRO BRP BRU BRZ
-    mnemonics J JAS JCT JE JH JL JM JNE JNH JNL JNM JNO JNOP JNP JNZ JO JP JXH JXLE JZ
+    mnemonics J JAS JC JCT JE JH JL JM JNE JNH JNL JNM JNO JNOP JNP JNZ JO JP JXH JXLE JZ
 
 
 # PERFORM LOCKED OPERATION FACILITY (June, 1997)
