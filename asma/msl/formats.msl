@@ -2169,6 +2169,30 @@ format VRRI
     source M3 M3
 
     
+# VRR-j
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 | M4  |0000 |0000 | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRRJ: MNEMONIC V1,V2,V3,M4
+# (VECTOR CONVERT HFP TO SCALED DECIMAL)
+format VRRJ
+    length 6
+    xopcode 40 47
+    mach V1 8 11
+    mach V2 12 15
+    mach V3 16 19
+    mach M4 24 27
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    source M4 M4
+    
+    
 # VRR-k
 # -----
 #

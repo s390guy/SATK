@@ -100,9 +100,15 @@ cpu 24              # All instructions with a 24-bit influence
     features s390x-vector-enh-fac-1   # September, 2017
     features s390x-vector-packed-1    # September, 2017
     features s390x-misc-inst-ext-3    # September, 2019
+    features s390x-vector-2           # September, 2019
     features s390x-bear               # May, 2022
     features s390x-processor-activity # May, 2022
     features s390x-dat-protect        # May, 2022
+    features s390x-deflate            # May, 2022
+    features s390x-msa-9              # May, 2022
+    features s390x-neural-network     # May, 2022
+    features s390x-enhanced-sort      # May, 2022
+    features s390x-vector-packed-2    # May, 2022
     features s390x-vm
     include IPTE
 
@@ -177,10 +183,16 @@ cpu 31             # All instructions with a 31-bit influence
     features s390x-test-ext-intrp     # September, 2017
     features s390x-vector-enh-fac-1   # September, 2017
     features s390x-vector-packed-1    # September, 2017
+    features s390x-vector-2           # September, 2017
     features s390x-misc-inst-ext-3    # September, 2019
     features s390x-bear               # May, 2022
     features s390x-processor-activity # May, 2022
     features s390x-dat-protect        # May, 2022
+    features s390x-deflate            # May, 2022
+    features s390x-msa-9              # May, 2022
+    features s390x-neural-network     # May, 2022
+    features s390x-enhanced-sort      # May, 2022
+    features s390x-vector-packed-2    # May, 2022
     features s390x-vm
     include IPTE
 
@@ -255,10 +267,16 @@ cpu 64             # All instructions with a 64-bit influence
     features s390x-test-ext-intrp     # September, 2017
     features s390x-vector-enh-fac-1   # September, 2017
     features s390x-vector-packed-1    # September, 2017
+    features s390x-vector-2           # September, 2017
     features s390x-misc-inst-ext-3    # September, 2019
     features s390x-bear               # May, 2022
     features s390x-processor-activity # May, 2022
     features s390x-dat-protect        # May, 2022
+    features s390x-deflate            # May, 2022
+    features s390x-msa-9              # May, 2022
+    features s390x-neural-network     # May, 2022
+    features s390x-enhanced-sort      # May, 2022
+    features s390x-vector-packed-2    # May, 2022
     features s390x-vm
     include IPTEE
     rename IPTEE IPTE  # replaces IPTE old syntax with IPTE new syntax
@@ -1875,6 +1893,16 @@ iset s390x-msa-8
     mnemonics KMA
 
 
+# MESSAGE SECURITY ASSIST 8 FACILITY (May, 2022)
+# M9 instuction
+inst KDSA   B93A RRE            # COMPUTE DIGITAL SIGNATURE AUTHENTICATION
+
+# See IBM z/Architecture Principles of Operation, SA22-7832-13, May, 2022
+# M8 instruction
+iset s390x-msa-9
+    mnemonics KDSA
+
+
 # MISCELANEOUS-INSTUCTIONS-EXTENSION FACILITY 1
 inst CLGT   EB2B RSYB           # COMPARE LOGICAL AND TRAP (64)
 inst CLT    EB23 RSYB           # COMPARE LOGICAL AND TRAP (32)
@@ -2276,7 +2304,7 @@ inst WFK    E7CA VRRA4          # VECTOR FP COMPARE AND SIGNAL SCALAR (EXTENDED!
 # See IBM z/Architecture Principles of Operation, SA22-7832-10, March, 2015
 # VF instructions
 iset s390x-vector
-    mnemonics LCBB VA VAC VACC VACCC VAVG VAVGL VCDG VCDLG VCEQ VCGD VCHL VCKSM VCLGD
+    mnemonics LCBB VA VAC VACC VACCC VAVG VAVGL VCDG VCDLG VCEQ VCGD VCH VCHL VCKSM VCLGD
     mnemonics VCLZ VCTZ VEC VECL VERIM VERLL VERLLV VESL VESLV VESRA VESRAV VESRL
     mnemonics VESRLV VFA VFAE VFCE VFCH VFCHE VFD VFEE VFENE VFI VFM VFMA VFPSO VFS
     mnemonics VFSQ VFTCI VGBM VGEF VGEG VGFM VGFMA VFMS VGM VISTR VL VLBB VLC VLDE VLEB
@@ -2286,6 +2314,83 @@ iset s390x-vector
     mnemonics VREP VREPI VS VSBCBI VSBI VSCBI VSCEF VSCEG VSEG VSEL VSL VSLB VSLDB VSRA
     mnemonics VSRAB VSRL VSRLB VST VSTEB VSTEF VSTEG VSTEH VSTL VSTM VSTRC VSUM
     mnemonics VSUMG VSUMQ VTM VUPH VUPL VUPLH VUPLL VX WFC WFK
+
+
+# VECTOR-ENHANCEMENTS FACILITY 2
+inst VCFPL   E7C1 VRRA           # VECTOR FP CONVERT FROM LOGICAL (rename VCDGL)
+inst VCFPS   E7C3 VRRA           # VECTOR FP CONVERT FROM FIXED (rename VCDG)
+inst VCLFP   E7C0 VRRA           # VECTOR FP CONVERT TO LOGICAL (rename VCLDG)
+inst VCSFP   E7C2 VRRA           # VECTOR FP CONVER TO FIXED (rename VCDG)
+inst VLBR    E606 VRX            # VECTOR LOAD ELEMENT
+inst VLBRREP E605 VRX            # VECTOR LOAD BYTE REVERSED ELEMENT AND REPLICATE
+inst VLEBRF  E603 VRX            # VECTOR LOAD BYTE REVERSED ELEMENT (32)
+inst VLEBRH  E601 VRX            # VECTOR LOAD BYTE REVERSED ELEMENT (16)
+inst VLEBRG  E602 VRX            # VECTOR LOAD BYTE REVERSED ELEMENT (64)
+inst VLER    E607 VRX            # VECTOR LOAD ELEMENTS REVERSED
+inst VLLEBRZ E604 VRX            # VECTOR LOAD BYTE REVERSED ELEMENT AND ZERO
+inst VSLD    E786 VRID1          # VECTOR SHIFT LEFT DOUBLE BY BIT
+inst VSRD    E787 VRID1          # VECTOR SHIFT RIGHT DOUBLE BY BIT
+inst VSTBR   E60E VRX            # VECTOR STORE BYTE REVERSED ELEMENTS
+inst VSTEBRF E60B VRX            # VECTOR STORE BYTE REVERSED ELEMENT (32)
+inst VSTEBRH E609 VRX            # VECTOR STORE BYTE REVERSED ELEMENT (16)
+inst VSTEBRG E60A VRX            # VECTOR STORE BYTE REVERSED ELEMENT (64)
+inst VSTER   E60F VRX            # VECTOR STORE ELEMENTS REVERSED
+inst VSTRS   E78B VRRD           # VECTOR STRING SEARCH
+
+# See z/Architecture Principles of Operation, SA22-7832-12, September, 2019
+# V2 instructions
+iset s390x-vector-2
+    mnemonics VCFPL VCFPS VCLFP VCSFP
+    mnemonics VLBR VLBRREP VLEBRF VLEBRH VLEBRG VLER VLLEBRZ VSLD VSRD VSTBR
+    mnemonics VSTEBRF VSTEBRH VSTEBRG VSTER VSTRS
+
+
+# DEFLATE-CONVERSION FACILITY
+inst DFLTCC B939 RRFA1          # DEFLATE CONVERSION CALL
+
+# See z/Architecture Principles of Operation, SA22-7832-13, May, 2022
+# GZ instruction
+iset s390x-deflate
+    mnemonics DFLTCC
+
+
+# ENHANCED-SORT FACILITY
+inst SORTL  B938 RRE            # SORT LISTS
+
+# See z/Architecture Principles of Operation, SA22-7832-13, May, 2022
+# SL instruction
+iset s390x-enhanced-sort
+    mnemonics SORTL
+
+
+# NEURAL-NETWORK-PROCESSING-ASSIST FACILITY
+inst NNPA   B93B RRE1           # NEURAL NETOWRK PROCESSING ASSIST
+inst VCFN   E65D VRRA4          # VECTOR FP CONVERT FROM NNP
+inst VCLFNH E656 VRRA4          # VECTOR FP CONVERT AND LENGTHEN FROM NNP HIGH
+inst VCLFNL E65E VRRA4          # VECTOR FP CONVERT AND LENGTHEN FROM NNP LOW
+inst VCNF   E655 VRRA4          # VECTOR FP CONVERT TO NNP
+inst VCRNF  E675 VRRC3          # VECTOR FP CONVERT AND ROUDN TO NNP
+
+# See z/Architecture Principles of Operation, SA22-7832-13, May, 2022    
+# NN instructions
+iset s390x-neural-network
+    mnemonics NNPA VCFN VCLFNH VCLFNL VCNF VCRNF
+
+    
+# VECTOR-PACKED-DECIMAL-ENHANCEMENT FACILITY 2
+inst VCLZDP E651  VRRK           # VECTOR COUNT LEADING ZERO DIGITS
+inst VCSPH  E67D  VRRJ           # VECTOR CONVERT HFP TO SCALED DECIMAL
+inst VPKZR  E670  VRIF           # VECTOR PACK ZONED REGISTER
+inst VSCHP  E674  VRRB           # DECIMAL SCALE AND CONVERT TO HFP
+inst VSCSHP E67C  VRRC           # DECIMAL SCALE AND CONVERT AND SPLIT TO HFP
+inst VSRPR  E672  VRIF           # VECTOR SHIFT AND ROUND DECIMAL REGISTER
+inst VUPKZH E654  VRRK           # VECTOR UNPACK ZONED HIGH
+inst VUPKZL E65C  VRRK           # VECTOR UNPACK ZONES LOW
+
+# See z/Architecture Principles of Operation, SA22-7832-12, May, 2022
+iset s390x-vector-packed-2
+# VD2 instructions
+    mnemonics VCLZDP VCSPH VPKZR VSCHP VSCSHP VSRPR VUPKZH VUPKZL
 
 
 # VM SPECIFIC
