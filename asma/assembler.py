@@ -2678,6 +2678,11 @@ class Section(Content):
         if string:
             return dumpdata
         print(dumpdata)
+        
+    def end_of_section_addr(self):
+        if self.isdummy():
+            return lnkbase.DDisp(len(self),self)
+        return lnkbase.SectAddr(len(self),self)
 
     def info(self):
         if self.isdummy():

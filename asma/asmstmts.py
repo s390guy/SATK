@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2015-2021 Harold Grovesteen
+# Copyright (C) 2015-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -3743,7 +3743,8 @@ class ORG(TemplateStmt):
     template=[asmbase.SingleAny,]
 
     def __init__(self,lineno,logline=None):
-        super().__init__(lineno,logline=logline,minimum=1)
+        #super().__init__(lineno,logline=logline,minimum=1)
+        super().__init__(lineno,logline=logline,minimum=0)
 
     def ck_literals(self):
         self.ck_for_literals()
@@ -3768,10 +3769,14 @@ class ORG(TemplateStmt):
         self.label_create(asm,length=1)   # Use binary content length
 
         # Now adjust to new location
-        # Evaluate the starting address
-        self.evaluate_operands(asm,debug=edebug,trace=etrace)
-        operand=self.bin_oprs[0]
-        new_loc=operand.getValue()
+        if len(self.P0_operands) == 0:
+            # Set ORG to end of current active section (no operand)
+            new_loc=asm.cur_sec.end_of_section_addr()
+        else:
+            # Evaluate the starting address
+            self.evaluate_operands(asm,debug=edebug,trace=etrace)
+            operand=self.bin_oprs[0]
+            new_loc=operand.getValue()
 
         # Validate we can use the result to adjust the location
         if not isinstance(new_loc,lnkbase.Address):
