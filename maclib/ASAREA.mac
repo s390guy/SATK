@@ -1,4 +1,4 @@
-.* Copyright (C) 2017-2020 Harold Grovesteen
+.* Copyright (C) 2017-2022 Harold Grovesteen
 .*
 .* This file is part of SATK.
 .*
@@ -14,6 +14,10 @@
 .*
 .*     You should have received a copy of the GNU General Public License
 .*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+.*
+.* Notices
+.* z/Architecture is a registered trademark of International Business Machines
+.* Corporation.
 
          MACRO
 &LABEL   ASAREA &ALL=NO,&SA=NO,&DSECT=NO,&SCANOUT=0
@@ -161,7 +165,7 @@ SSARCHMD DC    0X'00'       0A3 A  Store Status Architectural Mode Identificatio
 MKARCHMD DC    X'00'        0A3 R  Machine-Check Architectural Mode Identification
 UA2      DC    F'0'         0A4 R  Unused area
          AIF   (&NOTALL AND &ARCHLVL LT 9).CKS370C
-* z/Architecture PROGRAM INTERRUPTION INFORMATION
+* z/Architecture(R) PROGRAM INTERRUPTION INFORMATION
          ORG   ASBEGIN+X'A8'
 ZPGMTRX  DC    FD'0'        0A8 R  Translation Exception information
 ZMONCODE DC    FD'0'        0B0 R  Monitor Code
@@ -184,7 +188,47 @@ IOSSID   DC    F'0'         0B8 R  Channel subsystem-identification word
 IOIPARM  DC    F'0'         0BC R  Channel subsystem I/O Interruption parameter
 IOIID    DC    F'0'         0C0 R  Channel subsystem I/O Interruption Identification
 PCFETO   DC    A(0)         0C4 R  ESA/390 PROGRAM CALL FAST Entry Table Origin
-STFLDATA DC    F'0'         0C8 R  STORE FACILITY LIST storage area
+         SPACE 1        
+STFLDATA DC    0F'0'        0C8 R  STORE FACILITY LIST storage area
+* Store Facility List definitions contributed by Steve Orso.
+*                    STFL BIT
+FACLIST1 DS    X'00'   0-7  0C8 R  Machine state and capabilities
+FL1BACKP EQU   X'80'    0          ..Backported z/Arch instrs avail.
+FL1ZINST EQU   X'40'    1          ..z/Arch installed/available
+FL1ZACT  EQU   X'20'    2          ..z/Arch mode is active
+FL1DATE1 EQU   X'10'    3          ..DAT-Enhancement Facility 1 inst.
+FL1SCST  EQU   X'08'    4          ..IDTE sel. clear of segment TLB
+FL1SCRT  EQU   X'04'    5          ..IDTE sel. clear of region TLB
+FL1ASNLR EQU   X'02'    6          ..ASN-and-LX reuse fac. installed
+FL1STFLE EQU   X'01'    7          ..STFLE installed
+FACLIST2 DS    X'00'   8-15 0C9 R  Installed facilities
+FL2EDAT1 EQU   X'80'    8          ..Enhanced-DAT 1
+FL2SRUNS EQU   X'40'    9          ..Sense Running Status
+FL2CNDSK EQU   X'20'    10         ..Conditional SSKE
+FL2CFGTP EQU   X'10'    11         ..Configuration Topology
+*        EQU   X'08'    12         ..IBM Internal Use
+FL2IPTER EQU   X'04'    13         ..IPTE Range
+FL2NQKST EQU   X'02'    14         ..Nonquiesing Key-Setting
+*        EQU   X'01'    15         ..IBM Internal Use
+FACLIST3 DS    X'00'  16-23 0CA R  Installed facilities
+FL3EXTR2 EQU   X'80'    16         ..Extended-translation facility 2
+FL3MSECA EQU   X'40'    17         ..Message-security assist
+FL3LDISP EQU   X'20'    18         ..Long-displacement facility
+FL3LDHPR EQU   X'10'    19         ..High-perf. long-displacement fac.
+FL3HMAS  EQU   X'08'    20         ..HFP-mult-and-add/sub facility
+FL3EXIMM EQU   X'04'    21         ..Extended-immediate facility
+FL3EXTR3 EQU   X'02'    22         ..Extended-translation facility 3
+FL3HUNRM EQU   X'01'    23         ..HFP-unnormalized-extension fac.
+FACLIST4 DS    X'00'  24-31 0CB R  Installed facilities
+FL4ETF2  EQU   X'80'    24         ..ETF2-enhancement facility
+FL4STCKF EQU   X'40'    25         ..Store-clock-fast facility
+FL4PRSEN EQU   X'20'    26         ..Parsing-enhancement facility
+FL4MVCOS EQU   X'10'    27         ..Move-with-optional-specs facility
+FL4PTFF  EQU   X'08'    28         ..TOD-clock-steering facility
+*        EQU   X'04'    29         ..IBM Internal Use
+FL4ETF3  EQU   X'02'    30         ..ETF3-enhancement facility
+FL4ECTG  EQU   X'01'    31         ..Extract-CPU-time facility
+         SPACE 1
 UA5      DC    XL8'00'      0CC R  unused area
 .DOMACK  ANOP
 * MACHINE-CHECK INTERRUPTION INFORMATION
