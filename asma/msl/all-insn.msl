@@ -111,6 +111,10 @@ cpu 24              # All instructions with a 24-bit influence
     features s390x-vector-packed-2    # May, 2022
     features s390x-vm
     include IPTE
+    #
+    # z/Architecture Extended Mnemonics (see zem-inst.msl)
+    features s390x-em-04              # September, 2005 / May, 2022
+    features s390x-em-06              # February, 2008
 
 cpu 31             # All instructions with a 31-bit influence
     addrmax 31
@@ -195,6 +199,10 @@ cpu 31             # All instructions with a 31-bit influence
     features s390x-vector-packed-2    # May, 2022
     features s390x-vm
     include IPTE
+    #
+    # z/Architecture Extended Mnemonics (see zem-inst.msl)
+    features s390x-em-04              # September, 2005 / May, 2022
+    features s390x-em-06              # February, 2008
 
 cpu 64             # All instructions with a 64-bit influence
     addrmax 64
@@ -280,6 +288,10 @@ cpu 64             # All instructions with a 64-bit influence
     features s390x-vm
     include IPTEE
     rename IPTEE IPTE  # replaces IPTE old syntax with IPTE new syntax
+    #
+    # z/Architecture Extended Mnemonics (see zem-inst.msl)
+    features s390x-em-04              # September, 2005 / May, 2022
+    features s390x-em-06              # February, 2008
 
 
 # STANDARD INSTRUCTIONS FROM ESA/390 (see below for I/O instructions)
@@ -2371,12 +2383,12 @@ inst VCLFNL E65E VRRA4          # VECTOR FP CONVERT AND LENGTHEN FROM NNP LOW
 inst VCNF   E655 VRRA4          # VECTOR FP CONVERT TO NNP
 inst VCRNF  E675 VRRC3          # VECTOR FP CONVERT AND ROUDN TO NNP
 
-# See z/Architecture Principles of Operation, SA22-7832-13, May, 2022    
+# See z/Architecture Principles of Operation, SA22-7832-13, May, 2022
 # NN instructions
 iset s390x-neural-network
     mnemonics NNPA VCFN VCLFNH VCLFNL VCNF VCRNF
 
-    
+
 # VECTOR-PACKED-DECIMAL-ENHANCEMENT FACILITY 2
 inst VCLZDP E651  VRRK           # VECTOR COUNT LEADING ZERO DIGITS
 inst VCSPH  E67D  VRRJ           # VECTOR CONVERT HFP TO SCALED DECIMAL
@@ -2398,3 +2410,7 @@ inst IUCV  B2F0 S0       P      # INTER-USER COMMUNICATIONS VEHICLE
 
 iset s390x-vm
     mnemonics IUCV
+
+
+# z/Architecture Extended Mnemonics
+include zem-insn.msl

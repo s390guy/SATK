@@ -26,6 +26,9 @@
 # Include machine instruction formats
 # Uses MSLPATH when searching for include files
 include formats.msl
+# z/Architecture extended mnemonic formats
+#include zem-fmts.msl
+
 
 cpu s390          # Generic z/Architecture CPU in ESA/390 Mode
     addrmax 31
@@ -118,6 +121,10 @@ cpu s390x        # Generic z/Architecture CPU in z/Architecture Mode
     features s390x-enhanced-sort      # May, 2022
     features s390x-vector-packed-2    # May, 2022
     features s390x-vm
+    #
+    # z/Architecture Extended Mnemonics (see zem-inst.msl)
+    features s390x-em-04              # September, 2005 / May, 2022
+    features s390x-em-06              # February, 2008
 
 
 # STANDARD INSTRUCTIONS FROM ESA/390 (see below for I/O instructions)
@@ -742,6 +749,7 @@ inst JAS    A75  RIB     E      # "JUMP" RELATIVE AND SAVE           (BRAS R1,IM
 inst JC     A74  RIC     E      # "JUMP" RELATIVE ON CONDITION         (BRC M,IMMED)
 inst JCT    A76  RIB     E      # "JUMP" RELATIVE ON COUNT           (BRCT R1,IMMED)
 inst JCTG   A77  RIB     E      # "JUMP" RELATIVE ON COUNT          (BRCTG R1,IMMED)
+inst JCTH   CC6  RILB    E      # "JUMP" RELATIVE ON COUNT HIGH     (BRCTH R1,IMMED)
 inst JE     A784 ERIC    E      # "JUMP" RELATIVE ON EQUAL             (BRC 8,IMMED)
 inst JH     A724 ERIC    E      # "JUMP" RELATIVE ON HIGH              (BRC 2,IMMED)
 inst JL     A744 ERIC    E      # "JUMP" RELATIVE ON LOW               (BRC 4,IMMED)
@@ -844,7 +852,7 @@ iset s390-extended
 
 iset s390-rel-extended
     mnemonics BRE BRH BRL BRM BRNE BRNH BRNL BRNM BRNO BRNP BRNZ BRO BRP BRU BRZ
-    mnemonics J JAS JC JCT JCTG JE JH JL JM JNE JNH JNL JNM JNO JNOP JNP JNZ JO JP
+    mnemonics J JAS JC JCT JCTG JCTH JE JH JL JM JNE JNH JNL JNM JNO JNOP JNP JNZ JO JP
     mnemonics JXH JXLE JZ JXHG JXLEG
 
 iset s390-io
@@ -2168,7 +2176,7 @@ inst SORTL  B938 RRE            # SORT LISTS
 iset s390x-enhanced-sort
     mnemonics SORTL
 
-    
+
 # NEURAL-NETWORK-PROCESSING-ASSIST FACILITY
 inst NNPA   B93B RRE1           # NEURAL NETOWRK PROCESSING ASSIST
 inst VCFN   E65D VRRA4          # VECTOR FP CONVERT FROM NNP
@@ -2176,12 +2184,12 @@ inst VCLFNH E656 VRRA4          # VECTOR FP CONVERT AND LENGTHEN FROM NNP HIGH
 inst VCLFNL E65E VRRA4          # VECTOR FP CONVERT AND LENGTHEN FROM NNP LOW
 inst VCNF   E655 VRRA4          # VECTOR FP CONVERT TO NNP
 inst VCRNF  E675 VRRC3          # VECTOR FP CONVERT AND ROUDN TO NNP
-    
-# See z/Architecture Principles of Operation, SA22-7832-13, May, 2022    
+
+# See z/Architecture Principles of Operation, SA22-7832-13, May, 2022
 # NN instructions
 iset s390x-neural-network
-    mnemonics NNPA VCFN VCLFNH VCLFNL VCNF VCRNF 
-    
+    mnemonics NNPA VCFN VCLFNH VCLFNL VCNF VCRNF
+
 
 # VECTOR-PACKED-DECIMAL-ENHANCEMENT FACILITY 2
 inst VCLZDP E651  VRRK           # VECTOR COUNT LEADING ZERO DIGITS
@@ -2204,3 +2212,7 @@ inst IUCV  B2F0 S0       P      # INTER-USER COMMUNICATIONS VEHICLE
 
 iset s390x-vm
     mnemonics IUCV
+
+
+# z/Architecture Extended Mnemonics
+include zem-insn.msl
