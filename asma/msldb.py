@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014-2017 Harold Grovesteen
+# Copyright (C) 2014-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -168,13 +168,15 @@ class mfield(object):
         if a.beg>b.beg:
             return 1
         return 0
-    def __init__(self,name,typ,beg,end,signed=False,fixed=False,vector=False):
+    def __init__(self,name,typ,beg,end,signed=False,fixed=False,filtered=False,\
+                 vector=False):
         self.name=name        # Name of the machine field
         self.typ=typ          # Field type
         self.beg=beg          # starting bit of the field (inclusive of this bit)
         self.end=end          # ending bit of the field (inclusive of this bit)
         self.signed=signed    # If True, field content is signed, otherwise unsigned
         self.fixed=fixed      # If True, a fixed source assigns value
+        self.filtered=filtered # If True, a operand filter is applied to the value
         # Instruction bit where high-order bit of vector register number is placed.
         # Used when a vector register value greater than 15 is supplied.  All
         # vector machine field rxb values are merged together to create the
@@ -189,9 +191,9 @@ class mfield(object):
                     % (cls_str,beg))
     def __str__(self):
         rxb=self.isvector()
-        return "mfield('%s',type='%s',%s,%s,signed=%s,fixed=%s,vector=%s: rxb=0x%X)" \
-            % (self.name,self.typ,self.beg,self.end,self.signed,self.fixed,\
-                rxb,self.rxb)
+        return "mfield('%s',type='%s',%s,%s,signed=%s,fixed=%s,filtered=%s,"\
+            "vector=%s: rxb=0x%X)" % (self.name,self.typ,self.beg,self.end,\
+                self.signed,self.fixed,self.filtered,rxb,self.rxb)
     # Returns True or False depending upon whether this is a vector field
     def isvector(self):
         return self.rxb!=0
@@ -1026,11 +1028,15 @@ class Format(MSLDBE):
 #   inst <mnemonic> <opcode> <format-id> [flags]  # Instruction definition
 #            ID     <-------attributes--------->
 #       fixed <ifield> <hex-value>
+#       filter <ifield> <filter-name>
 class Inst(MSLDBE):
     opcode_factor=[None,None,1,16,256]
     priv={"G":False,"P":True}    # Values for privileged operation mode eligibility
     pstr={False:"G",True:"C"}    # Printable values for privilege eligibility
     bits2={0b00:2,0b01:4,0b10:4,0b11:6}  # converts bits 0,1 of opcode to length
+
+    # Field filters supported by insnbldr.py
+    filters=["NOP","TAONE","TAZERO"]
     def __init__(self,els,keep=False):
         super().__init__(els,"inst",keep=keep)
 
@@ -1048,7 +1054,8 @@ class Inst(MSLDBE):
 
         # Fixed constant instruction content fields
         self.fixed=[]                 # List of fixed ifield names
-        self.fixed_value={}           # Values assigned to the fixed ifield
+        self.fixed_value={}           # Fields assigned to the fixed value
+        self.filter_value={}          # Fields adjusted by a field filter
 
         attr=els.attr
         if len(attr)==0:
@@ -1104,9 +1111,12 @@ class Inst(MSLDBE):
                     msg="inst %s statement contains one or more unrecognized "
                         "flags: '%s' " % (self.ID,invalid))
 
+        # Process inst statement parameters: fixed/filter
         for p in els.parms:
             if p.typ=="fixed":
                 self.fixed_proc(p)
+            elif p.typ=="filter":
+                self.filter_proc(p)
             else:
                 raise ValueError("%s invalid parameter type for inst statement: %s" \
                     % (cls_str,p.typ))
@@ -1150,36 +1160,76 @@ class Inst(MSLDBE):
         s="%s\n%sopcode digits: %s" % (s,lcl,self.opc_len)
         s="%s\n%sformat: %s" % (s,lcl,self.format)
         s="%s\n%sprivileged: %s" % (s,lcl,self.priv)
+        # FIXME
         for f in self.fixed:
             s="%s\n%sfixed %s: %s" % (s,lcl,f,self.fixed_value[f])
         if string:
             return s
         print(s)
 
+    def filter_proc(self,fparm):
+        attr=fparm.attr
+        if len(attr) != 2:
+            raise MSLError(loc=fparm.source,\
+                msg="inst statement fixed parameter requires one attribute: %s" \
+                    % len(attr))
+
+        # Make sure no duplicate filter parameters
+        fchar=attr[0]   # machine instruction field
+        if fchar in self.filters:
+            raise MSLError(loc=fparm.source,\
+                msg="inst %s statement duplicate filter field: %s" \
+                    % (self.ID,fchar))
+
+        # Make sure field not already defined with a fixed parameter
+        try:
+            self.fixed_value[fchar]
+            raise MSLError(loc=fparm.source,\
+                msg="inst %s field already defined as fixed: %s" \
+                    % fchar)
+        except KeyError:
+            pass
+
+
+        # Process value field
+        vchar=attr[1]   # Filter being used
+        if not vchar in Inst.filters:
+            raise MSLError(loc=fparm.source,\
+                msg="inst %s statement filter parameter invalid: %s" \
+                    % (self.ID,vchar))
+        self.filter_value[fchar]=vchar
+
     def fixed_proc(self,fparm):
         attr=fparm.attr
         if len(attr) != 2:
             raise MSLError(loc=fparm.source,\
-                msg="inst statement fixed parameter requires two attributes: %s" \
+                msg="inst statement fixed parameter requires one attribute: %s" \
                     % len(attr))
 
-        # Make sure no duplicate fixed parmaters
+        # Make sure no duplicate fixed parameters
         fchar=attr[0]
         if fchar in self.fixed:
             raise MSLError(loc=fparm.source,\
                 msg="inst %s statement duplicate fixed field: %s" % (self.ID,fchar))
 
+        # Make sure field not already defined with a filter parameter
+        try:
+            self.filter_value[fchar]
+            raise MSLError(loc=fparm.source,\
+                msg="inst %s field already defined with a filter field: %s" \
+                    % (self.ID,fchar))
+        except KeyError:
+            pass
+
         # Process value field
         vchar=attr[1]
         try:
-            #value=int(vchar,16)
-            value=int(vchar,0)
-        except IndexError:
+            value=int(vchar,16)
+        except ValueError:
+            # Value is not hexadecimal so check if a field filter
             raise MSLError(loc=fparm.source,\
                 msg="inst %s statement fixed field %s value not hex: %s" \
-                    % (self.ID,field,vchar))
-
-        # Add to objects interpreted value
+                    % (self.ID,fchar,vchar))
         self.fixed.append(fchar)
         self.fixed_value[fchar]=value
 
@@ -1553,7 +1603,7 @@ class MSL(sopl.SOPL):
         self.regStmt("cu",parms=["channels","devices"])
         self.regStmt("format",parms=["length","mach","source","xopcode"])
         self.regStmt("iset",parms=["mnemonics",])
-        self.regStmt("inst",parms=["fixed",])
+        self.regStmt("inst",parms=["fixed","filter"])
         self.regStmt("model",parms=["cpu","channel","cus","icu","exclude"])
         self.regStmt("system",parms=["model","memory","muxdevs"])
 

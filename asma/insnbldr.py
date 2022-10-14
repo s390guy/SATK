@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014-2020 Harold Grovesteen
+# Copyright (C) 2014-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -18,7 +18,7 @@
 
 # This module builds machine instructions for ASMA.
 
-this_module="%s.py" % __name__
+this_module="insnbldr.py"
 
 # Python imports: None
 # SATK imports: None
@@ -32,7 +32,7 @@ import asmstmts
 #  +--------------------------------------+
 #  |                                      |
 #  |   Range Check User Error Exception   |
-#  |                                      | 
+#  |                                      |
 #  +--------------------------------------+
 #
 
@@ -51,12 +51,12 @@ class RangeCheckError(Exception):
 #  +---------------------------------------------+
 #  |                                             |
 #  |   Instruction Builder and Related Classes   |
-#  |                                             | 
+#  |                                             |
 #  +---------------------------------------------+
 #
 
 # This class supports the construction of machine instructions based upon an instance
-# of assembler.Stmt presented to the build engine.  The Stmt instance is updated with 
+# of assembler.Stmt presented to the build engine.  The Stmt instance is updated with
 # the constructed instruction.
 class Builder(object):
     def __init__(self,trace=False):
@@ -154,7 +154,7 @@ class Builder(object):
 
     # Provides conversion of a signed Python integer into an unsigned Python integer.
     # This is necessary for inserting sigend values corretnly into bytes or bytearrays.
-    # 
+    #
     # Method arguments:
     #   value    The signed value being converted
     #   bits     The field length in bits
@@ -179,14 +179,77 @@ class Builder(object):
         return integer
 
 
+# This class supports use of field filters in MSL 'inst' statement 'fixed'
+# parameters.  The class applies the filter and returns the filtered field's
+# value.
+#
+# New filters are added to this class as a method.
+class FieldFilters:
+    def __init__(self):
+        # This is a dictionary of filter methods supported by MSL inst fixed
+        # parameter.  It maps the filter name (used in MSL) to a method in
+        # this instance.
+        self.fms={"NOP":   self._nop,
+                  "TAONE": self._taone,
+                  "TAZERO":self._tazero}
+
+  #
+  # MSL Filter Methods
+  #
+
+    # This method performs no actual alteration of the value but is useful
+    # for debugging.
+    def _nop(self,value):
+        return value
+
+    # This method treats in ROTATE instructions as 1 the T-bit
+    # Instance Argument:
+    #   value   The assembler operand value
+    def _taone(self,value):
+        return value | 0x80
+
+    # This method treats in ROTATE instructions as 0 the T-bit
+    # Instance Argument:
+    #   value   The assembler operand value
+    def _tazero(self,value):
+        return value & 0x7F
+
+  #
+  # Externally callable method
+  #
+
+    # This is the only method supported for external calls by the FieldFilter
+    # object.
+    def apply_filter(self,name,field_value):
+        try:
+            filter_method=self.fms[name]
+        except KeyError:
+            # If this KeyError occurs, either correct msldb.py or add the
+            # filter name to this module
+            raise ValueError("%s filter name not defined by insnbldr: %s" % \
+                (assembler.eloc(self,"apply_filter",module=this_module),name))
+
+        return filter_method(field_value)
+
+
 # This class is where the results of the assembler are merged with the MSL database
-# format information of a given instruction in preperation for generation of the 
+# format information of a given instruction in preperation for generation of the
 # machine instruction itself.
 class AOper(object):
-    def __init__(self,operand,soper,fixed):
+
+    filters=FieldFilters()  # Process instruction field filters
+
+    def __init__(self,operand,soper,fixed,filtered):
         self.operand=operand        # asmbase.Operand subclass object
         self.soper=soper            # msldb.soper object
-        self.fixed=fixed            # Dictionary of fixed content
+
+        # Dictionary of fixed content for this field from inst statement
+        # fixed paramater field (hex value)
+        self.fixed=fixed
+
+        # Dictionary of field filter applied to this field from inst statement
+        # fixed parameter (string)
+        self.filtered=filtered
 
     # Returns a list of Field objects with their respective values from the assembly
     def fields(self,fmt):
@@ -194,21 +257,23 @@ class AOper(object):
         my_fields=[]
         # Determine values for all fixed content fields
         vector=False
+        filter_name=None
         for mfield,mf in mach.items():
             vector = vector or mf.typ=="V"  # Detect vector registers
-            if not mf.fixed:
-                continue
-            try:
-                fixed_value=self.fixed[mfield]
-            except KeyError:
-                # WARNING: this should not occur if msldb has done a proper validation.
-                # Correct the bug in msldb.py if this is raised.
-                raise ValueError("%s instruction definition does not define "
-                    "fixed value for field: %s"\
-                        % (eloc(self,"fields",module=this_module),mfield))
-            fld=Field(mfield=mf,value=fixed_value)
-            my_fields.append(fld)
-            
+            if mf.fixed:
+                try:
+                    fixed_value=self.fixed[mfield]
+                except KeyError:
+                    # WARNING: this should not occur if msldb has done a
+                    # proper validation. Correct the bug in msldb.py if this
+                    # is raised.
+                    raise ValueError("%s instruction definition does not define "
+                        "fixed value for field: %s" \
+                            % (assembler.eloc(self,"fields",module=this_module)\
+                                ,mfield))
+                fld=Field(mfield=mf,value=fixed_value)
+                my_fields.append(fld)
+
         # Process values from statement operands
         rxb=0
         for mfield in self.soper.mfields:
@@ -219,13 +284,25 @@ class AOper(object):
                 # WARNING: this should not occur if msldb has done proper validation.
                 # Correct the bug in msldb.py if this is raised.
                 raise ValueError("%s instruction format %s does not define mach "
-                    "field: %s" % (eloc(self,"fields",module=this_module),\
-                        fmt.ID,mfield))
+                    "field: %s" % (assembler.eloc(self,"fields",\
+                        module=this_module),fmt.ID,mfield))
 
             mf_typ=mf.typ    # This is the machine field type
 
             # The Operand object now provides its value for this mfield type
             value=self.operand.field(mf_typ)
+
+            if len(self.filtered) > 0:
+                try:
+                    filter_name=self.filtered[mfield]
+                except KeyError:
+                    filter_name=None
+
+                if filter_name:
+                    # This tests if a filter name applies
+
+                    value=AOper.filters.apply_filter(filter_name,value)
+
             if mf_typ=="V":
                 if value<0 or value>31:
                     raise assembler.AssemblerError(line=line,\
@@ -238,7 +315,7 @@ class AOper(object):
             else:
                 fld=Field(mfield=mf,value=value)
             my_fields.append(fld)
-            
+
         # Generate RXB field if required
         if rxb:
             try:
@@ -269,9 +346,13 @@ class AOper(object):
 #    start     starting bit number of field within the structure
 #    signed    Specify True if the value is treated as singed, False otherwise.
 #              Default is False (unsigned).
+#    filter_name  String name of filter being applied to this field
 class Field(object):
+
+    filters=FieldFilters()  # Process instruction field filters
+
     def __init__(self,mfield=None,value=None,\
-                 name=None,size=None,start=None,signed=False):
+                 name=None,size=None,start=None,signed=False,filter_name=None):
         self.name=None                   # name of the field
         self.size=None                   # Field size in bits
         self.signed=None                 # Signed field
@@ -302,7 +383,7 @@ class Field(object):
                self.signed)
         return s
 
-    # This presents the contents of the 
+    # This presents the contents of the
     def dump(self,indent="",string=False):
         s="%s%s" % (indent,self)
         if string:
@@ -329,7 +410,7 @@ class Field(object):
         if signed:
             uint=bldr.s2u_int(value,self.size)
         else:
-            uint=value 
+            uint=value
 
         # This codes takes the field and
         # positions it for insertion into
@@ -365,9 +446,9 @@ class Instruction(object):
 
         # These attributes contain
         self.aops=[]            # From Step 1a - List of AOper objects
-        self.fixed={}           # From Step 1b - 
+        self.fixed={}           # From Step 1b -
         self.fields=[]          # From Step 2  - List of Field objects
-        self.laddr=[]           # 
+        self.laddr=[]           #
 
         # Step 1a - build the AOper list (one per assembler statement operand)
         soper_seq=fmt.soper_seq
@@ -381,15 +462,16 @@ class Instruction(object):
             name=soper_seq[n]        # A source parameter type/id attribute
             soper=fmt.soper[name]    # The msldb.soper object it defines
             operand=operands[n]      # The assembler.Operand object for the soper object
+
             # Link the assembly results with the format, instruction fixed content
-            aop=AOper(operand,soper,self.inst.fixed) # Link the assembly results with the format
+            aop=AOper(operand,soper,self.inst.fixed,self.inst.filters)
             self.aops.append(aop)    # Add to the list.
-        # The aops list is an intermediate step in figuring out how to build the 
+        # The aops list is an intermediate step in figuring out how to build the
         # instruction.
 
         # Step 2 - build the list of Field objects (one per machine field)
 
-        #   Step 2a - add the opcode machine fields to the list from msldb.Format and 
+        #   Step 2a - add the opcode machine fields to the list from msldb.Format and
         #             msldb.Inst objects.
         opc_fields=fmt.opcode
         opcode=Field(mfield=opc_fields["OP"],value=inst.opcode[0])

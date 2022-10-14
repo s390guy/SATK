@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2015-2017 Harold Grovesteen
+# Copyright (C) 2015-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -20,7 +20,7 @@
 # all assembler and macro directives and interfaces with the MSL database for
 # instruction definition.  Definitions reside here.
 
-this_module="%s.py" % __name__
+this_module="asmoper.py"
 
 # Python imports: None
 # SATK imports: None
@@ -56,7 +56,7 @@ class MSLcache(object):
         # Try again against the MSL information.  A KeyError here is for real
         inst=self.cpux.inst[item]
         # Let the KeyError this time reflect this is an undefined instruction
-        fmt=self.cpux.formats[inst.format]   
+        fmt=self.cpux.formats[inst.format]
         entry=MSLentry(inst,fmt)
         # Put the instruction into the cache
         self.cache[item]=entry
@@ -82,6 +82,7 @@ class MSLentry(object):
         self.mnemonic=mslinst.mnemonic  # The instruction mnemonic
         self.opcode=mslinst.opcode      # The opcode field value(s) [for OP, for OPX]
         self.fixed=mslinst.fixed_value  # Fixed instruction content field:value dict.
+        self.filters=mslinst.filter_value # Field filter field:filter_name dict.
         self.extended=mslinst.extended  # Whether this is an extended mnemonic
 
         # Data from the MSL Format object
@@ -172,9 +173,9 @@ class OperMgr(asmbase.ASMOperTable):
         v=sdict[setting]    # This may raise a KeyError
         if v is None:
             try:
-                del self.xmode[mode]  # If none, remove the XMODE setting entirely 
+                del self.xmode[mode]  # If none, remove the XMODE setting entirely
             except KeyError:
-                pass                  # Alredy gone, that is OK, that's what we wanted 
+                pass                  # Alredy gone, that is OK, that's what we wanted
         else:
             self.xmode[mode]=v
 
@@ -312,10 +313,10 @@ class OperMgr(asmbase.ASMOperTable):
     def getMSL(self,inst):
         return self.cache.getInst(inst)
 
-    # Accesses and optionally defines a macro (or macros if more than one) in a 
+    # Accesses and optionally defines a macro (or macros if more than one) in a
     # MACLIB file.  Returns the associated ASMOper object of the defined macro.
     # Note: This method operates under the control of MACLIB processor,
-    # assembler.MACLIBProcessor.  It uses the one instantiated for the 
+    # assembler.MACLIBProcessor.  It uses the one instantiated for the
     # assembler.
     #
     # This is the only place that the assembler seems to know which processor
@@ -336,7 +337,7 @@ class OperMgr(asmbase.ASMOperTable):
 
         # Actually reading the file so macro will be defined
         # An asmline.LineError is raised if this fails.
-        # asmline.LineMgr.categorize() method does the actual trapping of 
+        # asmline.LineMgr.categorize() method does the actual trapping of
         # the error.
         try:
             # Run the MACLIBProcessor to define the macro
@@ -344,7 +345,7 @@ class OperMgr(asmbase.ASMOperTable):
             r=asm.MP.run(asm,macname)
             #print("RETURNED FROM MACRO PROCESSOR: class: %s" \
             #    % r.__class__.__name__)
-            
+
         # The MACROProcessor object should return exception objects, not
         # uncaught exceptions.  This exception handler should not be required.
         # This is why the exceptions caught here generate a WARNING message.
@@ -378,7 +379,7 @@ class OperMgr(asmbase.ASMOperTable):
             # The first entry in the XREF list is that of the line in which
             # the macro is defined in the MACLIB file.  This line has no
             # meaning in the normal assembly listing and is removed here.
-            mte.undefine()   # Use only references from the assembly listing 
+            mte.undefine()   # Use only references from the assembly listing
             return mte.oper
         return None
 
@@ -589,10 +590,10 @@ class OperMgr(asmbase.ASMOperTable):
             if __debug__:
                 if debug:
                     print("%s DEBUG looking for macro returned: %s" % (cls_str,oper))
-            # Note: if macread is True, and the macro is not defined, the getMacro 
+            # Note: if macread is True, and the macro is not defined, the getMacro
             # method will attempt to access the macro libary path to find the macro
             # definition.  If found the MACLIBProcessor will be run to define the
-            # macro.  The ASMOper object of the newly defined macro is returned, as 
+            # macro.  The ASMOper object of the newly defined macro is returned, as
             # if it was already defined.
             if oper is not None:
                 if __debug__:
@@ -622,19 +623,19 @@ class OperMgr(asmbase.ASMOperTable):
     # Returns the current XMODE setting.  No exceptions raised
     # Returns:
     #   The XMODE setting, if defined or or the orignal name
-    #   The original name, if not defined or the XMODE was disabled 
+    #   The original name, if not defined or the XMODE was disabled
     def getXMODE(self,xmode):
         setting=self.xmode.get(xmode,xmode)
         if setting is None:
             return xmode
         return setting
 
-    # Initialize the XMODE settings.  The ccw and psw method arguments are from the 
+    # Initialize the XMODE settings.  The ccw and psw method arguments are from the
     # command line argparse values.
-    # The values are initialized from the MSL database.  The externally supplied 
+    # The values are initialized from the MSL database.  The externally supplied
     # arguments override the MSL database.
     #
-    # If the arguments are supplied via the asma.py command line interface, invalid 
+    # If the arguments are supplied via the asma.py command line interface, invalid
     # arguments will not be accepted.
     #
     # If the arguments are supplied by an external user of the Assembler class as
@@ -652,7 +653,7 @@ class OperMgr(asmbase.ASMOperTable):
             d["CCW"]=self.ccw.upper()   # already be upper case, but just in case
         d["PSW"]=self.psw.upper()       # change happens, make sure.
 
-        self.xmode=d         # Initially establish MSL database defaults 
+        self.xmode=d         # Initially establish MSL database defaults
 
         # Use command-line options to override MSL database defaults if provided.
         if ccw is not None:  # External override provided
@@ -717,7 +718,7 @@ class OperMgr(asmbase.ASMOperTable):
 class MacroTable(object):
     def __init__(self):
         self.macros={}
-    
+
     # Retrieve the MTE for this macro name
     def __getitem__(self,name):
         #print("asmoper.MacroTable.__getitem__ - self.macros: %s" \
@@ -725,7 +726,7 @@ class MacroTable(object):
         return self.macros[name]
 
     # Define / redefine the macro with this name
-    # 
+    #
     # Method Arguments:
     #   oper  the asmbase.ASMOper object referring to this macro
     #   env   the environment defining the macro.  Maybe None
@@ -779,7 +780,7 @@ class MTE(object):
         # By passing the same XREF object to each definition of macros with the
         # same names, all references and all definitions of the macros are
         # accumulated here.  The listing module uses _this_ to preprare the report.
-        
+
     def __str__(self):
         return "MTE - macro: %s, maclib: %s" % (self.name,self.maclib)
 
@@ -798,12 +799,12 @@ class MTE(object):
     # Add a reference to this macro
     def reference(self,line):
         self.xref.ref(line)
-        
+
     # Removes the definition of the macro (the first reference) from the
     # XREF object.
     def undefine(self):
         self.xref.undefine()
-    
+
 
 
 if __name__ == "__main__":
