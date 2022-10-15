@@ -1,0 +1,1125 @@
+# Copyright (C) 2022 Harold Grovesteen
+#
+# This file is part of SATK.
+#
+#     SATK is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     SATK is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+# Other Notices
+# ----- -------
+#
+# IBM and z/Architecture are registered trademarks of International Business Machines
+# Corporation.
+
+# IBM(R) z/Architecture(R) extended mnemonics in Machine Specification Language
+
+# This file contains all extended mnemonics introduced by SA22-7832-06 through
+# SA22-7832-13, the IBM z/Architecture Principles of Operation manual.
+#
+# FILE CONTENTS:
+#
+# MSL statements for the extended mnemonics include:
+#  - an iset statement, one per PoO manual version
+#  - a format statement for each unique extended mnemonic format
+#  - and an inst statement for each extended mnemonic included in the
+#    iset associated with the PoO manual introducing the extended mnemonic.
+#
+# Format statement names all begin with the letter E.  Each inst statement must
+# set the E flag, for extended mnemonic.  Format names in this file must not
+# be the same as those used by formats.msl.
+#
+# USING THIS FILE:
+#
+# MSL files containing CPU definitions that incorporate z/Architecture machine
+# instruction must include this file.  Additionally each iset statement
+# occurring in this file, one per PoO version, must be included as a feature
+# of each z/Architecture CPU within the including file.
+#
+# At present two MSL files include this file:
+#   - asma/msl/s390x-insn.msl (1 cpu) and
+#   - asma/msl/all-insn.msl (3 cpu's).
+
+
+#   +--------------------------------------------------------------------+
+#   |                                                                    |
+#   |                z/ARCHITECTURE EXTENDED MENMONICS                   |
+#   |                                                                    |
+#   +--------------------------------------------------------------------+
+
+#
+#  SA22-7832-06 - February, 2008
+#
+
+
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  |0000 |          RI2          |*M3* |0000 |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# ERIEA: MNEMONIC R1,RI2
+#
+format ERIEA
+    length 6
+    xopcode 40 47
+    mach R1 8 11
+    mach RI2 16 31 signed
+    mach M3 32 35 fixed
+    source R1 R1
+    source RI2 RI2
+#    source M3 M3     Supplied by extended mnemonic
+
+
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |    OP     | R1  | R2  |         RELI3         |*M3* |0000 |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# ERIEB: MNEMONIC R1,R2,RELI3
+#
+format ERIEB
+    length 6
+    xopcode 40 47
+    mach R1 8 11
+    mach R2 12 15
+    mach RELI3 16 31 signed
+    mach M3 32 35 fixed
+    source R1 R1
+    source R2 R2
+#    source M3 M3     Supplied by extended mnemonic
+    source RELI3 RELI3
+
+
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  |*M3* |         RELI4         |    I2     |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# ERIEC: MNEMONIC R1,I2,RELI4
+#
+format ERIEC
+    length 6
+    xopcode 40 47
+    mach R1 8 11
+    mach M3 12 15 fixed
+    mach RELI4 16 31 signed
+    mach I2 32 39 signed
+    source R1 R1
+    source I2 I2
+#    source M3 M3     Supplied by extended mnemonic
+    source RELI4 RELI4
+
+
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  | R2  |    *I3*   |    *I4*   |    *I5*   |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# ERIEF: MNEMONIC R1,R2
+#
+format ERIEF
+    length 6
+    xopcode 40 47
+    mach R1 8 11
+    mach R2 12 15
+    mach I3 16 23 fixed
+    mach I4 24 31 fixed
+    mach I5 32 39 fixed
+    source R1 R1
+    source R2 R2
+#    source I3 I3
+#    source I4 I4
+#    source I5 I5
+
+
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  | R2  |    (I3)   |     I4    |     I5    |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# ERIEF-A: MNEMONIC R1,R2,I3,I4,I5
+# Note: This format is identical to that used by RIEF in s390x-insn.all
+# This allows zem-insn.msl to be independent of formats.msl.
+#
+format ERIEF-A
+    length 6
+    xopcode 40 47
+    mach R1 8 11
+    mach R2 12 15
+    mach I3 16 23
+    mach I4 24 31
+    mach I5 32 39
+    source R1 R1
+    source R2 R2
+    source I3 I3
+    source I4 I4
+    source I5 I5
+
+
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  |*M3* | B4  |        D4       |     I2    |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# ERIS: MNEMONIC R1,I2,D4(B4)
+#
+format ERIS
+    length 6
+    xopcode 40 47
+    mach R1 8 11
+    mach M3 12 15 fixed
+    mach B4 16 19
+    mach D4 20 31
+    mach I2 32 39 signed
+    source R1 R1
+    source I2 I2
+#    source M3 M3     Supplied by extended mnemonic
+    source S  B4 D4
+
+
+#     0     4     8     12    16    20    24    28   31
+#     +-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    |    XOP    |*M3* |0000 | R1  | R2  |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# ERRFC: MNEMONIC R1,R2
+#
+format ERRFC
+    length 4
+    xopcode 8 15
+    mach M3 16 19 fixed
+    mach R1 24 27
+    mach R2 28 31
+    source R1 R1
+    source R2 R2
+#    source M3 M3     Supplied by extended mnemonic
+
+
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  | R2  | B4  |        D4       |*M3* |0000 |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# ERRS: MNEMONIC R1,R2,D4(B4)
+#
+format ERRS
+    length 6
+    xopcode 40 47
+    mach R1 8 11
+    mach R2 12 15
+    mach B4 16 19
+    mach D4 20 31
+    mach M3 32 35 fixed
+    source R1 R1
+    source R2 R2
+#    source M3 M3     Supplied by extended mnemonic
+    source S B4 D4
+
+    
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  |*M3* | B2  |       DL2       |    DH2    |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# ERSYB1: MNEMONIC R1,D2(B2)
+#
+#  Note: D2 contributes to DL2 and DH2 fields.
+#        DH2 contains the high-order 8 bits of the 20-bit signed D2 displacement
+#        DL2 contains the low-order 12 bits of the 20-bit signed D2 displacement
+#
+format ERSYB1
+     length 6
+     xopcode 40 47
+     mach R1 8 11
+     mach M3 12 15 fixed
+     mach B2 16 19
+     mach DL2 20 31
+     mach DH2 32 39 signed
+     source R1 R1
+     source SY B2 DL2 DH2
+#     source M3 M3
+    
+    
+
+#
+# MISCELANEOUS -04 INSTRUCTION RENAMES
+#
+inst LFI    C09   RILD  E      # IILF RENAMED
+inst LLGFI  C0F   RILD  E      # LLILF RENAMED
+# NOTE: RILD format defined in asma/msl/formats.msl
+
+iset s390x-em-04      # September, 2005 (base) / May, 2022 (extended mnemonic)
+    mnemonics LFI LLGFI
+
+
+#
+#  CGIB (ECFC) EXTENDED MNEMONICS
+#
+inst CGIBE  ECFC  ERIS  E      # CBIG NOT EQUAL
+    fixed M3 8
+
+inst CGIBH  ECFC  ERIS  E      # CBIG HIGH
+    fixed M3 2
+
+inst CGIBL  ECFC  ERIS  E      # CBIG LOW
+    fixed M3 4
+
+inst CGIBNE  ECFC  ERIS  E      # CBIG NOT EQUAL
+    fixed M3 6
+
+inst CGIBNH  ECFC  ERIS  E      # CBIG NOT HIGH
+    fixed M3 C
+
+inst CGIBNL  ECFC  ERIS  E      # CBIG NOT LOW
+    fixed M3 A
+
+
+#
+#  CGIJ (EC7C) EXTENDED MNEMONICS
+#
+inst CGIJE  EC7C  ERIEC  E      # CGIJ EQUAL
+    fixed M3 8
+
+inst CGIJH  EC7C  ERIEC  E      # CGIJ HIGH
+    fixed M3 2
+
+inst CGIJL  EC7C  ERIEC  E      # CGIJ LOW
+    fixed M3 4
+
+inst CGIJNE EC7C  ERIEC  E      # CGIJ NOT EQUAL
+    fixed M3 6
+
+inst CGIJNH EC7C  ERIEC  E      # CGIJ NOT HIGH
+    fixed M3 C
+
+inst CGIJNL EC7C  ERIEC  E      # CGIJ NOT LOW
+    fixed M3 A
+
+
+#
+#  CGIT (EC70) EXTENDED MNEMONICS
+#
+inst CGITE  EC70  ERIEA  E      # CGIT EQUAL
+    fixed M3 8
+
+inst CGITH  EC70  ERIEA  E      # CGIT HIGH
+    fixed M3 2
+
+inst CGITL  EC70  ERIEA  E      # CGIT LOW
+    fixed M3 4
+
+inst CGITNE EC70  ERIEA  E      # CGIT NOT EQUAL
+    fixed M3 6
+
+inst CGITNH EC70  ERIEA  E      # CGIT NOT HIGH
+    fixed M3 C
+
+inst CGITNL EC70  ERIEA  E      # CGIT NOT LOW
+    fixed M3 A
+
+
+#
+#  CGRB (ECE4) EXTENDED MNEMONICS
+#
+inst CGRBE  ECE4  ERRS   E     # CGRB HIGH
+    fixed M3 8
+
+inst CGRBH  ECE4  ERRS   E     # CGRB HIGH
+    fixed M3 2
+
+inst CGRBL  ECE4  ERRS   E     # CGRB HIGH
+    fixed M3 4
+
+inst CGRBNE ECE4  ERRS   E     # CGRB HIGH
+    fixed M3 6
+
+inst CGRBNH ECE4  ERRS   E     # CGRB HIGH
+    fixed M3 C
+
+inst CGRBNL ECE4  ERRS   E     # CGRB HIGH
+    fixed M3 A
+
+
+#
+#  CGRJ (EC64) EXTENDED MNEMONICS
+#
+inst CGRJE  EC64  ERIEB  E     # CGRJ EQUAL
+    fixed M3 8
+
+inst CGRJH  EC64  ERIEB  E     # CGRJ HIGH
+    fixed M3 2
+
+inst CGRJL  EC64  ERIEB  E     # CGRJ LOW
+    fixed M3 4
+
+inst CGRJNE EC64  ERIEB  E     # CGRJ NOT EQUAL
+    fixed M3 6
+
+inst CGRJNH EC64  ERIEB  E     # CGRJ NOT HIGH
+    fixed M3 C
+
+inst CGRJNL EC64  ERIEB  E     # CGRJ NOT LOW
+    fixed M3 A
+
+
+#
+#  CGRT (B960) EXTENDED MNEMONICS
+#
+inst CGRTE  B960  ERRFC  E     # CGRT EQUAL
+    fixed M3 8
+
+inst CGRTH  B960  ERRFC  E     # CGRT HIGH
+    fixed M3 2
+
+inst CGRTL  B960  ERRFC  E     # CGRT LOW
+    fixed M3 4
+
+inst CGRTNE B960  ERRFC  E     # CGRT NOT EQUAL
+    fixed M3 6
+
+inst CGRTNH B960  ERRFC  E     # CGRT NOT LOW
+    fixed M3 C
+
+inst CGRTNL B960  ERRFC  E     # CGRT NOT LOW
+    fixed M3 A
+
+
+#
+#  CIB (ECFE) EXTENDED MNEMONICS
+#
+inst CIBE  ECFE  ERIS  E       # CIB EQUAL
+    fixed M3 8
+
+inst CIBH  ECFE  ERIS  E       # CIB HIGH
+    fixed M3 2
+
+inst CIBL  ECFE  ERIS  E       # CIB LOW
+    fixed M3 4
+
+inst CIBNE ECFE  ERIS  E       # CIB NOT EQUAL
+    fixed M3 6
+
+inst CIBNH ECFE  ERIS  E       # CIB NOT HIGH
+    fixed M3 C
+
+inst CIBNL ECFE  ERIS  E       # CIB NOT LOW
+    fixed M3 A
+
+
+#
+#  CIJ (EC7E) EXTENDED MNEMONICS
+#
+inst CIJE   EC7E  ERIEC  E     # CIJ EQUAL
+    fixed M3 8
+
+inst CIJH   EC7E  ERIEC  E     # CIJ HIGH
+    fixed M3 2
+
+inst CIJL   EC7E  ERIEC  E     # CIJ LOW
+    fixed M3 4
+
+inst CIJNE  EC7E  ERIEC  E     # CIJ NOT EQUAL
+    fixed M3 6
+
+inst CIJNH  EC7E  ERIEC  E     # CIJ NOT HIGH
+    fixed M3 C
+
+inst CIJNL  EC7E  ERIEC  E     # CIJ NOT LOW
+    fixed M3 A
+
+
+#
+#  CIT (EC72) EXTENDED MNEMONICS
+#
+inst CITE   EC72  ERIEA  E     # CIT EQUAL
+    fixed M3 8
+
+inst CITH   EC72  ERIEA  E     # CIT HIGH
+    fixed M3 2
+
+inst CITL   EC72  ERIEA  E     # CIT LOW
+    fixed M3 4
+
+inst CITNE  EC72  ERIEA  E     # CIT NOT EQUAL
+    fixed M3 6
+
+inst CITNH  EC72  ERIEA  E     # CIT NOT HIGH
+    fixed M3 C
+
+inst CITNL  EC72  ERIEA  E     # CIT NOT LOW
+    fixed M3 A
+
+
+#
+#  CLFIT (EC73) EXTENDED MNEMONICS
+#
+inst CLFITE  EC73  ERIEA  E     # CLFIT EQUAL
+    fixed M3 8
+
+inst CLFITH  EC73  ERIEA  E     # CLFIT HIGH
+    fixed M3 2
+
+inst CLFITL  EC73  ERIEA  E     # CLFIT LOW
+    fixed M3 4
+
+inst CLFITNE EC73  ERIEA  E     # CLFIT NOT EQUAL
+    fixed M3 6
+
+inst CLFITNH EC73  ERIEA  E     # CLFIT NOT HIGH
+    fixed M3 C
+
+inst CLFITNL EC73  ERIEA  E     # CLFIT NOT LOW
+    fixed M3 A
+
+
+#
+#  CLGIB (ECFD) EXTENDED MNEMONICS
+#
+inst CLGIBE  ECFD  ERIS   E     # CLRB EQUAL
+    fixed M3 8
+
+inst CLGIBH  ECFD  ERIS   E     # CLRB HIGH
+    fixed M3 2
+
+inst CLGIBL  ECFD  ERIS   E     # CLRB LOW
+    fixed M3 4
+
+inst CLGIBNE ECFD  ERIS   E     # CLRB NOT EQUAL
+    fixed M3 6
+
+inst CLGIBNH ECFD  ERIS   E     # CLRB NOT HIGH
+    fixed M3 C
+
+inst CLGIBNL ECFD  ERIS   E     # CLRB NOT LOW
+    fixed M3 A
+
+
+#
+#  CLGIJ (EC7D) EXTENDED MNEMONICS
+#
+inst CLGIJE  EC7D  ERIEC   E   # CLGIJ EQUAL
+    fixed M3 8
+
+inst CLGIJH  EC7D  ERIEC   E   # CLGIJ HIGH
+    fixed M3 2
+
+inst CLGIJL  EC7D  ERIEC   E   # CLGIJ LOW
+    fixed M3 4
+
+inst CLGIJNE EC7D  ERIEC   E   # CLGIJ NOT EQUAL
+    fixed M3 6
+
+inst CLGIJNH EC7D  ERIEC   E   # CLGIJ NOT HIGH
+    fixed M3 C
+
+inst CLGIJNL EC7D  ERIEC   E   # CLGIJ NOT LOW
+    fixed M3 A
+
+
+#
+#  CLGIT (EC71) EXTENDED MNEMONICS
+#
+inst CLGITE  EC71  ERIEA   E   # CLGIT EQUAL
+    fixed M3 8
+
+inst CLGITH  EC71  ERIEA   E   # CLGIT HIGH
+    fixed M3 2
+
+inst CLGITL  EC71  ERIEA   E   # CLGIT LOW
+    fixed M3 4
+
+inst CLGITNE EC71  ERIEA   E   # CLGIT NOT EQUAL
+    fixed M3 6
+
+inst CLGITNH EC71  ERIEA   E   # CLGIT NOT HIGH
+    fixed M3 C
+
+inst CLGITNL EC71  ERIEA   E   # CLGIT NOT LOW
+    fixed M3 A
+
+
+#
+#  CLGRB (ECE5) EXTENDED MNEMONICS
+#
+inst CLGRBE ECE5  ERRS   E     # CLRB EQUAL
+    fixed M3 8
+
+inst CLGRBH ECE5  ERRS   E     # CLRB HIGH
+    fixed M3 2
+
+inst CLGRBL ECE5  ERRS   E     # CLRB LOW
+    fixed M3 4
+
+inst CLGRBNE ECE5 ERRS   E     # CLRB NOT EQUAL
+    fixed M3 6
+
+inst CLGRBNH ECE5 ERRS   E     # CLRB NOT HIGH
+    fixed M3 C
+
+inst CLGRBNL ECE5 ERRS   E     # CLRB NOT LOW
+    fixed M3 A
+
+
+#
+#  CLGRJ (EC65) EXTENDED MNEMONICS
+#
+inst CLGRJE EC65  ERIEB  E     # CLGRJ EQUAL
+    fixed M3 8
+
+inst CLGRJH EC65  ERIEB  E     # CLGRJ HIGH
+    fixed M3 2
+
+inst CLGRJL EC65  ERIEB  E     # CLGRJ LOW
+    fixed M3 4
+
+inst CLGRJNE EC65 ERIEB  E     # CLGRJ NOT EQUAL
+    fixed M3 6
+
+inst CLGRJNH EC65 ERIEB  E     # CLGRJ NOT HIGH
+    fixed M3 C
+
+inst CLGRJNL EC65 ERIEB  E     # CLGRJ NOT LOW
+    fixed M3 A
+
+#
+#  CLGRT (B961) EXTENDED MNEMONICS
+#
+inst CLGRTE B961  ERRFC  E     # CLGRT EQUAL
+    fixed M3 8
+
+inst CLGRTH B961  ERRFC  E     # CLGRT HIGH
+    fixed M3 2
+
+inst CLGRTL B961  ERRFC  E     # CLGRT LOW
+    fixed M3 4
+
+inst CLGRTNE B961 ERRFC  E     # CLGRT LOW
+    fixed M3 6
+
+inst CLGRTNH B961 ERRFC  E     # CLGRT NOT HIGH
+    fixed M3 c
+
+inst CLGRTNL B961 ERRFC  E     # CLGRT NOT LOW
+    fixed M3 A
+
+
+#
+#  CLIB (ECFF) EXTENDED MNEMONICS
+#
+inst CLIBE  ECFF  ERIS   E     # CLIB HIGH
+    fixed M3 8
+
+inst CLIBH  ECFF  ERIS   E     # CLIB HIGH
+    fixed M3 2
+
+inst CLIBL  ECFF  ERIS   E     # CLIB LOW
+    fixed M3 4
+
+inst CLIBNE ECFF  ERIS   E     # CLIB NOT EQUAL
+    fixed M3 6
+
+inst CLIBNH ECFF  ERIS   E     # CLIB NOT HIGH
+    fixed M3 C
+
+inst CLIBNL ECFF  ERIS   E     # CLIB NOT LOW
+    fixed M3 A
+
+
+#
+#  CLIJ (EC7F) EXTENDED MNEMONICS
+#
+inst CLIJE  EC7F  ERIEC   E    # CLIJ EQUAL
+    fixed M3 8
+
+inst CLIJH  EC7F  ERIEC   E    # CLIJ HIGH
+    fixed M3 2
+
+inst CLIJL  EC7F  ERIEC   E    # CLIJ LOW
+    fixed M3 4
+
+inst CLIJNE EC7F  ERIEC   E    # CLIJ NOT EQUAL
+    fixed M3 6
+
+inst CLIJNH EC7F  ERIEC   E    # CLIJ NOT HIGH
+    fixed M3 C
+
+inst CLIJNL EC7F  ERIEC   E    # CLIJ NOT LOW
+    fixed M3 A
+
+
+#
+#  CLRB (ECF7) EXTENDED MNEMONICS
+#
+
+inst CLRBE  ECF7  ERRS   E     # CLRB EQUAL
+    fixed M3 8
+
+inst CLRBH  ECF7  ERRS   E     # CLRB HIGH
+    fixed M3 2
+
+inst CLRBL  ECF7  ERRS   E     # CLRB LOW
+    fixed M3 4
+
+inst CLRBNE ECF7  ERRS   E     # CLRB NOT EQUAL
+    fixed M3 6
+
+inst CLRBNH ECF7  ERRS   E     # CLRB NOT HIGH
+    fixed M3 C
+
+inst CLRBNL ECF7  ERRS  E     # CLRB NOT LOW
+    fixed M3 A
+
+
+#
+#  CLRJ (EC77) EXTENDED MNEMONICS
+#
+inst CLRJE  EC77  ERIEB  E    # CRB EQUAL
+    fixed M3 8
+
+inst CLRJH  EC77  ERIEB  E    # CRB HIGH
+    fixed M3 2
+
+inst CLRJL  EC77  ERIEB  E    # CRB LOW
+    fixed M3 4
+
+inst CLRJNE EC77  ERIEB  E   # CRB NOT EQUAL
+    fixed M3 6
+
+inst CLRJNH EC77  ERIEB  E   # CRB NOT HIGH
+    fixed M3 C
+
+inst CLRJNL EC77  ERIEB  E   # CRB NOT LOW
+    fixed M3 A
+
+
+#
+#  CLRT (B973) EXTENDED MNEMONICS
+#
+inst CLRTE  B973  ERRFC  E    # CLRT EQUAL
+    fixed M3 8
+
+inst CLRTH  B973  ERRFC  E    # CLRT HIGH
+    fixed M3 2
+
+inst CLRTL  B973  ERRFC  E    # CLRT LOW
+    fixed M3 4
+
+inst CLRTNE B973  ERRFC  E    # CLRT NOT EQUAL
+    fixed M3 6
+
+inst CLRTNH B973  ERRFC  E    # CLRT NOT EQUAL
+    fixed M3 C
+
+inst CLRTNL B973  ERRFC  E    # CLRT NOT EQUAL
+    fixed M3 A
+
+
+#
+#  CRB (ECF6) EXTENDED MNEMONICS
+#
+inst CRBE   ECF6  ERRS   E     # CRB EQUAL
+    fixed M3 8
+
+inst CRBH   ECF6  ERRS   E     # CRB HIGH
+    fixed M3 2
+
+inst CRBL   ECF6  ERRS   E     # CRB LOW
+    fixed M3 4
+
+inst CRBNE  ECF6  ERRS   E     # CRB NOT EQUAL
+    fixed M3 6
+
+inst CRBNH  ECF6  ERRS   E     # CRB NOT HIGH
+    fixed M3 C
+
+inst CRBNL  ECF6  ERRS   E     # CRB NOT LOW
+    fixed M3 A
+
+
+#
+#  CRJ (EC76) EXTENDED MNEMONICS
+#
+inst CRJE   EC76  ERIEB  E     # CRJ EQUAL
+    fixed M3 8
+
+inst CRJH   EC76  ERIEB  E     # CRJ HIGH
+    fixed M3 2
+
+inst CRJL   EC76  ERIEB  E     # CRJ LOW
+    fixed M3 4
+
+inst CRJNE  EC76  ERIEB  E     # CRJ NOT EQUAL
+    fixed M3 6
+
+inst CRJNH  EC76  ERIEB  E     # CRJ NOT HIGH
+    fixed M3 C
+
+inst CRJNL  EC76  ERIEB  E     # CRJ NOT LOW
+    fixed M3 A
+
+
+#
+#  CRT (B972) EXTENDED MNEMONICS
+#
+inst CRTE   B972  ERRFC  E     # CRT EQUAL
+    fixed M3 8
+
+inst CRTH   B972  ERRFC  E     # CRT HIGH
+    fixed M3 2
+
+inst CRTL   B972  ERRFC  E     # CRT LOW
+    fixed M3 4
+
+inst CRTNE  B972  ERRFC  E     # CRT NOT EQUAL
+    fixed M3 6
+
+inst CRTNH  B972  ERRFC  E     # CRT NOT HIGH
+    fixed M3 C
+
+inst CRTNL  B972  ERRFC  E     # CRT NOT LOW
+    fixed M3 A
+
+
+#
+#  RISBG (EC55) EXTENDED MNEMONICS
+#
+inst RISBGZ EC55  ERIEF-A E    # Treat I3 T-bit as zero
+    filter I3 TAZERO
+
+
+#
+#  RISBGN (EC59) EXTENDED MNEMONICS
+#
+inst RISBGNZ EC59  ERIEF-A E   # Treat I3 T-bit as zero
+    filter I3 TAZERO
+
+
+#
+#  RNSBG (EC54) EXTENDED MNEMONICS
+#
+inst NHHR   EC54  ERIEF  E     # AND (HIGH <- HIGH)
+    fixed I3 00   # ==  0
+    fixed I4 1F   # == 31
+    fixed I5 00   # ==  0
+
+inst NHLR   EC54  ERIEF  E     # AND (HIGH <- LOW)
+    fixed I3 00   # ==  0
+    fixed I4 1F   # == 31
+    fixed I5 20   # == 32
+
+inst NLHR   EC54  ERIEF  E     # AND (LOW <- HIGH)
+    fixed I3 20   # == 32
+    fixed I4 3F   # == 63
+    fixed I5 20   # == 32
+
+inst RNSBGT EC54  ERIEF-A E    # Treat I3 T-bit as one
+    filter I3 TAONE
+
+#
+#  ROSBG (EC56) EXTENDED MNEMONICS
+#
+inst OHHR   EC56  ERIEF  E     # OR (HIGH <- HIGH)
+    fixed I3 00   # ==  0
+    fixed I4 1F   # == 31
+    fixed I5 00   # ==  0
+
+inst OHLR   EC56  ERIEF  E     # OR (HIGH <- LOW)
+    fixed I3 00   # ==  0
+    fixed I4 1F   # == 31
+    fixed I5 20   # == 32
+
+inst OLHR   EC56  ERIEF  E     # OR (LOW <- HIGH)
+    fixed I3 20   # == 32
+    fixed I4 3F   # == 63
+    fixed I5 20   # == 32
+
+inst ROSBGT EC56  ERIEF-A E    # Treat I3 T-bit as one
+    filter I3 TAONE
+
+
+#
+#  RXSBG (EC57) EXTENDED MNEMONICS
+#
+inst XHHR   EC57  ERIEF  E     # XOR (HIGH <- HIGH)
+    fixed I3 00   # ==  0
+    fixed I4 1F   # == 31
+    fixed I5 00   # ==  0
+
+inst XHLR   EC57  ERIEF  E     # XOR (HIGH <- LOW)
+    fixed I3 00   # ==  0
+    fixed I4 1F   # == 31
+    fixed I5 20   # == 32
+
+inst XLHR   EC57  ERIEF  E     # XOR (LOW <- HIGH)
+    fixed I3 20   # == 32
+    fixed I4 3F   # == 63
+    fixed I5 20   # == 32
+
+inst RXSBGT EC57  ERIEF-A E    # Treat I3 T-bit as one
+    filter I3 TAONE
+
+
+iset s390x-em-06      # February, 2008
+    mnemonics CGIBE  CGIBH  CGIBL  CGIBNE  CGIBNH  CGIBNL
+    mnemonics CGIJE  CGIJH  CGIJL  CGIJNE  CGIJNH  CGIJNL
+    mnemonics CGITE  CGITH  CGITL  CGITNE  CGITNH  CGITNL
+    mnemonics CGRBE  CGRBH  CGRBL  CGRBNE  CGRBNH  CGRBNL
+    mnemonics CGRJE  CGRJH  CGRJL  CGRJNE  CGRJNH  CGRJNL
+    mnemonics CGRTE  CGRTH  CGRTL  CGRTNE  CGRTNH  CGRTNL
+    mnemonics CIBE   CIBH   CIBL   CIBNE   CIBNH   CIBNL
+    mnemonics CIJE   CIJH   CIJL   CIJNE   CIJNH   CIJNL
+    mnemonics CITE   CITH   CITL   CITNE   CITNH   CITNL
+    mnemonics CLFITE CLFITH CLFITL CLFITNE CLFITNH CLFITNL
+    mnemonics CLGIBE CLGIBH CLGIBL CLGIBNE CLGIBNH CLGIBNL
+    mnemonics CLGIJE CLGIJH CLGIJL CLGIJNE CLGIJNH CLGIJNL
+    mnemonics CLGITE CLGITH CLGITL CLGITNE CLGITNH CLGITNL
+    mnemonics CLGRBE CLGRBH CLGRBL CLGRBNE CLGRBNH CLGRBNL
+    mnemonics CLGRJE CLGRJH CLGRJL CLGRJNE CLGRJNH CLGRJNL
+    mnemonics CLGRTE CLGRTH CLGRTL CLGRTNE CLGRTNH CLGRTNL
+    mnemonics CLIBE  CLIBH  CLIBL  CLIBNE  CLIBNH  CLIBNL
+    mnemonics CLIJE  CLIJH  CLIJL  CLIJNE  CLIJNH  CLIJNL
+    mnemonics CLRBE  CLRBH  CLRBL  CLRBNE  CLRBNH  CLRBNL
+    mnemonics CLRJE  CLRJH  CLRJL  CLRJNE  CLRJNH  CLRJNL
+    mnemonics CLRTE  CLRTH  CLRTL  CLRTNE  CLRTNH  CLRTNL
+    mnemonics CRBE   CRBH   CRBL   CRBNE   CRBNH   CRBNL
+    mnemonics CRJE   CRJH   CRJL   CRJNE   CRJNH   CRJNL
+    mnemonics CRTE   CRTH   CRTL   CRTNE   CRTNH   CRTNL
+    mnemonics NHHR   NHLR   NLHR
+    mnemonics OHHR   OHLR   OLHR
+    mnemonics RISBGZ
+    mnemonics RISBGNZ
+    mnemonics RNSBGT RXSBGT
+    mnemonics ROSBGT
+    mnemonics XHHR   XHLR   XLHR
+    
+#
+#  BRCTH (CC6) EXTENDED MNEMONIC
+#
+inst JCTH   CC6   RILB   E
+
+
+#
+#  CLT (EB23) EXTENDED MNEMONICS
+#
+inst CLTE   EB23  ERSYB1 E     # CLT EQUAL
+    fixed M3 8
+
+inst CLTH   EB23  ERSYB1 E     # CLT HIGH
+    fixed M3 2
+
+inst CLTL   EB23  ERSYB1 E     # CLT LOW
+    fixed M3 4
+
+inst CLTNE  EB23  ERSYB1 E     # CLT NOT EQUAL
+    fixed M3 6
+
+inst CLTNH  EB23  ERSYB1 E     # CLT NOT HIGH
+    fixed M3 C
+
+inst CLTNL  EB23  ERSYB1 E     # CLT NOT LOW
+    fixed M3 A
+
+#
+#  LOC (EBF2) EXTENDED MNEMONICS
+#
+inst LOCE  EBF2  ERSYB1 E     # LOC EQUAL
+    fixed M3 8
+
+inst LOCH   EBF2  ERSYB1 E     # LOC HIGH
+    fixed M3 2
+    
+inst LOCL   EBF2  ERSYB1 E     # LOC LOW
+    fixed M3 4
+    
+inst LOCM   EBF2  ERSYB1 E     # LOC MINUS OR MIXED
+    fixed M3 4
+    
+inst LOCNE  EBF2  ERSYB1 E     # LOC NOT EQUAL
+    fixed M3 7
+    
+inst LOCNH  EBF2  ERSYB1 E     # LOC NOT HIGH
+    fixed M3 D
+
+inst LOCNL  EBF2  ERSYB1 E     # LOC NOT LOW
+    fixed M3 B
+    
+inst LOCNM  EBF2  ERSYB1 E     # LOC NOT MINUS OR NOT MIXED
+    fixed M3 B
+    
+inst LOCNO  EBF2  ERSYB1 E     # LOC NOT OVERFLOW OR NOT ONES
+    fixed M3 E
+    
+inst LOCNP  EBF2  ERSYB1 E     # LOC NOT PLUS
+    fixed M3 D
+    
+inst LOCNZ  EBF2  ERSYB1 E     # LOC NOT ZERO
+    fixed M3 7
+
+inst LOCO   EBF2  ERSYB1 E     # LOC OVERFLOW OR ONES
+    fixed M3 1
+    
+inst LOCP   EBF2  ERSYB1 E     # LOC PLUS
+    fixed M3 2
+    
+inst LOCZ   EBF2  ERSYB1 E     # LOC PLUS
+    fixed M3 8
+    
+   
+#
+#  LOCG (EBE2) EXTENDED MNEMONCS
+#
+inst LOCGE  EBE2  ERSYB1 E     # LOCG EQUAL
+    fixed M3 8
+
+inst LOCGH  EBE2  ERSYB1 E     # LOCG HIGH
+    fixed M3 2
+    
+inst LOCGL  EBE2  ERSYB1 E     # LOCG LOW
+    fixed M3 4
+    
+inst LOCGM  EBE2  ERSYB1 E     # LOCG MINUS OR MIXED
+    fixed M3 4
+    
+inst LOCGNE EBE2  ERSYB1 E     # LOCG NOT EQUAL
+    fixed M3 7
+    
+inst LOCGNH EBE2  ERSYB1 E     # LOCG NOT HIGH
+    fixed M3 D
+
+inst LOCGNL EBE2  ERSYB1 E     # LOCG NOT LOW
+    fixed M3 B
+    
+inst LOCGNM EBE2  ERSYB1 E     # LOCG NOT MINUS OR NOT MIXED
+    fixed M3 B
+    
+inst LOCGNO EBE2  ERSYB1 E     # LOCG NOT OVERFLOW OR NOT ONES
+    fixed M3 E
+    
+inst LOCGNP EBE2  ERSYB1 E     # LOCG NOT PLUS
+    fixed M3 D
+    
+inst LOCGNZ EBE2  ERSYB1 E     # LOCG NOT ZERO
+    fixed M3 7
+
+inst LOCGO  EBE2  ERSYB1 E     # LOCG OVERFLOW OR ONES
+    fixed M3 1
+    
+inst LOCGP  EBE2  ERSYB1 E     # LOCG PLUS
+    fixed M3 2
+    
+inst LOCGZ  EBE2  ERSYB1 E     # LOGC PLUS
+    fixed M3 8
+
+#
+#  LOCGR (B9E2) EXTENDED MNEMONICS
+#
+inst LOCGRE  B9E2  ERRFC  E     # LOCGR EQUAL
+    fixed M3 8
+
+inst LOCGRH  B9E2  ERRFC  E     # LOCGR HIGH
+    fixed M3 2
+
+inst LOCGRL  B9E2  ERRFC  E     # LOCGR LOW
+    fixed M3 4
+    
+inst LOCGRM  B9E2  ERRFC  E     # LOCGR LOW
+    fixed M3 4
+    
+inst LOCGRNE B9E2  ERRFC  E     # LOCGR NOT EQUAL
+    fixed M3 7
+    
+inst LOCGRNH B9E2  ERRFC  E     # LOCGR NOT EQUAL
+    fixed M3 D
+    
+inst LOCGRNL B9E2  ERRFC  E     # LOCGR NOT LOW
+    fixed M3 B
+    
+inst LOCGRNM B9E2  ERRFC  E     # LOCGR NOT MINUS OR NOT MIXED
+    fixed M3 B
+    
+inst LOCGRNO B9E2  ERRFC  E     # LOCGR NOT OVERFLOW OR NOT ONES
+    fixed M3 E
+    
+inst LOCGRNP B9E2  ERRFC  E     # LOCGR NOT PLUS
+    fixed M3 D
+    
+inst LOCGRNZ B9E2  ERRFC  E     # LOCGR NOT ZERO
+    fixed M3 7
+    
+inst LOCGRO  B9E2  ERRFC  E     # LOCGR OVERFLOW OR ONES
+    fixed M3 1
+    
+inst LOCGRP  B9E2  ERRFC  E     # LOCGR PLUS
+    fixed M3 2
+    
+inst LOCGRZ  B9E2  ERRFC  E     # LOCGR ZERO
+    fixed M3 8
+
+#
+#  LOCR (B9F2) EXTENDED MNEMONICS
+#
+inst LOCRE  B9F2  ERRFC  E     # LOCR EQUAL
+    fixed M3 8
+
+inst LOCRH  B9F2  ERRFC  E     # LOCR HIGH
+    fixed M3 2
+    
+inst LOCRL  B9F2  ERRFC  E     # LOCR LOW
+    fixed M3 4
+    
+inst LOCRM  B9F2  ERRFC  E     # LOCR MIXED OR MINUS
+    fixed M3 4
+    
+inst LOCRNE B9F2  ERRFC  E     # LOCR NOT EQUAL
+    fixed M3 7
+    
+inst LOCRNH B9F2  ERRFC  E     # LOCR NOT HIGH
+    fixed M3 D
+
+inst LOCRNL B9F2  ERRFC  E     # LOCR NOT NOT LOW
+    fixed M3 B
+    
+inst LOCRNM B9F2  ERRFC  E     # LOCR NOT MINUS OR NOT MIXED
+    fixed M3 B
+    
+inst LOCRNO B9F2  ERRFC  E     # LOCR NOT MINUS OR NOT MIXED
+    fixed M3 E
+    
+inst LOCRNP B9F2  ERRFC  E     # LOCR NOT PLUS
+    fixed M3 D
+    
+inst LOCRNZ B9F2  ERRFC  E     # LOCR NOT ZERO
+    fixed M3 7
+    
+inst LOCRO  B9F2  ERRFC  E     # LOCR OVERFLOW OR ONES
+    fixed M3 1
+    
+inst LOCRP  B9F2  ERRFC  E     # LOCR PLUS
+    fixed M3 2              
+
+inst LOCRZ  B9F2  ERRFC  E     # LOCR ZERO
+    fixed M3 8   
+    
+    
+iset s390x-em-08      # August, 2010
+    mnemonics CLTE    CLTH    CLTL    CLTNE  CLTNH   CLTNL
+    mnemonics JCTH
+    mnemonics LOCE    LOCH    LOCL    LOCM   LOCNE   LOCNH   LOCNL   LOCNM
+    mnemonics LOCNO   LOCNP   LOCNZ   LOCO   LOCP    LOCZ
+    mnemonics LOCGE   LOCGH   LOCGL   LOCGM  LOCGNE  LOCGNH  LOCGNL  LOCGNM
+    mnemonics LOCGNO  LOCGNP  LOCGNZ  LOCGO  LOCGP   LOCGZ
+    mnemonics LOCGRE  LOCGRH  LOCGRL  LOCGRM LOCGRNE LOCGRNH LOCGRNL LOCGRNM
+    mnemonics LOCGRNO LOCGRNP LOCGRNZ LOCGRO LOCGRP  LOCGRZ
+    mnemonics LOCRE   LOCRH   LOCRL   LOCRM  LOCRNE  LOCRNH  LOCRNL  LOCRNM
+    mnemonics LOCRNO  LOCRNP  LOCRNZ  LOCRO  LOCRP   LOCRZ
+
+    
