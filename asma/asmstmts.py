@@ -1318,6 +1318,7 @@ class MachineStmt(ASMStmt):
            "M":  asmbase.Single,          # unsigned int
            "R":  asmbase.Single,          # unsigned int
            "V":  asmbase.Single,          # unsigned int
+           "RT": asmbase.Single,          # unsigned int
            "RI": asmbase.Single,          # signed int
            "RELI":asmbase.SingleRelImed,  # signed integer
            "S":  asmbase.Storage,         # addr or int(int)

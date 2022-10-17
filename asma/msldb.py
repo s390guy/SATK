@@ -706,9 +706,9 @@ class Format(MSLDBE):
     # The sops source operand names are tightly coupled to ASMA.  Changes there or
     # here must be coordinated.  This dictionary maps source operand type to the
     # number of machine fields to which it provides values.
-    sops={"I":1,"M":1,"R":1,"RELI":1,"RI":1,"V":1,"S":2,\
+    sops={"I":1,"M":1,"R":1,"RELI":1,"RI":1,"V":1,"RT":2,"S":2,\
           "SY":3,"SL":3,"SR":3,"SX":3,"SYL":4,"SYX":4}
-    mflds=["B","D","DH","DL","I","L","M","R","RELI","RI","RXB","V","X"]
+    mflds=["B","D","DH","DL","I","L","M","R","RELI","RI","RT","RXB","V","X"]
     # Machine fields supplied by the assembler.  No match with a source field
     # is required for these machine field types.
     asm=["RXB",]
@@ -1036,7 +1036,7 @@ class Inst(MSLDBE):
     bits2={0b00:2,0b01:4,0b10:4,0b11:6}  # converts bits 0,1 of opcode to length
 
     # Field filters supported by insnbldr.py
-    filters=["NOP","TAONE","TAZERO"]
+    filters=["MINUS","NOP","TAONE","TAZERO","31MINUSZ","32MINUS","32PLUS"]
     def __init__(self,els,keep=False):
         super().__init__(els,"inst",keep=keep)
 

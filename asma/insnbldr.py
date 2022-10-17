@@ -189,16 +189,37 @@ class FieldFilters:
         # This is a dictionary of filter methods supported by MSL inst fixed
         # parameter.  It maps the filter name (used in MSL) to a method in
         # this instance.
-        self.fms={"NOP":   self._nop,
-                  "TAONE": self._taone,
-                  "TAZERO":self._tazero}
+        self.fms={"MINUS":   self._minus,
+                  "MINUST":  self._minust,
+                  "NOP":     self._nop,
+                  "TAONE":   self._taone,
+                  "TAZERO":  self._tazero,
+                  "31MINUSZ":self._31minusz,
+                  "32MINUS": self._32minus,
+                  "32PLUS":  self._32plus}
 
   #
   # MSL Filter Methods
   #
 
+    # This method calculates the value -X for certain ROTATE instructions
+    # without setting or unsetting T or Z bits
+    # Instance Argument:
+    #   value   The assembler operand value
+    def _minus(self,value):
+        return ( 64 - value )
+
+
+    # This method calculates the value -X for certain ROTATE instructions
+    # Instance Argument:
+    #   value   The assembler operand value
+    def _minust(self,value):
+        return ( 64 - value ) & 0x3F 
+
     # This method performs no actual alteration of the value but is useful
     # for debugging.
+    # Instance Argument:
+    #   value   The assembler operand value
     def _nop(self,value):
         return value
 
@@ -213,6 +234,25 @@ class FieldFilters:
     #   value   The assembler operand value
     def _tazero(self,value):
         return value & 0x7F
+        
+    # This method calculates the instruction field value by subtracting it
+    # from 31 AND setting the Z bit to one
+    # Instance Argument:
+    #   value   The assembler operand value
+    def _31minusz(self,value):
+        return ( 31 - value ) | 0x80
+        
+    # This method calculates the instruction field value by adding to it 32
+    # Instance Argument:
+    #   value   The assembler operand value
+    def _32minus(self,value):
+        return  32 - value 
+        
+    # This method calculates the instruction field value by adding to it 32
+    # Instance Argument:
+    #   value   The assembler operand value
+    def _32plus(self,value):
+        return  32 + value 
 
   #
   # Externally callable method
