@@ -167,6 +167,75 @@ format ERIEF-A
 
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  | R2  |    *I3*   |    (I4)   |    (I5)   |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# ERIEF-B: MNEMONIC R1,R2,I3
+# Note: This format is identical to that used by RIEF in s390x-insn.all
+# This allows zem-insn.msl to be independent of formats.msl.
+#
+format ERIEF-B
+    length 6
+    xopcode 40 47
+    mach R1 8 11
+    mach R2 12 15
+    mach I3 16 23 fixed
+    mach I4 24 31
+    mach I5 32 39
+    source R1 R1
+    source R2 R2
+    source RT3 I4 I5  # This operand is the source for two instruction fields
+#    source I4 I4
+#    source I5 I5
+
+
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  | R2  |     I3    |    *I4*   |    (I5)   |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# ERIEF-C: MNEMONIC R1,R2,I3
+# Note: This format is identical to that used by RIEF in s390x-insn.all
+# This allows zem-insn.msl to be independent of formats.msl.
+#
+format ERIEF-C
+    length 6
+    xopcode 40 47
+    mach R1 8 11
+    mach R2 12 15
+    mach I3 16 23
+    mach I4 24 31 fixed
+    mach I5 32 39
+    source R1 R1
+    source R2 R2
+    source RT3 I3 I5  # This operand is the source for two instruction fields
+#    source I4 I4
+#    source I5 I5
+
+
+# RIE-g
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  |*M3* |           I2          |0000 |0000 |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# ERIEG: MNEMONIC R1,I2
+#
+format ERIEG
+    length 6
+    xopcode 40 47
+    mach R1 8 11
+    mach M3 12 15 fixed
+    mach I2 16 31 signed
+    source R1 R1
+    source I2 I2
+    # source M3 M3
+
+
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | R1  |*M3* | B4  |        D4       |     I2    |    XOP    |
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #
@@ -204,6 +273,44 @@ format ERRFC
 #    source M3 M3     Supplied by extended mnemonic
 
 
+#     0     4     8     12    16    20    24    28   31
+#     +-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    |    XOP    |0000 |0000 | R1  | R2  |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# ERRFA1: MNEMONIC R1,R2
+#
+format ERRFA1
+    length 4
+    xopcode 8 15
+#    mach R3 16 19
+    mach R1 24 27
+    mach R2 28 31
+    source R1 R1
+    source R2 R2
+#    source R3 R3
+
+
+#     0     4     8     12    16    20    24    28   31
+#     +-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    |    XOP    | R3  |*M4* | R1  | R2  |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# ERRFA2: MNEMONIC R1,R2,R3,M4
+# Note: Neither R3 nor M4 are optional
+#
+format ERRFA2        # RRFA = R1,R2[,R3[,M4]]  RRFA2 -- R1,R2,R3,M4
+    length 4
+    xopcode 8 15
+    mach R3 16 19
+    mach M4 20 23 fixed
+    mach R1 24 27
+    mach R2 28 31
+    source R1 R1
+    source R2 R2
+    source R3 R3
+    #source M4 M4
+
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | R1  | R2  | B4  |        D4       |*M3* |0000 |    XOP    |
@@ -224,7 +331,7 @@ format ERRS
 #    source M3 M3     Supplied by extended mnemonic
     source S B4 D4
 
-    
+
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | R1  |*M3* | B2  |       DL2       |    DH2    |    XOP    |
@@ -247,8 +354,37 @@ format ERSYB1
      source R1 R1
      source SY B2 DL2 DH2
 #     source M3 M3
-    
-    
+
+
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    |*M1* | X2  | B2  |       DL2       |    DH2    |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# ERXYB: MNEMONIC D2(X2,B2)
+#
+#  Note: D2 contributes to DL2 and DH2 fields.
+#        DH2 contains the high-order 8 bits of the 20-bit signed D2 displacement
+#        DL2 contains the low-order 12 bits of the 20-bit signed D2 displacement
+#
+format ERXYB
+    length 6
+    xopcode 40 47
+    mach M1 8 11 fixed
+    mach X2 12 15
+    mach B2 16 19
+    mach DL2 20 31
+    mach DH2 32 39 signed
+#    source M1 M1
+    source SYX X2 B2 DL2 DH2
+
+#
+#     +-----------------------------------------------------------+
+#     |                                                           |
+#     |   Principles of Operation Version -04 - September, 2005   |
+#     |                                                           |
+#     +-----------------------------------------------------------+
+#
 
 #
 # MISCELANEOUS -04 INSTRUCTION RENAMES
@@ -260,6 +396,14 @@ inst LLGFI  C0F   RILD  E      # LLILF RENAMED
 iset s390x-em-04      # September, 2005 (base) / May, 2022 (extended mnemonic)
     mnemonics LFI LLGFI
 
+
+#
+#     +----------------------------------------------------------+
+#     |                                                          |
+#     |   Principles of Operation Version -06 - February, 2008   |
+#     |                                                          |
+#     +----------------------------------------------------------+
+#
 
 #
 #  CGIB (ECFC) EXTENDED MNEMONICS
@@ -793,14 +937,14 @@ inst CRTNL  B972  ERRFC  E     # CRT NOT LOW
 #  RISBG (EC55) EXTENDED MNEMONICS
 #
 inst RISBGZ EC55  ERIEF-A E    # Treat I3 T-bit as zero
-    filter I3 TAZERO
+    filter I4 TAONE
 
 
 #
 #  RISBGN (EC59) EXTENDED MNEMONICS
 #
 inst RISBGNZ EC59  ERIEF-A E   # Treat I3 T-bit as zero
-    filter I3 TAZERO
+    filter I4 TAONE
 
 
 #
@@ -869,6 +1013,7 @@ inst RXSBGT EC57  ERIEF-A E    # Treat I3 T-bit as one
 
 
 iset s390x-em-06      # February, 2008
+    # Chapter 7 - General instruction extended mnemonics
     mnemonics CGIBE  CGIBH  CGIBL  CGIBNE  CGIBNH  CGIBNL
     mnemonics CGIJE  CGIJH  CGIJL  CGIJNE  CGIJNH  CGIJNL
     mnemonics CGITE  CGITH  CGITL  CGITNE  CGITNH  CGITNL
@@ -900,7 +1045,16 @@ iset s390x-em-06      # February, 2008
     mnemonics RNSBGT RXSBGT
     mnemonics ROSBGT
     mnemonics XHHR   XHLR   XLHR
-    
+
+
+#
+#     +--------------------------------------------------------+
+#     |                                                        |
+#     |   Principles of Operation Version -08 - August, 2010   |
+#     |                                                        |
+#     +--------------------------------------------------------+
+#
+
 #
 #  BRCTH (CC6) EXTENDED MNEMONIC
 #
@@ -936,44 +1090,44 @@ inst LOCE  EBF2  ERSYB1 E     # LOC EQUAL
 
 inst LOCH   EBF2  ERSYB1 E     # LOC HIGH
     fixed M3 2
-    
+
 inst LOCL   EBF2  ERSYB1 E     # LOC LOW
     fixed M3 4
-    
+
 inst LOCM   EBF2  ERSYB1 E     # LOC MINUS OR MIXED
     fixed M3 4
-    
+
 inst LOCNE  EBF2  ERSYB1 E     # LOC NOT EQUAL
     fixed M3 7
-    
+
 inst LOCNH  EBF2  ERSYB1 E     # LOC NOT HIGH
     fixed M3 D
 
 inst LOCNL  EBF2  ERSYB1 E     # LOC NOT LOW
     fixed M3 B
-    
+
 inst LOCNM  EBF2  ERSYB1 E     # LOC NOT MINUS OR NOT MIXED
     fixed M3 B
-    
+
 inst LOCNO  EBF2  ERSYB1 E     # LOC NOT OVERFLOW OR NOT ONES
     fixed M3 E
-    
+
 inst LOCNP  EBF2  ERSYB1 E     # LOC NOT PLUS
     fixed M3 D
-    
+
 inst LOCNZ  EBF2  ERSYB1 E     # LOC NOT ZERO
     fixed M3 7
 
 inst LOCO   EBF2  ERSYB1 E     # LOC OVERFLOW OR ONES
     fixed M3 1
-    
+
 inst LOCP   EBF2  ERSYB1 E     # LOC PLUS
     fixed M3 2
-    
+
 inst LOCZ   EBF2  ERSYB1 E     # LOC PLUS
     fixed M3 8
-    
-   
+
+
 #
 #  LOCG (EBE2) EXTENDED MNEMONCS
 #
@@ -982,40 +1136,40 @@ inst LOCGE  EBE2  ERSYB1 E     # LOCG EQUAL
 
 inst LOCGH  EBE2  ERSYB1 E     # LOCG HIGH
     fixed M3 2
-    
+
 inst LOCGL  EBE2  ERSYB1 E     # LOCG LOW
     fixed M3 4
-    
+
 inst LOCGM  EBE2  ERSYB1 E     # LOCG MINUS OR MIXED
     fixed M3 4
-    
+
 inst LOCGNE EBE2  ERSYB1 E     # LOCG NOT EQUAL
     fixed M3 7
-    
+
 inst LOCGNH EBE2  ERSYB1 E     # LOCG NOT HIGH
     fixed M3 D
 
 inst LOCGNL EBE2  ERSYB1 E     # LOCG NOT LOW
     fixed M3 B
-    
+
 inst LOCGNM EBE2  ERSYB1 E     # LOCG NOT MINUS OR NOT MIXED
     fixed M3 B
-    
+
 inst LOCGNO EBE2  ERSYB1 E     # LOCG NOT OVERFLOW OR NOT ONES
     fixed M3 E
-    
+
 inst LOCGNP EBE2  ERSYB1 E     # LOCG NOT PLUS
     fixed M3 D
-    
+
 inst LOCGNZ EBE2  ERSYB1 E     # LOCG NOT ZERO
     fixed M3 7
 
 inst LOCGO  EBE2  ERSYB1 E     # LOCG OVERFLOW OR ONES
     fixed M3 1
-    
+
 inst LOCGP  EBE2  ERSYB1 E     # LOCG PLUS
     fixed M3 2
-    
+
 inst LOCGZ  EBE2  ERSYB1 E     # LOGC PLUS
     fixed M3 8
 
@@ -1030,37 +1184,37 @@ inst LOCGRH  B9E2  ERRFC  E     # LOCGR HIGH
 
 inst LOCGRL  B9E2  ERRFC  E     # LOCGR LOW
     fixed M3 4
-    
+
 inst LOCGRM  B9E2  ERRFC  E     # LOCGR LOW
     fixed M3 4
-    
+
 inst LOCGRNE B9E2  ERRFC  E     # LOCGR NOT EQUAL
     fixed M3 7
-    
+
 inst LOCGRNH B9E2  ERRFC  E     # LOCGR NOT EQUAL
     fixed M3 D
-    
+
 inst LOCGRNL B9E2  ERRFC  E     # LOCGR NOT LOW
     fixed M3 B
-    
+
 inst LOCGRNM B9E2  ERRFC  E     # LOCGR NOT MINUS OR NOT MIXED
     fixed M3 B
-    
+
 inst LOCGRNO B9E2  ERRFC  E     # LOCGR NOT OVERFLOW OR NOT ONES
     fixed M3 E
-    
+
 inst LOCGRNP B9E2  ERRFC  E     # LOCGR NOT PLUS
     fixed M3 D
-    
+
 inst LOCGRNZ B9E2  ERRFC  E     # LOCGR NOT ZERO
     fixed M3 7
-    
+
 inst LOCGRO  B9E2  ERRFC  E     # LOCGR OVERFLOW OR ONES
     fixed M3 1
-    
+
 inst LOCGRP  B9E2  ERRFC  E     # LOCGR PLUS
     fixed M3 2
-    
+
 inst LOCGRZ  B9E2  ERRFC  E     # LOCGR ZERO
     fixed M3 8
 
@@ -1072,47 +1226,195 @@ inst LOCRE  B9F2  ERRFC  E     # LOCR EQUAL
 
 inst LOCRH  B9F2  ERRFC  E     # LOCR HIGH
     fixed M3 2
-    
+
 inst LOCRL  B9F2  ERRFC  E     # LOCR LOW
     fixed M3 4
-    
+
 inst LOCRM  B9F2  ERRFC  E     # LOCR MIXED OR MINUS
     fixed M3 4
-    
+
 inst LOCRNE B9F2  ERRFC  E     # LOCR NOT EQUAL
     fixed M3 7
-    
+
 inst LOCRNH B9F2  ERRFC  E     # LOCR NOT HIGH
     fixed M3 D
 
 inst LOCRNL B9F2  ERRFC  E     # LOCR NOT NOT LOW
     fixed M3 B
-    
+
 inst LOCRNM B9F2  ERRFC  E     # LOCR NOT MINUS OR NOT MIXED
     fixed M3 B
-    
+
 inst LOCRNO B9F2  ERRFC  E     # LOCR NOT MINUS OR NOT MIXED
     fixed M3 E
-    
+
 inst LOCRNP B9F2  ERRFC  E     # LOCR NOT PLUS
     fixed M3 D
-    
+
 inst LOCRNZ B9F2  ERRFC  E     # LOCR NOT ZERO
     fixed M3 7
-    
+
 inst LOCRO  B9F2  ERRFC  E     # LOCR OVERFLOW OR ONES
     fixed M3 1
-    
+
 inst LOCRP  B9F2  ERRFC  E     # LOCR PLUS
-    fixed M3 2              
+    fixed M3 2
 
 inst LOCRZ  B9F2  ERRFC  E     # LOCR ZERO
-    fixed M3 8   
-    
-    
+    fixed M3 8
+
+
+#
+#  RISBHG (EC5D) EXTENDED MNEMONICS
+#
+inst LLCHHR  EC5D ERIEF  E    # LOAD LOGICAL CHARACTER (HIGH <- HIGH)
+    fixed I3 18
+    fixed I4 9F  # Treat Z bit as one
+    fixed I5 00
+
+inst LLCHLR  EC5D ERIEF  E    # LOAD LOGICAL CHARACTER (HIGH <- HIGH)
+    fixed I3 18
+    fixed I4 9F  # Treat Z bit as one
+    fixed I5 20
+
+inst LLHHHLR EC5D ERIEF  E    # LOAD LOGICAL HALFWORD (HIGH <- HIGH)
+    fixed I3 10
+    fixed I4 9F  # Treat Z bit as one
+    fixed I5 00
+
+inst LLHHLR EC5D  ERIEF  E    # LOAD LOGICAL HALFWORD (HIGH <- LOW)
+    fixed I3 10
+    fixed I4 9F  # Treat Z bit as one
+    fixed I5 20
+
+inst LHHR   EC5D  ERIEF  E    # LOAD (HIGH <- HIGH)
+    fixed I3 00
+    fixed I4 9F  # Treat Z bit as one
+    fixed I5 00
+
+inst LHLR   EC5D  ERIEF  E    # LOAD (HIGH <- LOW)
+    fixed I3 00
+    fixed I4 9F  # Treat Z bit as one
+    fixed I5 20
+
+
+#
+#  RISBLG (EC51) EXTENDED MNEMONICS
+#
+inst LLCLHR  EC51  ERIEF  E    # LOAD LOGICAL CHARACTER (LOW <- HIGH)
+    fixed I3 18
+    fixed I4 9F  # Treat Z bit as one
+    fixed I5 20
+
+inst LLHFR  EC51  ERIEF  E    # LOAD (LOW <- HIGH)
+    fixed I3 00
+    fixed I4 1F
+    fixed I5 20
+
+inst LLHLHR EC51  ERIEF  E    # LOAD LOGICAL HALFWORD (LOW <- HIGH)
+    fixed I3 00
+    fixed I4 9F  # Treat Z bit as one
+    fixed I5 32
+
+
+#
+#  STOC (EBF3) EXTENDED MNEMONICS
+#
+inst STOCE  EBF3  ERSYB1  E     # STOC EQUAL
+    fixed M3 8
+
+inst STOCH  EBF3  ERSYB1  E     # STOC HIGH
+    fixed M3 2
+
+inst STOCL  EBF3  ERSYB1  E     # STOC LOW
+    fixed M3 4
+
+inst STOCM  EBF3  ERSYB1  E     # STOC MIXED OR MINUS
+    fixed M3 4
+
+inst STOCNE EBF3  ERSYB1  E     # STOC NOT EQUAL
+    fixed M3 7
+
+inst STOCNH EBF3  ERSYB1  E     # STOC NOT HIGH
+    fixed M3 D
+
+inst STOCNL EBF3  ERSYB1  E     # STOC NOT NOT LOW
+    fixed M3 B
+
+inst STOCNM EBF3  ERSYB1  E     # STOC NOT MINUS OR NOT MIXED
+    fixed M3 B
+
+inst STOCNO EBF3  ERSYB1  E     # STOC NOT MINUS OR NOT MIXED
+    fixed M3 E
+
+inst STOCNP EBF3  ERSYB1  E     # STOC NOT PLUS
+    fixed M3 D
+
+inst STOCNZ EBF3  ERSYB1  E     # STOC NOT ZERO
+    fixed M3 7
+
+inst STOCO  EBF3  ERSYB1  E     # STOC OVERFLOW OR ONES
+    fixed M3 1
+
+inst STOCP  EBF3  ERSYB1  E     # STOC PLUS
+    fixed M3 2
+
+inst STOCZ  EBF3  ERSYB1  E     # STOC ZERO
+    fixed M3 8
+
+
+#
+#  STOCG (EBE3) EXTENDED MNEMONICS
+#
+inst STOCGE  EBE3  ERSYB1  E     # STOCG EQUAL
+    fixed M3 8
+
+inst STOCGH  EBE3  ERSYB1  E     # STOCG HIGH
+    fixed M3 2
+
+inst STOCGL  EBE3  ERSYB1  E     # STOCG LOW
+    fixed M3 4
+
+inst STOCGM  EBE3  ERSYB1  E     # STOCG MIXED OR MINUS
+    fixed M3 4
+
+inst STOCGNE EBE3  ERSYB1  E     # STOCG NOT EQUAL
+    fixed M3 7
+
+inst STOCGNH EBE3  ERSYB1  E     # STOCG NOT HIGH
+    fixed M3 D
+
+inst STOCGNL EBE3  ERSYB1  E     # STOCG NOT NOT LOW
+    fixed M3 B
+
+inst STOCGNM EBE3  ERSYB1  E     # STOCG NOT MINUS OR NOT MIXED
+    fixed M3 B
+
+inst STOCGNO EBE3  ERSYB1  E     # STOCG NOT MINUS OR NOT MIXED
+    fixed M3 E
+
+inst STOCGNP EBE3  ERSYB1  E     # STOCG NOT PLUS
+    fixed M3 D
+
+inst STOCGNZ EBE3  ERSYB1  E     # STOCG NOT ZERO
+    fixed M3 7
+
+inst STOCGO  EBE3  ERSYB1  E     # STOCG OVERFLOW OR ONES
+    fixed M3 1
+
+inst STOCGP  EBE3  ERSYB1  E     # STOCG PLUS
+    fixed M3 2
+
+inst STOCGZ  EBE3  ERSYB1  E     # STOCG ZERO
+    fixed M3 8
+
+
 iset s390x-em-08      # August, 2010
+    # Chapter 7 - General instruction extended mnemonics
     mnemonics CLTE    CLTH    CLTL    CLTNE  CLTNH   CLTNL
     mnemonics JCTH
+    mnemonics LLCHHR  LHHR    LHLR    LLCHLR  LLHHHLR LLHHLR
+    mnemonics LLCLHR  LLHFR   LLHLHR
     mnemonics LOCE    LOCH    LOCL    LOCM   LOCNE   LOCNH   LOCNL   LOCNM
     mnemonics LOCNO   LOCNP   LOCNZ   LOCO   LOCP    LOCZ
     mnemonics LOCGE   LOCGH   LOCGL   LOCGM  LOCGNE  LOCGNH  LOCGNL  LOCGNM
@@ -1121,5 +1423,626 @@ iset s390x-em-08      # August, 2010
     mnemonics LOCGRNO LOCGRNP LOCGRNZ LOCGRO LOCGRP  LOCGRZ
     mnemonics LOCRE   LOCRH   LOCRL   LOCRM  LOCRNE  LOCRNH  LOCRNL  LOCRNM
     mnemonics LOCRNO  LOCRNP  LOCRNZ  LOCRO  LOCRP   LOCRZ
+    mnemonics STOCE   STOCH   STOCL   STOCM  STOCNE  STOCNH  STOCNL  STOCNM
+    mnemonics STOCNO  STOCNP  STOCNZ  STOCO  STOCP   STOCZ
+    mnemonics STOCGE  STOCGH  STOCGL  STOCGM STOCGNE STOCGNH STOCGNL STOCGNM
+    mnemonics STOCGNO STOCGNP STOCGNZ STOCGO STOCGP  STOCGZ
 
-    
+
+#
+#     +-----------------------------------------------------------+
+#     |                                                           |
+#     |   Principles of Operation Version -09 - September, 2012   |
+#     |                                                           |
+#     +-----------------------------------------------------------+
+#
+
+#
+#  CLGT (EB2B) EXTENDED MNEMONICS
+#
+inst CLGTE   EB2B  ERSYB1 E     # CLGT EQUAL
+    fixed M3 8
+
+inst CLGTH   EB2B  ERSYB1 E     # CLGT HIGH
+    fixed M3 2
+
+inst CLGTL   EB2B  ERSYB1 E     # CLGT LOW
+    fixed M3 4
+
+inst CLGTNE  EB2B  ERSYB1 E     # CLGT NOT EQUAL
+    fixed M3 6
+
+inst CLGTNH  EB2B  ERSYB1 E     # CLGT NOT HIGH
+    fixed M3 C
+
+inst CLGTNL  EB2B  ERSYB1 E     # CLGT NOT LOW
+    fixed M3 A
+
+
+iset s390x-em-09     # September, 2012
+    # Chapter 7 - General instruction extended mnemonics
+    mnemonics CLGTE CLGTH CLGTL CLGTNE CLGTNH CLGTNL
+
+
+#
+#     +-------------------------------------------------------+
+#     |                                                       |
+#     |   Principles of Operation Version -10 - March, 2015   |
+#     |                                                       |
+#     +-------------------------------------------------------+
+#
+
+#
+#  LOCFH (EBE0) EXTENDED MNEMONICS
+#
+inst LOCFHE  EBE0  ERSYB1  E     # LOCFH EQUAL
+    fixed M3 8
+
+inst LOCFHH  EBE0  ERSYB1  E     # LOCFH HIGH
+    fixed M3 2
+
+inst LOCFHL  EBE0  ERSYB1  E     # LOCFH LOW
+    fixed M3 4
+
+inst LOCFHM  EBE0  ERSYB1  E     # LOCFH MIXED OR MINUS
+    fixed M3 4
+
+inst LOCFHNE EBE0  ERSYB1  E     # LOCFH NOT EQUAL
+    fixed M3 7
+
+inst LOCFHNH EBE0  ERSYB1  E     # LOCFH NOT HIGH
+    fixed M3 D
+
+inst LOCFHNL EBE0  ERSYB1  E     # LOCFH NOT LOW
+    fixed M3 B
+
+inst LOCFHNM EBE0  ERSYB1  E     # LOCFH NOT MINUS OR NOT MIXED
+    fixed M3 B
+
+inst LOCFHNO EBE0  ERSYB1  E     # LOCFH NOT MINUS OR NOT MIXED
+    fixed M3 E
+
+inst LOCFHNP EBE0  ERSYB1  E     # LOCFH NOT PLUS
+    fixed M3 D
+
+inst LOCFHNZ EBE0  ERSYB1  E     # LOCFH NOT ZERO
+    fixed M3 7
+
+inst LOCFHO  EBE0  ERSYB1  E     # LOCFH OVERFLOW OR ONES
+    fixed M3 1
+
+inst LOCFHP  EBE0  ERSYB1  E     # LOCFH PLUS
+    fixed M3 2
+
+inst LOCFHZ  EBE0  ERSYB1  E     # LOCFH ZERO
+    fixed M3 8
+
+
+
+#
+#  LOCFHR (B9E0) EXTENDED MNEMONICS
+#
+inst LOCFHRE  B9E0  ERRFC  E     # LOCFHR EQUAL
+    fixed M3 8
+
+inst LOCFHRH  B9E0  ERRFC  E     # LOCFHR HIGH
+    fixed M3 2
+
+inst LOCFHRL  B9E0  ERRFC  E     # LOCFHR LOW
+    fixed M3 4
+
+inst LOCFHRM  B9E0  ERRFC  E     # LOCFHR MIXED OR MINUS
+    fixed M3 4
+
+inst LOCFHRNE B9E0  ERRFC  E     # LOCFHR NOT EQUAL
+    fixed M3 7
+
+inst LOCFHRNH B9E0  ERRFC  E     # LOCFHR NOT HIGH
+    fixed M3 D
+
+inst LOCFHRNL B9E0  ERRFC  E     # LOCFHR NOT LOW
+    fixed M3 B
+
+inst LOCFHRNM B9E0  ERRFC  E     # LOCFHR NOT MINUS OR NOT MIXED
+    fixed M3 B
+
+inst LOCFHRNO B9E0  ERRFC  E     # LOCFHR NOT MINUS OR NOT MIXED
+    fixed M3 E
+
+inst LOCFHRNP B9E0  ERRFC  E     # LOCFHR NOT PLUS
+    fixed M3 D
+
+inst LOCFHRNZ B9E0  ERRFC  E     # LOCFHR NOT ZERO
+    fixed M3 7
+
+inst LOCFHRO  B9E0  ERRFC  E     # LOCFHR OVERFLOW OR ONES
+    fixed M3 1
+
+inst LOCFHRP  B9E0  ERRFC  E     # LOCFHR PLUS
+    fixed M3 2
+
+inst LOCFHRZ  B9E0  ERRFC  E     # LOCFHR ZERO
+    fixed M3 8
+
+
+#
+#  LOCGHI (EC46) EXTENDED MNEMONICS
+#
+inst LOCGHIE  EC46  ERIEG  E     # LOCGHI EQUAL
+    fixed M3 8
+
+inst LOCGHIH  EC46  ERIEG  E     # LOCGHI HIGH
+    fixed M3 2
+
+inst LOCGHIL  EC46  ERIEG  E     # LOCGHI LOW
+    fixed M3 4
+
+inst LOCGHIM  EC46  ERIEG  E     # LOCGHI MIXED OR MINUS
+    fixed M3 4
+
+inst LOCGHINE EC46  ERIEG  E     # LOCGHI NOT EQUAL
+    fixed M3 7
+
+inst LOCGHINH EC46  ERIEG  E     # LOCGHI NOT HIGH
+    fixed M3 D
+
+inst LOCGHINL EC46  ERIEG  E     # LOCGHI NOT LOW
+    fixed M3 B
+
+inst LOCGHINM EC46  ERIEG  E     # LOCGHI NOT MINUS OR NOT MIXED
+    fixed M3 B
+
+inst LOCGHINO EC46  ERIEG  E     # LOCGHI NOT MINUS OR NOT MIXED
+    fixed M3 E
+
+inst LOCGHINP EC46  ERIEG  E     # LOCGHI NOT PLUS
+    fixed M3 D
+
+inst LOCGHINZ EC46  ERIEG  E     # LOCGHI NOT ZERO
+    fixed M3 7
+
+inst LOCGHIO  EC46  ERIEG  E     # LOCGHI OVERFLOW OR ONES
+    fixed M3 1
+
+inst LOCGHIP  EC46  ERIEG  E     # LOCGHI PLUS
+    fixed M3 2
+
+inst LOCGHIZ  EC46  ERIEG  E     # LOCGHI ZERO
+    fixed M3 8
+
+
+#
+#  LOCHHI (EC4E) EXTENDED MNEMONICS
+#
+inst LOCHHIE  EC4E  ERIEG  E     # LOCHHI EQUAL
+    fixed M3 8
+
+inst LOCHHIH  EC4E  ERIEG  E     # LOCHHI HIGH
+    fixed M3 2
+
+inst LOCHHIL  EC4E  ERIEG  E     # LOCHHI LOW
+    fixed M3 4
+
+inst LOCHHIM  EC4E  ERIEG  E     # LOCHHI MIXED OR MINUS
+    fixed M3 4
+
+inst LOCHHINE EC4E  ERIEG  E     # LOCHHI NOT EQUAL
+    fixed M3 7
+
+inst LOCHHINH EC4E  ERIEG  E     # LOCHHI NOT HIGH
+    fixed M3 D
+
+inst LOCHHINL EC4E  ERIEG  E     # LOCHHI NOT LOW
+    fixed M3 B
+
+inst LOCHHINM EC4E  ERIEG  E     # LOCHHI NOT MINUS OR NOT MIXED
+    fixed M3 B
+
+inst LOCHHINO EC4E  ERIEG  E     # LOCHHI NOT MINUS OR NOT MIXED
+    fixed M3 E
+
+inst LOCHHINP EC4E  ERIEG  E     # LOCHHI NOT PLUS
+    fixed M3 D
+
+inst LOCHHINZ EC4E  ERIEG  E     # LOCHHI NOT ZERO
+    fixed M3 7
+
+inst LOCHHIO  EC4E  ERIEG  E     # LOCHHI OVERFLOW OR ONES
+    fixed M3 1
+
+inst LOCHHIP  EC4E  ERIEG  E     # LOCHHI PLUS
+    fixed M3 2
+
+inst LOCHHIZ  EC4E  ERIEG  E     # LOCHHI ZERO
+    fixed M3 8
+
+
+#
+#  LOCHI (EC42) EXTENDED MNEMONICS
+#
+inst LOCHIE  EC42  ERIEG  E     # LOCHI EQUAL
+    fixed M3 8
+
+inst LOCHIH  EC42  ERIEG  E     # LOCHI HIGH
+    fixed M3 2
+
+inst LOCHIL  EC42  ERIEG  E     # LOCHI LOW
+    fixed M3 4
+
+inst LOCHIM  EC42  ERIEG  E     # LOCHI MIXED OR MINUS
+    fixed M3 4
+
+inst LOCHINE EC42  ERIEG  E     # LOCHI NOT EQUAL
+    fixed M3 7
+
+inst LOCHINH EC42  ERIEG  E     # LOCHI NOT HIGH
+    fixed M3 D
+
+inst LOCHINL EC42  ERIEG  E     # LOCHI NOT LOW
+    fixed M3 B
+
+inst LOCHINM EC42  ERIEG  E     # LOCHI NOT MINUS OR NOT MIXED
+    fixed M3 B
+
+inst LOCHINO EC42  ERIEG  E     # LOCHI NOT MINUS OR NOT MIXED
+    fixed M3 E
+
+inst LOCHINP EC42  ERIEG  E     # LOCHI NOT PLUS
+    fixed M3 D
+
+inst LOCHINZ EC42  ERIEG  E     # LOCHI NOT ZERO
+    fixed M3 7
+
+inst LOCHIO  EC42  ERIEG  E     # LOCHI OVERFLOW OR ONES
+    fixed M3 1
+
+inst LOCHIP  EC42  ERIEG  E     # LOCHI PLUS
+    fixed M3 2
+
+inst LOCHIZ  EC42  ERIEG  E     # LOCHI ZERO
+    fixed M3 8
+
+
+#
+#  STOCFH (EBE1) EXTENDED MNEMONICS
+#
+inst STOCFHE  EBE1  ERSYB1  E     # STOCFH EQUAL
+    fixed M3 8
+
+inst STOCFHH  EBE1  ERSYB1  E     # STOCFH HIGH
+    fixed M3 2
+
+inst STOCFHL  EBE1  ERSYB1  E     # STOCFH LOW
+    fixed M3 4
+
+inst STOCFHM  EBE1  ERSYB1  E     # STOCFH MIXED OR MINUS
+    fixed M3 4
+
+inst STOCFHNE EBE1  ERSYB1  E     # STOCFH NOT EQUAL
+    fixed M3 7
+
+inst STOCFHNH EBE1  ERSYB1  E     # STOCFH NOT HIGH
+    fixed M3 D
+
+inst STOCFHNL EBE1  ERSYB1  E     # STOCFH NOT LOW
+    fixed M3 B
+
+inst STOCFHNM EBE1  ERSYB1  E     # STOCFH NOT MINUS OR NOT MIXED
+    fixed M3 B
+
+inst STOCFHNO EBE1  ERSYB1  E     # STOCFH NOT MINUS OR NOT MIXED
+    fixed M3 E
+
+inst STOCFHNP EBE1  ERSYB1  E     # STOCFH NOT PLUS
+    fixed M3 D
+
+inst STOCFHNZ EBE1  ERSYB1  E     # STOCFH NOT ZERO
+    fixed M3 7
+
+inst STOCFHO  EBE1  ERSYB1  E     # STOCFH OVERFLOW OR ONES
+    fixed M3 1
+
+inst STOCFHP  EBE1  ERSYB1  E     # STOCFH PLUS
+    fixed M3 2
+
+inst STOCFHZ  EBE1  ERSYB1  E     # STOCFH ZERO
+    fixed M3 8
+
+
+iset s390x-em-10     # March, 2015
+    # Chapter 7 - General instruction extended mnemonics
+    mnemonics LOCFHE   LOCFHH   LOCFHL   LOCFHM   LOCFHNE  LOCFHNH  LOCFHNL
+    mnemonics LOCFHNM  LOCFHNO  LOCFHNP  LOCFHNZ  LOCFHO   LOCFHP   LOCFHZ
+    mnemonics LOCFHRE  LOCFHRH  LOCFHRL  LOCFHRM  LOCFHRNE LOCFHRNH LOCFHRNL
+    mnemonics LOCFHRNM LOCFHRNO LOCFHRNP LOCFHRNZ LOCFHRO  LOCFHRP  LOCFHRZ
+    mnemonics LOCGHIE  LOCGHIH  LOCGHIL  LOCGHIM  LOCGHINE LOCGHINH LOCGHINL
+    mnemonics LOCGHINM LOCGHINO LOCGHINP LOCGHINZ LOCGHIO  LOCGHIP  LOCGHIZ
+    mnemonics LOCHHIE  LOCHHIH  LOCHHIL  LOCHHIM  LOCHHINE LOCHHINH LOCHHINL
+    mnemonics LOCHHINM LOCHHINO LOCHHINP LOCHHINZ LOCHHIO  LOCHHIP  LOCHHIZ
+    mnemonics LOCHIE   LOCHIH   LOCHIL   LOCHIM   LOCHINE  LOCHINH  LOCHINL
+    mnemonics LOCHINM  LOCHINO  LOCHINP  LOCHINZ  LOCHIO   LOCHIP   LOCHIZ
+    mnemonics STOCFHE  STOCFHH  STOCFHL  STOCFHM  STOCFHNE STOCFHNH STOCFHNL
+    mnemonics STOCFHNM STOCFHNO STOCFHNP STOCFHNZ STOCFHO  STOCFHP  STOCFHZ
+
+
+#
+#     +-----------------------------------------------------------+
+#     |                                                           |
+#     |   Principles of Operation Version -11 - September, 2017   |
+#     |                                                           |
+#     +-----------------------------------------------------------+
+#
+
+#
+#   BIC (E347) EXTENDED MNEMONICS
+#
+inst BI  E347  ERXYB  E     # BIC UNCONDITIONAL
+    fixed M1 F
+
+inst BIE  E347  ERXYB  E     # BIC EQUAL
+    fixed M1 8
+
+inst BIH  E347  ERXYB  E     # BIC HIGH
+    fixed M1 2
+
+inst BIL  E347  ERXYB  E     # BIC LOW
+    fixed M1 4
+
+inst BIM  E347  ERXYB  E     # BIC MIXED OR MINUS
+    fixed M1 4
+
+inst BINE E347  ERXYB  E     # BIC NOT EQUAL
+    fixed M1 7
+
+inst BINH E347  ERXYB  E     # BIC NOT HIGH
+    fixed M1 D
+
+inst BINL E347  ERXYB  E     # BIC NOT LOW
+    fixed M1 B
+
+inst BINM E347  ERXYB  E     # BIC NOT MINUS OR NOT MIXED
+    fixed M1 B
+
+inst BINO E347  ERXYB  E     # BIC NOT MINUS OR NOT MIXED
+    fixed M1 E
+
+inst BINP E347  ERXYB  E     # BIC NOT PLUS
+    fixed M1 D
+
+inst BINZ E347  ERXYB  E     # BIC NOT ZERO
+    fixed M1 7
+
+inst BIO  E347  ERXYB  E     # BIC OVERFLOW OR ONES
+    fixed M1 1
+
+inst BIP  E347  ERXYB  E     # BIC PLUS
+    fixed M1 2
+
+inst BIZ  E347  ERXYB  E     # BIC ZERO
+    fixed M1 8
+
+
+iset s390x-em-11     # September, 2017
+    # Chapter 7 - General instruction extended mnemonics
+    mnemonics BI BIE BIH BIL BIM BINE BINH BINL BINM BINO BINP BINZ BIO BIP BIZ
+
+
+#
+#     +-----------------------------------------------------------+
+#     |                                                           |
+#     |   Principles of Operation Version -12 - September, 2019   |
+#     |                                                           |
+#     +-----------------------------------------------------------+
+#
+
+#
+#   NOGRK (B966) EXTENDED MNEMONICS
+#
+inst NOTGR B966  ERRFA1  E     # NOT (64)
+
+
+#
+#   NORK (B976) EXTENDED MNEMONICS
+#
+inst NOTR  B976  ERRFA1  E     # NOT (32)
+
+
+#
+#   SELFHR (B9C0) EXTENDED MNEMONICS
+#
+inst SELFHRE  B9C0  ERRFA2  E     # SELFHR EQUAL
+    fixed M4 8
+
+inst SELFHRH  B9C0  ERRFA2  E     # SELFHR HIGH
+    fixed M4 2
+
+inst SELFHRL  B9C0  ERRFA2  E     # SELFHR LOW
+    fixed M4 4
+
+inst SELFHRM  B9C0  ERRFA2  E     # SELFHR MIXED OR MINUS
+    fixed M4 4
+
+inst SELFHRNE B9C0  ERRFA2  E     # SELFHR NOT EQUAL
+    fixed M4 7
+
+inst SELFHRNH B9C0  ERRFA2  E     # SELFHR NOT HIGH
+    fixed M4 D
+
+inst SELFHRNL B9C0  ERRFA2  E     # SELFHR NOT LOW
+    fixed M4 B
+
+inst SELFHRNM B9C0  ERRFA2  E     # SELFHR NOT MINUS OR NOT MIXED
+    fixed M4 B
+
+inst SELFHRNO B9C0  ERRFA2  E     # SELFHR NOT MINUS OR NOT MIXED
+    fixed M4 E
+
+inst SELFHRNP B9C0  ERRFA2  E     # SELFHR NOT PLUS
+    fixed M4 D
+
+inst SELFHRNZ B9C0  ERRFA2  E     # SELFHR NOT ZERO
+    fixed M4 7
+
+inst SELFHRO  B9C0  ERRFA2  E     # SELFHR OVERFLOW OR ONES
+    fixed M4 1
+
+inst SELFHRP  B9C0  ERRFA2  E     # SELFHR PLUS
+    fixed M4 2
+
+inst SELFHRZ  B9C0  ERRFA2  E     # SELFHR ZERO
+    fixed M4 8
+
+
+#
+#   SELGR (B9E3) EXTENDED MNEMONICS
+#
+inst SELGRE  B9E3  ERRFA2  E     # SELGR EQUAL
+    fixed M4 8
+
+inst SELGRH  B9E3  ERRFA2  E     # SELGR HIGH
+    fixed M4 2
+
+inst SELGRL  B9E3  ERRFA2  E     # SELGR LOW
+    fixed M4 4
+
+inst SELGRM  B9E3  ERRFA2  E     # SELGR MIXED OR MINUS
+    fixed M4 4
+
+inst SELGRNE B9E3  ERRFA2  E     # SELGR NOT EQUAL
+    fixed M4 7
+
+inst SELGRNH B9E3  ERRFA2  E     # SELGR NOT HIGH
+    fixed M4 D
+
+inst SELGRNL B9E3  ERRFA2  E     # SELGR NOT LOW
+    fixed M4 B
+
+inst SELGRNM B9E3  ERRFA2  E     # SELGR NOT MINUS OR NOT MIXED
+    fixed M4 B
+
+inst SELGRNO B9E3  ERRFA2  E     # SELGR NOT MINUS OR NOT MIXED
+    fixed M4 E
+
+inst SELGRNP B9E3  ERRFA2  E     # SELGR NOT PLUS
+    fixed M4 D
+
+inst SELGRNZ B9E3  ERRFA2  E     # SELGR NOT ZERO
+    fixed M4 7
+
+inst SELGRO  B9E3  ERRFA2  E     # SELGR OVERFLOW OR ONES
+    fixed M4 1
+
+inst SELGRP  B9E3  ERRFA2  E     # SELGR PLUS
+    fixed M4 2
+
+inst SELGRZ  B9E3  ERRFA2  E     # SELGR ZERO
+    fixed M4 8
+
+
+#
+#   SELR (B9F0) EXTENDED MNEMONICS
+#
+inst SELRE  B9F0  ERRFA2  E     # SELR EQUAL
+    fixed M4 8
+
+inst SELRH  B9F0  ERRFA2  E     # SELR HIGH
+    fixed M4 2
+
+inst SELRL  B9F0  ERRFA2  E     # SELR LOW
+    fixed M4 4
+
+inst SELRM  B9F0  ERRFA2  E     # SELR MIXED OR MINUS
+    fixed M4 4
+
+inst SELRNE B9F0  ERRFA2  E     # SELR NOT EQUAL
+    fixed M4 7
+
+inst SELRNH B9F0  ERRFA2  E     # SELR NOT HIGH
+    fixed M4 D
+
+inst SELRNL B9F0  ERRFA2  E     # SELR NOT LOW
+    fixed M4 B
+
+inst SELRNM B9F0  ERRFA2  E     # SELR NOT MINUS OR NOT MIXED
+    fixed M4 B
+
+inst SELRNO B9F0  ERRFA2  E     # SELR NOT MINUS OR NOT MIXED
+    fixed M4 E
+
+inst SELRNP B9F0  ERRFA2  E     # SELR NOT PLUS
+    fixed M4 D
+
+inst SELRNZ B9F0  ERRFA2  E     # SELR NOT ZERO
+    fixed M4 7
+
+inst SELRO  B9F0  ERRFA2  E     # SELR OVERFLOW OR ONES
+    fixed M4 1
+
+inst SELRP  B9F0  ERRFA2  E     # SELR PLUS
+    fixed M4 2
+
+inst SELRZ  B9F0  ERRFA2  E     # SELR ZERO
+    fixed M4 8
+
+
+iset s390x-em-12     # September, 2019
+    # Chapter 7 - General instruction extended mnemonics
+    mnemonics NOTGR    NOTR
+    mnemonics SELFHRE  SELFHRH  SELFHRL  SELFHRM  SELFHRNE SELFHRNH SELFHRNL
+    mnemonics SELFHRNM SELFHRNO SELFHRNP SELFHRNZ SELFHRO  SELFHRP  SELFHRZ
+    mnemonics SELGRE   SELGRH   SELGRL   SELGRM   SELGRNE  SELGRNH  SELGRNL
+    mnemonics SELGRNM  SELGRNO  SELGRNP  SELGRNZ  SELGRO   SELGRP   SELGRZ
+    mnemonics SELRE    SELRH    SELRL    SELRM    SELRNE   SELRNH   SELRNL
+    mnemonics SELRNM   SELRNO   SELRNP   SELRNZ   SELRO    SELRP    SELRZ
+
+
+#
+#     +-----------------------------------------------------+
+#     |                                                     |
+#     |   Principles of Operation Version -13 - May, 2020   |
+#     |                                                     |
+#     +-----------------------------------------------------+
+#
+
+#
+#   RISBHG (EC5D) EXTENDED MNEMONICS
+#
+inst SLLHH  EC5D  ERIEF-B E   # SHIFT LEFT LOGICAL (HIGH <- HIGH)
+    fixed  I3 00
+    filter I4 31MINUSZ  # I3 is redirected to I4 by the ERIEF-B format
+    #      I5 is directed from I3 without alteration by the ERIEF-B format
+
+inst SLLHL EC5D   ERIEF-B E   # SHIFT LEFT LOGICAL (HIGH <-LOW)
+    fixed  I3 00
+    filter I4 31MINUSZ  # I3 is redirected to I4 by the ERIEF-B format
+    filter I5 32PLUS    # I3 is redirected to I5 by the ERIEF-B format
+
+inst SRLHH EC5D   ERIEF-C E   # SHIFT LEFT LOGICAL (HIGH <-LOW)
+    #      I3 is directed from I3 without alteration by the ERIEF-C format
+    fixed  I4 9F  # Treat Z bit as one
+    filter I5 MINUS     # I3 is redirected to I5 by the ERIEF-C format
+
+inst SRLHL EC5D   ERIEF-C E   # SHIFT LEFT LOGICAL (HIGH <-LOW)
+    #      I3 is directed from I3 without alteration by the ERIEF-C format
+    fixed  I4 9F  # Treat Z bit as one
+    filter I5 32MINUS   # I3 is redirected to I5 by the ERIEF-C format
+
+
+#
+#  RISBLG (EC51) EXTENDED MNEMONICS
+#
+inst SLLLH EC51   ERIEF-B E   # SHIFT LEFT LOGICAL (LOW <- HIGH)
+    fixed  I3 00
+    filter I4 31MINUSZ  # I3 is redirected to I4 by the ERIEF-B format
+    filter I5 32PLUS    # I3 is redirected to I5 by the ERIEF-B format
+
+inst SRLLH EC51   ERIEF-C E   # SHIFT RIGHT LOGICAL (LOW <- HIGH)
+    #      I3 is directed from I3 without alteration by the ERIEF-C format
+    fixed  I4 9F  # Treat Z bit as one
+    filter I5 32MINUS   # I3 is redirected to I5 by the ERIEF-B format
+
+
+iset s390x-em-13     # May, 2022
+    # Chapter 7 - General instruction extended mnemonics
+    mnemonics SLLLH   SRLLH
+    mnemonics SLLHH   SLLHL   SRLHH   SRLHL

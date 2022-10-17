@@ -115,6 +115,12 @@ cpu 24              # All instructions with a 24-bit influence
     # z/Architecture Extended Mnemonics (see zem-inst.msl)
     features s390x-em-04              # September, 2005 / May, 2022
     features s390x-em-06              # February, 2008
+    features s390x-em-08              # August, 2010
+    features s390x-em-09              # September, 2012
+    features s390x-em-10              # March, 2015
+    features s390x-em-11              # September, 2017
+    features s390x-em-12              # September, 2019
+    features s390x-em-13              # May, 2020
 
 cpu 31             # All instructions with a 31-bit influence
     addrmax 31
@@ -203,6 +209,12 @@ cpu 31             # All instructions with a 31-bit influence
     # z/Architecture Extended Mnemonics (see zem-inst.msl)
     features s390x-em-04              # September, 2005 / May, 2022
     features s390x-em-06              # February, 2008
+    features s390x-em-08              # August, 2010
+    features s390x-em-09              # September, 2012
+    features s390x-em-10              # March, 2015
+    features s390x-em-11              # September, 2017
+    features s390x-em-12              # September, 2019
+    features s390x-em-13              # May, 2020
 
 cpu 64             # All instructions with a 64-bit influence
     addrmax 64
@@ -292,6 +304,12 @@ cpu 64             # All instructions with a 64-bit influence
     # z/Architecture Extended Mnemonics (see zem-inst.msl)
     features s390x-em-04              # September, 2005 / May, 2022
     features s390x-em-06              # February, 2008
+    features s390x-em-08              # August, 2010
+    features s390x-em-09              # September, 2012
+    features s390x-em-10              # March, 2015
+    features s390x-em-11              # September, 2017
+    features s390x-em-12              # September, 2019
+    features s390x-em-13              # May, 2020
 
 
 # STANDARD INSTRUCTIONS FROM ESA/390 (see below for I/O instructions)

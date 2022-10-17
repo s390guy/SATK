@@ -126,6 +126,11 @@ cpu s390x        # Generic z/Architecture CPU in z/Architecture Mode
     features s390x-em-04              # September, 2005 / May, 2022
     features s390x-em-06              # February, 2008
     features s390x-em-08              # August, 2010
+    features s390x-em-09              # September, 2012
+    features s390x-em-10              # March, 2015
+    features s390x-em-11              # September, 2017
+    features s390x-em-12              # September, 2019
+    features s390x-em-13              # May, 2020
 
 
 # STANDARD INSTRUCTIONS FROM ESA/390 (see below for I/O instructions)
