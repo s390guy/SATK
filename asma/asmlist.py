@@ -486,7 +486,8 @@ class AsmListing(Listing):
             if directive=="SPACE":
                 assert stmt.plist is not None,\
                     "[%s] SPACE statement missing plist" % stmt.lineno
-                self.space(n=stmt.plist,eject=True)
+                if stmt.pon:
+                    self.space(n=stmt.plist,eject=True)
                 continue
             if directive=="TITLE":
                 assert stmt.plist is not None,\
@@ -496,10 +497,12 @@ class AsmListing(Listing):
                     self.create_title()
                 else:
                     self.asmtitle.setTitle(self.dir_title,center=False)
-                self.eject()
+                if stmt.pon:
+                    self.eject()
                 continue
             elif directive=="EJECT":
-                self.eject()
+                if stmt.pon:
+                    self.eject()
                 continue
             else:
                 cls_str="%s %s.part1() -" % (this_module,self.__class__.__name__)
