@@ -192,6 +192,10 @@ class FieldFilters:
         self.fms={"MINUS":   self._minus,
                   "MINUST":  self._minust,
                   "NOP":     self._nop,
+                  "OR_01":   self._or_01,
+                  "OR_02":   self._or_02,
+                  "OR_03":   self._or_03,
+                  "OR_08":   self._or_08,
                   "TAONE":   self._taone,
                   "TAZERO":  self._tazero,
                   "31MINUSZ":self._31minusz,
@@ -222,6 +226,33 @@ class FieldFilters:
     #   value   The assembler operand value
     def _nop(self,value):
         return value
+
+    # Binary OR of the value with 0x01, forcing bit 7 to a 1.
+    # Instance Argument:
+    #   value   The assembler operand value
+    def _or_01(self,value):
+        return value | 0x01
+        
+    # Binary OR of the value with 0x02, forcing bit 6 to a 1.
+    # for debugging.
+    # Instance Argument:
+    #   value   The assembler operand value
+    def _or_02(self,value):
+        return value | 0x02
+        
+    # Binary OR of the value with 0x02, forcing bits 6 and 7 to a 1.
+    # for debugging.
+    # Instance Argument:
+    #   value   The assembler operand value
+    def _or_03(self,value):
+        return value | 0x03
+        
+    # Binary OR of the value with 0x08, forcing bit 4 to a 1.
+    # for debugging.
+    # Instance Argument:
+    #   value   The assembler operand value
+    def _or_08(self,value):
+        return value | 0x08
 
     # This method treats in ROTATE instructions as 1 the T-bit
     # Instance Argument:

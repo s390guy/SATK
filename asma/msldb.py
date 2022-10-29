@@ -986,10 +986,13 @@ class Format(MSLDBE):
         except KeyError:
             raise MSLError(loc=elp.source,\
                 msg="source operand name invalid: '%s'" % (name))
-        if len(attr)!=num_fields+1:
-            raise MSLError(loc=elp.source,\
-                msg="source operand %s requires %s machine fields: %s" \
-                    % (name,num_fields,len(attr)-1))
+        # This check inhibits a single source operand from providing a value
+        # to multiple machine fields.  This capability is required by 
+        # extended mnemonics.  Left for future reference.
+        #if len(attr)!=num_fields+1:
+        #    raise MSLError(loc=elp.source,\
+        #        msg="source operand %s requires %s machine fields: %s" \
+        #            % (name,num_fields,len(attr)-1))
         oper=soper(name,typ,mfields=attr[1:])
         try:
             self.soper[name]
@@ -1036,7 +1039,8 @@ class Inst(MSLDBE):
     bits2={0b00:2,0b01:4,0b10:4,0b11:6}  # converts bits 0,1 of opcode to length
 
     # Field filters supported by insnbldr.py
-    filters=["MINUS","NOP","TAONE","TAZERO","31MINUSZ","32MINUS","32PLUS"]
+    filters=["MINUS","NOP","OR_01","OR_02","OR_03","OR_08","TAONE","TAZERO",\
+             "31MINUSZ","32MINUS","32PLUS"]
     def __init__(self,els,keep=False):
         super().__init__(els,"inst",keep=keep)
 
