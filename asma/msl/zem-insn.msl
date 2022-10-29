@@ -332,6 +332,32 @@ format ERRS
     source S B4 D4
 
 
+# VRS-c
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  | V3  | B2  |        D2       |*M4* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# EVRSC: MNEMONIC R1,V3,S2,M4
+# (VECTOR LOAD GR FROM VR ELEMENT)
+format EVRSC
+    length 6
+    xopcode 40 47
+    mach R1 8  11
+    mach V3 12 15
+    mach B2 16 19
+    mach D2 20 31
+    mach M4 32 35 fixed
+    mach RXB 36 39
+    source R1 R1
+    source V3 V3
+    source S2 B2 D2
+    #source M4 M4
+    
+    
+
 #     0     4     8     12    16    20    24    28    32    36    40    44   47
 #     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
 #     |     OP    | R1  |*M3* | B2  |       DL2       |    DH2    |    XOP    |
@@ -377,6 +403,785 @@ format ERXYB
     mach DH2 32 39 signed
 #    source M1 M1
     source SYX X2 B2 DL2 DH2
+  
+    
+# VRI-a - Extended Mnemonic for RI2
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  |0000 |         *RI2*         |0000 | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# EVRIA: MNEMONIC V1
+#
+format EVRIA
+    length 6
+    xopcode 40 47
+    mach V1 8 11
+    mach RI2 16 31 fixed
+    mach RXB 36 39
+    source V1 V1
+    
+# VRI-a - with M3 and signed I2
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  |0000 |           I2          | M3  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# EVRIA1: MNEMONIC V1,I2
+# (VECTOR LOAD ELEMENT IMMEDIATE)
+format EVRIA1
+    length 6
+    xopcode 40 47
+    mach V1  8 11
+    mach I2 16 31 signed
+    mach M3 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source I2 I2
+    #source M3 M3    
+
+
+# VRI-b
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  |0000 |     I2    |     I3    | M4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# EVRIB: MNEMONIC V1,I2,I3
+# (VECTOR GENERATE MASK)
+format EVRIB
+    length 6
+    xopcode 40 47
+    mach V1 8 11
+    mach I2 16 23
+    mach I3 24 31
+    mach M4 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source I2 I2
+    source I3 I3
+    #source M4 M4
+    
+    
+# VRI-c
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V3  |          I2           |*M4* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# EVRIC: MNEMONIC V1,V3,I2
+# (VECTOR REPLICATE)
+format EVRIC
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V3 12 15
+    mach I2 16 31
+    mach M4 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source V3 V3
+    source I2 I2
+    #source M4 M4
+
+   
+# VRI-d
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 |    I4     | M5  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# EVRID: MNEMONIC V1,V2,V3,I4
+# (VECTOR ELEMENT ROTATE AND INSERT UNDER MASK)
+format EVRID
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach I4 24 31
+    mach M5 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    source I4 I4
+    #source M5 M5
+    
+    
+# VRI-e
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  |        I3       |*M5* |*M4* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# EVRIE: MNEMONIC V1,V2,I3
+# (VECTOR FP TEST DATA CLASS IMMEDIATE)
+format EVRIE
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach I3 16 27
+    mach M5 28 31 fixed
+    mach M4 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source I3 I3
+    #source M4 M4
+    #source M5 M5
+    
+    
+# VRR-a
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  |0000 |0000 | M5  |(M4) |*M3* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# EVRRA: MNEMONIC V1,V2,M4,M5
+# (VECTOR FP CONVERT FROM FIXED 64-BIT)
+format EVRRA
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach M5 24 27
+    mach M4 28 31
+    mach M3 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    #source M3 M3
+    source M4 M4    # Sometimes uses the OR_08 filter
+    source M5 M5
+    
+    
+# VRR-a
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  |0000 |0000 | M5  |*M4* |*M3* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# EVRRA-1: MNEMONIC V1,V2,M5
+# (VECTOR FP PERFORM SIGN OPERATION)
+format EVRRA-1
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach M5 24 27
+    mach M4 28 31 fixed
+    mach M3 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    #source M3 M3
+    #source M4 M4
+    source M5 M5
+    
+    
+# VRR-a
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  |0000 |0000 |*M5* |*M4* |*M3* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# EVRRA-2: MNEMONIC V1,V2
+# (VECTOR FP PERFORM SIGN OPERATION)
+format EVRRA-2
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach M5 24 27 fixed
+    mach M4 28 31 fixed
+    mach M3 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    #source M3 M3
+    #source M4 M4
+    #source M5 M5
+    
+    
+# VRR-a - without M4 and M5
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  |0000 |0000 |0000 |0000 |*M3* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# EVRRA1: MNEMONIC V1,V2
+# (VECTOR SIGN EXTEND TO DOUBLEWORD)
+format EVRRA1
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach M3 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    #source M3 M3
+    
+    
+# VRR-a - without M5
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  |0000 |0000 |0000 |*M4* |*M3* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# EVRRA4: MNEMONIC V1,V2
+# (VECTOR FP SQUARE ROOT)
+format EVRRA4
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach M4 28 31 fixed
+    mach M3 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    #source M3 M3
+    #source M4 M4
+
+    
+# VRR-a - without M5
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  |0000 |0000 |0000 | M4  | M3  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# EVRRA4-1: MNEMONIC V1,V2,M3,M4
+# (VECTOR FP COMPARE SCALAR)
+# Note: This format is identical to VRRA4 in formats.msl to keep zen-insn.msl
+# independent of formats.msl
+format EVRRA4-1
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach M4 28 31
+    mach M3 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source M3 M3
+    source M4 M4
+
+# VRR-a
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  |0000 |0000 | M5  | M4  | M3  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# EVRRA-2: MNEMONIC V1,V2,M3,M4,M5
+# (VECTOR FP CONVERT FROM FIXED 64-BIT)
+# Note: This format is identical to VRRA in formats.msl to keep zen-insn.msl
+# independent of formats.msl
+format EVRRA-4
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach M5 24 27
+    mach M4 28 31
+    mach M3 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source M3 M3
+    source M4 M4
+    source M5 M5
+    
+
+# VRR-a
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  |0000 |0000 | M5  | M4  |*M3* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# EVRRA-3: MNEMONIC V1,V2,M4,M5
+# (VECTOR FP CONVERT FROM FIXED 64-BIT)
+format EVRRA-3
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach M5 24 27
+    mach M4 28 31
+    mach M3 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    #source M3 M3
+    source M4 M4
+    source M5 M5
+    
+    
+# VRR-b
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 |*M5* |0000 |*M4* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# EVRRB: MNEMONIC V1,V2,V3
+#
+format EVRRB
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M5 24 27 fixed
+    mach M4 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    #source M4 M4
+    #source M5 M5
+    
+    
+# VRR-b
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 | M5  |0000 |*M4* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# EVRRB2: MNEMONIC V1,V2,V3
+#
+format EVRRB2
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M5 24 27
+    mach M4 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    #source M4 M4
+    source M5 M5
+
+    
+# VRR-b
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 | M5  |0000 |*M4* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# EVRRB2A: MNEMONIC V1,V2,V3
+#
+format EVRRB2A
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M5 24 27 fixed
+    mach M4 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    #source M4 M4
+    #source M5 M5
+
+    
+# VRR-c - without M6 and M5
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 |0000 |0000 |*M4* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# EVRRC1: MNEMONIC V1,V2,V3
+# (VECTOR MERGE HIGH)
+format EVRRC1
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M4 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    #source M4 M4
+    
+    
+# VRR-c - without M6 and M5 and M4
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 |0000 |0000 |0000 | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# EVRRC2: MNEMONIC V1,V2
+# (VECTOR AND)
+format EVRRC2
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2 V3  # Two machine fields are sourced by this operand
+    #source V3 V3
+
+    
+# VRR-c - without M6
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 |0000 |*M5* |*M4* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# EVRRC3: MNEMONIC V1,V2,V3,M4,M5
+# (VECTOR FP ADD)
+format EVRRC3
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M5 28 31 fixed
+    mach M4 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    #source M4 M4
+    #source M5 M5
+    
+    
+# VRR-c
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 |*M6* |*M5* |*M4* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# EVRRC4: MNEMONIC V1,V2,V3
+# (VECTOR FP COMPARE EQUAL)
+format EVRRC4
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M6 24 27 fixed
+    mach M5 28 31 fixed
+    mach M4 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    #source M4 M4
+    #source M5 M5
+    #source M6 M6
+    
+    
+# VRR-c
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |0000 | M6  |*M5* |*M4* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# EVRRC5: MNEMONIC V1,V2,V3
+# (VECTOR FP MAXIMUM)
+format EVRRC5
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M6 24 27
+    mach M5 28 31 fixed
+    mach M4 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    #source M4 M4
+    #source M5 M5
+    source M6 M6
+    
+
+# VRR-d
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |*M5* | M6  |0000 | V4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# EVRRD: MNEMONIC V1,V2,V3,V4[,M6]
+# (VECTOR STRING RANGE COMPARE)
+format EVRRD
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M5 20 23 fixed
+    mach M6 24 27
+    mach V4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    source V4 V4
+    #source M5 M5
+    source M6 M6
+
+    
+    
+    
+# VRR-d - without M6
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |*M5* |0000 |0000 | V4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# EVRRD1: MNEMONIC V1,V2,V3,V4
+# (VECTOR ADD WITH CARRY)
+format EVRRD1
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M5 20 23 fixed
+    mach V4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    source V4 V4
+    #source M5 M5
+
+    
+# VRR-d
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |*M5* | M6  |0000 | V4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# EVRRD2: MNEMONIC V1,V2,V3,V4[,M6]
+# (VECTOR STRING RANGE COMPARE)
+format EVRRD2
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M5 20 23 fixed
+    mach M6 24 27
+    mach V4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    source V4 V4
+    #source M5 M5
+    source M6 M6
+    
+    
+# VRR-d
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |*M5* |*M6* |0000 | V4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# EVRRD3: MNEMONIC V1,V2,V3,V4
+# (VECTOR STRING RANGE COMPARE)
+format EVRRD3
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M5 20 23 fixed
+    mach M6 24 27 fixed
+    mach V4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    source V4 V4
+    #source M5 M5
+    #source M6 M6
+    
+    
+# VRR-e
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V2  | V3  |*M6* |0000 |*M5* | V4  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+#
+# EVRRE: MNEMONIC V1,V2,V3,V4
+# (VECTOR FP MULTIPLY AND ADD)
+format EVRRE
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V2 12 15
+    mach V3 16 19
+    mach M6 20 23 fixed
+    mach M5 28 31 fixed
+    mach V4 32 35
+    mach RXB 36 39
+    source V1 V1
+    source V2 V2
+    source V3 V3
+    source V4 V4
+    #source M5 M5
+    #source M6 M6
+    
+    
+# VRS-a
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | V3  | B2  |        D2       |*M4* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRSA: MNEMONIC V1,V3,S2
+# (VECTOR ELEMENT ROTATE LEFT LOGICAL)
+format EVRSA
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach V3 12 15
+    mach B2 16 19
+    mach D2 20 31
+    mach M4 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source V3 V3
+    source S2 B2 D2
+    #source M4 M4
+
+    
+# VRS-b
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | R3  | B2  |        D2       |*M4* | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# EVRSB:
+# (VECTOR LOAD VR ELEMENT FROM GR)
+format EVRSB
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach R3 12 15
+    mach B2 16 19
+    mach D2 20 31
+    mach M4 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source R3 R3
+    source S2 B2 D2
+    #source M4 M4
+
+    
+# VRX
+# ---
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | V1  | X2  | B2  |        D2       | M3  | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# EVRX: MNEMONIC V1,D2(X2,B2),M3
+# (VECTOR LOAD LOGICAL ELEMENT AND ZERO)
+format EVRX
+    length 6
+    xopcode 40 47
+    mach V1 8  11
+    mach X2 12 15
+    mach B2 16 19
+    mach D2 20 31
+    mach M3 32 35 fixed
+    mach RXB 36 39
+    source V1 V1
+    source SX X2 B2 D2
+    #source M3 M3
 
 #
 #     +-----------------------------------------------------------+
@@ -1518,7 +2323,6 @@ inst LOCFHZ  EBE0  ERSYB1  E     # LOCFH ZERO
     fixed M3 8
 
 
-
 #
 #  LOCFHR (B9E0) EXTENDED MNEMONICS
 #
@@ -1748,7 +2552,1952 @@ inst STOCFHP  EBE1  ERSYB1  E     # STOCFH PLUS
 inst STOCFHZ  EBE1  ERSYB1  E     # STOCFH ZERO
     fixed M3 8
 
+    
+#
+#  VGM (E746) EXTENDED MNEMONICS
+#
+inst VGMB     E746  EVRIB   E
+    fixed M4 0
+    
+inst VGMF     E746  EVRIB   E
+    fixed M4 2
+    
+inst VGMG     E746  EVRIB   E
+    fixed M4 3
 
+inst VGMH     E746  EVRIB   E
+    fixed M4 1
+   
+
+#
+#  VGBM (E744) EXTENDED MNEMONICS
+#
+inst VONE     E744  EVRIA   E
+    fixed RI2 FFFF
+    
+inst VZERO    E744  EVRIA   E
+    fixed RI2 0
+    
+    
+#
+#  VLGV (E721) EXTENDED MNEMONICS
+#
+inst VLGVB     E721  EVRSC   E
+    fixed M4 0
+    
+inst VLGVF     E721  EVRSC   E
+    fixed M4 2
+    
+inst VLGVG     E721  EVRSC   E
+    fixed M4 3
+
+inst VLGVH     E721  EVRSC   E
+    fixed M4 1
+    
+    
+#
+#  VLLEZ (E704) EXTENDED MNEMONICS
+#
+inst VLLEZB     E704  EVRX    E
+    fixed M3 0
+    
+inst VLLEZF     E704  EVRX    E
+    fixed M3 2
+    
+inst VLLEZG     E704  EVRX    E
+    fixed M3 3
+
+inst VLLEZH     E704  EVRX    E
+    fixed M3 1
+    
+inst VLLEZLF    E704  EVRX    E
+    fixed M3 6
+
+    
+#
+#  VLREP (E705) EXTENDED MNEMONICS
+#
+inst VLREPB     E705  EVRX    E
+    fixed M3 0
+    
+inst VLREPF     E705  EVRX    E
+    fixed M3 2
+    
+inst VLREPG     E705  EVRX    E
+    fixed M3 3
+
+inst VLREPH     E705  EVRX    E
+    fixed M3 1
+
+    
+#
+#  VLVG (E722) EXTENDED MNEMONICS
+#
+inst VLVGB      E722  EVRSB   E
+    fixed M4 0
+    
+inst VLVGF      E722  EVRSB   E
+    fixed M4 2
+    
+inst VLVGG      E722  EVRSB   E
+    fixed M4 3
+
+inst VLVGH      E722  EVRSB   E
+    fixed M4 1
+    
+    
+#
+#  VMRH (E761) EXTENDED MNEMONICS
+#
+inst VMRHB      E761  EVRRC1  E
+    fixed M4 0
+    
+inst VMRHF      E761  EVRRC1  E
+    fixed M4 2
+    
+inst VMRHG      E761  EVRRC1  E
+    fixed M4 3
+
+inst VMRHH      E761  EVRRC1  E
+    fixed M4 1
+
+    
+#
+#  VMRL (E760) EXTENDED MNEMONICS
+#
+inst VMRLB      E760  EVRRC1  E
+    fixed M4 0
+    
+inst VMRLF      E760  EVRRC1  E
+    fixed M4 2
+    
+inst VMRLG      E760  EVRRC1  E
+    fixed M4 3
+
+inst VMRLH      E760  EVRRC1  E
+    fixed M4 1
+    
+    
+#
+#  VPK (E794) EXTENDED MNEMONICS
+#
+inst VPKF       E794  EVRRC1  E
+    fixed M4 2
+    
+inst VPKG       E794  EVRRC1  E
+    fixed M4 3
+
+inst VPKH       E794  EVRRC1  E
+    fixed M4 1
+
+    
+#
+#  VPKLS (E795) EXTENDED MNEMONICS
+#
+inst VPKLSF     E795  EVRRB   E
+    fixed M4 2
+    fixed M5 0
+    
+inst VPKLSG     E795  EVRRB   E
+    fixed M4 3
+    fixed M5 0
+
+inst VPKLSH     E795  EVRRB   E
+    fixed M4 1
+    fixed M5 0
+    
+inst VPKLSFS    E795  EVRRB   E
+    fixed M4 2
+    fixed M5 1
+    
+inst VPKLSGS    E795  EVRRB   E
+    fixed M4 3
+    fixed M5 1
+
+inst VPKLSHS    E795  EVRRB   E
+    fixed M4 1
+    fixed M5 1
+
+    
+#
+#  VPKS (E797) EXTENDED MNEMONICS
+#
+inst VPKSF      E797  EVRRB   E
+    fixed M4 2
+    fixed M5 0
+    
+inst VPKSG      E797  EVRRB   E
+    fixed M4 3
+    fixed M5 0
+
+inst VPKSH      E797  EVRRB   E
+    fixed M4 1
+    fixed M5 0
+    
+inst VPKSFS     E797  EVRRB   E
+    fixed M4 2
+    fixed M5 1
+    
+inst VPKSGS     E797  EVRRB   E
+    fixed M4 3
+    fixed M5 1
+
+inst VPKSHS     E797  EVRRB   E
+    fixed M4 1
+    fixed M5 1
+    
+    
+#
+#  VREP (E74D) EXTENDED MNEMONICS
+#
+inst VREPB      E74D  EVRIC  E
+   fixed M4 0
+   
+inst VREPF      E74D  EVRIC  E
+   fixed M4 2
+   
+inst VREPG      E74D  EVRIC  E
+   fixed M4 3
+   
+inst VREPH      E74D  EVRIC  E
+   fixed M4 1
+
+   
+#
+#  VREPI (E745) EXTENDED MNEMONICS
+#
+inst VREPIB     E745  EVRIA1 E
+   fixed M3 0
+   
+inst VREPIF     E745  EVRIA1 E
+   fixed M3 2
+   
+inst VREPIG     E745  EVRIA1 E
+   fixed M3 3
+   
+inst VREPIH     E745  EVRIA1 E
+   fixed M3 1
+
+   
+#
+#  VSEG (E75F) EXTENDED MNEMONICS
+#
+inst VSEGB     E75F  EVRRA1 E
+   fixed M3 0
+   
+inst VSEGF     E75F  EVRRA1 E
+   fixed M3 2
+   
+inst VSEGH     E75F  EVRRA1 E
+   fixed M3 1
+
+
+#
+#  VUPH (E7D7) EXTENDED MNEMONICS
+#
+inst VUPHB     E7D7  EVRRA1 E
+   fixed M3 0
+   
+inst VUPHF     E7D7  EVRRA1 E
+   fixed M3 2
+   
+inst VUPHH     E7D7  EVRRA1 E
+   fixed M3 1
+   
+
+#
+#  VUPL (E7D6) EXTENDED MNEMONICS
+#
+inst VUPLB     E7D6  EVRRA1 E
+   fixed M3 0
+   
+inst VUPLF     E7D6  EVRRA1 E
+   fixed M3 2
+   
+inst VUPLHW    E7D6  EVRRA1 E
+   fixed M3 1
+
+
+#
+#  VUPLH (E7D5) EXTENDED MNEMONICS
+#
+inst VUPLHB    E7D5  EVRRA1 E
+   fixed M3 0
+   
+inst VUPLHF    E7D5  EVRRA1 E
+   fixed M3 2
+   
+inst VUPLHH    E7D5  EVRRA1 E
+   fixed M3 1
+   
+   
+#
+#  VUPLL (E7D4) EXTENDED MNEMONICS
+#
+inst VUPLLB    E7D4  EVRRA1 E
+   fixed M3 0
+   
+inst VUPLLF    E7D4  EVRRA1 E
+   fixed M3 2
+   
+inst VUPLLH    E7D4  EVRRA1 E
+   fixed M3 1
+
+
+#
+#  VA (E7F3) EXTENDED MNEMONICS
+#
+inst VAB     E7F3   EVRRC1  E     # VA (8)
+    fixed M4 0
+    
+inst VAF     E7F3   EVRRC1  E     # VA (32)
+    fixed M4 2
+    
+inst VAG     E7F3   EVRRC1  E     # VA (64)
+    fixed M4 3
+    
+inst VAH     E7F3   EVRRC1  E     # VA (16)
+    fixed M4 1
+    
+inst VAQ     E7F3   EVRRC1  E     # VA (64)
+    fixed M4 4
+    
+
+#
+#  VAC (E7BB) EXTENDED MNEMONICS
+#
+inst VACQ    E7BB   EVRRD1  E     # VAC (64)
+    fixed M5 4     
+
+
+#
+#  VACC (E7F1) EXTENDED MNEMONICS
+#
+inst VACCB   E7F1   EVRRC1  E     # VACC (8)
+    fixed M4 0
+    
+inst VACCF   E7F1   EVRRC1  E     # VACC (32)
+    fixed M4 2
+    
+inst VACCG   E7F1   EVRRC1  E     # VACC (64)
+    fixed M4 3
+    
+inst VACCH   E7F1   EVRRC1  E     # VACC (16)
+    fixed M4 1
+    
+inst VACCQ   E7F1   EVRRC1  E     # VACC (64)
+    fixed M4 4
+    
+    
+#
+#  VACCC (E7B9) EXTENDED MNEMONICS
+#
+inst VACCCQ  E7B9   EVRRD1  E     # VACCC (64)
+    fixed M5 4
+    
+#
+#  VAVG (E7F2) EXTENDED MNEMONICS
+#
+inst VAVGB   E7F2   EVRRC1  E     # VAVG (8)
+    fixed M4 0
+    
+inst VAVGF   E7F2   EVRRC1  E     # VAVG (32)
+    fixed M4 2
+    
+inst VAVGG   E7F2   EVRRC1  E     # VAVG (64)
+    fixed M4 3
+    
+inst VAVGH   E7F2   EVRRC1  E     # VAVG (16)
+    fixed M4 1
+    
+#
+#  VAVGL (E7F0) EXTENDED MNEMONICS
+#
+inst VAVGLB   E7F0   EVRRC1  E     # VAVGL (8)
+    fixed M4 0
+    
+inst VAVGLF   E7F0   EVRRC1  E     # VAVGL (32)
+    fixed M4 2
+    
+inst VAVGLG   E7F0   EVRRC1  E     # VAVGL (64)
+    fixed M4 3
+    
+inst VAVGLH   E7F0   EVRRC1  E     # VAVGL (16)
+    fixed M4 1
+    
+    
+#
+#  VCEQ (E7F8) EXTENDED MNEMONICS
+#
+inst VCEQB    E7F8   EVRRB   E     # VCEQ (8) CC UNCHANGED
+    fixed M4 0
+    fixed M5 0
+    
+inst VCEQBS   E7F8   EVRRB   E     # VCEQ (8) CC SET
+    fixed M4 0
+    fixed M5 1
+    
+inst VCEQF    E7F8   EVRRB   E     # VCEQ (32) CC UNCHANGED
+    fixed M4 2
+    fixed M5 0
+    
+inst VCEQFS   E7F8   EVRRB   E     # VCEQ (32) CC SET
+    fixed M4 2
+    fixed M5 1
+    
+inst VCEQG    E7F8   EVRRB   E     # VCEQ (64) CC UNCHANGED
+    fixed M4 3
+    fixed M5 0
+    
+inst VCEQGS   E7F8   EVRRB   E     # VCEQ (64) CC SET
+    fixed M4 3
+    fixed M5 1
+    
+inst VCEQH    E7F8   EVRRB   E     # VCEQ (16) CC UNCHANGED
+    fixed M4 1
+    fixed M5 0
+    
+inst VCEQHS   E7F8   EVRRB   E     # VCEQ (16) CC SET
+    fixed M4 1
+    fixed M5 1
+    
+
+#
+#  VCH (E7FB) EXTENDED MNEMONICS
+#
+inst VCHB     E7FB   EVRRB   E     # VCH (8) CC UNCHANGED
+    fixed M4 0
+    fixed M5 0
+    
+inst VCHBS    E7FB   EVRRB   E     # VCH (8) CC SET
+    fixed M4 0
+    fixed M5 1
+    
+inst VCHF     E7FB   EVRRB   E     # VCH (32) CC UNCHANGED
+    fixed M4 2
+    fixed M5 0
+    
+inst VCHFS    E7FB   EVRRB   E     # VCH (32) CC SET
+    fixed M4 2
+    fixed M5 1
+    
+inst VCHG     E7FB   EVRRB   E     # VCH (64) CC UNCHANGED
+    fixed M4 3
+    fixed M5 0
+    
+inst VCHGS    E7FB   EVRRB   E     # VCH (64) CC SET
+    fixed M4 3
+    fixed M5 1
+    
+inst VCHH     E7FB   EVRRB   E     # VCH (16) CC UNCHANGED
+    fixed M4 1
+    fixed M5 0
+    
+inst VCHHS    E7FB   EVRRB   E     # VCH (16) CC SET
+    fixed M4 1
+    fixed M5 1
+
+    
+#
+#  VCHL (E7F9) EXTENDED MNEMONICS
+# 
+inst VCHLB    E7F9   EVRRB   E     # VCHL (8) CC UNCHANGED
+    fixed M4 0
+    fixed M5 0
+    
+inst VCHLBS   E7F9   EVRRB   E     # VCHL (8) CC SET
+    fixed M4 0
+    fixed M5 1
+    
+inst VCHLF    E7F9   EVRRB   E     # VCHL (32) CC UNCHANGED
+    fixed M4 2
+    fixed M5 0
+    
+inst VCHLFS   E7F9   EVRRB   E     # VCHL (32) CC SET
+    fixed M4 2
+    fixed M5 1
+    
+inst VCHLG    E7F9   EVRRB   E     # VCHL (64) CC UNCHANGED
+    fixed M4 3
+    fixed M5 0
+    
+inst VCHLGS   E7F9   EVRRB   E     # VCHL (64) CC SET
+    fixed M4 3
+    fixed M5 1
+    
+inst VCHLH    E7F9   EVRRB   E     # VCHL (16) CC UNCHANGED
+    fixed M4 1
+    fixed M5 0
+    
+inst VCHLHS   E7F9   EVRRB   E     # VCHL (16) CC SET
+    fixed M4 1
+    fixed M5 1
+    
+   
+#
+#  VCLZ (E753) EXTENDED MNEMONICS
+#
+inst VCLZB    E753    EVRRA1 E     # VCLZ (8)
+    fixed M3 0
+    
+inst VCLZF    E753    EVRRA1 E     # VCLZ (32)
+    fixed M3 2
+    
+inst VCLZG    E753    EVRRA1 E     # VCLZ (64)
+    fixed M3 3
+    
+inst VCLZH    E753    EVRRA1 E     # VCLZ (16)
+    fixed M3 1
+    
+    
+#
+#  VCTZ (E752) EXTENDED MNEMONICS
+#
+inst VCTZB    E752    EVRRA1 E     # VCTZ (8)
+    fixed M3 0
+    
+inst VCTZF    E752    EVRRA1 E     # VCTZ (32)
+    fixed M3 2
+    
+inst VCTZG    E752    EVRRA1 E     # VCTZ (64)
+    fixed M3 3
+    
+inst VCTZH    E752    EVRRA1 E     # VCTZ (16)
+    fixed M3 1
+    
+    
+#
+#  VEC (E7DB) EXTENDED MNEMONICS
+#
+inst VECB     E7DB    EVRRA1 E     # VEC (8)
+    fixed M3 0
+    
+inst VECF     E7DB    EVRRA1 E     # VEC (32)
+    fixed M3 2
+    
+inst VECG     E7DB    EVRRA1 E     # VEC (64)
+    fixed M3 3
+    
+inst VECH     E7DB    EVRRA1 E     # VEC (16)
+    fixed M3 1
+    
+    
+#
+#  VECL (E7D9) EXTENDED MNEMONICS
+#
+inst VECLB    E7D9    EVRRA1 E     # VECL (8)
+    fixed M3 0
+    
+inst VECLF    E7D9    EVRRA1 E     # VECL (32)
+    fixed M3 2
+    
+inst VECLG    E7D9    EVRRA1 E     # VECL (64)
+    fixed M3 3
+    
+inst VECLH    E7D9    EVRRA1 E     # VECL (16)
+    fixed M3 1
+    
+    
+#
+#  VERIM (E772) EXTENDED MNEMONICS
+#
+inst VERIMB   E772    EVRID  E     # VERIM (8)
+    fixed M5 0
+    
+inst VERIMF   E772    EVRID  E     # VERIM (32)
+    fixed M5 2
+    
+inst VERIMG   E772    EVRID  E     # VERIM (64)
+    fixed M5 3
+    
+inst VERIMH   E772    EVRID  E     # VERIM (16)
+    fixed M5 1
+    
+    
+#
+#  VERLLV (E773) EXTENDED MNEMONICS
+#
+inst VERLLVB  E773    EVRRC1 E     # VERLLV (8)
+    fixed M4 0
+    
+inst VERLLVF  E773    EVRRC1 E     # VERLLV (32)
+    fixed M4 2
+    
+inst VERLLVG  E773    EVRRC1 E     # VERLLV (64)
+    fixed M4 3
+    
+inst VERLLVH  E773    EVRRC1 E     # VERLLV (16)
+    fixed M4 1
+    
+    
+#
+#  VERLL (E733) EXTENDED MNEMONICS
+#
+inst VERLLB   E733    EVRSA  E     # VERLL (8)
+    fixed M4 0
+    
+inst VERLLF   E733    EVRSA  E     # VERLL (32)
+    fixed M4 2
+    
+inst VERLLG   E733    EVRSA  E     # VERLL (64)
+    fixed M4 3
+    
+inst VERLLH   E733    EVRSA  E     # VERLL (16)
+    fixed M4 1
+    
+    
+#
+#  VESLV (E770) EXTENDED MNEMONICS
+#
+inst VESLVB   E770    EVRRC1 E     # VESLV (8)
+    fixed M4 0
+    
+inst VESLVF   E770    EVRRC1 E     # VESLV (32)
+    fixed M4 2
+    
+inst VESLVG   E770    EVRRC1 E     # VESLV (64)
+    fixed M4 3
+    
+inst VESLVH   E770    EVRRC1 E     # VESLV (16)
+    fixed M4 1
+    
+    
+#
+#  VESL (E730) EXTENDED MNEMONICS
+#
+inst VESLB   E730     EVRSA  E     # VESL (8)
+    fixed M4 0
+    
+inst VESLF   E730     EVRSA  E     # VESL (32)
+    fixed M4 2
+    
+inst VESLG   E730     EVRSA  E     # VESL (64)
+    fixed M4 3
+    
+inst VESLH   E730     EVRSA  E     # VESL (16)
+    fixed M4 1
+    
+    
+#
+#  VESRAV (E77A) EXTENDED MNEMONICS
+#
+inst VESRAVB E77A     EVRRC1 E     # VESRAV (8)
+    fixed M4 0
+    
+inst VESRAVF E77A     EVRRC1 E     # VESRAV (32)
+    fixed M4 2
+    
+inst VESRAVG E77A     EVRRC1 E     # VESRAV (64)
+    fixed M4 3
+    
+inst VESRAVH E77A     EVRRC1 E     # VESRAV (16)
+    fixed M4 1
+    
+    
+#
+#  VESRA (E73A) EXTENDED MNEMONICS
+#
+inst VESRAB  E73A     EVRSA E     # VESRA (8)
+    fixed M4 0
+    
+inst VESRAF  E73A     EVRSA E     # VESRA (32)
+    fixed M4 2
+    
+inst VESRAG  E73A     EVRSA E     # VESRA (64)
+    fixed M4 3
+    
+inst VESRAH  E73A     EVRSA E     # VESRA (16)
+    fixed M4 1
+    
+    
+#
+#  VESRLV (E778) EXTENDED MNEMONICS
+#
+inst VESRLVB E778     EVRRC1 E     # VESRLV (8)
+    fixed M4 0
+    
+inst VESRLVF E778     EVRRC1 E     # VESRLV (32)
+    fixed M4 2
+    
+inst VESRLVG E778     EVRRC1 E     # VESRLV (64)
+    fixed M4 3
+    
+inst VESRLVH E778     EVRRC1 E     # VESRLV (16)
+    fixed M4 1
+    
+    
+#
+#  VESRL (E782) EXTENDED MNEMONICS
+#
+inst VESRLB E738      EVRSA  E     # VESRL (8)
+    fixed M4 0
+    
+inst VESRLF E738      EVRSA  E     # VESRL (32)
+    fixed M4 2
+    
+inst VESRLG E738      EVRSA  E     # VESRL (64)
+    fixed M4 3
+    
+inst VESRLH E738      EVRSA  E     # VESRL (16)
+    fixed M4 1
+    
+    
+#
+#  VGFM (E7B4) EXTENDED MNEMONICS
+#   
+inst VGFMB  E7B4      EVRRC1  E
+    fixed M4 0
+    
+inst VGFMF  E7B4      EVRRC1  E
+    fixed M4 2
+    
+inst VGFMG  E7B4      EVRRC1  E
+    fixed M4 3
+    
+inst VGFMH  E7B4      EVRRC1  E
+    fixed M4 1
+
+    
+#
+#  VGFMA (E7BC) EXTENDED MNEMONICS
+#
+inst VGFMAB  E7BC     EVRRD1  E
+    fixed M5 0
+    
+inst VGFMAF  E7BC     EVRRD1  E
+    fixed M5 2
+    
+inst VGFMAG  E7BC     EVRRD1  E
+    fixed M5 3
+    
+inst VGFMAH  E7BC     EVRRD1  E
+    fixed M5 1
+    
+    
+#
+#  VLC (E7DE) EXTENDED MNEMONICS
+#
+inst VLCB  E7DE     EVRRA1  E
+    fixed M3 0
+    
+inst VLCF  E7DE     EVRRA1  E
+    fixed M3 2
+    
+inst VLCG  E7DE     EVRRA1  E
+    fixed M3 3
+    
+inst VLCH  E7DE     EVRRA1  E
+    fixed M3 1
+
+    
+#
+#  VLP (E7DF) EXTENDED MNEMONICS
+#
+inst VLPB  E7DF     EVRRA1  E
+    fixed M3 0
+    
+inst VLPF  E7DF     EVRRA1  E
+    fixed M3 2
+    
+inst VLPG  E7DF     EVRRA1  E
+    fixed M3 3
+    
+inst VLPH  E7DF     EVRRA1  E
+    fixed M3 1
+
+    
+#
+#  VMAE (E7AE) EXTENDED MNEMONICS
+#
+inst VMAEB  E7AE    EVRRD1  E
+    fixed M5 0
+    
+inst VMAEF  E7AE    EVRRD1  E
+    fixed M5 2
+    
+inst VMAEH  E7AE    EVRRD1  E
+    fixed M5 1
+
+    
+#
+#  VMAH (E7AB) EXTENDED MNEMONICS
+#
+inst VMAHB  E7AB    EVRRD1  E
+    fixed M5 0
+    
+inst VMAHF  E7AB    EVRRD1  E
+    fixed M5 2
+    
+inst VMAHH  E7AB    EVRRD1  E
+    fixed M5 1
+
+    
+#
+#  VMAL (E7AA) EXTENDED MNEMONICS
+#
+inst VMALB  E7AA    EVRRD1  E
+    fixed M5 0
+    
+inst VMALF  E7AA    EVRRD1  E
+    fixed M5 2
+    
+inst VMALHW E7AA    EVRRD1  E
+    fixed M5 1
+
+    
+#
+#  VMALE (E7AC) EXTENDED MNEMONICS
+#
+inst VMALEB  E7AC    EVRRD1  E
+    fixed M5 0
+    
+inst VMALEF  E7AC    EVRRD1  E
+    fixed M5 2
+    
+inst VMALEH  E7AC    EVRRD1  E
+    fixed M5 1
+
+
+#
+#  VMALH (E7A9) EXTENDED MNEMONICS
+#
+inst VMALHB  E7A9    EVRRD1  E
+    fixed M5 0
+    
+inst VMALHF  E7A9    EVRRD1  E
+    fixed M5 2
+    
+inst VMALHH  E7A9    EVRRD1  E
+    fixed M5 1
+
+    
+#
+#  VMALO (E7AD) EXTENDED MNEMONICS
+#
+inst VMALOB  E7AD    EVRRD1  E
+    fixed M5 0
+    
+inst VMALOF  E7AD    EVRRD1  E
+    fixed M5 2
+    
+inst VMALOH  E7AD    EVRRD1  E
+    fixed M5 1
+
+    
+#
+#  VMAO (E7AF) EXTENDED MNEMONICS
+#
+inst VMAOB  E7AF    EVRRD1  E
+    fixed M5 0
+    
+inst VMAOF  E7AF    EVRRD1  E
+    fixed M5 2
+    
+inst VMAOH  E7AF    EVRRD1  E
+    fixed M5 1
+
+#
+#  VML (E7A2) EXTENDED MNEMONICS
+#    
+inst VMLB  E7A2     EVRRC1  E
+    fixed M4 0
+    
+inst VMLF  E7A2     EVRRC1  E
+    fixed M4 2
+    
+inst VMLHW E7A2     EVRRC1  E
+    fixed M4 1
+
+
+#
+#  VMLE (E7A4) EXTENDED MNEMONICS
+#
+inst VMLEB  E7A4     EVRRC1  E
+    fixed M4 0
+    
+inst VMLEF  E7A4     EVRRC1  E
+    fixed M4 2
+    
+inst VMLEH  E7A4     EVRRC1  E
+    fixed M4 1
+
+    
+#
+#  VMLH (E7A1) EXTENDED MNEMONICS
+#
+inst VMLHB  E7A1     EVRRC1  E
+    fixed M4 0
+    
+inst VMLHF  E7A1     EVRRC1  E
+    fixed M4 2
+    
+inst VMLHH  E7A1     EVRRC1  E
+    fixed M4 1
+    
+    
+#
+#  VMLO (E7A5) EXTENDED MNEMONICS
+#
+inst VMLOB  E7A5     EVRRC1  E
+    fixed M4 0
+    
+inst VMLOF  E7A5     EVRRC1  E
+    fixed M4 2
+    
+inst VMLOH  E7A5     EVRRC1  E
+    fixed M4 1
+    
+    
+#
+#  VME (E7A6) EXTENDED MNEMONICS
+#
+inst VMEB  E7A6     EVRRC1  E
+    fixed M4 0
+    
+inst VMEF  E7A6     EVRRC1  E
+    fixed M4 2
+    
+inst VMEH  E7A6     EVRRC1  E
+    fixed M4 1
+    
+
+#
+#  VMH (E7A3) EXTENDED MNEMONICS
+#
+inst VMHB  E7A3     EVRRC1  E
+    fixed M4 0
+    
+inst VMHF  E7A3     EVRRC1  E
+    fixed M4 2
+    
+inst VMHH  E7A3     EVRRC1  E
+    fixed M4 1    
+
+
+#
+#  VMN (E7FE) EXTENDED MNEMONICS
+#
+inst VMNB  E7FE     EVRRC1  E
+    fixed M4 0
+    
+inst VMNF  E7FE     EVRRC1  E
+    fixed M4 2
+    
+inst VMNH  E7FE     EVRRC1  E
+    fixed M4 1 
+    
+    
+#
+#  VMNL (E7FC) EXTENDED MNEMONICS
+#    
+inst VMNLB  E7FC     EVRRC1  E
+    fixed M4 0
+    
+inst VMNLF  E7FC     EVRRC1  E
+    fixed M4 2
+    
+inst VMNLH  E7FC     EVRRC1  E
+    fixed M4 1     
+
+    
+#
+#  VMO (E7A7) EXTENDED MNEMONICS
+# 
+inst VMOB  E7A7     EVRRC1  E
+    fixed M4 0
+    
+inst VMOF  E7A7     EVRRC1  E
+    fixed M4 2
+    
+inst VMOH  E7A7     EVRRC1  E
+    fixed M4 1
+    
+    
+#
+#  VMX (E7FF) EXTENDED MNEMONICS
+#
+inst VMXB  E7FF     EVRRC1  E
+    fixed M4 0
+    
+inst VMXF  E7FF     EVRRC1  E
+    fixed M4 2
+    
+inst VMXG  E7FF     EVRRC1  E
+    fixed M4 3
+    
+inst VMXH  E7FF     EVRRC1  E
+    fixed M4 1
+
+    
+#
+#  VMXL (E7FD) EXTENDED MNEMONICS
+#
+inst VMXLB E7FD     EVRRC1  E
+    fixed M4 0
+   
+inst VMXLF E7FD     EVRRC1  E
+    fixed M4 2
+   
+inst VMXLG E7FD     EVRRC1  E
+    fixed M4 3
+    
+inst VMXLH E7FD     EVRRC1  E
+    fixed M4 1
+    
+
+#
+#  VNO (E76B) EXTENDED MNEMONICS
+#
+inst VNOT  E76B       EVRRC2  E
+    
+
+#
+#  VPOPCT (E750) EXTENDED MNEMONICS
+#
+inst VPOPCTB E750     EVRRA1  E
+    fixed M3 0
+   
+inst VPOPCTF E750     EVRRA1  E
+    fixed M3 2
+   
+inst VPOPCTG E750     EVRRA1  E
+    fixed M3 3
+    
+inst VPOPCTH E750     EVRRA1  E
+    fixed M3 1
+
+    
+#
+#  VS (E7F7) EXTENDED MNEMONICS
+#
+inst VSB     E7F7     EVRRC1  E
+    fixed M4 0
+   
+inst VSF     E7F7     EVRRC1  E
+    fixed M4 2
+   
+inst VSG     E7F7     EVRRC1  E
+    fixed M4 3
+    
+inst VSH     E7F7     EVRRC1  E
+    fixed M4 1
+    
+inst VSQ     E7F7     EVRRC1  E
+    fixed M4 4
+    
+    
+#
+#  VSBI (E7BF) EXTENDED MNEMONICS
+#
+inst VSBIQ   E7BF     EVRRD1  E
+    fixed M5 4
+
+    
+#
+#  VSBCBI (E7BD) EXTENDED MNEMONICS
+#
+inst VSBCBIQ  E7BD    EVRRD1  E
+    fixed M5 4
+    
+    
+#
+#  VSCBI (E7F5) EXTENDED MNEMONICS
+#
+inst VSCBIB   E7F5    EVRRC1  E
+    fixed M4 0
+    
+inst VSCBIF   E7F5    EVRRC1  E
+    fixed M4 2
+    
+inst VSCBIG   E7F5    EVRRC1  E
+    fixed M4 3
+    
+inst VSCBIH   E7F5    EVRRC1  E
+    fixed M4 1
+ 
+inst VSCBIQ   E7F5    EVRRC1  E
+    fixed M4 4
+    
+    
+#
+#  VSUM (E764) EXTENDED MNEMONICS
+#
+inst VSUMB    E764    EVRRC1  E
+    fixed M4 0
+    
+inst VSUMH    E764    EVRRC1  E
+    fixed M4 1
+    
+    
+#
+#  VSUMG (E765) EXTENDED MNEMONICS
+#
+inst VSUMGF   E765    EVRRC1  E
+    fixed M4 2
+    
+inst VSUMGH   E765    EVRRC1  E
+    fixed M4 1
+
+    
+#
+#  VSUMQ (E767) EXTENDED MNEMONICS
+#
+inst VSUMQF   E767    EVRRC1  E
+    fixed M4 2
+
+inst VSUMQG   E767    EVRRC1  E
+    fixed M4 3
+
+    
+#
+#  VFAE (E782) EXTENDED MNEMONICS
+#
+inst VFAEB  E782      EVRRB2 E
+    fixed M4 0
+    
+inst VFAEF  E782      EVRRB2 E
+    fixed M4 2
+    
+inst VFAEH  E782      EVRRB2 E
+    fixed M4 1
+    
+inst VFAEBS E782      EVRRB2 E
+    fixed M4 0
+    filter M5 OR_01
+    
+inst VFAEFS E782      EVRRB2 E
+    fixed M4 2
+    filter M5 OR_01
+    
+inst VFAEHS E782      EVRRB2 E
+    fixed M4 1
+    filter M5 OR_01
+    
+inst VFAEZB E782      EVRRB2 E
+    fixed M4 0
+    filter M5 OR_02
+    
+inst VFAEZF E782      EVRRB2 E
+    fixed M4 2
+    filter M5 OR_02
+    
+inst VFAEZH E782      EVRRB2 E
+    fixed M4 1
+    filter M5 OR_02
+    
+inst VFAEZBS E782      EVRRB2 E
+    fixed M4 0
+    filter M5 OR_03
+    
+inst VFAEZFS E782      EVRRB2 E
+    fixed M4 2
+    filter M5 OR_03
+    
+inst VFAEZHS E782      EVRRB2 E
+    fixed M4 1
+    filter M5 OR_03
+    
+
+#
+#  VFA (E7E3) EXTENDED MNEMONICS
+# 
+inst VFADB   E7E3      EVRRC3  E
+    fixed M4 3
+    fixed M5 0
+
+inst VFASB   E7E3      EVRRC3  E
+    fixed M4 2
+    fixed M5 0
+    
+inst WFADB   E7E3      EVRRC3  E
+    fixed M4 3
+    fixed M5 8
+    
+inst WFASB   E7E3      EVRRC3  E
+    fixed M4 2
+    fixed M5 8
+    
+inst WFAXB   E7E3      EVRRC3  E
+    fixed M4 4
+    fixed M5 8
+
+#
+#  VFCE (E7E8) EXTENDED MNEMONICS
+#
+inst VFCESB  E7E8      EVRRC4  E
+    fixed M4 2
+    fixed M5 0
+    fixed M6 0
+    
+inst VFCESBS E7E8      EVRRC4  E
+    fixed M4 2
+    fixed M5 0
+    fixed M6 1
+    
+inst VFCEDB  E7E8      EVRRC4  E
+    fixed M4 3
+    fixed M5 0
+    fixed M6 0
+    
+inst VFCEDBS E7E8      EVRRC4  E
+    fixed M4 3
+    fixed M5 0
+    fixed M6 1
+    
+inst WFCESB  E7E8      EVRRC4  E
+    fixed M4 2
+    fixed M5 8
+    fixed M6 0
+    
+inst WFCESBS E7E8      EVRRC4  E
+    fixed M4 2
+    fixed M5 8
+    fixed M6 1
+    
+inst WFCEDB  E7E8      EVRRC4  E
+    fixed M4 3
+    fixed M5 8
+    fixed M6 0
+    
+inst WFCEDBS E7E8      EVRRC4  E
+    fixed M4 3
+    fixed M5 8
+    fixed M6 1
+    
+inst WFCEXB  E7E8      EVRRC4  E
+    fixed M4 4
+    fixed M5 8
+    fixed M6 0
+    
+inst WFCEXBS E7E8      EVRRC4  E
+    fixed M4 4
+    fixed M5 8
+    fixed M6 1
+    
+inst VFKESB  E7E8      EVRRC4  E
+    fixed M4 2
+    fixed M5 4
+    fixed M6 0
+    
+inst VFKESBS E7E8      EVRRC4  E
+    fixed M4 2
+    fixed M5 4
+    fixed M6 1
+    
+inst VFKEDB  E7E8      EVRRC4  E
+    fixed M4 3
+    fixed M5 4
+    fixed M6 0
+    
+inst VFKEDBS E7E8      EVRRC4  E
+    fixed M4 3
+    fixed M5 4
+    fixed M6 1
+    
+inst WFKESB  E7E8      EVRRC4  E
+    fixed M4 2
+    fixed M5 C
+    fixed M6 0
+    
+inst WFKESBS E7E8      EVRRC4  E
+    fixed M4 2
+    fixed M5 C
+    fixed M6 1
+    
+inst WFKEDB  E7E8      EVRRC4  E
+    fixed M4 3
+    fixed M5 C
+    fixed M6 0
+    
+inst WFKEDBS E7E8      EVRRC4  E
+    fixed M4 3
+    fixed M5 C
+    fixed M6 1
+    
+inst WFKEXB  E7E8      EVRRC4  E
+    fixed M4 4
+    fixed M5 C
+    fixed M6 0
+    
+inst WFKEXBS E7E8      EVRRC4  E
+    fixed M4 4
+    fixed M5 C
+    fixed M6 1
+    
+    
+#
+#  VFCH (E7EB) EXTENDED MNEMONICS
+#
+inst VFCHSB  E7EB      EVRRC4  E
+    fixed M4 2
+    fixed M5 0
+    fixed M6 0
+    
+inst VFCHSBS E7EB      EVRRC4  E
+    fixed M4 2
+    fixed M5 0
+    fixed M6 1
+    
+inst VFCHDB  E7EB      EVRRC4  E
+    fixed M4 3
+    fixed M5 0
+    fixed M6 0
+    
+inst VFCHDBS E7EB      EVRRC4  E
+    fixed M4 3
+    fixed M5 0
+    fixed M6 1
+    
+inst WFCHSB  E7EB      EVRRC4  E
+    fixed M4 2
+    fixed M5 8
+    fixed M6 0
+    
+inst WFCHSBS E7EB      EVRRC4  E
+    fixed M4 2
+    fixed M5 8
+    fixed M6 1
+    
+inst WFCHDB  E7EB      EVRRC4  E
+    fixed M4 3
+    fixed M5 8
+    fixed M6 0
+    
+inst WFCHDBS E7EB      EVRRC4  E
+    fixed M4 3
+    fixed M5 8
+    fixed M6 1
+    
+inst WFCHXB  E7EB      EVRRC4  E
+    fixed M4 4
+    fixed M5 8
+    fixed M6 0
+    
+inst WFCHXBS E7EB      EVRRC4  E
+    fixed M4 4
+    fixed M5 8
+    fixed M6 1
+    
+inst VFKHSB  E7EB      EVRRC4  E
+    fixed M4 2
+    fixed M5 4
+    fixed M6 0
+    
+inst VFKHSBS E7EB      EVRRC4  E
+    fixed M4 2
+    fixed M5 4
+    fixed M6 1
+    
+inst VFKHDB  E7EB      EVRRC4  E
+    fixed M4 3
+    fixed M5 4
+    fixed M6 0
+    
+inst VFKHDBS E7EB      EVRRC4  E
+    fixed M4 3
+    fixed M5 4
+    fixed M6 1
+    
+inst WFKHSB  E7EB      EVRRC4  E
+    fixed M4 2
+    fixed M5 C
+    fixed M6 0
+    
+inst WFKHSBS E7EB      EVRRC4  E
+    fixed M4 2
+    fixed M5 C
+    fixed M6 1
+    
+inst WFKHDB  E7EB      EVRRC4  E
+    fixed M4 3
+    fixed M5 C
+    fixed M6 0
+    
+inst WFKHDBS E7EB      EVRRC4  E
+    fixed M4 3
+    fixed M5 C
+    fixed M6 1
+    
+inst WFKHXB  E7EB      EVRRC4  E
+    fixed M4 4
+    fixed M5 C
+    fixed M6 0
+    
+inst WFKHXBS E7EB      EVRRC4  E
+    fixed M4 4
+    fixed M5 C
+    fixed M6 1
+    
+    
+#
+#  VFCHE (E7EA) EXTENDED MNEMONICS
+#
+inst VFCHESB  E7EA     EVRRC4  E
+    fixed M4 2
+    fixed M5 0
+    fixed M6 0
+    
+inst VFCHESBS E7EA     EVRRC4  E
+    fixed M4 2
+    fixed M5 0
+    fixed M6 1
+    
+inst VFCHEDB  E7EA      EVRRC4  E
+    fixed M4 3
+    fixed M5 0
+    fixed M6 0
+    
+inst VFCHEDBS E7EA      EVRRC4  E
+    fixed M4 3
+    fixed M5 0
+    fixed M6 1
+    
+inst WFCHESB  E7EA      EVRRC4  E
+    fixed M4 2
+    fixed M5 8
+    fixed M6 0
+    
+inst WFCHESBS E7EA      EVRRC4  E
+    fixed M4 2
+    fixed M5 8
+    fixed M6 1
+    
+inst WFCHEDB  E7EA      EVRRC4  E
+    fixed M4 3
+    fixed M5 8
+    fixed M6 0
+    
+inst WFCHEDBS E7EA      EVRRC4  E
+    fixed M4 3
+    fixed M5 8
+    fixed M6 1
+    
+inst WFCHEXB  E7EA      EVRRC4  E
+    fixed M4 4
+    fixed M5 8
+    fixed M6 0
+    
+inst WFCHEXBS E7EA      EVRRC4  E
+    fixed M4 4
+    fixed M5 8
+    fixed M6 1
+    
+inst VFKHESB  E7EA      EVRRC4  E
+    fixed M4 2
+    fixed M5 4
+    fixed M6 0
+    
+inst VFKHESBS E7EA      EVRRC4  E
+    fixed M4 2
+    fixed M5 4
+    fixed M6 1
+    
+inst VFKHEDB  E7EA      EVRRC4  E
+    fixed M4 3
+    fixed M5 4
+    fixed M6 0
+    
+inst VFKHEDBS E7EA      EVRRC4  E
+    fixed M4 3
+    fixed M5 4
+    fixed M6 1
+    
+inst WFKHESB  E7EA      EVRRC4  E
+    fixed M4 2
+    fixed M5 C
+    fixed M6 0
+    
+inst WFKHESBS E7EA      EVRRC4  E
+    fixed M4 2
+    fixed M5 C
+    fixed M6 1
+    
+inst WFKHEDB  E7EA      EVRRC4  E
+    fixed M4 3
+    fixed M5 C
+    fixed M6 0
+    
+inst WFKHEDBS E7EA      EVRRC4  E
+    fixed M4 3
+    fixed M5 C
+    fixed M6 1
+    
+inst WFKHEXB  E7EA      EVRRC4  E
+    fixed M4 4
+    fixed M5 C
+    fixed M6 0
+    
+inst WFKHEXBS E7EA      EVRRC4  E
+    fixed M4 4
+    fixed M5 C
+    fixed M6 1
+
+#
+#  VFD (E7E5) EXTENDED MNEMONICS
+# 
+inst VFDDB   E7E5       EVRRC3  E
+    fixed M4 3
+    fixed M5 0
+
+inst VFDSB   E7E5       EVRRC3  E
+    fixed M4 2
+    fixed M5 0
+    
+inst WFDSB   E7E5       EVRRC3  E
+    fixed M4 2
+    fixed M5 8
+
+inst WFDDB   E7E5       EVRRC3  E
+    fixed M4 3
+    fixed M5 8
+    
+inst WFDXB   E7E5       EVRRC3  E
+    fixed M4 4
+    fixed M5 8
+
+
+#
+#  VFI (E7C7) EXTENDED MNEMONICS
+#    
+inst VFIDB   E7C7       EVRRA  E
+    fixed M3 3
+
+inst VFISB   E7C7       EVRRA  E
+    fixed M3 2
+    
+inst WFIDB   E7C7       EVRRA  E
+    fixed M3 3
+    filter M4 OR_08  
+    
+inst WFISB   E7C7       EVRRA  E
+    fixed M3 2
+    filter M4 OR_08
+    
+inst WFIXB   E7C7       EVRRA  E
+    fixed M3 4
+    filter M4 OR_08
+    
+    
+#
+#  VFM (E7E7) EXTENDED MNEMONICS
+#
+inst VFMDB   E7E7       EVRRC3  E
+    fixed M4 3
+    fixed M5 0
+
+inst VFMSB   E7E7       EVRRC3  E
+    fixed M4 2
+    fixed M5 0
+    
+inst WFMDB   E7E7       EVRRC3  E
+    fixed M4 3
+    fixed M5 8
+    
+inst WFMSB   E7E7       EVRRC3  E
+    fixed M4 2
+    fixed M5 8
+    
+inst WFMXB   E7E7       EVRRC3  E
+    fixed M4 4
+    fixed M5 8
+
+
+#
+#  VFMA (E78F) EXTENDED MNEMONICS
+#
+inst VFMADB  E78F       EVRRE   E
+    fixed M5 0
+    fixed M6 3
+
+inst VFMASB  E78F       EVRRE   E
+    fixed M5 0
+    fixed M6 2
+    
+inst WFMADB  E78F       EVRRE   E
+    fixed M5 8
+    fixed M6 3
+    
+inst WFMASB  E78F       EVRRE   E
+    fixed M5 8
+    fixed M6 2
+    
+inst WFMAXB  E78F       EVRRE   E
+    fixed M5 8
+    fixed M6 4
+    
+    
+#
+#  VFMS (E78E) EXTENDED MNEMONICS
+#
+inst VFMSDB  E78E       EVRRE   E
+    fixed M5 0
+    fixed M6 3
+
+inst VFMSSB  E78E       EVRRE   E
+    fixed M5 0
+    fixed M6 2
+    
+inst WFMSDB  E78E       EVRRE   E
+    fixed M5 8
+    fixed M6 3
+    
+inst WFMSSB  E78E       EVRRE   E
+    fixed M5 8
+    fixed M6 2
+    
+inst WFMSXB  E78E       EVRRE   E
+    fixed M5 8
+    fixed M6 4
+
+
+#
+#  VFPSO (E7CC) EXTENDED MNEMONICS
+#
+inst VFPSOSB   E7CC    EVRRA-1  E
+    fixed M3 2
+    fixed M4 0
+    
+inst WFPSOSB   E7CC    EVRRA-1  E
+    fixed M3 2
+    fixed M4 8
+    
+inst VFLCSB    E7CC    EVRRA-2  E
+    fixed M3 2
+    fixed M4 0
+    fixed M5 0
+
+inst WFLCSB    E7CC    EVRRA-2  E
+    fixed M3 2
+    fixed M4 8
+    fixed M5 0
+    
+inst VFLNSB    E7CC    EVRRA-2  E
+    fixed M3 2
+    fixed M4 0
+    fixed M5 1
+    
+inst WFLNSB    E7CC    EVRRA-2  E
+    fixed M3 2
+    fixed M4 8
+    fixed M5 1
+
+inst VFLPSB    E7CC    EVRRA-2  E
+    fixed M3 2
+    fixed M4 0
+    fixed M5 2
+    
+inst WFLPSB    E7CC    EVRRA-2  E
+    fixed M3 2
+    fixed M4 8
+    fixed M5 2
+
+inst VFPSODB   E7CC    EVRRA-1  E
+    fixed M3 3
+    fixed M4 0
+    
+inst WFPSODB   E7CC    EVRRA-1  E
+    fixed M3 3
+    fixed M4 8
+
+inst VFLCDB    E7CC    EVRRA-2  E
+    fixed M3 3
+    fixed M4 0
+    fixed M5 0
+
+inst WFLCDB    E7CC    EVRRA-2  E
+    fixed M3 3
+    fixed M4 8
+    fixed M5 0
+
+inst VFLNDB    E7CC    EVRRA-2  E
+    fixed M3 3
+    fixed M4 0
+    fixed M5 1
+
+inst WFLNDB    E7CC    EVRRA-2  E
+    fixed M3 3
+    fixed M4 8
+    fixed M5 1
+    
+inst VFLPDB    E7CC    EVRRA-2  E
+    fixed M3 3
+    fixed M4 0
+    fixed M5 2
+    
+inst WFLPDB    E7CC    EVRRA-2  E
+    fixed M3 3
+    fixed M4 8
+    fixed M5 2
+    
+inst WFPSOXB   E7CC    EVRRA-1  E
+    fixed M3 4
+    fixed M4 8
+
+inst WFLCXB    E7CC    EVRRA-2  E
+    fixed M3 4
+    fixed M4 8
+    fixed M5 0
+ 
+inst WFLNXB    E7CC    EVRRA-2  E
+    fixed M3 4
+    fixed M4 8
+    fixed M5 1
+
+inst WFLPXB    E7CC    EVRRA-2  E
+    fixed M3 4
+    fixed M4 8
+    fixed M5 2
+    
+#
+#  VFS (E7E2) EXTENDED MNEMONICS
+#
+inst VFSSB     E7E2    EVRRC3  E
+    fixed M4 2
+    fixed M5 0
+    
+inst VFSDB     E7E2    EVRRC3  E
+    fixed M4 3
+    fixed M5 0
+    
+inst WFSSB     E7E2    EVRRC3  E
+    fixed M4 2
+    fixed M5 8
+    
+inst WFSDB     E7E2    EVRRC3  E
+    fixed M4 3
+    fixed M5 8
+    
+inst WFSXB     E7E2    EVRRC3  E
+    fixed M4 4
+    fixed M5 8
+    
+    
+#
+#  VFSQ (E7CE) EXTENDED MNEMONICS
+#
+inst VFSQSB    E7CE    EVRRA4  E
+    fixed M3 2
+    fixed M4 0
+    
+inst VFSQDB    E7CE    EVRRA4  E
+    fixed M3 3
+    fixed M4 0
+    
+inst WFSQSB    E7CE    EVRRA4  E
+    fixed M3 2
+    fixed M4 8
+    
+inst WFSQDB    E7CE    EVRRA4  E
+    fixed M3 3
+    fixed M4 8
+    
+inst WFSQXB    E7CE    EVRRA4  E
+    fixed M3 4
+    fixed M4 8
+    
+    
+#
+#  VFTCI (E74A) EXTENDED MNEMONICS
+#
+inst VFTCISB   E74A    EVRIE   E
+    fixed M4 2
+    fixed M5 0
+
+inst VFTCIDB   E74A    EVRIE   E
+    fixed M4 3
+    fixed M5 0
+    
+inst WFTCISB   E74A    EVRIE   E
+    fixed M4 2
+    fixed M5 8
+    
+inst WFTCIDB   E74A    EVRIE   E
+    fixed M4 3
+    fixed M5 8
+    
+inst WFTCIXB   E74A    EVRIE   E
+    fixed M4 4
+    fixed M5 8
+    
+    
+#
+#  WFC (E7CB) EXTENDED MNEMONICS
+#
+inst WFCSB     E7CB    EVRRA4  E
+    fixed M3 2
+    fixed M4 0
+    
+inst WFCDB     E7CB    EVRRA4  E
+    fixed M3 3
+    fixed M4 0
+    
+inst WFCXB     E7CB    EVRRA4  E
+    fixed M3 4
+    fixed M4 0
+
+    
+#
+#  WFK (E7CA) EXTENDED MNEMONICS
+#
+inst WFKSB     E7CA    EVRRA4  E
+    fixed M3 2
+    fixed M4 0
+    
+inst WFKDB     E7CA    EVRRA4  E
+    fixed M3 3
+    fixed M4 0
+    
+inst WFKXB     E7CA    EVRRA4  E
+    fixed M3 4
+    fixed M4 0
+    
+#
+#  VFEE (E780) EXTENDED MNEMONICS
+#
+inst VFEEB   E780      EVRRB2 E
+    fixed M4 0
+    
+inst VFEEF   E780      EVRRB2 E
+    fixed M4 2
+    
+inst VFEEH   E780      EVRRB2 E
+    fixed M4 1
+    
+inst VFEEBS  E780      EVRRB2A E
+    fixed M4 0
+    fixed M5 1
+    
+inst VFEEFS  E780      EVRRB2A E
+    fixed M4 2
+    fixed M5 1
+    
+inst VFEEHS  E780      EVRRB2A E
+    fixed M4 1
+    fixed M5 1
+    
+inst VFEEZB  E780      EVRRB2A E
+    fixed M4 0
+    fixed M5 2
+    
+inst VFEEZF  E780      EVRRB2A E
+    fixed M4 2
+    fixed M5 2
+    
+inst VFEEZH  E780      EVRRB2A E
+    fixed M4 1
+    fixed M5 2
+    
+inst VFEEZBS E780      EVRRB2A E
+    fixed M4 0
+    fixed M5 3
+    
+inst VFEEZFS E780      EVRRB2A E
+    fixed M4 2
+    fixed M5 3
+    
+inst VFEEZHS E780      EVRRB2A E
+    fixed M4 1
+    fixed M5 3
+    
+
+#
+#  VFENE (E781) EXTENDED MNEMONICS
+#
+inst VFENEB  E781      EVRRB2 E
+    fixed M4 0
+    
+inst VFENEF  E781      EVRRB2 E
+    fixed M4 2
+    
+inst VFENEH  E781      EVRRB2 E
+    fixed M4 1
+    
+inst VFENEBS E781      EVRRB2A E
+    fixed M4 0
+    fixed M5 1
+    
+inst VFENEFS E781      EVRRB2A E
+    fixed M4 2
+    fixed M5 1
+    
+inst VFENEHS E781      EVRRB2A E
+    fixed M4 1
+    fixed M5 1
+    
+inst VFENEZB E781      EVRRB2A E
+    fixed M4 0
+    fixed M5 2
+    
+inst VFENEZF E781      EVRRB2A E
+    fixed M4 2
+    fixed M5 2
+    
+inst VFENEZH E781      EVRRB2A E
+    fixed M4 1
+    fixed M5 2
+    
+inst VFENEZBS E781     EVRRB2A E
+    fixed M4 0
+    fixed M5 3
+    
+inst VFENEZFS E781     EVRRB2A E
+    fixed M4 2
+    fixed M5 3
+    
+inst VFENEZHS E781     EVRRB2A E
+    fixed M4 1
+    fixed M5 3
+    
+    
+#
+#  VSTRC (E78A) EXTENDED MNEMONICS
+#
+inst VSTRCB   E78A     EVRRD  E
+    fixed M5 0
+    
+inst VSTRCF   E78A     EVRRD  E
+    fixed M5 2
+    
+inst VSTRCH   E78A     EVRRD  E
+    fixed M5 1
+    
+inst VSTRCBS  E78A     EVRRD2 E
+    fixed M5 0
+    filter M6 OR_01
+
+inst VSTRCFS  E78A     EVRRD2 E
+    fixed M5 2
+    filter M6 OR_01
+
+inst VSTRCHS  E78A     EVRRD2 E
+    fixed M5 1
+    filter M6 OR_01
+    
+inst VSTRCZB  E78A     EVRRD2 E
+    fixed M5 0
+    filter M6 OR_02
+
+inst VSTRCZF  E78A     EVRRD2 E
+    fixed M5 2
+    filter M6 OR_02
+
+inst VSTRCZH  E78A     EVRRD2 E
+    fixed M5 1
+    filter M6 OR_02
+
+inst VSTRCZBS  E78A     EVRRD2 E
+    fixed M5 0
+    filter M6 OR_03
+
+inst VSTRCZFS  E78A     EVRRD2 E
+    fixed M5 2
+    filter M6 OR_03
+
+inst VSTRCZHS  E78A     EVRRD2 E
+    fixed M5 1
+    filter M6 OR_03
+
+    
 iset s390x-em-10     # March, 2015
     # Chapter 7 - General instruction extended mnemonics
     mnemonics LOCFHE   LOCFHH   LOCFHL   LOCFHM   LOCFHNE  LOCFHNH  LOCFHNL
@@ -1763,8 +4512,119 @@ iset s390x-em-10     # March, 2015
     mnemonics LOCHINM  LOCHINO  LOCHINP  LOCHINZ  LOCHIO   LOCHIP   LOCHIZ
     mnemonics STOCFHE  STOCFHH  STOCFHL  STOCFHM  STOCFHNE STOCFHNH STOCFHNL
     mnemonics STOCFHNM STOCFHNO STOCFHNP STOCFHNZ STOCFHO  STOCFHP  STOCFHZ
-
-
+    # Chapter 21 - Vector overview and support instruction extended mnemonics
+    mnemonics VGMB     VGMF     VGMG     VGMH
+    mnemonics VLGVB    VLGVF    VLGVG    VLGVH
+    mnemonics VLLEZB   VLLEZF   VLLEZG   VLLEZH   VLLEZLF
+    mnemonics VLREPB   VLREPF   VLREPG   VLREPH
+    mnemonics VLVGB    VLVGF    VLVGG    VLVGH
+    mnemonics VMRHB    VMRHF    VMRHG    VMRHH
+    mnemonics VMRLB    VMRLF    VMRLG    VMRLH
+    mnemonics VONE     VZERO
+    mnemonics VPKF     VPKG     VPKH
+    mnemonics VPKLSF   VPKLSG   VPKLSH   VPKLSFS  VPKLSGS  VPKLSHS
+    mnemonics VPKSF    VPKSG    VPKSH    VPKSFS   VPKSGS   VPKSHS
+    mnemonics VREPB    VREPF    VREPG    VREPH
+    mnemonics VREPIB   VREPIF   VREPIG   VREPIH
+    mnemonics VSEGB    VSEGF    VSEGH
+    mnemonics VUPHB    VUPHF    VUPHH
+    mnemonics VUPLB    VUPLF    VUPLHW
+    mnemonics VUPLHB   VUPLHF   VUPLHH
+    mnemonics VUPLLB   VUPLLF   VUPLLH
+    # Chapter 22 - Vector integer instruction extended mnemonics
+    mnemonics VAB      VAF      VAG      VAH      VAQ
+    mnemonics VACCB    VACCF    VACCG    VACCH    VACCQ
+    mnemonics VACQ
+    mnemonics VACCCQ
+    mnemonics VAVGB    VAVGF    VAVGG    VAVGH
+    mnemonics VAVGLB   VAVGLF   VAVGLG   VAVGLH
+    mnemonics VCEQB    VCEQBS   VCEQF    VCEQFS   VCEQG    VCEQGS   VCEQH
+    mnemonics VCEQHS
+    mnemonics VCHB     VCHBS    VCHF     VCHFS    VCHG     VCHGS    VCHH
+    mnemonics VCHHS
+    mnemonics VCHLB    VCHLBS   VCHLF    VCHLFS   VCHLG    VCHLGS   VCHLH
+    mnemonics VCHLHS
+    mnemonics VCLZB    VCLZF    VCLZG    VCLZH
+    mnemonics VCTZB    VCTZF    VCTZG    VCTZH
+    mnemonics VECB     VECF     VECG     VECH
+    mnemonics VECLB    VECLF    VECLG    VECLH
+    mnemonics VERIMB   VERIMF   VERIMG   VERIMH
+    mnemonics VERLLVB  VERLLVF  VERLLVG  VERLLVH
+    mnemonics VERLLB   VERLLF   VERLLG   VERLLH
+    mnemonics VESLVB   VESLVF   VESLVG   VESLVH
+    mnemonics VESLB    VESLF    VESLG    VESLH
+    mnemonics VESRAVB  VESRAVF  VESRAVG  VESRAVH
+    mnemonics VESRAB   VESRAF   VESRAG   VESRAH
+    mnemonics VESRLVB  VESRLVF  VESRLVG  VESRLVH
+    mnemonics VESRLB   VESRLF   VESRLG   VESRLH
+    mnemonics VGFMB    VGFMF    VGFMG    VGFMH
+    mnemonics VGFMAB   VGFMAF   VGFMAG   VGFMAH
+    mnemonics VLCB     VLCF     VLCG     VLCH
+    mnemonics VLPB     VLPF     VLPG     VLPH
+    mnemonics VMAEB    VMAEF    VMAEH
+    mnemonics VMAHB    VMAHF    VMAHH
+    mnemonics VMALB    VMALF    VMALHW
+    mnemonics VMALEB   VMALEF   VMALEH
+    mnemonics VMALHB   VMALHF   VMALHH
+    mnemonics VMALOB   VMALOF   VMALOH
+    mnemonics VMAOB    VMAOF    VMAOH
+    mnemonics VMLB     VMLF     VMLHW
+    mnemonics VMLEB    VMLEF    VMLEH
+    mnemonics VMLHB    VMLHF    VMLHH
+    mnemonics VMLOB    VMLOF    VMLOH
+    mnemonics VMEB     VMEF     VMEH
+    mnemonics VMHB     VMHF     VMHH
+    mnemonics VMNB     VMNF     VMNH
+    mnemonics VMNLB    VMNLF    VMNLH
+    mnemonics VMOB     VMOF     VMOH
+    mnemonics VMXB     VMXF     VMXG     VMXH
+    mnemonics VMXLB    VMXLF    VMXLG    VMXLH
+    mnemonics VNOT
+    mnemonics VPOPCTB  VPOPCTF  VPOPCTG  VPOPCTH
+    mnemonics VSB      VSF      VSG      VSH      VSQ
+    mnemonics VSBIQ
+    mnemonics VSBCBIQ
+    mnemonics VSCBIB   VSCBIF   VSCBIG   VSCBIH   VSCBIQ
+    mnemonics VSUMB    VSUMH
+    mnemonics VSUMGF   VSUMGH
+    mnemonics VSUMQF   VSUMQG
+    # Chapter 23 - Vector string instruction extended mnemonics
+    mnemonics VFAEB    VFAEF    VFAEH    VFAEBS   VFAEFS   VFAEHS   VFAEZB
+    mnemonics VFAEZF   VFAEZH   VFAEZBS  VFAEZFS  VFAEZHS
+    mnemonics VFEEB    VFEEF    VFEEH    VFEEBS   VFEEFS   VFEEHS   VFEEZB
+    mnemonics VFEEZF   VFEEZH   VFEEZBS  VFEEZFS  VFEEZHS
+    mnemonics VFENEB   VFENEF   VFENEH   VFENEBS  VFENEFS  VFENEHS  VFENEZB
+    mnemonics VFENEZF  VFENEZH  VFENEZBS VFENEZFS VFENEZHS
+    mnemonics VSTRCB   VSTRCF   VSTRCH   VSTRCBS  VSTRCFS  VSTRCHS  VSTRCZB
+    mnemonics VSTRCZF  VSTRCZH  VSTRCZBS VSTRCZFS VSTRCZHS
+    # Chapter 24 - Vector floating point instruction extended mnemonics
+    mnemonics VFADB    VFASB    WFADB    WFASB    WFAXB
+    mnemonics VFCESB   VFCESBS  VFCEDB   VFCEDBS
+    mnemonics WFCESB   WFCESBS  WFCEDB   WFCEDBS  WFCEXB   WFCEXBS
+    mnemonics VFKESB   VFKESBS  VFKEDB   VFKEDBS
+    mnemonics WFKESB   WFKESBS  WFKEDB   WFKEDBS  WFKEXB   WFKEXBS
+    mnemonics VFCHSB   VFCHSBS  VFCHDB   VFCHDBS
+    mnemonics WFCHSB   WFCHSBS  WFCHDB   WFCHDBS  WFCHXB   WFCHXBS
+    mnemonics VFKHSB   VFKHSBS  VFKHDB   VFKHDBS
+    mnemonics WFKHSB   WFKHSBS  WFKHDB   WFKHDBS  WFKHXB   WFKHXBS
+    mnemonics VFCHESB  VFCHESBS VFCHEDB  VFCHEDBS
+    mnemonics WFCHESB  WFCHESBS WFCHEDB  WFCHEDBS WFCHEXB  WFCHEXBS
+    mnemonics VFKHESB  VFKHESBS VFKHEDB  VFKHEDBS
+    mnemonics WFKHESB  WFKHESBS WFKHEDB  WFKHEDBS WFKHEXB  WFKHEXBS
+    mnemonics VFDDB    VFDSB    WFDSB    WFDDB    WFDXB
+    mnemonics VFIDB    VFISB    WFIDB    WFISB    WFIXB
+    mnemonics VFMDB    VFMSB    WFMDB    WFMSB    WFMXB
+    mnemonics VFMADB   VFMASB   WFMADB   WFMASB   WFMAXB
+    mnemonics VFMSDB   VFMSSB   WFMSDB   WFMSSB   WFMSXB
+    mnemonics VFPSOSB  WFPSOSB  VFLCSB   WFLCSB   VFLNSB   WFLNSB   VFLPSB
+    mnemonics WFLPSB   VFPSODB  WFPSODB  VFLCDB   WFLCDB   VFLNDB   WFLNDB
+    mnemonics VFLPDB   WFLPDB   WFPSOXB  WFLCXB   WFLNXB   WFLPXB
+    mnemonics VFSSB    VFSDB    WFSSB    WFSDB    WFSXB
+    mnemonics VFSQSB   VFSQDB   WFSQSB   WFSQDB   WFSQXB
+    mnemonics VFTCISB  VFTCIDB  WFTCISB  WFTCIDB  WFTCIXB
+    mnemonics WFCSB    WFCDB    WFCXB
+    mnemonics WFKSB    WFKDB    WFKXB
+    
 #
 #     +-----------------------------------------------------------+
 #     |                                                           |
@@ -1821,10 +4681,171 @@ inst BIP  E347  ERXYB  E     # BIC PLUS
 inst BIZ  E347  ERXYB  E     # BIC ZERO
     fixed M1 8
 
+    
+#
+#   VFLL (E7C4) EXTENDED MNEMONICS
+#
+inst VLDE E7C4 EVRRA4-1 E # Renames VFLL to VLDE like the other VLDExx mnemonics
+
+inst VLDEB     E7C4    EVRRA4  E
+   fixed M3 2
+   fixed M4 0
+   
+inst WLDEB     E7C4    EVRRA4  E
+   fixed M3 2
+   fixed M4 8
+   
+inst VFLLS     E7C4    EVRRA4  E
+   fixed M3 2
+   fixed M4 0
+   
+inst WFLLS     E7C4    EVRRA4  E
+   fixed M3 2
+   fixed M4 8
+   
+inst WFLLD     E7C4    EVRRA4  E
+   fixed M3 3
+   fixed M4 8
+   
+   
+#
+#   VFLR (E7C5) EXTENDED MNEMONICS
+#
+inst VLED      E7C5    EVRRA-4  E  # This renames VFLR as an extended mnemonic
+
+inst VLEDB     E7C5    EVRRA-3  E
+    fixed M3 3
+    
+inst WLEDB     E7C5    EVRRA-3  E
+    fixed M3 3
+    filter M4 OR_08
+
+inst VFLRD     E7C5    EVRRA-3  E
+    fixed M3 3
+
+inst WFLRD     E7C5    EVRRA-3  E
+    fixed M3 3
+    filter M4 OR_08
+
+inst WFLRX     E7C5    EVRRA-3  E
+    fixed M3 4
+    filter M4 OR_08
+
+    
+#
+#   VFMAX (E7EF) EXTENDED MNEMONICS
+#
+inst VFMAXSB   E7EF    EVRRC5  E
+    fixed M4 2
+    fixed M5 0
+    
+inst VFMAXDB   E7EF    EVRRC5  E
+    fixed M4 3
+    fixed M5 0
+    
+inst WFMAXSB   E7EF    EVRRC5  E
+    fixed M4 2
+    fixed M5 8
+    
+inst WFMAXDB   E7EF    EVRRC5  E
+    fixed M4 3
+    fixed M5 8
+    
+inst WFMAXXB   E7EF    EVRRC5  E
+    fixed M4 4
+    fixed M5 8
+
+    
+#
+#   VFMIN (E7EE) EXTENDED MNEMONICS
+#
+inst VFMINSB   E7EE    EVRRC5  E
+    fixed M4 2
+    fixed M5 0
+    
+inst VFMINDB   E7EE    EVRRC5  E
+    fixed M4 3
+    fixed M5 0
+    
+inst WFMINSB   E7EE    EVRRC5  E
+    fixed M4 2
+    fixed M5 8
+    
+inst WFMINDB   E7EE    EVRRC5  E
+    fixed M4 3
+    fixed M5 8
+    
+inst WFMINXB   E7EE    EVRRC5  E
+    fixed M4 4
+    fixed M5 8
+    
+
+#
+#   VFNMA (E79F) EXTENDED MNEMONICS
+#
+inst VFNMASB   E79F    EVRRE  E
+    fixed M5 0
+    fixed M6 2
+    
+inst VFNMADB   E79F    EVRRE  E
+    fixed M5 0
+    fixed M6 3
+    
+inst WFNMASB   E79F    EVRRE  E
+    fixed M5 8
+    fixed M6 2
+    
+inst WFNMADB   E79F    EVRRE  E
+    fixed M5 8
+    fixed M6 3
+    
+inst WFNMAXB   E79F    EVRRE  E
+    fixed M5 8
+    fixed M6 4
+    
+#
+#   VFNMS (E79E) EXTENDED MNEMONICS
+#    
+inst VFNMSSB   E79E    EVRRE  E
+    fixed M5 0
+    fixed M6 2
+    
+inst VFNMSDB   E79E    EVRRE  E
+    fixed M5 0
+    fixed M6 3
+    
+inst WFNMSSB   E79E    EVRRE  E
+    fixed M5 8
+    fixed M6 2
+    
+inst WFNMSDB   E79E    EVRRE  E
+    fixed M5 8
+    fixed M6 3
+    
+inst WFNMSXB   E79E    EVRRE  E
+    fixed M5 8
+    fixed M6 4
+
+
+#
+#   VMSL (E7B8) EXTENDED MNEMONICS
+#
+inst VMSLG  E7B8  EVRRD  E
+    fixed M5 3
+
 
 iset s390x-em-11     # September, 2017
     # Chapter 7 - General instruction extended mnemonics
     mnemonics BI BIE BIH BIL BIM BINE BINH BINL BINM BINO BINP BINZ BIO BIP BIZ
+    # Chapter 22 - Vector integer instruction extended mnemonics
+    mnemonics VMSLG
+    # Chapter 24 - Vector floating point instruction extended mnemonics
+    mnemonics VLDE    VLDEB   WLDEB   VFLLS   WFLLS   WFLLD
+    mnemonics VLED    VLEDB   WLEDB   VFLRD   WFLRD   WFLRX
+    mnemonics VFMAXSB VFMAXDB WFMAXSB WFMAXDB WFMAXXB
+    mnemonics VFMINSB VFMINDB WFMINSB WFMINDB WFMINXB
+    mnemonics VFNMASB VFNMADB WFNMASB WFNMADB WFNMAXB
+    mnemonics VFNMSSB VFNMSDB WFNMSSB WFNMSDB WFNMSXB
 
 
 #
@@ -1983,6 +5004,220 @@ inst SELRP  B9F0  ERRFA2  E     # SELR PLUS
 
 inst SELRZ  B9F0  ERRFA2  E     # SELR ZERO
     fixed M4 8
+    
+    
+#
+#  VLBR (E606) EXTENDED MNEMONICS
+#
+inst VLBRF    E606  EVRX    E
+    fixed M3 2
+    
+inst VLBRG    E606  EVRX    E
+    fixed M3 3
+
+inst VLBRH    E606  EVRX    E
+    fixed M3 1
+    
+inst VLBRQ    E606  EVRX    E
+    fixed M3 4
+    
+    
+#
+#  VLBRREP (E605) EXTENDED MNEMONICS
+#
+inst VLBRREPF    E605  EVRX    E
+    fixed M3 2
+    
+inst VLBRREPG    E605  EVRX    E
+    fixed M3 3
+
+inst VLBRREPH    E605  EVRX    E
+    fixed M3 1
+
+    
+#
+#  VLER (E607) EXTENDED MNEMONICS
+#
+inst VLERF       E607  EVRX    E
+    fixed M3 2
+    
+inst VLERG       E607  EVRX    E
+    fixed M3 3
+
+inst VLERH       E607  EVRX    E
+    fixed M3 1
+    
+  
+#
+#  VLLEBRZ (E604) EXTENDED MNEMONICS
+#
+inst LDRV        E604  EVRX    E
+    fixed M3 3
+    
+inst LERV        E604  EVRX    E
+    fixed M3 6
+
+inst VLLEBRZE    E604  EVRX    E
+    fixed M3 6
+
+inst VLLEBRZF    E604  EVRX    E
+    fixed M3 2
+    
+inst VLLEBRZG    E604  EVRX    E
+    fixed M3 3
+
+inst VLLEBRZH    E604  EVRX    E
+    fixed M3 1
+
+
+#
+#  VSTBR (E60E) EXTENDED MNEMONICS
+#
+inst VSTBRF      E60E  EVRX   E
+    fixed M3 2
+    
+inst VSTBRG      E60E  EVRX   E
+    fixed M3 3
+
+inst VSTBRH      E60E  EVRX   E
+    fixed M3 1
+
+inst VSTBRQ      E60E  EVRX   E
+    fixed M3 4
+    
+
+#
+#  VSTEBRF (E60B) EXTENDED MNEMONICS
+#
+inst STERV       E60B  EVRX    E
+    fixed M3 0
+    
+    
+#
+#  VSTEBRG (E60A) EXTENDED MNEMONICS
+#
+inst STDRV       E60A  EVRX    E
+    fixed M3 0
+    
+
+#
+#  VSTER (E60F) EXTENDED MNEMONICS
+#    
+inst VSTERF      E60F  EVRX    E
+    fixed M3 2
+    
+inst VSTERG      E60F  EVRX    E
+    fixed M3 3
+
+inst VSTERH      E60F  EVRX    E
+    fixed M3 1
+    
+    
+#
+#  VSTRS (E78B) EXTENDED MNEMONICS
+#
+inst VSTRSB      E78B  EVRRD2  E
+    fixed M5 0
+    
+inst VSTRSF      E78B  EVRRD2  E
+    fixed M5 2
+    
+inst VSTRSH      E78B  EVRRD2  E
+    fixed M5 1
+    
+inst VSTRSZB     E78B  EVRRD3  E
+    fixed M5 0
+    fixed M6 2
+    
+inst VSTRSZF     E78B  EVRRD3  E
+    fixed M5 2
+    fixed M6 2
+    
+inst VSTRSZH     E78B  EVRRD3  E
+    fixed M5 1
+    fixed M6 2
+    
+#
+#  VCFPL (E7C1) EXTENDED MNEMONICS
+#
+# Note: VCFLG is defined in s390x-insn.msl even though it is listed as an
+# extended mnemonic in Appendix J.  It is also listed in the body of the 
+# PoO as a defined instruction.  As such VCFLG was already implemented by MSL.
+inst VCELFB      E7C1  EVRRA-3 E
+    fixed M3 2
+    
+inst VCDLGB      E7C1  EVRRA-3 E
+    fixed M3 3
+    
+inst WCELFB      E7C1  EVRRA-3 E
+    fixed M3 2
+    filter M4 OR_08
+    
+inst WCDLGB      E7C1  EVRRA-3 E
+    fixed M3 3
+    filter M4 OR_08
+
+#
+#  VCFPS (E7C3) EXTENDED MNEMONICS
+#
+# Note: VCDG is defined in s390x-insn.msl even though it is listed as an
+# extended mnemonic in Appendix J.  It is also listed in the body of the 
+# PoO as a defined instruction.  As such VCDG was already implemented by MSL.
+inst VCEFB       E7C3  EVRRA-3  E
+    fixed M3 2
+    
+inst VCDGB       E7C3  EVRRA-3  E
+    fixed M3 3
+    
+inst WCEFB       E7C3  EVRRA-3  E
+    fixed M3 2
+    filter M4 OR_08
+    
+inst WCDGB       E7C3  EVRRA-3  E
+    fixed M3 3
+    filter M4 OR_08
+    
+
+#
+#  VCLFP (E7C0) EXTENDED MNEMONICS
+#
+# Note: VCLDG is defined in s390x-insn.msl even though it is listed as an
+# extended mnemonic in Appendix J.  It is also listed in the body of the 
+# PoO as a defined instruction.  As such VCLDG was already implemented by MSL.
+inst VCLFEB       E7C0  EVRRA-3  E
+    fixed M3 2
+    
+inst VCLGDB       E7C0  EVRRA-3  E
+    fixed M3 3
+    
+inst WCLFEB       E7C0  EVRRA-3  E
+    fixed M3 2
+    filter M4 OR_08
+    
+inst WCLGDB       E7C0  EVRRA-3  E
+    fixed M3 3
+    filter M4 OR_08
+    
+
+#
+#  VCSFP (E7C2) EXTENDED MNEMONICS
+#
+# Note: VCDG is defined in s390x-insn.msl even though it is listed as an
+# extended mnemonic in Appendix J.  It is also listed in the body of the 
+# PoO as a defined instruction.  As such VCDG was already implemented by MSL.
+inst VCFEB        E7C2  EVRRA-3  E
+    fixed M3 2
+    
+inst VCGDB        E7C2  EVRRA-3  E
+    fixed M3 3
+    
+inst WCFEB        E7C2  EVRRA-3  E
+    fixed M3 2
+    filter M4 OR_08
+    
+inst WCGDB        E7C2  EVRRA-3  E
+    fixed M3 3
+    filter M4 OR_08
 
 
 iset s390x-em-12     # September, 2019
@@ -1994,7 +5229,22 @@ iset s390x-em-12     # September, 2019
     mnemonics SELGRNM  SELGRNO  SELGRNP  SELGRNZ  SELGRO   SELGRP   SELGRZ
     mnemonics SELRE    SELRH    SELRL    SELRM    SELRNE   SELRNH   SELRNL
     mnemonics SELRNM   SELRNO   SELRNP   SELRNZ   SELRO    SELRP    SELRZ
-
+    # Chapter 21 - Vector overview and support instruction extended mnemonics
+    mnemonics LDRV     LERV     VLLEBRZE VLLEBRZF VLLEBRZG VLLEBRZH
+    mnemonics STDRV
+    mnemonics STERV
+    mnemonics VLBRF    VLBRG    VLBRH    VLBRQ
+    mnemonics VLBRREPF VLBRREPG VLBRREPH
+    mnemonics VLERF    VLERG    VLERH
+    mnemonics VSTBRF   VSTBRG   VSTBRH   VSTBRQ
+    mnemonics VSTERF   VSTERG   VSTERH
+    # Chapter 23 - Vector string instruction extended mnemonics
+    mnemonics VSTRSB   VSTRSF   VSTRSH   VSTRSZB  VSTRSZF  VSTRSZH
+    # Chapter 24 - Vector floating point instruction extended mnemonics
+    mnemonics VCELFB   VCDLGB   WCELFB   WCDLGB
+    mnemonics VCEFB    VCDGB    WCEFB    WCDGB
+    mnemonics VCLFEB   VCLGDB   WCLFEB   WCLGDB
+    mnemonics VCFEB    VCGDB    WCFEB    WCGDB
 
 #
 #     +-----------------------------------------------------+

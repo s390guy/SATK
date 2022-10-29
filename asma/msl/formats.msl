@@ -2522,6 +2522,7 @@ format ERILC
     source RELI1 RELI1
 
 
+# MOVED TO zem-insn.msl
 # VRI-a - Extended Mnemonic for RI2
 # -----
 #
@@ -2532,10 +2533,10 @@ format ERILC
 #
 # EVRIA: MNEMONIC V1
 #
-format EVRIA
-    length 6
-    xopcode 40 47
-    mach V1 8 11
-    mach RI2 16 31 signed fixed
-    mach RXB 36 39
-    source V1 V1
+#format EVRIA
+#    length 6
+#    xopcode 40 47
+#    mach V1 8 11
+#    mach RI2 16 31 fixed
+#    mach RXB 36 39
+#    source V1 V1
