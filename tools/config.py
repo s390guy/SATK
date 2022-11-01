@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2015 Harold Grovesteen
+# Copyright (C) 2015-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -643,7 +643,7 @@ class Boolean(Option):
             self.invalid_error(value)
             
 class Flag(Boolean):
-    def __init__(self,name,action,default,short=None,full=None,help=None,\
+    def __init__(self,name,action=None,default=False,short=None,full=None,help=None,\
                  cl=True,cfg=True):
         super().__init__(name,short=short,full=full,action=action,default=default,\
             help=help,cl=cl,cfg=cfg)
