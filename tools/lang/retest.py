@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014, 2016, 2017 Harold Grovesteen
+# Copyright (C) 2014-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -133,7 +133,7 @@ def print_re_flags(flags=None,indent=""):
         f-=re.IGNORECASE
         if f==0:
             return
-    print("%sunexpected flag(s) encountered: %s" (indent,f))
+    print("%sunexpected flag(s) encountered: %s" % (indent,f))
 
 # Simple object that compiles and performs a match of an regular expression.
 class retest(object):
