@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2015-2020 Harold Grovesteen
+# Copyright (C) 2015-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -21,7 +21,7 @@
 this_module="asmconfig.py"
 
 # ASMA displayed copyright information.  This must match the copyright in asma.py
-copyright="asma.py Copyright (C) %s Harold Grovesteen" % "2014-2020"
+copyright="asma.py Copyright (C) %s Harold Grovesteen" % "2014-2022"
 
 # Python imports: None
 # ASMA/SATK imports:
@@ -156,6 +156,12 @@ class asma(config.Tool):
         cfg.arg(config.Enable("case",full="case",\
             help="Enable case sensitivity for labels, symbolic variables, and "
             "sequence symbols.  Defaults to case insensitive.",\
+            cl=True,cfg=True))
+        
+        # Forces removal of sequence numbers from source input
+        cfg.arg(config.Enable("seq",full="seq",\
+            help="remove sequence numbers and convert continuation to a "\
+                 "back slash, '\\'",\
             cl=True,cfg=True))
 
         # Enable statistics reporting

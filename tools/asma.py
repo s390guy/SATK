@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014-2020 Harold Grovesteen
+# Copyright (C) 2014-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -99,6 +99,7 @@ class ASMA(object):
             otrace=args["oper"],\
             cpfile=cpfile,\
             cptrans=cptrans,\
+            seq=args["seq"],\
             mcall=args["mcall"],\
             asmpath=args["asmpath"],\
             maclib=args["maclib"])
@@ -372,6 +373,12 @@ def parse_args(dm=None):
     parser.add_argument("--case",action="store_true",default=False,\
         help="Enable case sensitivity for labels, symbolic variables, and sequence "
              "symbols.  Defaults to case insensitive")
+
+    # Remove sequence numbers and convert column 72 continuation into a back slash
+    # Set case sensitivity
+    parser.add_argument("--seq",action="store_true",default=False,\
+        help="remove sequence numbers and convert continuation to a back "\
+             "slash, '\\'")
 
     # Enable statistics reporting
     # May be specified in a local configuration

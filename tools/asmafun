@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (C) 2014-2016 Harold Grovesteen
+# Copyright (C) 2014-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -57,6 +57,7 @@ fi
 #       oper    reset|<oper>   Sets or resets operation tracing
 #       rc      file|norc      Sets the RC command file or disables it
 #       reset   ccw|deck|list|msl|rc|store
+#       seq     enable|disable Enables sequence column removal and continuation covnersion
 #       stats   enable|disable Enables or disables statistics reporting
 #       store   file|nostore   Sets the STORE command file or disables it
 #       target  string         Sets the assembly target instruction set
@@ -78,6 +79,13 @@ asma_env()
                 "cpu") asma_env reset addr ;;
                 *) echo "invalid addr option value: ${2}" ; return 1 ;;
             esac
+            ;;
+        "altpy")
+            ALT_PYTHONDIR=${HOME}/python/python-3.7.4
+            ALT_PYTHON="${ALT_PYTHONDIR}/bin/python3 "
+            echo "ALT_PYTHON '${ALT_PYTHON}"
+            export PYTHONHOME=${ALT_PYTHONDIR}
+            export PYTHONPATH=${ALT_PYTHONDIR}/lib
             ;;
         "builtin")
             case ${2} in
@@ -263,6 +271,7 @@ asma_env()
                     asma_env reset nest
                     asma_env reset psw
                     asma_env reset rc
+                    asma_env reset seq
                     asma_env reset store
                     ;;
                 "arch")   asma_arch=""   ;;
@@ -283,10 +292,18 @@ asma_env()
                 "nest")   asma_nest=""   ;;
                 "psw")    asma_psw=""    ;;
                 "rc")     asma_rc=""     ;;
+                "seq")    asma_seq=""    ;;
                 "stats")  asma_stats=""  ;;
                 "store")  asma_store=""  ;;
              
              *) echo "invalid reset option value: ${2}" ; return 1 ;;
+             esac
+             ;;
+         "seq")
+             case ${2} in
+                "enable")  asma_seq=" --seq" ;;
+                "disable") asma_env reset seq ;;
+                *) echo "invalid seq option value: ${2}" ; return 1 ;;
              esac
              ;;
          "stats")
@@ -354,8 +371,9 @@ asma()
     cdebug="${asma_cinfo}${asma_debug}${asma_oper}"
     clist="${asma_dump}${asma_list}"
     copt="${asma_arch}${asma_cpu}${asma_addr}${asma_psw}${asma_error}"
-    copt="${copt}${asma_bltin}${asma_case}${asma_mcall}${asma_stats}${asma_def}"
-    cmd="${asma} ${copt}${ccp}${cdebug}${cout}${clist} ${1}"
+    copt="${copt}${asma_bltin}${asma_case}${asma_mcall}${asma_seq}${asma_stats}"
+    copt="${copt}${asma_def}"
+    cmd="${ALT_PYTHON}${asma} ${copt}${ccp}${cdebug}${cout}${clist} ${1}"
     if [ "${2}" = "echo" ]
     then
          echo "${cmd}"

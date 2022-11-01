@@ -47,7 +47,7 @@
 # LOperand or LTerm) will be performed by Finite-State Machine based parser using
 # lexical tokens.  Processing here simplifies parsing.
 
-this_module="%s.py" % __name__
+this_module="asmline.py"
 
 # Python imports:
 import re          # Use regular expressions
@@ -931,7 +931,8 @@ class LineMgr(object):
         self._env=env
 
         # Physical line source manager
-        self.LB=asminput.LineBuffer(depth=depth,env=env,pathmgr=pathmgr)
+        self.LB=asminput.LineBuffer(depth=depth,env=env,pathmgr=pathmgr,\
+            seq=self.asm.seq)
 
         # Universal Operand Field Parser
         self.fsm=cfsm(trace=True)
@@ -1122,8 +1123,8 @@ class LineMgr(object):
         return self.LB.InputPath()
 
     # Initiate a new file source
-    def newFile(self,fname,stmtno=None,fixed=False):
-        self.LB.newFile(fname,stmtno=stmtno,fixed=fixed)
+    def newFile(self,fname,stmtno=None):
+        self.LB.newFile(fname,stmtno=stmtno)
 
     # Invoke a macro as a new statement source
     def newMacro(self,exp,stmtno=None):

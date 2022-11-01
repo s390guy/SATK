@@ -88,7 +88,7 @@
 #  regions and CSECTS.  The regions are concatenated together to in the sequence
 #  of their START statements to form the final output.
 
-this_module="%s.py" % __name__
+this_module="assembler.py"
 
 # ASMA version tuple:
 asma_version=(0,2,1)
@@ -815,6 +815,8 @@ class Assembler(object):
     #               be traced in all passs including initial parsing.
     #   mcall       Specify True to enable inner macro statement printing when
     #               PRINT ON is the current printing statements.
+    #   seq         Specify True to remove sequence columns and convert 
+    #               continuation in column 72 to a back slash '\'.
     #   stats       Specify True to enable statistics reporting at end of pass 2.
     #               Should be False if an external driver is updating statistics.
     # Path Managers for various input sources:
@@ -823,7 +825,10 @@ class Assembler(object):
     def __init__(self,machine,msl,mslpath,aout,addr=None,case=False,\
                  debug=None,defines=[],dump=False,eprint=False,error=2,nest=20,\
                  ccw=None,psw=None,ptrace=[],otrace=[],cpfile=None,cptrans="94C",\
-                 mcall=False,stats=False,asmpath=None,maclib=None):
+                 mcall=False,seq=False,stats=False,asmpath=None,maclib=None):
+
+        # Test passing of seq from the command-line to ASMA
+        #print("Assembler.__init__() - seq: %s" % seq)
 
         # Before we do anything else start my timers
         Stats.start("objects_p")
@@ -853,6 +858,7 @@ class Assembler(object):
         self.cptrans=cptrans        # Code page translation definition to use
         self.gblc=defines           # GBLC/SETC definitions from driver.
         self.mcall=mcall            # Print inner macro statements
+        self.seq=seq                # Enable 80 column card handling
 
         # PathMgr objects
         self.asmpath=asmpath        # Assembler COPY directive search order path
