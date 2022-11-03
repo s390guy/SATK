@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014-2021 Harold Grovesteen
+# Copyright (C) 2014-2022 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -22,7 +22,7 @@
 
 this_module="mslrpt.py"
 copyright="%s Copyright (C) %s Harold Grovesteen" \
-    % (this_module,"2014-2021")
+    % (this_module,"2014-2022")
 
 # Python imports:
 import sys               # Access the exit method
@@ -94,6 +94,7 @@ class EM(object):
     
     def __init__(self):
         self.extmnem={}           # Master dictionary of extended mnemonics
+        # These are generated for report purposes.  Not part of MSL files.
         
         for i in EM.branch_ext:
             self._addExt(i)           # Add branch mnemonics
@@ -102,10 +103,13 @@ class EM(object):
     # Method Argument:
     #   mnemonic  an extended instruction mnemonic added for the CPU
     def _addExt(self,mnemonic):
+        if mnemonic == "CRBH":
+            print("EM._addExt() - adding extended mnemonic: %s" % mnemonic)
         try:
             self.extmnem[mnemonic]
         except KeyError:
-            self.extmnem[mnemonic]=None
+            #self.extmnem[mnemonic]=None
+            self.extmnem[mnemonic]=mnemonic
             return
         raise ValueError("Mnemonic already defined: %s" % mnemonic)
         #print("Mnemonic already defined: %s" % mnemonic)
@@ -132,6 +136,8 @@ class EM_ESA390(EM):
 class EM_ALL(EM_ESA390):
     new_long_jump_ext=["JLU","JAS","JASL","JCT","JCTG","JXH",\
                        "JXHG","JXLE","JXLEG"]
+                       
+    new_06_compares=["H",]
     
     def __init__(self):
         super().__init__()
@@ -150,6 +156,8 @@ class EM_ALL(EM_ESA390):
             self._addExt(i)               # Add new jump extended mnemonics
 
     # Compare and branch and compare and trap extended mnemonics
+        for i in EM_ALL.new_06_compares:
+            self._addExt("CRB%s" % i)
         # To be added
 
     # Load/Store on Condition extended mnemonics
@@ -177,7 +185,9 @@ class EMFOUND(object):
             % (self.mnem,self.format,self.report,self.msl)
 
 
-# This object creates the instruction table report.
+# This object creates the instruction table report.  The object is GLOBAL,
+# containing all CPU's in the report
+#
 # Instance Arguments:
 #   columns   the number of CPU's in the report.
 #   seq       The list of requested instruction reports from --seq command line.
@@ -242,8 +252,13 @@ class ITBL(Listing):
 
     def __init__(self, columns, seq, msl=None, extend=False, linesize=132):
         super().__init__(linesize=linesize)
+        assert isinstance(msl,msldb.MSLDB),"'seq' argument must be a "\
+            "msldb.MSLDB object: %s" % msl
+
+        #print("ITBL.__init__() - msl: %s" % msl)
         self.columns=columns     # Number of CPU columns in the report
         self.extend=extend
+        #print("ITBL.__init__() - self.extend: %s" % self.extend)
         self.seq=seq
 
         # Use Multiline detail generation
@@ -264,7 +279,7 @@ class ITBL(Listing):
         # in their respective columns for which the instruction mnemonic is defined,
         # each column associated with a cpu in the report.  The entry is None if the
         # instruction is not defined by the cpu associated with the column.
-        self._inst={}                # Populated by method inst()
+        self._inst={}                # Populated by method cpu()
 
         # Disctionary by instruction formats used by all instructions.  Similar to
         # the previous dictionary it is a list, each element corresponding to a
@@ -272,8 +287,8 @@ class ITBL(Listing):
         # instruction report.  The values in the list are counts, by format of the
         # number of instructions defined for the CPU using the format.  For formats
         # not used by a cpu the value is 0.
-        self._formats={}             # Populated by method format() with stats
-        self.build_format_stats(msl) # Builds the dictionary for stats
+        self._formats={}             # Populated by method cpu() with stats
+        #self.build_format_stats(msl) # Builds the dictionary for stats
 
         # Calculated in validate() method
         self.mnem_size=0
@@ -313,18 +328,26 @@ class ITBL(Listing):
   # the report.
   #
 
-    def build_format_stats(self,msl):
-        if not msl:
-            return
-        for entry in msl.iter_entries():
-            if not isinstance(entry,msldb.Format):
-                continue
+    #def build_format_stats(self,msl):
+        #print("ITBL.build_format_stats() - Entered")
+        #print("ITBL.build_format_stats() - msldb cpu: %s" % msl["cpu"])
+    #    if not msl:
+    #        return
+    #    for entry in msl.iter_entries():
+            #print("ITBL.build_format_stats() - entry: %s %r" % (entry.ID,entry))
+           
+            #if entry.ID in ["CBRH","ERRS"]:
+            #    print("ITBL.build_format_stats() - entry: %s %r" % (entr)
+    #        if not isinstance(entry,msldb.Format):
+    #            continue
             # entry is a format
-            try:
-                self._formats[entry.ID]
-                print("Duplicate insruction format found: %s" % entry.ID)
-            except KeyError:
-                self._formats[entry.ID]=[0,]*self.columns
+    #        try:
+    #            self._formats[entry.ID]
+    #            print("Duplicate insruction format found: %s" % entry.ID)
+    #        except KeyError:
+    #            self._formats[entry.ID]=[0,]*self.columns
+                
+        #print("ITBL.build_format_stats() - Returning")
 
     # Compare the instruction formats of two different msldb.Inst objects for
     # equality.
@@ -363,10 +386,22 @@ class ITBL(Listing):
         col=cpu.col
         self.cpus[col]=cpu
         cpux=cpu.cpux
+        assert isinstance(cpux,msldb.CPUX),"cpux must be a msldb.CPUX object: "\
+            "%s" % cpux
+            
         for inst in cpux.inst.values():
             # inst is a msldb.Inst object
+            
+            #is_target = inst.ID in ["CRBH","ERRS"]
+            #if is_target:
+            #    print("ITBL.cpu() - inst: %s" % inst.ID)
             if inst.extended and not self.extend:
+                #if is_target:
+                #    print("ITBL.cpu() - ignoring: %s" % inst.ID)
                 continue
+            #if is_target:
+            #    print("ITBL.cpu() - adding inst: %s" % inst.ID)
+            #    print("ITBL.CPU() - adding format: %r" % inst.format)
             self.inst(inst, col)
             self.format(inst, col)
 
@@ -394,7 +429,7 @@ class ITBL(Listing):
 
     # Accumulates the number of instructions using a specific MSL database instruction
     # format by column, the column associated with a cpu of the report.
-    # Method Arbuments:
+    # Method Arguments:
     #   inst   A msldb.Inst object defining an instruction for a CPU.
     #   col    The column index into which this instruction format's counts are
     #          placed for the CPU associated with the column.
@@ -402,8 +437,9 @@ class ITBL(Listing):
         try:
             fmtlist=self._formats[inst.format]
         except KeyError:
-            raise ValueError("%s unrecognized instruction %s format encountered: %s" \
-                % (self.cpus[col].cpux.ID,inst.ID,inst.format))
+            fmtlist=[0,]*self.columns
+            #raise ValueError("%s unrecognized instruction %s format encountered: %s" \
+            #    % (self.cpus[col].cpux.ID,inst.ID,inst.format))
 
         n=fmtlist[col]
         n+=1
@@ -500,7 +536,7 @@ class ITBL(Listing):
     #   a dictionary of identified formats with not used flags set for each format
     def validate_formats(self,instlist):
         # This is a list of all instructions known to use different formats
-        known = ["ALC","DL","IPTE","ML","SLB"]
+        known = ["ALC","CLCLU","DL","IPTE","MVCLU","ML","RLL","SLB"]
         #known = []
 
         inst=None    # Current msldb.Inst object against which others are compared
@@ -1071,6 +1107,7 @@ class MSLRPT(object):
         itbl=ITBL(len(cpux),self.seq,msl=mslfmt,\
             extend=self.extend,linesize=self.line)
         for c in cpux:
+            #print("MSLRPT.inst.report() - c: %r" % c)
             itbl.cpu(c)
         itbl.validate()    # Valid the instructions
 
