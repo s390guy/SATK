@@ -766,7 +766,7 @@ inst IILL   A53  RIAU           # INSERT IMMEDIATE (LOW LOW)
 inst LARL   C00  RILB           # LOAD ADDRESS RELATIVE LONG
 inst LCGFR  B913 RRE            # LOAD COMPLEMENT (64<32)
 inst LCGR   B903 RRE            # LOAD COMPLEMENT (64)
-inst LCTLG  EB2F RSA2    P      # LOAD CONTROL (64)
+inst LCTLG  EB2F RSYA    P      # LOAD CONTROL (64)
 inst LG     E304 RXYA           # LOAD (64)
 inst LGF    E314 RXYA           # LOAD (64<32)
 inst LGFR   B914 RRE            # LOAD (64<32)
@@ -784,8 +784,8 @@ inst LLIHL  A5D  RIAU           # LOAD LOGICAL IMMEDIATE (HIGH LOW)
 inst LLILH  A5E  RIAU           # LOAD LOGICAL IMMEDIATE (LOW HIGH)
 inst LLILL  A5F  RIAU           # LOAD LOGICAL IMMEDIATE (LOW LOW)
 inst LMD    EF   SSE1           # LOAD DISJOINT
-inst LMG    EB04 RSA2           # LOAD MULTIPLE (64)
-inst LMH    EB96 RSA2           # LOAD MULTIPLE HIGH
+inst LMG    EB04 RSYA           # LOAD MULTIPLE (64)
+inst LMH    EB96 RSYA           # LOAD MULTIPLE HIGH
 inst LNGFR  B911 RRE            # LOAD NEGATIVE (64<32)
 inst LNGR   B901 RRE            # LOAD NEGATIVE (64)
 inst LPGFR  B910 RRE            # LOAD POSITIVE (64<32)
@@ -822,8 +822,8 @@ inst OIHH   A58  RIAU           # OR IMMEDIATE (HIGH HIGH)
 inst OIHL   A59  RIAU           # OR IMMEDIATE (HIGH LOW)
 inst OILH   A5A  RIAU           # OR IMMEDIATE (LOW HIGH)
 inst OILL   A5B  RIAU           # OR IMMEDIATE (LOW LOW)
-inst RLL    EB1D RSA2           # ROTATE LEFT SINGLE LOGICAL (32)
-inst RLLG   EB1C RSA2           # ROTATE LEFT SINGLE LOGICAL (64)
+inst RLL    EB1D RSYA           # ROTATE LEFT SINGLE LOGICAL (32)
+inst RLLG   EB1C RSYA           # ROTATE LEFT SINGLE LOGICAL (64)
 inst SAM24  010C E              # SET ADDRESSING MODE (24)
 inst SAM31  010D E              # SET ADDRESSING MODE (31)
 inst SAM64  010E E              # SET ADDRESSING MODE (64)
@@ -831,7 +831,7 @@ inst SG     E309 RXYA           # SUBTRACT (64)
 inst SGF    E319 RXYA           # SUBTRACT (64<32)
 inst SGFR   B919 RRE            # SUBTRACT (64<32)
 inst SGR    B909 RRE            # SUBTRACT (64)
-inst SLAG   EB0B RSA2           # SHIFT LEFT SINGLE (64)
+inst SLAG   EB0B RSYA           # SHIFT LEFT SINGLE (64)
 inst SLB    E399 RXYA           # SUBTRACT LOGICAL WITH BORROW (32)
 inst SLBG   E389 RXYA           # SUBTRACT LOGICAL WITH BORROW (64)
 inst SLBGR  B989 RRE            # SUBTRACT LOGICAL WITH BORROW (64)
@@ -840,15 +840,15 @@ inst SLG    E30B RXYA           # SUBTRACT LOGICAL (64)
 inst SLGF   E31B RXYA           # SUBTRACT LOGICAL (64<32)
 inst SLGFR  B91B RRE            # SUBTRACT LOGICAL (G4<32)
 inst SLGR   B90B RRE            # SUBTRACT LOGICAL (64)
-inst SLLG   EB0D RSA2           # SHIFT LEFT SINGLE LOGICAL (64)
-inst SRAG   EB0A RSA2           # SHIFT RIGHT SINGLE (64)
-inst SRLG   EB0C RSA2           # SHIFT RIGHT SINGLE LOGICAL (64)
+inst SLLG   EB0D RSYA           # SHIFT LEFT SINGLE LOGICAL (64)
+inst SRAG   EB0A RSYA           # SHIFT RIGHT SINGLE (64)
+inst SRLG   EB0C RSYA           # SHIFT RIGHT SINGLE LOGICAL (64)
 inst STCMH  EB2C RSYB           # STORE CHARACTERS UNDER MASK (HIGH)
-inst STCTG  EB25 RSA2           # STORE CONTROL (64)
+inst STCTG  EB25 RSYA    P      # STORE CONTROL (64)
 inst STFL   B2B1 S0      P      # STORE FACILITY LIST
 inst STG    E324 RXYA           # STORE (64)
-inst STMG   EB24 RSA2           # STORE MULTIPLE (64)
-inst STMH   EB26 RSA2           # STORE MULTIPLE HIGH
+inst STMG   EB24 RSYA           # STORE MULTIPLE (64)
+inst STMH   EB26 RSYA           # STORE MULTIPLE HIGH
 inst STPQ   E38E RXYA           # STORE PAIR TO QUADWORD
 inst STRAG  E502 SSE2    P      # STORE REAL ADDRESS (64)
 inst STRV   E33E RXYA           # STORE REVERSED (32)
@@ -860,7 +860,7 @@ inst TMHH   A72  RIAU           # TEST UNDER MASK (HIGH HIGH)
 inst TMHL   A73  RIAU           # TEST UNDER MASK (HIGH LOW)
 inst TMLH   A70  RIAU           # TEST UNDER MASK (LOW HIGH) same as TMH
 inst TMLL   A71  RIAU           # TEST UNDER MASK (LOW LOW) same as TML
-inst TRACG  EB0F RSA2    P      # TRACE (64)
+inst TRACG  EB0F RSYA    P      # TRACE (64)
 inst XG     E382 RXYA           # EXCLUSIVE OR (64)
 inst XGR    B982 RRE            # EXCLUSIVE OR (64)
 
@@ -1415,8 +1415,8 @@ iset s390x-ext-immed
     mnemonics NIHF NILF OIHF OILF SLFI SLGFI XIHF XILF
 
 # EXTENDED TRANSLATION FACILITY 2 (October, 2000)
-inst CLCLU  EB8F RSA2           # COMPARE LOGICAL LONG UNICODE
-inst MVCLU  EB8E RSA2           # MOVE LONG UNICODE
+inst CLCLU  EB8F RSYA           # COMPARE LOGICAL LONG UNICODE
+inst MVCLU  EB8E RSYA           # MOVE LONG UNICODE
 inst PKA    E9   SSF1           # PACK ASCII
 inst PKU    E1   SSF1           # PACK UNICODE
 inst TP     EBC0 RSLA           # TEST DECIMAL
