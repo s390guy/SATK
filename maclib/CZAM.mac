@@ -1,0 +1,285 @@
+.* Copyright (C) 2022 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   CZAM &R1,&R3,&STFL=NO,&STFLNO=7,&CM=8,&FAIL=9,&SAVE=YES,&CPU=,&FACS=
+.* The CZAM macro generates in-line code detecting whether the running
+.* architecture is s390 or s390x.  If the running architecture is s390, the
+.* macro will cause an architecture change to s390x.  If the running
+.* architecture is neither s390 nor s390x, a disabled wait state results.
+.*
+.* The use of the CZAM macro implies the need of the program to operate in
+.* s390x mode.  Any reason that s390x mode can not be achieved when s390x is not
+.* the current mode, results in a disabled wait state condition with a code
+.* in the last three bytes of the PSW.
+.*
+.* The CZAM macro requires the availability of the STFL or STFLE instructions.
+.* The absense of the these instructions forces the CZAM macro to place the
+.* executing CPU into a disabled wait state.
+.*
+.* Until the architecture mode is determined, the CZAM macro will only use
+.* instructions available in a S/370 system, STFL or STFLE being the exception.
+.* It is recommended that any program using CZAM also restrict its instruction
+.* usage to S/370 instructions until CZAM has completed execution.
+.*
+.* The CZAM macro will use a S/370 EC-mode New Program PSW to trap the
+.* attempted execution of the STFL or STFLE in the case it is not available.
+.* CZAM can preserve the state of the Program New PSW during execution.  The
+.* trap PSW will contain the disabled wait state code specified by the &STFLNO
+.* keyword parameter.  Upon successful execution of the STFLE instruction,
+.* the original contents of the New Program PSW can be restored.
+.*
+.* Required General Register Usage:
+.*   - R0 is reserved for use by the CZAM macro.  The STFLE instruction
+.*     requires use of R0.
+.*   - a base register must be established before CZAM is invoked by the
+.*     program.
+.*
+.* Positional Parmaters:
+.*   &R1      An even/odd register pair used by CZAM.  Required
+.*   &R3      An additional register used by CZAM.  Must not be one of
+.*            the registers of the R1 pair.  Required.
+.* Neither positional parameter may refer to general register 0.
+.*
+.* Keyword Parameters:
+.*   &STFL    Specifies whether to use STFL (YES) or STFLE (NO) to store
+.*            facility indicators.
+.*   &STFLNO  Specifies the decimal disabled wait code when neither the STFL
+.*            nor STFLE instruction are not available.  Defaults to 7
+.*            (for architecture level 7 orbelow).  Architecture levels 7 or
+.*            below do not have access to these instructions.
+.*   &CM      Specifies the decimal disabled wait code when the STFLE
+.*            instruction indicates 390-CM is running (facility bit 168 set to
+.*            1).  Defaults to 8.  In this case meaning 390-CM (not s390).
+.*            When 390-CM is in use, the set architecture SIGP order is not
+.*            available, so the CPU can not "escape" 390-CM mode.
+.*   &CPU     A two-byte field aligned on a halfword boundary for the storing
+.*            of this CPU's address.  When a label is specified, the CPU
+.*            address of this CPU is stored in the field for use by the SIGP
+.*            instruction within CZAM or other uses post-CZAM execution.  It
+.*            serves the same role as &FACS does for stored facility
+.*            indicators.
+.*   &FAIL    Specifies the decimal disabled wait code when the SIGP
+.*            instruction fails.  Defaults to 9.
+.*   &FACS    Specifies a label associated with the storing of facility bits.
+.*            If provided, the program must provide addressability to the label.
+.*            If omitted, a label and area into which the facility bits are
+.*            stored are provided by the macro.  Ignored when STFL=YES.  STFL
+.*            uses an assigned storage are for its storing of facility
+.*            indicators
+.*   &SAVE    Whether the New Program PSW is preserved during macro execution.
+.*              - Specify YES to preserve the New Program PSW
+.*              - Specify NO to leave CZAM trap PSW's in the New Program PSW
+.*                assigned storage area.
+.*            Default is 'YES'.
+.*
+.* Macro symbols used by CZAM.
+         GBLA  &ARCHLVL  Architecture level being targeted by this assembly
+         LCLA  &DBLWDS   Number of double words saved by STFLE
+         LCLA  &DBLWDS0  The number of double words placed in STFLE R0
+         LCLB  &CPUH     Whether an external location provided for CPU address
+         LCLB  &FACDWS   Whether an external location provided for facilities.
+         LCLB  &SAVEFLG  Whether the New Program PSW is preserved by CZAM or not
+         LCLB  &USESTFL  Whethet to use STFL instead of STFLE
+         LCLC  &BITSLBL  The label used for the stored facility bits
+         LCLC  &CPUADDR  The label used for this CPU's address
+.*
+.*  Check ARCHLVL for CZAM
+.*
+         AIF   (&ARCHLVL GT 0).CKLVL
+         MNOTE 1,'CZAM - ARCHLVL MACRO MUST PRECEDE THIS MACRO'
+         MEXIT
+.CKLVL   ANOP
+         AIF   (&ARCHLVL GE 9).CKPARMS
+         MNOTE 1,'CZAM - ARCHLVL MUST BE AT LEAST 9 - &ARCHLVL'
+         MEXIT
+.CKPARMS ANOP
+.*
+.* Validate required positional parameters are present
+.*
+         AIF   ('&R1' NE '').CKR3
+         MNOTE 1,'CZAM - POSITIONAL PARAMETER R1 REQUIRED - MISSING'
+         MEXIT
+.CKR3    ANOP
+         AIF   ('&R3' NE '').CKSTFL
+         MNOTE 1,'CZAM - POSITIONAL PARAMETER R3 REQUIRED - MISSING'
+         MEXIT
+.CKSTFL  ANOP
+.*
+.* Validate &STFL keyword parameter
+.*
+         AIF   ('&STFL' EQ 'NO').CKSAVE
+         AIF   ('&STFL' EQ 'YES').DOSTFL
+         MNOTE 1,'CZAM - STFL VALUE INVALID - &STFL'
+         MEXIT
+.DOSTFL  ANOP
+&USESTFL SETB  1
+.*
+.* Validate &SAVE keyword parameter
+.*
+.CKSAVE  ANOP
+         AIF   ('&SAVE' EQ 'YES').SETSAVE
+         AIF   ('&SAVE' EQ 'NO').NOSAVE
+         MNOTE 1,'CZAM - SAVE KEYWORD VALUE INVALID - &SAVE'
+         MEXIT
+.SETSAVE ANOP
+&SAVEFLG SETB 1
+.NOSAVE  ANOP
+.*
+.*  Process &CPU keyword parameter
+.*
+         AIF  ('&CPU' EQ '').CPUINT
+&CPUADDR SETC '&CPU'
+&CPUH    SETB  1
+         AGO   .GENCZAM
+.CPUINT  ANOP
+&CPUADDR SETC 'CZSA&SYSNDX'
+.GENCZAM ANOP
+.*
+.*  Generate CZAM macro
+.*
+         AIF   ('&LABEL' EQ '').NOLABEL
+&LABEL   DS    0H
+.NOLABEL ANOP
+         AIF   (NOT &USESTFL).STFLE
+.*
+.*  Save facility indicators using STFL
+.*
+* Facility Indicators of Architecture Mode:
+*
+         AIF   (NOT &SAVEFLG).NOSAVE4
+         MVC   CZSP&SYSNDX,X'68'          Save current New Program PSW
+.NOSAVE4 ANOP
+         MVC   X'68'(8),CZNS&SYSNDX       Set the trap PSW for STFL
+         STFL  0                Store the STFL bits in assigned storage area
+         AIF   (NOT &SAVEFLG).NOSAVE5
+         MVC   X'68'(8),CZSP&SYSNDX       Restore previous New Program PSW
+.NOSAVE5 ANOP
+         SPACE 1
+* Facility Indicators of Architecture Mode:
+*   If 2 == 1  in s390x mode              Already in s390x mode, done
+*   If 2 == 0 and 1 == 1                  s390x available, change mode
+         SPACE 1
+         TM    FACLIST1,FL1ZACT           Is s390x active?
+* Bit 2 == 1
+         BO    CZZZ&SYSNDX                ..Yes, nothing to do.
+         TM    FACLIST1,FL1ZINST          Is s390x available?
+* Bit 2 == 0 and bit 1 == 1
+         BO    CZCH&SYSNDX                ..Yes, change to s390x then
+         LPSW  CZFL&SYSNDX                QUIT, can not change to s390x
+         AGO   .NOCM                      Bypass STFLE macro code, not using it
+.*
+.* Store facility indicators using STFLE
+.*
+.STFLE   ANOP
+.*
+.* Set macro symbols for storing of facility indicators.
+.*
+&DBLWDS  SETA  4     ** Adjust this for additional STFLE doublewords **
+&DBLWDS0  SETA  &DBLWDS-1   STFLE stores one more doubleword than requested.
+.* Four doublewords for facility bits allows storing up to and including bit
+.* 255.  Currently the maximum used facility bit is 197 (PoO -13, page 4-103).
+.* Four doublewords is overkill for the specific needs of the CZAM macro, but
+.* might as well save all of the indicators while they are being stored.
+.*
+.* Determine where to save facility indicators.  Use of &FACS keyword allows
+.* the program to save the facility indicators in a location usable by the
+.* program after CZAM has completed execution.  When &FACS is not used,
+.* the STFLE facility indicators are saved in a macro specific location
+.* generally not available from outside of the CZAM macro.  Labels internal
+.* to CZAM use &SYSNDX to generate a macro expansion specific labels.
+         AIF   ('&FACS' EQ '').SETDFLT
+&FACLBL  SETC  '&FACS'
+         AGO   .NOBITS
+.SETDFLT ANOP
+&FACLBL  SETC  'CZST&SYSNDX'
+&FACDWS  SETB  1
+.NOBITS  ANOP
+* Save facility indicators using STFLE
+         LA    0,&DBLWDS0      Set the number of double words stored by STFLE
+         AIF   (NOT &SAVEFLG).NOSAVE2
+         MVC   CZSP&SYSNDX,X'68'          Save current New Program PSW
+.NOSAVE2 ANOP
+         MVC   X'68'(8),CZNS&SYSNDX       Set the trap PSW for STFLE
+         STFLE &FACLBL                    Store the STFLE bits
+         AIF   (NOT &SAVEFLG).NOSAVE3
+         MVC   X'68'(8),CZSP&SYSNDX       Restore previous New Program PSW
+.NOSAVE3 ANOP
+         SPACE 1
+* Facility Indicators of Architecture Mode:         CZAM Actions
+*  If 2 == 1              -->  s390x mode  - Do nothing, already there
+*  If 2 == 0 and 168 == 0 -->  s390 mode   - change to s390x
+*  If 2 == 0 and 168 == 1 -->  390-CM      - Disabled wait (can not change)
+         SPACE 1
+* Bit 2 == ?
+         TM    &FACLBL,X'20'    Test facility indicator 2 (s390x active)
+         BO    CZZZ&SYSNDX      2 == 1, in s390x, no mode change required
+.* Note: the STFLE bits are already the s390x mode version, so no need to
+.* save the bits again to get the s390x version.
+         SPACE 1
+* Bit 2 == 0 and 168 == ?
+         TM    &FACLBL+21,X'80' 168 ?  0  Test bit 168 (390-CM installed)
+         BZ    CZCH&SYSNDX      168 == 0  In s390 change to s390x
+         SPACE 1
+* Bit 2 == 0 and 168 == 1
+         LPSW  CZCN&SYSNDX      168 == 1  In 390-CM, place CPU in disabled wait
+         SPACE 1
+         AIF   (&USESTFL).NOCM
+* Storage areas used by CZAM
+CZCN&SYSNDX PSWEC 0,0,2,0,&CM            390-CM trap PSW
+.NOCM   ANOP
+CZNS&SYSNDX PSWEC 0,0,2,0,&STFLNO        No STFL or STFLE trap PSW
+CZFL&SYSNDX PSWEC 0,0,2,0,&FAIL          SIGP failure disabled wait code
+         AIF   (NOT &SAVEFLG).NOSAVE1
+CZSP&SYSNDX DC FD'0'                     Trap new PSW save area
+.NOSAVE1 ANOP
+         AIF   (NOT &FACDWS).NODWS
+&FACLBL  DS    &DBLWDS.FD'0'             Stored facility indicators
+.NODWS   ANOP
+         AIF   (&CPUH).NOSTAP
+CZSA&SYSNDX DC H'0'                      This CPU's address
+.NOSTAP  ANOP
+         SPACE 1
+* Change to s390x mode using the SIGNAL PROCESSOR instruction
+CZCH&SYSNDX DS 0H      Change to s390x mode
+* SIGP Operand Usage:      SIGP Operands
+*  &R1    - returned status   General Register 2
+*  &R1+1  - Parameter         (General Register 3 by implication of R1 operand)
+*  D2(B2) - Order             SIGP order in operand 2 effective address
+*  &R3    - CPU address       General Register 4
+         SPACE 1
+         LA    3,1            Set parameter value to 1 for s390x mode
+         STAP  &CPUADDR       Store this CPU's address for SIGP
+         LH    4,&CPUADDR     Send SIGP order to this CPU
+         SIGP  &R1,&R3,X'12'  Request "Set Architecture" order
+         BZ    CZDN&SYSNDX    CC == 0 means the CPU is in s390x mode
+         LPSW  CZFL&SYSNDX    SIGP failed, load failure disabled wait state
+         SPACE 1
+CZDN&SYSNDX DS 0H    In s390x mode, exit the macro
+.* Note the s390 and s390x versions of STFLE bits will differ.  If saving
+.* the facility indicators for later use, the s390x version needs to be saved
+.* now that the program is in s390x mode. If stored inside the macro, the
+.* program can not really access the STFLE bits, so simply exit without saving.
+         AIF   (NOT &USESTFL).ZSTFLE
+         STFL  0              Store the s390x version of the STFL bits
+         AGO   .EXIT
+.ZSTFLE  ANOP
+         AIF   ('&FACS' EQ '').DONE
+         STFLE &FACLBL        Store the s390x STFLE version of the STFLE bits
+.EXIT    ANOP
+CZZZ&SYSNDX DS 0H    Already in s390x mode.  Done
+.DONE    MEND
