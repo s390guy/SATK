@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2015-2022 Harold Grovesteen
+# Copyright (C) 2015-2023 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -563,10 +563,14 @@ class cfsm(fsm.FSM):
                     # stripped, then we should never get this far for a physical
                     # line that has no operands.  Throw the exception so this
                     # case can be researched if it ever happens.
-                    assert cmt < len(self.text),\
-                        "%s unexpected empty comment, logline:\n%s\n" \
-                            % (assembler.eloc(self,"parse",module=this_module),\
-                                logline)
+                    #assert cmt < len(self.text),\
+                    #    "%s unexpected empty comment, logline:\n%s\n" \
+                    #        % (assembler.eloc(self,"parse",module=this_module),\
+                    #            logline)
+                    # This assertion has been removed.  Practice has shown that
+                    # this condition does occur when a comment is placed
+                    # upon an macro internally invoked by another macro but
+                    # has no operands, just a comma following the inner macro.
 
                     # Set the start of the comment in the physical line.  Without
                     # this a model statement will lose the comment in the generated
