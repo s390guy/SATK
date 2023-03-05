@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2015-2022 Harold Grovesteen
+# Copyright (C) 2015-2023 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -51,7 +51,7 @@
 
 
 this_module="iplasma.py"
-copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2015-2022")
+copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2015-2023")
 
 # Python imports
 import sys
@@ -647,13 +647,16 @@ class LDIPL_CTLS(object):
         seq=[]
         try:
             for lineno,line in enumerate(fo):
-                if len(line)==0 or line[0]=="#":
+                if len(line)==0 or line[0] in "#*":
                     continue
-                try:
-                    ndx=line.index("#")
-                    parms=line[:ndx]
-                except ValueError:
-                    parms=line
+                #try:
+                #    ndx=line.index("#")
+                #    parms=line[:ndx]
+                #except ValueError:
+                #    parms=line
+                
+                # Remove trailing comment if present
+                parms=self.__embed_comment(line)
                 parms=parms.strip()
                 pieces=parms.split()
                 if len(pieces)!=2:
@@ -686,6 +689,37 @@ class LDIPL_CTLS(object):
 
         self.names=names
         self.sequence=seq
+        
+    # Removes a trailing comment if present from a control file text line.
+    #
+    # For example:
+    #     control file statement  # trailing comment
+    # or
+    #     control file statement  * trailing comment
+    #
+    # returns: 'control file statement   '
+    #     The trailing comment has been removed
+    #
+    # Method Argument:
+    #   line   the none commented control file text line as read from the file
+    # Returns:
+    #   the entire control file text line, or the text line with the trailing
+    #   comment removed.
+    def __embed_comment(self,line):
+        try:
+            ndx=line.index("#")
+            parms=line[:ndx]
+            return parms
+        except ValueError:
+            pass
+        try:
+            ndx=line.index("*")
+            parms=line[:ndx]
+            return parms
+        except ValueError:
+            pass
+        
+        return line
 
     # Returns a list of bare-metal program elements.
     # Required by PROGRAM object
@@ -709,7 +743,7 @@ class LDIPL_CTLS(object):
         if psw and psw not in exclude:
             try:
                 mypsw=self.region(psw)
-                print("LDIPL: setting self.psw: %s" % self.psw)
+                print("LDIPL: setting psw: %s" % psw)
                 exclude.append(psw)
             except KeyError:
                 mypsw=None
