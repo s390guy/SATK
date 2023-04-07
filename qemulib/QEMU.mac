@@ -1,0 +1,81 @@
+.* Copyright (C) 2023 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&PGMSECT QEMU  &PGMLOAD,&PGMREGN,&ENTRY,&D20=YES
+.* Prepares assembly for creation of Qemu ELF (using qelf.py tool).  A minimum
+.* of two regions will be output:
+.*   ASAREGN   loaded at address X'0' containing Assigned Storage Area
+.*   &PGMREGN  loaded at address &PGMLOAD containing the bare-metal program.
+.*
+.* Positional parameter &ENTRY is optional.  If present it identifies the
+.* entry point for the bare-metal program.  If omitted, program entry is
+.* assumed to be at &PGMSECT (whose address is &PGMLOAD).
+.*
+.* &D20 enables (YES) or disables (NO) 20-bit address instruction use.  Default
+.* is YES.
+.*
+.* Global symbols used by QEMU.
+         GBLA  &ARCHLVL     SATK architecture level
+         GBLB  &ISQEMU      Whether this is a Qemu targeted assembly
+         GBLB  &QEMUD20     Whether 20-bit displacement instructions are used
+         AIF   (&ARCHLVL EQ 0).ARCHOK
+         MNOTE 1,'QEMU - QEMU MAY ONLY BE USED ONCE - ERROR'
+         MEXIT
+.ARCHOK  ANOP
+.*
+.* Additional regions may be constructed by the assembly
+         AIF   ('&PGMSECT' NE '').PSECTOK
+         MNOTE 1,'QEMU - LABEL FIELD MISSING - PROGRAM CSECT REQUIRED'
+         MEXIT
+.PSECTOK ANOP
+         AIF   ('&PGMLOAD' NE '').PLOADOK
+         MNOTE 1,'QEMU - FIRST PARM. MISSING - PROGRAM LOAD ADDRESS REQUIRED'
+         MEXIT
+.PLOADOK ANOP
+         AIF   ('&D20' EQ 'YES').D20ON
+         AIF   ('&D20' EQ 'NO').D20OK
+         MNOTE 1,'QEMU - D20 PARAMETER INVALID - ''&D20'''
+         MEXIT
+.D20ON   ANOP
+&QEMUD20 SETB  1
+.D20OK   ANOP
+.*
+.* Generate the Assigned Storage Area for the Qemu ELF.
+&ARCHLVL SETA  10     SATK Architecture Level for CZAM (forced for Qemu)
+.* CHANGE TO ARCHLVL MACRO WHEN ASMA DETECTS CZAM.  Requires ASMA enhancement
+.* and ARCHLVL macro enhancement.
+.*
+.* QEMU Entry Content
+ASA      START 0,ASAREGN
+         AIF   ('&ENTRY' EQ '').NOENTRY
+         PSWE390 0,0,2,0,&ENTRY,31
+.* Change to PSWZS when ASMA supports the operation
+.NOENTRY ANOP
+         PSWE390 0,0,2,0,&PGMSECT,31
+.* Change to PSWZS when ASMA supports the operation
+         ORG   ASA+X'1A0'
+         TRAP128
+         SPACE 3
+&PGMSECT START &PGMLOAD,&PGMREGN
+&ISQEMU  SETB  1
+* Various ASCII character equates
+AI       EQU   X'49'  CA'A'
+AM       EQU   X'4D'  CA'M'
+AR       EQU   X'52'  CA'R'
+AW       EQU   X'57'  CA'W'
+         MEND
