@@ -384,7 +384,7 @@ class IPL_PSW(ENTER):
             " %s" % qelfo
 
         super().__init__(regn,qelfo)
-        
+
     def add_load_zero_regn(self,regno):
         assert isinstance(regn,REGN),"'regn' argument must be a REGN object:"\
             " %s" % regn
@@ -397,7 +397,8 @@ class IPL_PSW(ENTER):
         regn_core=self.regn.core.copy(mutable=False)
         if len(regn_core)<8:
             self.qelfo.cb_error("ERROR: Region %s must be at least 8 bytes "\
-                "when supplying IPL PSW: %s" % len(regn_core,error=True))
+                "when supplying IPL PSW: %s" % (self.regn.name,\
+                    len(regn_core)),error=True)
             return None
 
         # Extract PSW address from the region core:
@@ -544,13 +545,13 @@ class LOADABLE:
             "a non-negative integer: %s" % addr
         assert isinstance(bin,(bytes,bytearray)),"'bin' argument must be a "\
             "bytes type sequence (bytes or bytearray): %s" % bin
-        # The check for a zero length binary object is performed in 
+        # The check for a zero length binary object is performed in
         # ELF_HDR.update() method.  When encountered the zero length binary
         # generates a warning message and is not included in the ELF, although
         # it will be included in the memory map.
         #assert len(bin)>0,"'bin' argument must not be of zero length: %s" % \
         #    len(bin)
-        
+
         #assert isinstance(self.seg_offset,int) \
         #    and self.seg_offset>=ELF_HDR.length,"'seg_offset' attribute must "\
         #        "be an integer greater than %s: %s" \
@@ -559,8 +560,13 @@ class LOADABLE:
         assert not self.loadable(),"can not call make_loadable() more "\
             "than once"
 
+        if len(bin) == 0:
+            # A REGION of zero bytes is not loadable
+            return
+
         self.seg_addr=addr
         self.seg_len=len(bin)
+
         if isinstance(bin,bytearray):
             self.seg_bin=bytes(bin)
         else:
@@ -724,7 +730,7 @@ class NAME_SPACE:
 
 # Input Region Object representing a single included region.
 # Instance Arguments:
-#   ldld        LDID object in which this region resides
+#   ldid        LDID object in which this region resides
 #   regn_core   Region ldidlib.Core object.
 class REGN(LOADABLE):
     def __init__(self,ldid,regn_core):
@@ -738,13 +744,15 @@ class REGN(LOADABLE):
         self.ldid=ldid       # LDID object of this regions LDID control file
         self.core=regn_core  # ldidlib.Core object or bytes sequence
         self.name=regn_core.region_name   # Specific LDID region being included
+        self.can_load=len(self.core)>0    # Do not load an empty region.
+        self.can_ipl=len(self.core)>=8    # Whether IPL_PSW is present
 
         # Memory Map region name.  Actual region name truncated to eight
         # characters.  Mostly never used, but ASMA supports labels longer than
         # eight characters so it "could" happen.  Memory Map structure is
         # constrained to a limit of eight characters in the name.
         self.map_name=self.name[:min(8,len(self.name))]
-        
+
     def __len__(self):
         return len(self.core)
 
@@ -844,11 +852,21 @@ class RegnMgr:
         for regno in self.region_seq:
             if self.enter_ipl:
                 if self.load_zero is None and regno.core.load==0:
+                    # Region is candidate for IPL PSW
+                    if not regno.can_load:
+                        self.qelfo.cb_error("ERROR: region containing IPL PSW"\
+                        ", %s, can not be loaded, length: 0" \
+                            % regno.name,abort=True)
+                    if not regno.can_ipl:
+                        self.qelfo.cb_error("ERROR: region containing IPL "\
+                            "PSW, %s, too short, length: %s" \
+                                 % (regno.name,len(regno)),abort=True)
+
                     self.load_zero=regno
-                    #print("setting self.load_zero: %s" % self.load_zero)
+
             elif self.enter_name and self.enter_name == regno.name:
                 self.enter_regn=regno  # Remember entry REGN object
-                
+
             regn_ns.add_name(regno.name)
 
         # Check for duplicate region names if --dups NOT present
@@ -969,11 +987,11 @@ class ELF:
         if self.verbose:
             print("\nELF Header:")
             print(satkutil.dump(self.elf_hdr_bin,start=0,mode=24,indent="    "))
-            
+
             print("\nELF Program Segment Table")
             print(satkutil.dump(self.pste_bin,start=self.pste_off,mode=24,\
                 indent="    "))
-            
+
             if len(self.loadables)>1:
                 s="s"
             else:
@@ -1062,6 +1080,8 @@ class ELF_HDR:
         " %s" % (e_hsize,len(HDR))
 
     def __init__(self,loadables,e_entry,qelfo):
+        assert e_entry != None,"'e_entry' argument must not be None"
+
         self.qelfo=qelfo           # QELF object to enable call backs
         self.loadables=loadables   # List of LOADABLE objects
 
@@ -1121,7 +1141,7 @@ class ELF_HDR:
         # Initialize the Program Segments and Program Segment Table
         pst=bytearray(0)   # Initialize the Program Segments
         pste=bytearray(0)  # Initialize the Program Segment Table
-        
+
         # Add each Program Segment to the Program Segment Table and
         # its entry in the Program Segment Table Entries.
         for loadable in self.loadables:
@@ -1177,7 +1197,7 @@ class QELF:
     #   error   Whether message is an error (True) or a warning (False)
     def cb_error(self,msg,error=False,abort=False):
         if abort:
-            print(string)
+            print(msg)
             sys.exit(1)
         self.messages.append(msg)
         if error:
