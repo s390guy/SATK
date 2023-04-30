@@ -1,0 +1,51 @@
+.* Copyright (C) 2023 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   PDIE  &CODE
+.* QDIE forces a program interruption operation exception when executed.
+.* It includes identification information useful in finding where the program
+.* forced the interruption.
+.*
+.* PDIE generates a full word.  The fullword consists of two half words:
+.*   half-word 0 - contains H'0' that will generate the operation exception.
+.*   half-word 1 - contains a unique counter associated with the macro's use.
+.*
+.* &LABEL is an optional user assigned label to the PDIE macro count.  It is
+.* used by the program as a target of a branch instruction.
+.*
+.* Positional Parameters:
+.*    &CODE  is any value acceptable to a Y-type constant to identify the
+.*           the error.  If omitted, an internal counter is used to identify
+.*           the error.
+         GBLA  &PDIECNT     The PDIE macro counter used to identify this macro
+         LCLC  &QLBL        The label containing the PDIE count
+&PDIECNT SETA  &PDIECNT+1   Increment QDIO macro count
+.*
+.* Create the first half word of the PDIE content
+&LABEL   DC    H'0'         Force program interruption operation exception
+.*
+.* Create the second half word of the PDIE content
+.* The Program Old PSW address will point to this field when the PDIE macro is
+.* "executed".
+&QLBL    SETC  'PDIE&PDIECNT'  Create the label for assembler listing
+         AIF   ('&CODE' EQ '').NOCODE
+&QLBL    DC    Y(&CODE)     Identify this use of PDIE
+         MEXIT
+.NOCODE  ANOP
+&QLBL    DC    Y(&PDIECNT)  Identify this use of PDIE
+         MEND

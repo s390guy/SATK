@@ -1,0 +1,362 @@
+.* Copyright (C) 2023 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   SPIF  &DSECTS=NO
+         GBLB  &ISQEMU      Whether this is a Qemu targeted assembly
+         AIF   (&ISQEMU).QEMUOK
+         MNOTE 1,'SPIF - MUST BE PRECEDED BY THE QEMU MACRO - MISSING'
+         MEXIT
+.QEMUOK  ANOP
+         AIF   ('&DSECTS' EQ 'YES').DODS
+         AIF   ('&DSECTS' EQ 'NO').CKLBL
+         MNOTE 1,'SPIF - INVALID DSECTS KEYWORD VALUE - ''&DSECTS'' '
+         MEXIT
+.*
+.* Generate the SPIFCB and SPIF routines
+.CKLBL   ANOP
+         AIF   ('&LABEL' NE '').DORTNS
+         MNOTE 1,'SPIF - LABEL FIELD REQUIRED - MISSING'
+         MEXIT
+.DORTNS  ANOP
+* Service Processor Inferface Control Block
+&LABEL   DS    0AD   Align on doubleword boundary
+         DC    CL4'SPIF'   Memory eye-catcher
+         DC    XL1'00'     SPIF status flags
+         DC    XL2'0000'   reserved field
+         DC    XL1'00'     ASCII console mode requested by CONSINIT macro
+         DC    AD(0)    SCCB address - supplied by SPIFINIT routine
+         DC    AD(SPIFCALL) SPIF low-level interface routine address
+         DC    AD(SPIFINIT) SPIF high-level SPIF initialization routine address
+         DC    AD(CONSINIT) SPIF consolie initialization routine address
+         DC    AD(CONSREAD) SPIF console read routine address
+         DC    AD(CONSWRIT) SPIF console write routine address
+         DC    AD(0)       reserved for SPC read routine address
+         DC    18FD'0'  Program save area when high-level routine is called
+         DC    18FD'0'  High-level save area when low-level routine is called
+         DC    XL8'FFFFFFFFFFFFF000'  Align to start of 4,096-byte page
+         DC    FD'0'    Control register work area
+         DC    FD'0'    General register 13 preservation area
+         DC    AD(0)    Program Read/Write Event message address
+         DC    F'0'     Program Read/Write Event message length
+         DC    Y(SCCBEMAX)  Maximum console message length
+         SPACE 3
+*
+* SPIFINIT - High-level service processor interface routine
+*
+         USING SPIFCB,1    Address of SPIFCB as supplied by caller
+SPIFINIT LRCNTR
+.* Use of general register 13 prohibited and this routine may not make a call
+.* to another routine.
+         AGHI  3,4095      Move up in memory by a page length minus 1
+         NG    3,SPIFPMSK  Round up to the next page boundary after the program
+         CLGFI 3,X'2000'   Is SCCB page at or above X'2000'?
+         JNL   SPIFIS3     ..Yes, can use the SCCB starting page
+         PDIE  X'201'      ..No, DIE here
+SPIFIS3  STG   3,SPIFSSCB  Remember where the SCCB is for future routine calls.
+         SPACE 1
+* Set control register 0 to accept external service-call subclass interruptions
+         STCTG 0,0,SPIFC0     Save the current contents of CR0
+         OI    SPIFC0+6,X'20' Turn on the service signal control bit (bit 54)
+         LCTLG 0,0,SPIFC0     Set the service signal subclass bit in CR0
+         SPACE 1
+         OI    SPIFSTS,SPIFLINI  Indicate that low-level interface initialized
+         LRCXIT ,             Return to caller
+         DROP  1
+         SPACE 3
+*
+* CONSINIT - High-level console initialization routine
+*
+         USING SPIFCB,1    Address of SPIFCB as supplied by caller
+CONSINIT LRCNTR SPIFG13
+         TM    SPIFSTS,SPIFLINI    Is the low-level interface enabled?
+         JO    CONSIENA            ..Yes, proceed to initialize the console
+         PDIE  X'207'              ..No, DIE here.
+         SPACE 1
+CONSIENA DS    0H    Low-level interface enabled proceed with console init
+         LG    3,SPIFSSCB  Locate the SCCB
+         USING SCCB,3      Tell assembler how to address the SCCB
+         SPACE 1
+*
+* Clear SCCB for use
+         LGR   4,3         Locate the start of the SCCB
+         LGHI  5,4096      Set the SCCB destination length to 4,096 bytes
+         SGR   6,6         Set the source address to zero
+         LGR   7,6         Set the soruce length and pad byte to zero
+         MVCL  4,6         "Pad" all 4,096 bytes of the SCCB with zeros
+* Following the clearing of the SCCB:
+*    R4 == SCCB+4096
+*    R5, R6 and R7 == 0
+         SPACE 1
+*
+* Prepare SCCB for the event mask write command
+         MVC   SCCBMSKL,CONSIML    Set the event mask length in the buffer
+         TM    SPIFCMOD,SPIFCMRD   Need Read Events enabled?
+         JZ    CONSIEWM            ..No, leave Read Event mask zeros
+         MVC   SCCBCPRD,CONSIEMK   ..Yes, enable read events in buffer
+         SPACE 1
+CONSIEWM DS    0H   Determine whether write events are to be enabled
+         TM    SPIFCMOD,SPIFCMWR   Need Write Events enabled?
+         JZ    CONSIHDR            ..No, leave Write Event mask zeros
+         MVC   SCCBCPWR,CONSIEMK   ..Yes, enable write events in buffer
+         SPACE 1
+CONSIHDR DS    0H   Set fields in the Event Mask Write SCCB
+         MVC   SCCBLEN,CONSIWLN    Set the SCCB length including the buffer
+         MVI   SCCBFLG,SCCBACF     Indicate this is an ASCII Console function
+         SPACE 1
+*
+* Send write event mask request to the Service Processor
+         LGFI  2,SPIFWECM    Set the SERVC Write Event Command in R2
+         LA    13,SPIFHLSA   Set the save area address for SPIFCALL routine
+         LG    15,SPIFLLRA   Set the SPIFCALL routine entry address
+         LRCALL ,            Pass request to the service processor
+         SPACE 1
+*
+* Analyze result from the service processor
+         CLC   SCCBRESN(2),CONSISUC  Did the write event mask succeed?
+         JE    CONSIOK
+         PDIE  X'202'    Console initialization failed
+         SPACE 1
+CONSIOK  DS    0H    The ASCII console is initialized
+         OI    SPIFSTS,SPIFCINI    The console interface mode initialized
+         DROP  3    Forget SCCB Addressing
+         SPACE 1
+*
+* Return to caller
+         LRCXIT SPIFG13
+         DROP  1    Forget SPIFCB Addressing
+*
+* CONSINIT specific data
+CONSIEMK DC    A(SCCBYIEV)    CP Event mask enabled
+CONSIML  DC    H'4'           Event Mask Length
+CONSIWLN DC    Y(SCCBWEML)    SCCB length including Write Event Mask buffer
+CONSISUC DC    XL2'0020'      Successful operation
+         SPACE 3
+* CONSREAD - High-level service processor interface routine
+
+* TO BE DEVELOPED
+CONSREAD DS    0H
+         SPACE 3
+*
+* CONSWRIT - Send message to the ASCII console
+*
+         USING SPIFCB,1    Address of SPIFCB as supplied by caller
+CONSWRIT LRCNTR SPIFG13
+         TM    SPIFCMOD,SPIFCMWR   Is the console enabled for write events
+         JO    CONSWENA            ..Yes, do the write then
+         PDIE  X'206'              ..No, DIE here.
+CONSWENA DS    0H   Console enabled for writes, so proceed
+         LG    3,SPIFSSCB  Locate the SCCB
+         USING SCCB,3      Tell assembler how to address the SCCB
+* R4 points to input/output area
+         CLC   0(2,4),SPIFMCB   ..Is the console message too big
+         JNH   CONSWLOK         ..No, can proceed to send the message
+         PDIE  X'208'           ..Yes, can not send message.  DIE here.
+         SPACE 1
+CONSWLOK DS    0H
+         LGR   8,4         Preserve input/output area addess during clearing
+*
+* Clear SCCB for use
+         LGR   4,3         Locate the start of the SCCB
+         LGHI  5,4096      Set the SCCB destination length to 4,096 bytes
+         SGR   6,6         Set the source address to zero
+         LGR   7,6         Set the soruce length and pad byte to zero
+         MVCL  4,6         "Pad" all 4,096 bytes of the SCCB with zeros
+* Following the clearing of the SCCB:
+*    R4 == SCCB+4096
+*    R5, R6 and R7 == 0
+*    R8 == the input/output area address
+         LGH   9,0(,8)      Fetch the message length being moved for later use
+         SPACE 1
+*
+* Move console message to SCCB
+         LA    6,2(,8)  Point to the message text following the length as source
+         LA    4,SCCBEBUF  Point to the write event data buffer as destination
+         LGR   5,9         Set the source length to the message length
+         LGR   7,9         Set the destination length to the message length
+         MVCL  4,6         Now move the console message to the SCCB.
+         SPACE 1
+*
+* Complete the set up of the write event header
+*   R9 contains the message length as set prior to the message move
+         AGHI  9,SCCBEDL   Calculate the entire write header length with msg.
+         STH   9,SCCBELEN  Set the write header length in the SCCB
+         MVI   SCCBETYP,SCCBEACN   Indicate this is a console event
+         SPACE 1
+*
+* Complete the set up of the SCCB with its header
+         AGHI  9,SCCBHDRL  Calculate the entire SCCB content length
+         STH   9,SCCBLEN   Set the length of the entire SCCB being used
+*                          Leave the SCCB funtion as X'00' for a normal write
+* The entire SCCB is now ready for shipping to the service processor
+         SPACE 1
+*
+* Ship console message to the service processor console
+         LGFI  2,SPIFCWCM    Set the SERVC Write Event Command in R2
+         LA    13,SPIFHLSA   Set the save area address for SPIFCALL routine
+         LG    15,SPIFLLRA   Set the SPIFCALL routine entry address
+*         PDIE  X'20A'    Inspect everything before sending....
+         LRCALL ,            Pass request to the service processor
+         SPACE 1
+*
+* Analyze result of the write event request
+         CLC   SCCBRESN(2),CONSWSUC   Did the write console message succeed?
+         JE    CONSWOK                ..Yes, just return to caller
+         LLGH  10,SCCBRESN            ..No, make response code visible in reg.
+         PDIE  X'209'  DIE Here.
+         SPACE 1
+CONSWOK  DS    0H   Console message sent
+         DROP  3
+         LRCXIT SPIFG13
+         DROP  1    Forget SPIFCB Addressing
+         SPACE 1
+*
+* CONSWRIT specific data
+CONSWSUC DC    X'0020'       Console event successful reason code and response
+.*       SPACE 3
+.* High level routine for accessing SCP information would go here
+         SPACE 3
+*
+* SPIFCALL - Low-level service processor interface routine
+*
+* SERVC Commands:
+SPIFCWCM EQU   X'00760005'   Console Write Event command
+SPIFWECM EQU   X'00780005'   Write Event Mask command
+         SPACE 1
+         USING SPIFCB,1    Address of SPIFCB as supplied by the caller
+         USING SCCB,3      Address the SCCB as supplied by the caller
+SPIFCALL LRCNTR
+* SERVC command supplied by the caller in R3
+         SERVC 2,3         Present SCCB to the service processor
+         BRC   B'1000',SPIFCK    ..CC=0, request accepted
+         BRC   B'0100',SPIFOK    ..CC=1, immediate response, just return
+         BRC   B'0010',SPIFBSY   ..CC=2, service processor is busy
+         PDIE  X'204'            ..CC=3, service processor unavailable
+SPIFBSY  PDIE  X'203'            Service Processor is busy
+         SPACE 1
+*
+* Wait for service processor response if delayed.
+SPIFCK   DS    0H
+         OC    SCCBRESN(2),SCCBRESN   Did the SP provide a response code?
+         JNZ   SPIFOK                 ..Yes, not delayed, return to caller
+         SPACE 1
+*
+* Wait for service-signal external interruption
+         MVC   SPIFOEP,ZEXTNPSW       Save the current External New PSW
+         MVC   ZEXTNPSW,SPIFNEP       Set up the return to this routine
+         LPSWE SPIFCWAT               Wait for the external interruption
+SPIFCONT MVC   ZEXTNPSW,SPIFOEP       Restore saved external new PSW
+         OC    SCCBRESN(2),SCCBRESN   Did the SP provide a response code?
+         JNZ   SPIFOK                 ..Yes, delayed response received
+         PDIE  X'205'                 ..No, delayed response missing result
+         SPACE 1
+SPIFOK   DS    0H    Response from service processor is available, return
+         DROP  3     Forget SCCB location
+         LRCXIT ,    Return to calling high-level interface routine
+         DROP  1     Forget SPIFCB location
+         SPACE 1
+*
+* SPIFCALL specific data
+SPIFCWAT PSWZ  1,0,2,0,0,64   Wait for external interruption
+SPIFOEP  DC    XL16'00'   Save area for current external interruption New PSW
+SPIFNEP  PSWZ  0,0,2,0,SPIFCONT,64   New PSW to continute processing
+         SPACE 1
+.*
+.* End of service processor routines
+         MEXIT
+.*
+.* Generate the SPIFCB and SCCB DSECT's
+.DODS    ANOP
+* Service Processor Interface Control Block
+SPIFCB   DSECT
+SPIFEYE  DS    CL4   Memory eye-catcher EBCDIC 'SPIF'
+         SPACE 1
+SPIFSTS  DS    XL1   SPIF status flags
+SPIFLINI EQU   X'80' SPIFINIT has initialized the SPIF low-level interface
+SPIFCINI EQU   X'40' CONSINIT has initialized the console mode
+         SPACE 1
+SPIFRSV1 DS    XL2   reserved field
+SPIFCMOD DS    XL1   Requested console mode by the CONSINIT macro
+SPIFCMRD EQU   X'80' Read events requested.
+SPIFCMWR EQU   X'40' Write events requested.
+SPIFCMRW EQU   SPIFCMRD+SPIFCMWR   X'C0' == Read/Write mode
+SPICFMWO EQU   SPIFCMWR            X'40' == Write-Only mode
+         SPACE 1
+SPIFSSCB DS    AD    Address of the SCCB structure (set by SPIFINIT)
+SPIFLLRA DS    AD    Address of the SPIF low-level routine entry
+SPIFHLIA DS    AD    Address of the SPIF high-level SPIFINIT routine entry
+SPIFHLCI DS    AD    Address of the SPIF high-level CONSINIT routine entry
+SPIFHLCR DS    AD    Address of the SPIF hihg-level CONSREAD routine entry
+SPIFHLCW DS    AD    Address of the SPIF hihg-level CONSWRIT routine entry
+SPIFRSV2 DS    AD    reserved field
+SPIFPGSA DS    18FD  Program save area when high-level routine is called
+SPIFHLSA DS    18FD  High-level save area when low-level routine is called
+SPIFPMSK DS    FD    Mask for start of 4,096-byte page
+SPIFC0   DS    FD    Control register 0 work area
+SPIFG13  DS    FD    General register 13 preservation area for high-level rtns.
+SPIFIOA  DS    AD    Console message I/O area address
+SPIFIOL  DS    F     Console message I/O area length
+SPIFMCB  DS    Y     Maximum console message length
+         SPACE 1
+* These two fields contain the program's source and destination address and
+* length of Read/Write Events.
+SPIFMEA  DS    AD    Program Read/Write Event message address
+SPIFMEL  DS    F     Program Read/Write Event message length
+         SPACE 3
+SCCB     DSECT Service Call Control Block
+SCCBLEN  DS    HL2   SCCB length including the buffer
+SCCBFLG  DS    XL1   Flag/Function
+SCCBACF  EQU   X'1A'    ASCII Console Function
+SCCBRSV1 DS    HL2   reserved
+SCCBREQ  DS    XL1   Request Type - reserved
+SCCBRESN DS    XL1   Reason Code
+SCCBRSPC DS    XL1   Response Class
+SCCBHDRL EQU   *-SCCB   Length of the SCCB Header in bytes
+         SPACE 1
+SCCBUFR  DS    0XL1  Start of SCCB request data
+         SPACE 1
+* Write Event Mask Data buffer
+SCCBWEM  DS    0XL1  Start of Write Event Mask Buffer
+SCCBRSV2 DS    HL2   reserved
+SCCBMSKL DS    HL2   Mask Length - always X'0004'
+SCCBCPRD DS    FL4   CP Read Mask
+SCCBNIEV EQU   X'00000000'   CP accepts no ASCII console input events
+SCCBYIEV EQU   X'00000040'   CP accepts ASCII console input events
+SCCBCPWR DS    FL4   CP Write Mask
+SCCBNOEV EQU   X'00000000'   CP sends no ASCII console output events
+SCCBYOEV EQU   X'00000040'   CP sends ASCII console output events
+SCCBSPWR DS    FL4   SP Send Mask  - should be the same as CP Read Mask
+SCCBSPRD DS    FL4   SP Write Mask - should be the same as CP Write Mask
+SCCBWEDL EQU   *-SCCBWEM  Length of the Write Event Mask buffer
+SCCBWEML EQU   *-SCCB   Length of SCCB with Write Event Mask Buffer
+         SPACE 1
+         ORG   SCCBUFR
+* Read/Write Event Header
+SCCBRWE  DS    0XL1  Start of the Read/Write Event Header
+SCCBELEN DS    HL2   Length of the event header plus data buffer length
+SCCBETYP DS    XL1   Type of event
+SCCBEACN EQU   X'1A' ASCII Console event
+SCCBEFLG DS    XL1   Event flags - always zero
+SCCBEFSV DS    HL2   reserved - must be zeros
+SCCBEDL  EQU   *-SCCBRWE  Length of the Read/Write Event header
+SCCBEML  EQU   *-SCCB     Length of SCCB with Read/Write Event header
+SCCBEBUF DS    0X    Start of read/write console data buffer
+         SPACE 1
+* End of SCCB page
+         ORG   SCCB+4096    Move to the end of the page
+SCCBEMAX EQU   *-SCCBEBUF   Maximum length of the read/write event data buffer.
+         MEND

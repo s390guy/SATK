@@ -1,0 +1,84 @@
+.* Copyright (C) 2023 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   LRCXIT &CALLRSA,&RC=15
+.* Return from a legacy routine to the routine's caller.
+.* LRCXIT is required by each legacy routine.
+.*
+.* Label Field Usage:
+.*    The &LABEL field associates and assembly label to the LRCXIT macro.
+.*    The &LABEL provides a label that may be used by the routine to branch
+.*    to its LRCXIT macro.
+.*
+.* Positional Parameters:
+.*    &CALLRSA  references the label of a 8-byte field into which the routine
+.*              has saved the routine's caller's save area address passed in
+.*              general register 13.  If omitted, it is assumed that general
+.*              register 13 already contains the caller's save area address
+.*              and restoration of the value is not required.
+.*
+.*              Preservation of general register 13 by a routine is only
+.*              required when the routine itself performs a legacy routine
+.*              call.
+.*
+.*              If omitted, the location used by LRCNTRY for general register
+.*              13 preservation will automatically be used for restoration
+.*              of general register 13's contents as found upon routine entry.
+.*
+.* Keyword Paramters:
+.*    &RC       &RC identifies the register containing the return code returned
+.*              to the routine's caller in the caller's general register 15.
+.*              If omitted, the routine's general register 15 is assumed to
+.*              contain the return code returned to the routine's caller.
+.*
+.*              If &RC=NO is specified, the routine does not return a code
+.*              and there is not change to general register 15 upon return
+.*              to the caller.  General register 15 has the same value upon
+.*              routine return as was passed to the routine by the caller.
+.*
+         GBLB  &LRCRTN    Whether in a routine (1) or not (0).
+         GBLC  &LRCCSAA   Name of field in which GR13 was saved
+         AIF   (&LRCRTN).RTNOK
+         MNOTE 'LRCXIT - MUST FOLLOW LCRNTR MACRO - LCRNTR MISSING - ERROR'
+         MEXIT
+.RTNOK   ANOP
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H
+.NOLBL   ANOP
+         AIF   ('&CALLRSA' EQ '').CKSSA
+         LG    13,&CALLRSA   Restore caller's save area location
+         AGO   .LOADSA
+.CKSSA   ANOP
+         AIF   ('&LRCCSAA' EQ '').LOADSA
+         LG    13,&LRCCSAA   Restore caller's save area location (from LRCALL)
+.LOADSA  ANOP
+.* Assume R13 now contains the address of the caller's save area.
+.* If not explicitly restored, then the assumption is that the routine has
+.* simply not used R13, so has no need to restore it.
+         AIF   ('&RC' EQ 'NO').NORC
+         USING LRCSA64,13    Address the save area
+* Store the return code into the save area before restoring caller's registers
+         STG   &RC,LRCRC     Set return code in save area
+         DROP  13
+.NORC    ANOP
+         LMG   14,12,24(13)  Restore caller's register
+         DROP  12            Forget base register established upon entry
+         BR    14            Return to caller
+.* Now out of the legacy routine
+&LRCRTN  SETB  0
+         MEND

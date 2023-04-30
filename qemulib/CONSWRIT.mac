@@ -1,0 +1,56 @@
+.* Copyright (C) 2023 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   CONSWRIT &IOREG,&SPIF=
+.* CONSWRIT sends to the ASCII console a message from an input/output area.
+.* The input/output area is iniated by a half word containing the unsigned
+.* identified by the
+         GBLB  &ISQEMU      Whether this is a Qemu targeted assembly
+         LCLB  &NEED1       Whether macro needs to load general register 1
+         AIF   (&ISQEMU).QEMUOK
+         MNOTE 1,'CONSWRIT - MUST BE PRECEDED BY THE QEMU MACRO - MISSING'
+         MEXIT
+.QEMUOK  ANOP
+         AIF   ('&SPIF' EQ '').NONEED1
+&NEED1   SETB  1
+.NONEED1 ANOP
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H
+         AGO   .LOAD1
+.NOLBL   ANOP
+.*
+.* Load register 1 if needed
+.LOAD1   ANOP
+         AIF   (NOT &NEED1).R1_OK
+         LARL  1,&SPIF     Locate the SPIF macro containing the SPIFCB
+.R1_OK   ANOP
+         USING SPIFCB,1
+         AIF   ('&IOREG' EQ '').NOIOLOD
+         AIF   ('&IOREG' EQ '4' OR '&IOREG' EQ 'R4').NOIOLOD
+.* This addressability remains in effect following the macro.  The program
+.* can DROP 1 or not as the needs of the program dictate.
+.*
+         LGR   4,&IOREG      Locate the input/output area
+.NOIOLOD ANOP
+.*
+.* Call the CONSWRIT routine
+         LA    13,SPIFPGSA   Set the save area address for CONSWRIT routine
+         LG    15,SPIFHLCW   Fetch the routine address from the SPIFCB
+         LRCALL ,            Call the SPIF high-level routine
+         MEND
+         

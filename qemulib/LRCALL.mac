@@ -1,0 +1,58 @@
+.* Copyright (C) 2023 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   LRCALL &RTN=,&SA=
+.* LRCALL performs a legacy routine call using 64-bit registers
+.*
+.* Label Field Usage:
+.*   &LABEL is used to associate an assembler label with the legacy routine
+.*   call performed by this use of the LRCALL macro.  &LABEL is optional.
+.*
+.* Keywords:
+.*   &RTN   The label associated with the LRCNTRY macro of the called routine
+.*          If omitted, the caller must load GR15 with the address of the
+.*          routine being called before invoking LRCALL.
+.*   &SA    The label assoicated with this caller's register save area.
+.*          If omitted, the caller must load GR13 with the address of the
+.*          caller's register save area before invoking LRCALL.
+.*
+.* 64-bit general register usage:
+.*   13     Address of this routine's save area
+.*   14     Return address to this caller from the called routine.
+.*   15     Called routine's entry address and routine local base address
+.*          Upon return, contains the called routine's return code
+.*
+         GBLB  &QEMUD20        Whether 20-bit displacements used
+         LCLC  &LA             LOAD ADDRESS mnemonic
+         AIF   (&QEMUD20).LAY
+&LA      SETC  'LA'
+         AGO   .LASET
+.LAY     ANOP
+&LA      SETC  'LAY'
+.LASET   ANOP
+         AIF   ('&LABEL' EQ '').NOLBL
+&LABEL   DS    0H
+.NOLBL   ANOP
+         AIF   ('&SA' EQ '').NOSA
+         &LA   13,&SA    Establish Legacy Caller's save area location
+.NOSA    ANOP
+         AIF   ('&RTN' EQ '').NORTN
+         &LA   15,&RTN   Establish Legacy Call Routine entry point (and base)
+.NORTN   ANOP
+         BASR  14,15      Call Legacy Routine
+         MEND

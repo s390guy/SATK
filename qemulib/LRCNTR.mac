@@ -1,0 +1,77 @@
+.* Copyright (C) 2023 Harold Grovesteen
+.*
+.* This file is part of SATK.
+.*
+.*     SATK is free software: you can redistribute it and/or modify
+.*     it under the terms of the GNU General Public License as published by
+.*     the Free Software Foundation, either version 3 of the License, or
+.*     (at your option) any later version.
+.*
+.*     SATK is distributed in the hope that it will be useful,
+.*     but WITHOUT ANY WARRANTY; without even the implied warranty of
+.*     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.*     GNU General Public License for more details.
+.*
+.*     You should have received a copy of the GNU General Public License
+.*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
+
+         MACRO
+&LABEL   LRCNTR &CALLRSA
+.* LRCNTR defines the start of a legacy routine called using the LRCALL macro.
+.* The macro can automatically preserve the location of the caller's register
+.* save area when requested to do so.
+.*
+.* Label Field Usage:
+.*   &LABEL establishes an assembly label used by the LRCNTR macro when this
+.*   routine is called.  The label is required.
+.*
+.* Positional Parameters:
+.*   &CALLRSA  The label associated with an 8-byte field into which the
+.*             caller's general register 13 is preserved.  When used, LRCXIT
+.*             will automatically restore the general register 13 to the 
+.*             value stored by the presence of &CALLRSA.  If omitted, the
+.*             routine must not itself call a legacy routine or it must itself
+.*             preserve the caller's general register 13 and ensure it is
+.*             restored either prior to or by use of the LRCXIT &CALLSA
+.*             positional parameter.
+.*
+.* Keyword Parameters: None
+.*
+.* General Register Usage upon routine entry (at the start of LRCNTR):
+.*   13   The caller's register save area.  Must be preserved if the called
+.*        routine itself call's a legacy routine.
+.*   14   Caller's return address. 
+.*   15   The entry adddress of this called routine
+.*
+.* General Register Usage within the routine body (after LRCNTR):
+.*   12   The base address used by routine.  Transferred from the caller's
+.*        general register 15.
+.*   13   The caller's register save area.  Must be preserved if the called
+.*        routine itself call's a legacy routine.  Available if &CALLRSA 
+.*        is used on the LRCNTR macro or when saved by the this called routine.
+.*   14   Caller's return address. 
+.*   15   This routine's return code.  Initialized to zero
+.*
+         GBLB  &LRCRTN    Whether in a routine (1) or not (0).
+         GBLC  &LRCCSAA   Name of field in which GR13 was saved
+         AIF   (NOT &LRCRTN).RTNOK
+         MNOTE 1,'LRCNTR - NOT VALID WITHIN A LEGACY ROUTINE - ERROR'
+         MEXIT
+.RTNOK   ANOP
+         AIF   ('&LABEL' NE '').LBLOK
+         MNOTE 1,'LRCNTR - LABEL FIELD REQUIRED - ERROR'
+         MEXIT
+.LBLOK   ANOP
+&LRCCSAA SETC  ''
+&LABEL   DS    0H
+         STMG  14,12,24(13)     Save caller's registers
+         LGR   12,15            Set my own base register
+         SGR   15,15            Set my return code to zero as default
+         USING &LABEL,12        Tell the assembler
+         AIF   ('&CALLRSA' EQ '').NOSASAV
+         STG   13,&CALLRSA      Save address of caller's save area for return
+&LRCCSAA SETC  '&CALLRSA'       Remember for LRCXIT
+.NOSASAV ANOP
+.* Must have a LRCXIT before another LRCNTR is allowed
+&LRCRTN  SETB  1
+         MEND
