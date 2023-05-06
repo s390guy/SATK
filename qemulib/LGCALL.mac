@@ -16,20 +16,20 @@
 .*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
          MACRO
-&LABEL   LRCALL &RTN=,&SA=
-.* LRCALL performs a legacy routine call using 64-bit registers
+&LABEL   LGCALL &RTN=,&SA=
+.* LGCALL performs a legacy routine call using 64-bit registers
 .*
 .* Label Field Usage:
 .*   &LABEL is used to associate an assembler label with the legacy routine
-.*   call performed by this use of the LRCALL macro.  &LABEL is optional.
+.*   call performed by this use of the LGCALL macro.  &LABEL is optional.
 .*
 .* Keywords:
 .*   &RTN   The label associated with the LRCNTRY macro of the called routine
 .*          If omitted, the caller must load GR15 with the address of the
-.*          routine being called before invoking LRCALL.
+.*          routine being called before invoking LGCALL.
 .*   &SA    The label assoicated with this caller's register save area.
 .*          If omitted, the caller must load GR13 with the address of the
-.*          caller's register save area before invoking LRCALL.
+.*          caller's register save area before invoking LGCALL.
 .*
 .* 64-bit general register usage:
 .*   13     Address of this routine's save area

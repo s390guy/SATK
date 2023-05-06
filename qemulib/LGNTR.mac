@@ -16,13 +16,13 @@
 .*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
          MACRO
-&LABEL   LRCNTR &CALLRSA
-.* LRCNTR defines the start of a legacy routine called using the LRCALL macro.
+&LABEL   LGNTR &CALLRSA
+.* LGNTR defines the start of a legacy routine called using the LRCALL macro.
 .* The macro can automatically preserve the location of the caller's register
 .* save area when requested to do so.
 .*
 .* Label Field Usage:
-.*   &LABEL establishes an assembly label used by the LRCNTR macro when this
+.*   &LABEL establishes an assembly label used by the LGNTR macro when this
 .*   routine is called.  The label is required.
 .*
 .* Positional Parameters:
@@ -37,29 +37,29 @@
 .*
 .* Keyword Parameters: None
 .*
-.* General Register Usage upon routine entry (at the start of LRCNTR):
+.* General Register Usage upon routine entry (at the start of LGNTR):
 .*   13   The caller's register save area.  Must be preserved if the called
 .*        routine itself call's a legacy routine.
 .*   14   Caller's return address. 
 .*   15   The entry adddress of this called routine
 .*
-.* General Register Usage within the routine body (after LRCNTR):
+.* General Register Usage within the routine body (after LGNTR):
 .*   12   The base address used by routine.  Transferred from the caller's
 .*        general register 15.
 .*   13   The caller's register save area.  Must be preserved if the called
 .*        routine itself call's a legacy routine.  Available if &CALLRSA 
-.*        is used on the LRCNTR macro or when saved by the this called routine.
+.*        is used on the LGNTR macro or when saved by the this called routine.
 .*   14   Caller's return address. 
 .*   15   This routine's return code.  Initialized to zero
 .*
          GBLB  &LRCRTN    Whether in a routine (1) or not (0).
          GBLC  &LRCCSAA   Name of field in which GR13 was saved
          AIF   (NOT &LRCRTN).RTNOK
-         MNOTE 1,'LRCNTR - NOT VALID WITHIN A LEGACY ROUTINE - ERROR'
+         MNOTE 1,'LGNTR - NOT VALID WITHIN A LEGACY ROUTINE - ERROR'
          MEXIT
 .RTNOK   ANOP
          AIF   ('&LABEL' NE '').LBLOK
-         MNOTE 1,'LRCNTR - LABEL FIELD REQUIRED - ERROR'
+         MNOTE 1,'LGNTR - LABEL FIELD REQUIRED - ERROR'
          MEXIT
 .LBLOK   ANOP
 &LRCCSAA SETC  ''
@@ -70,8 +70,8 @@
          USING &LABEL,12        Tell the assembler
          AIF   ('&CALLRSA' EQ '').NOSASAV
          STG   13,&CALLRSA      Save address of caller's save area for return
-&LRCCSAA SETC  '&CALLRSA'       Remember for LRCXIT
+&LRCCSAA SETC  '&CALLRSA'       Remember for LGXIT
 .NOSASAV ANOP
-.* Must have a LRCXIT before another LRCNTR is allowed
+.* Must have a LGXIT before another LGNTR is allowed
 &LRCRTN  SETB  1
          MEND

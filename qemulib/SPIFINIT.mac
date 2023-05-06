@@ -75,5 +75,5 @@
 .* Call the SPIFINIT routine
          LA    13,SPIFPGSA   Set the save area address for SPIFINIT routine
          LG    15,SPIFHLIA   Fetch the routine address from the SPIFCB
-         LRCALL ,            Call the SPIF high-level routine
+         LGCALL ,            Call the SPIF high-level routine
          MEND

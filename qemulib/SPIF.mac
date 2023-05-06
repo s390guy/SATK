@@ -59,7 +59,7 @@
 * SPIFINIT - High-level service processor interface routine
 *
          USING SPIFCB,1    Address of SPIFCB as supplied by caller
-SPIFINIT LRCNTR
+SPIFINIT LGNTR
 .* Use of general register 13 prohibited and this routine may not make a call
 .* to another routine.
          AGHI  3,4095      Move up in memory by a page length minus 1
@@ -75,14 +75,14 @@ SPIFIS3  STG   3,SPIFSSCB  Remember where the SCCB is for future routine calls.
          LCTLG 0,0,SPIFC0     Set the service signal subclass bit in CR0
          SPACE 1
          OI    SPIFSTS,SPIFLINI  Indicate that low-level interface initialized
-         LRCXIT ,             Return to caller
+         LGXIT ,             Return to caller
          DROP  1
          SPACE 3
 *
 * CONSINIT - High-level console initialization routine
 *
          USING SPIFCB,1    Address of SPIFCB as supplied by caller
-CONSINIT LRCNTR SPIFG13
+CONSINIT LGNTR SPIFG13
          TM    SPIFSTS,SPIFLINI    Is the low-level interface enabled?
          JO    CONSIENA            ..Yes, proceed to initialize the console
          PDIE  X'207'              ..No, DIE here.
@@ -123,7 +123,7 @@ CONSIHDR DS    0H   Set fields in the Event Mask Write SCCB
          LGFI  2,SPIFWECM    Set the SERVC Write Event Command in R2
          LA    13,SPIFHLSA   Set the save area address for SPIFCALL routine
          LG    15,SPIFLLRA   Set the SPIFCALL routine entry address
-         LRCALL ,            Pass request to the service processor
+         LGCALL ,            Pass request to the service processor
          SPACE 1
 *
 * Analyze result from the service processor
@@ -137,7 +137,7 @@ CONSIOK  DS    0H    The ASCII console is initialized
          SPACE 1
 *
 * Return to caller
-         LRCXIT SPIFG13
+         LGXIT SPIFG13
          DROP  1    Forget SPIFCB Addressing
 *
 * CONSINIT specific data
@@ -155,7 +155,7 @@ CONSREAD DS    0H
 * CONSWRIT - Send message to the ASCII console
 *
          USING SPIFCB,1    Address of SPIFCB as supplied by caller
-CONSWRIT LRCNTR SPIFG13
+CONSWRIT LGNTR SPIFG13
          TM    SPIFCMOD,SPIFCMWR   Is the console enabled for write events
          JO    CONSWENA            ..Yes, do the write then
          PDIE  X'206'              ..No, DIE here.
@@ -210,7 +210,7 @@ CONSWLOK DS    0H
          LA    13,SPIFHLSA   Set the save area address for SPIFCALL routine
          LG    15,SPIFLLRA   Set the SPIFCALL routine entry address
 *         PDIE  X'20A'    Inspect everything before sending....
-         LRCALL ,            Pass request to the service processor
+         LGCALL ,            Pass request to the service processor
          SPACE 1
 *
 * Analyze result of the write event request
@@ -221,7 +221,7 @@ CONSWLOK DS    0H
          SPACE 1
 CONSWOK  DS    0H   Console message sent
          DROP  3
-         LRCXIT SPIFG13
+         LGXIT SPIFG13
          DROP  1    Forget SPIFCB Addressing
          SPACE 1
 *
@@ -239,7 +239,7 @@ SPIFWECM EQU   X'00780005'   Write Event Mask command
          SPACE 1
          USING SPIFCB,1    Address of SPIFCB as supplied by the caller
          USING SCCB,3      Address the SCCB as supplied by the caller
-SPIFCALL LRCNTR
+SPIFCALL LGNTR
 * SERVC command supplied by the caller in R3
          SERVC 2,3         Present SCCB to the service processor
          BRC   B'1000',SPIFCK    ..CC=0, request accepted
@@ -266,7 +266,7 @@ SPIFCONT MVC   ZEXTNPSW,SPIFOEP       Restore saved external new PSW
          SPACE 1
 SPIFOK   DS    0H    Response from service processor is available, return
          DROP  3     Forget SCCB location
-         LRCXIT ,    Return to calling high-level interface routine
+         LGXIT ,    Return to calling high-level interface routine
          DROP  1     Forget SPIFCB location
          SPACE 1
 *

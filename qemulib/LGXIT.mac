@@ -16,14 +16,14 @@
 .*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
          MACRO
-&LABEL   LRCXIT &CALLRSA,&RC=15
+&LABEL   LGXIT &CALLRSA,&RC=15
 .* Return from a legacy routine to the routine's caller.
-.* LRCXIT is required by each legacy routine.
+.* LGXIT is required by each legacy routine.
 .*
 .* Label Field Usage:
-.*    The &LABEL field associates and assembly label to the LRCXIT macro.
+.*    The &LABEL field associates and assembly label to the LGXIT macro.
 .*    The &LABEL provides a label that may be used by the routine to branch
-.*    to its LRCXIT macro.
+.*    to its LGXIT macro.
 .*
 .* Positional Parameters:
 .*    &CALLRSA  references the label of a 8-byte field into which the routine
@@ -54,7 +54,7 @@
          GBLB  &LRCRTN    Whether in a routine (1) or not (0).
          GBLC  &LRCCSAA   Name of field in which GR13 was saved
          AIF   (&LRCRTN).RTNOK
-         MNOTE 'LRCXIT - MUST FOLLOW LCRNTR MACRO - LCRNTR MISSING - ERROR'
+         MNOTE 'LGXIT - MUST FOLLOW LCRNTR MACRO - LCRNTR MISSING - ERROR'
          MEXIT
 .RTNOK   ANOP
          AIF   ('&LABEL' EQ '').NOLBL
@@ -71,9 +71,9 @@
 .* If not explicitly restored, then the assumption is that the routine has
 .* simply not used R13, so has no need to restore it.
          AIF   ('&RC' EQ 'NO').NORC
-         USING LRCSA64,13    Address the save area
+         USING LGSA,13       Address the save area
 * Store the return code into the save area before restoring caller's registers
-         STG   &RC,LRCRC     Set return code in save area
+         STG   &RC,LGRC      Set return code in save area
          DROP  13
 .NORC    ANOP
          LMG   14,12,24(13)  Restore caller's register

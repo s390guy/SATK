@@ -78,5 +78,5 @@
 .* Call the CONSINIT routine
          LA    13,SPIFPGSA   Set the save area address for CONSINIT routine
          LG    15,SPIFHLCI   Fetch the routine address from the SPIFCB
-         LRCALL ,            Call the SPIF high-level routine
+         LGCALL ,            Call the SPIF high-level routine
          MEND

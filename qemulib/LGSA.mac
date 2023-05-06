@@ -16,8 +16,8 @@
 .*     along with SATK.  If not, see <http://www.gnu.org/licenses/>.
 
          MACRO
-&LABEL   LRCSA &DSECT=NO
-.* LRCSA generates a 64-bit legacy routine call register save area or
+&LABEL   LGSA &DSECT=NO
+.* LGSA generates a 64-bit legacy routine call register save area or
 .* defines its structure for program access.
 .*
 .* &LABEL field usage:
@@ -26,14 +26,14 @@
 .*   When &DSECT=YES is specified the &LABEL field is ignored.
 .*
 .* Keywords:
-.*     &DSECT   When 'YES' is specified the LRCSA64 DSECT desribing the
+.*     &DSECT   When 'YES' is specified the LGSA DSECT desribing the
 .*              64-bit register structure is created.  If 'NO' or &DSECT
 .*              is omitted, a 64-bit register save area is created for use
 .*              with the LRCALL macro &SA keyword parameter.
 .*
          AIF   ('&DSECT' EQ 'YES').DSECT
          AIF   ('&DSECT' EQ 'NO').DSECTOK
-         MNOTE 1,'LRCSA - DSECT PARAMETER INVALID - ''&DSECT'''
+         MNOTE 1,'LGSA - DSECT PARAMETER INVALID - ''&DSECT'''
          MEXIT
 .DSECTOK ANOP
 .* Generates a legacy routine call save area for 64-bit registers
@@ -41,27 +41,27 @@
          MEXIT
 .DSECT   ANOP
 * 64-bit Legacy Routine Call Save Area - As seen by called routine
-LRCSA64  DSECT
-LRCRSV   DS    FD  +0   reserved
-LRCBP    DS    FD  +8   Back pointer to calling program's save area
-LRCFP    DS    FD  +16  Forward pointer to called subroutine's save area
-LCR14    DS    0FD +24  Caller's R14
-LRETN    DS    FD  +24  R14 - Calling program's return address (from LRCALL)
-LCR15    DS    0FD +32  Caller's R15
-LRCRC    DS    0FD +32  Upon LRCXIT, contains a return code to the caller
-LRCNTRY  DS    FD  +32  R15 - Called subroutine's entry point (from LRCNTR)
-LCR0     DS    FD  +40  Caller's R0
-LCR1     DS    FD  +48  Caller's R1 - called routine's parameter
-LCR2     DS    FD  +56  Caller's R2
-LCR3     DS    FD  +64  Caller's R3
-LCR4     DS    FD  +72  Caller's R4
-LCR5     DS    FD  +80  Caller's R5
-LCR6     DS    FD  +88  Caller's R6
-LCR7     DS    FD  +96  Caller's R7
-LCR8     DS    FD  +104 Caller's R8
+LGSA     DSECT
+LGRSV    DS    FD  +0   reserved
+LGBP     DS    FD  +8   Back pointer to calling program's save area
+LGFP     DS    FD  +16  Forward pointer to called subroutine's save area
+LGR14    DS    0FD +24  Caller's R14
+LGRTN    DS    FD  +24  R14 - Calling program's return address (from LGCALL)
+LGR15    DS    0FD +32  Caller's R15
+LGRC     DS    0FD +32  Upon LGXIT, contains a return code to the caller
+LGNTRY   DS    FD  +32  R15 - Called subroutine's entry point (from LGNTR)
+LGR0     DS    FD  +40  Caller's R0
+LGR1     DS    FD  +48  Caller's R1 - called routine's parameter
+LGR2     DS    FD  +56  Caller's R2
+LGR3     DS    FD  +64  Caller's R3
+LGR4     DS    FD  +72  Caller's R4
+LGR5     DS    FD  +80  Caller's R5
+LGR6     DS    FD  +88  Caller's R6
+LGR7     DS    FD  +96  Caller's R7
+LGR8     DS    FD  +104 Caller's R8
 LCR9     DS    FD  +112 Caller's R9
-LCR10    DS    FD  +120 Caller's R10
-LCR11    DS    FD  +128 Caller's R11
-LCR12    DS    FD  +136 Caller's R12
-LCRSALEN EQU   *-LRCSA64   Length of the Legacy Routine Call 64-bit save area
+LGR10    DS    FD  +120 Caller's R10
+LGR11    DS    FD  +128 Caller's R11
+LGR12    DS    FD  +136 Caller's R12
+LGSALEN  EQU   *-LGSA   Length of the Legacy Routine Call 64-bit save area
          MEND
