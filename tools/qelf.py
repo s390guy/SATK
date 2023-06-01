@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2022 Harold Grovesteen
+# Copyright (C) 2022-2023 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -28,7 +28,7 @@
 # target.
 
 this_module="qelf.py"
-copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2022")
+copyright="%s Copyright (C) %s Harold Grovesteen" % (this_module,"2022-2023")
 
 # Python imports
 import argparse     # Access command-line parser
@@ -819,12 +819,13 @@ class RegnMgr:
                     ldido.access()   # Read all regions in the LDID
                 except ValueError as ve:
                     # Could not read the control file
-                    self.qelfo.error("ERROR: %s" % ve,error=True)
-                    self.errors+=1
+                    print("ERROR: %s" % ve)
+                    # Can not go on if the LDID can not be opened
+                    sys.exit(1)
                     continue
                 except ldidlib.LDIPLError as le:
                     # Could not read a region core image file
-                    self.qelfo.error("ERROR: %s" % le,error=True)
+                    self.qelfo.cb_error("ERROR: %s" % le,error=True)
                     self.errors+=1
                     continue
                 # If errors encountered reading the LDID, the errors are
@@ -1211,6 +1212,8 @@ class QELF:
 
         # Create region manager from the command-line
         self.rgnmgr=RegnMgr(self.inputo,self)
+        # Note: If RegnMgr can not read the LDID, it will terminate the program
+            
         # Gather ELF content into a CONTENT object
         self.content=self.rgnmgr.content()
         if self.verbose:
