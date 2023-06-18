@@ -1084,7 +1084,7 @@ class DCDS_Operand(asmbase.AsmFSMScope):
         if self.dc and len(self._values)==0:
             raise assembler.AssemblerError(line=stmt.lineno,\
                 linepos=self._typ_tok.linepos,\
-                    msg="constant operand %s requires a nominal value" % n)
+                    msg="constant operand requires a nominal value")
 
         # Unroll the nominal values per duplication factor
         nominal_values=[]
