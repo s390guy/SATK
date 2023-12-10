@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014-2017 Harold Grovesteen
+# Copyright (C) 2014-2023 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -1838,10 +1838,12 @@ class MacroLanguage(object):
         month="%02d" % now.tm_mon
         day="%02d" % now.tm_mday
         datc="%s%s%s" % (year,month,day)
+        
+        # Assembly czam option: True or False
+        self._initsysb("&SYSCZAM",self.asm.czam,gbls=g)
 
         # Assembly date: YYYYMMDD
         self._initsys("&SYSDATC",datc,gbls=g)
-
 
         # Assembly date: MM/DD/YY
         date="%s/%s/%s" % (month,day,year[2:4])
@@ -1933,6 +1935,7 @@ class MacroLanguage(object):
 
     # This initializes system variable symbols and interfaces with the Invoker
     # class to ensure they are presented to each macro when invoked.
+    # This method initializes GBLC variables
     def _initsys(self,symbol,value,gbls=None):
         if gbls:
             g=gbls
@@ -1941,6 +1944,19 @@ class MacroLanguage(object):
         g._initc(symbol,value,ro=True)
         if symbol not in Invoker.gblc:
             Invoker.gblc.append(symbol)
+            
+    # This initializes system variable symbols and interfaces with the Invoker
+    # class to ensure they are presented to each macro when invoked.
+    # This method initializes GBLB variables
+    def _initsysb(self,symbol,value,gbls=None):
+        if gbls:
+            g=gbls
+        else:
+            g=self.gbls
+        g._initb(symbol,value,ro=True)
+        if symbol not in Invoker.gblc:
+            Invoker.gblc.append(symbol)
+    
 
   #
   # MACRO INVOCATION PROCESSING

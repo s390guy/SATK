@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2015-2022 Harold Grovesteen
+# Copyright (C) 2015-2023 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -94,6 +94,11 @@ class asma(config.Tool):
             help="define a global read-only SETC symbolic variable (without the "
                  "leading ampersand) to a value.",\
             cl=True,cfg=True))
+        
+        # Enable CZAM support
+        cfg.arg(config.Enable("czam",full="czam",\
+            help="enable CZAM support for targets s390x or 64.",\
+            cl=True,cfg=True))
 
         # Dump the completed CSECT's, region's and image
         cfg.arg(config.Enable("dump",short="d",full="dump",\
@@ -146,7 +151,7 @@ class asma(config.Tool):
                  "command file is not created.",\
             cl=True,cfg=True))
 
-        # virtual machine STORE ommand file
+        # virtual machine STORE command file
         cfg.arg(config.Option_SV("vmc",short="v",full="vmc",metavar="FILEPATH",\
             help="virtual machine STORE command file with assembled content. If "
                  "omitted, a command file is not created.",\

@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2014-2022 Harold Grovesteen
+# Copyright (C) 2014-2023 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -789,6 +789,7 @@ class Assembler(object):
     #   addr        Size of addresses in this assembly.  Overrides MSL CPU statement
     #   case        Enables case sensitivity for lables, symbolic variables and
     #               sequence symbols.  Defaults to case insensitive.
+    #   czam        Whether CZAM is enabled or not
     #   debug       The global Debug Manager to be used by the instance.  In None
     #               is specified, one will be generated.  Defaults to None.
     #   defines     A list of GBLC/SETC symbol,value tuples.
@@ -822,7 +823,7 @@ class Assembler(object):
     # Path Managers for various input sources:
     #   asmpath     Assembler source COPY directive PathMgr object
     #   maclib      Macro library PathMgr object
-    def __init__(self,machine,msl,mslpath,aout,addr=None,case=False,\
+    def __init__(self,machine,msl,mslpath,aout,addr=None,case=False,czam=False,\
                  debug=None,defines=[],dump=False,eprint=False,error=2,nest=20,\
                  ccw=None,psw=None,ptrace=[],otrace=[],cpfile=None,cptrans="94C",\
                  mcall=False,seq=False,stats=False,asmpath=None,maclib=None):
@@ -854,6 +855,7 @@ class Assembler(object):
         self.ptrace=ptrace          # Passes to be traced
         self.otrace=otrace          # statements to be traced.
         self.case=case              # Specifies if case sensitivity is enabled.
+        self.czam=czam              # Specifies CZAM is enabled.
         self.cpfile=cpfile          # Code page source file (defaults to built-in)
         self.cptrans=cptrans        # Code page translation definition to use
         self.gblc=defines           # GBLC/SETC definitions from driver.
