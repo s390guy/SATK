@@ -125,6 +125,7 @@ class OperMgr(asmbase.ASMOperTable):
                "E370":"PSWE370","PSWE370":"PSWE370",
                "E390":"PSWE390","PSWE390":"PSWE390",
                "Z":"PSWZ","PSWZ":"PSWZ",
+               "ZS":"PSWZS","PSWZS":"PSWZS",
                "none":None,"NONE":None}
 
     def __init__(self,asm,machine,msl,mslpath,debug=False):
@@ -221,6 +222,7 @@ class OperMgr(asmbase.ASMOperTable):
         self.def_dir("PSWE370",  asmstmts.PSWE370,  O="A")
         self.def_dir("PSWE390",  asmstmts.PSWE390,  O="A")
         self.def_dir("PSWZ",     asmstmts.PSWZ,     O="A")
+        self.def_dir("PSWZS",    asmstmts.PSWZS,    O="A")
         self.def_dir("PUSH",     asmstmts.PUSH,     O="A")
         self.def_dir("REGION",   asmstmts.REGION,   O="A")
         self.def_dir("RMODE",    asmstmts.RMODE,    O="A")

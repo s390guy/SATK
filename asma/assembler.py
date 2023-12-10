@@ -1033,6 +1033,7 @@ class Assembler(object):
         asmstmts.PSWE370.structure(builder)
         asmstmts.PSWE390.structure(builder)
         asmstmts.PSWZ.structure(builder)
+        asmstmts.PSWZS.structure(builder)
 
   #
   # QUASI PUBLIC METHODS - METHODS USED BY STATEMENT PROCESSING METHODS

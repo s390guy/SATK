@@ -3947,7 +3947,7 @@ class PSWS(TemplateStmt):
     attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
-    struct=None    # Built by structure staticmethod
+    struct=None    # Built by assembler.__init_templates() method
     template=[asmbase.Single,asmbase.Single,asmbase.Single,asmbase.Single,\
               asmbase.SingleAny,asmbase.Single]
 
@@ -4021,7 +4021,7 @@ class PSW360(TemplateStmt):
     attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
-    struct=None    # Built by structure staticmethod
+    struct=None    # Built by assembler.__init_templates() method
     template=[asmbase.Single,asmbase.Single,asmbase.Single,asmbase.Single,\
               asmbase.SingleAny,asmbase.Single]
 
@@ -4099,7 +4099,7 @@ class PSW67(TemplateStmt):
     attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
-    struct=None    # Built by structure staticmethod
+    struct=None    # Built by assembler.__init_templates() method
     template=[asmbase.Single,asmbase.Single,asmbase.Single,asmbase.Single,\
               asmbase.SingleAny,asmbase.Single]
 
@@ -4192,7 +4192,7 @@ class PSWBC(TemplateStmt):
     attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
-    struct=None    # Built by structure staticmethod
+    struct=None    # Built by assembler.__init_templates() method
     template=[asmbase.Single,asmbase.Single,asmbase.Single,asmbase.Single,\
               asmbase.SingleAny,asmbase.Single]
 
@@ -4270,7 +4270,7 @@ class PSWEC(TemplateStmt):
     attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
-    struct=None    # Built by structure staticmethod
+    struct=None    # Built by assembler.__init_templates() method
     template=[asmbase.Single,asmbase.Single,asmbase.Single,asmbase.Single,\
               asmbase.SingleAny,asmbase.Single]
 
@@ -4358,7 +4358,7 @@ class PSWBi(TemplateStmt):
     attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
-    struct=None    # Built by structure staticmethod
+    struct=None    # Built by assembler.__init_templates() method
     template=[asmbase.Single,asmbase.Single,asmbase.Single,asmbase.Single,\
               asmbase.SingleAny,asmbase.Single]
 
@@ -4529,7 +4529,7 @@ class PSWZ(TemplateStmt):
     attrs=A_OC     # Attributes supported in expression
 
     # Template structure definitions
-    struct=None    # Built by structure staticmethod
+    struct=None    # Built by assembler.__init_templates() method
     template=[asmbase.Single,asmbase.Single,asmbase.Single,asmbase.Single,\
               asmbase.SingleAny,asmbase.Single]
 
@@ -4619,6 +4619,123 @@ class PSWZ(TemplateStmt):
         bytes=PSWZ.struct.build(self,values,trace=trace)
         # Update the statement's binary content with the PSW
         self.content.update(bytes,at=0,full=True,finalize=True,trace=ptrace)
+
+
+# PSWZS Assembler Directive - Oper Type: TPL
+#
+# Create a CZAM z/Architecture (RTM) mode 64-bit PSW
+#
+# sys -> bits 0-7, key -> bits 8-11, mwp -> bits 13-15, prog -> bits 16-23
+# addr -> 33-63, amode -> bits 31,32
+#
+# [label] PSWZS  sys,key,mwp,prog,addr[,amode]
+
+class PSWZS(TemplateStmt):
+    # Statement processing controls
+    typ="TPL"      # Statement type identifier
+    lfld="LQ"      # Valid label field content
+    ofld="L"       # Valid operation field content
+    alt=False      # Whether the alternate statement format is allowed
+    parser="opnd"  # Operand parser used by statement
+    sep=True       # Whether operands are to be separated from the logline
+    spaces=False   # Whether operand field may have spaces outside of quoted strings
+    comma=False    # Whether only a comma forces an end of an operand
+    attrs=A_OC     # Attributes supported in expression
+
+    # Template structure definitions
+    struct=None    # Built by assembler.__init_templates() method
+    template=[asmbase.Single,asmbase.Single,asmbase.Single,asmbase.Single,\
+              asmbase.SingleAny,asmbase.Single]
+
+    amodes={0:0,1:1,3:3,24:0,31:1,64:3}
+
+    #
+    #  PSWZS Template
+    #
+
+    # sys -> bits 0-7, key -> bits 8-12, mwp -> bits 13-15, prog -> bits 16-23
+    # addr -> 33-63, amode -> bits 31,32
+    @classmethod
+    def structure(cls,builder):
+        fields=[insnbldr.Field(value=None,name="PSWZS system field",size=8,start=0),
+                insnbldr.Field(value=None,name="PSWZS key field",size=4,start=8),
+                insnbldr.Field(value=1,name="PSWZS mode field",size=1,start=12),
+                insnbldr.Field(value=None,name="PSWZS MWP field",size=3,start=13),
+                insnbldr.Field(value=None,name="PSWZS program field",size=8,start=16),
+                insnbldr.Field(value=None,name="PSWZS amode field",size=2,start=31),
+                insnbldr.Field(value=None,name="PSWZS address field",size=31,start=33)]
+        cls.struct=Structure("PSWZS",builder,fields)
+
+    def __init__(self,lineno,logline=None):
+        super().__init__(lineno,logline=logline)
+
+    def ck_literals(self):
+        self.ck_for_literals()
+
+    # Returns the value to be used in a trimodal address mode PSW
+    # raises an AssemblerError if an invalid value is supplied.
+    def struct_trimode(self,opn,amode):
+        try:
+            return PSWZS.amodes[amode]
+        except KeyError:
+            raise assembler.AssemblerError(line=self.lineno,\
+                msg="%s operand %s is an invalid trimodal address mode: %s" \
+                    % (self.instu,opn,amode))
+
+    # This method validates that amode is consistent for 24-bit vs 31-bit
+    # or 64-bit address.
+    def struct_trimode_check(self,opn,am,addr):
+        if am == 0 and (addr > 0xFFFFFF):
+            raise assembler.AssemblerError(line=self.lineno,\
+                msg="%s operand %s must be a 24-bit address: %s" \
+                    % (self.instu,opn,hex(addr)))
+        if (am == 1 or am == 3) and (addr > 0x7FFFFFFF):
+            raise assembler.AssemblerError(line=self.lineno,\
+                msg="%s operand %s must be a 31-bit address: %s" \
+                    % (self.instu,opn,hex(addr)))
+
+    #   Pass0 uses TemplateStmt.Pass0() method
+
+    def Pass1(self,asm,debug=False,trace=False):
+        # Create the binary content and assign a label if present in the statement
+        self.new_content(asm,alignment=8,length=8,T="3")
+        asm.cur_loc.increment(self.content)
+
+    def Pass2(self,asm,debug=False,trace=False):
+        ptrace=trace or self.trace
+        edebug=asm.dm.isdebug("exp")
+        etrace=asm.dm.isdebug("tracexp") or ptrace
+
+        self.evaluate_operands(asm,debug=edebug,trace=etrace)
+
+        # Extract operand values after expression evalution
+        sys=self.bin_oprs[0].getValue()
+        key=self.bin_oprs[1].getValue()
+        mwp=self.bin_oprs[2].getValue()
+        prog=self.bin_oprs[3].getValue()
+        addr=self.bin_oprs[4].getValue()
+
+        if len(self.operands)==6:
+            amode=self.bin_oprs[5].getValue()
+        else:
+            amode=3
+
+        # Validate Address - Operand 5
+        pswaddr=self.struct_address(5,addr)
+
+        # Validate Address Mode - Operand 6
+        am=self.struct_trimode(6,amode)
+
+        # Make sure we have a 24-bit address if the address mode is 24 or
+        # we have a 31-bit address if the address mode is 31 or 64.
+        self.struct_trimode_check(5,am,pswaddr)
+
+        # Build the content
+        values=[sys,key,None,mwp,prog,am,pswaddr]
+        bytes=PSWZS.struct.build(self,values,trace=trace)
+        # Update the statement's binary content with the PSW
+        self.content.update(bytes,at=0,full=True,finalize=True,trace=ptrace)
+
 
 # PUSH Assembler Directive - Oper Type: SPP
 #
