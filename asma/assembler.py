@@ -91,7 +91,7 @@
 this_module="assembler.py"
 
 # ASMA version tuple:
-asma_version=(0,2,1)
+asma_version=(0,7,0)
 
 # This method returns a standard identification of an error's location.
 # It is expected to be used like this:
