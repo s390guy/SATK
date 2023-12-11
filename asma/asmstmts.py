@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# Copyright (C) 2015-2022 Harold Grovesteen
+# Copyright (C) 2015-2023 Harold Grovesteen
 #
 # This file is part of SATK.
 #
@@ -4539,7 +4539,7 @@ class PSWZ(TemplateStmt):
     #  PSWZ Template
     #
 
-    # sys -> bits 0-7, key -> bits 8-12, mwp -> bits 13-15, prog -> bits 16-24
+    # sys -> bits 0-7, key -> bits 8-11, mwp -> bits 13-15, prog -> bits 16-23
     # addr -> 64-127, amode -> bits 31,32
     @classmethod
     def structure(cls,builder):

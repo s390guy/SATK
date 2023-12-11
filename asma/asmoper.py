@@ -1,5 +1,5 @@
 #!/usr/bin/python3.3
-# Copyright (C) 2015-2022 Harold Grovesteen
+# Copyright (C) 2015-2023 Harold Grovesteen
 #
 # This file is part of SATK.
 #
