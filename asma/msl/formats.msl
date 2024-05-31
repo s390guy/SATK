@@ -2167,6 +2167,29 @@ format VRRI
     source R1 R1
     source V2 V2
     source M3 M3
+    
+# VRR-i - with M4
+# -----
+#
+#     0     4     8     12    16    20    24    28    32    36    40    44   47
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#     |     OP    | R1  | V2  |0000 |0000 | M3  | M4  |0000 | RXB |    XOP    |
+#     +-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+
+#
+# VRRI1: MNEMONIC R1,V2,M3,M4
+# (VECTOR CONVERT TO DECIMAL)
+format VRRI1
+    length 6
+    xopcode 40 47
+    mach R1 8 11
+    mach V2 12 15
+    mach M3 24 27
+    mach M4 28 31
+    mach RXB 36 39
+    source R1 R1
+    source V2 V2
+    source M3 M3
+    source M4 M4
 
     
 # VRR-j

@@ -1814,8 +1814,8 @@ VCTZB     EVRRA1      E752    -     -     -      -      -     -     -      GE   
 VCTZF     EVRRA1      E752    -     -     -      -      -     -     -      GE    GE    GE    GE
 VCTZG     EVRRA1      E752    -     -     -      -      -     -     -      GE    GE    GE    GE
 VCTZH     EVRRA1      E752    -     -     -      -      -     -     -      GE    GE    GE    GE
-VCVB      VRRI        E650    -     -     -      -      -     -     -      G     G     G     G
-VCVBG     VRRI        E652    -     -     -      -      -     -     -      G     G     G     G
+VCVB      VRRI1       E650    -     -     -      -      -     -     -      G     G     G     G
+VCVBG     VRRI1       E652    -     -     -      -      -     -     -      G     G     G     G
 VCVD      VRII        E658    -     -     -      -      -     -     -      G     G     G     G
 VCVDG     VRII        E65A    -     -     -      -      -     -     -      G     G     G     G
 VDP       VRIF        E67A    -     -     -      -      -     -     -      G     G     G     G
@@ -3774,9 +3774,9 @@ VUPKZ     VSI         E63C    -     -     -      -      -     -     -      G    
 VSTRL     VSI         E63D    -     -     -      -      -     -     -      G     G     G     G
 VSTRLR    VRSD        E63F    -     -     -      -      -     -     -      G     G     G     G
 VLIP      VRIH        E649    -     -     -      -      -     -     -      G     G     G     G
-VCVB      VRRI        E650    -     -     -      -      -     -     -      G     G     G     G
+VCVB      VRRI1       E650    -     -     -      -      -     -     -      G     G     G     G
 VCLZDP    VRRK        E651    -     -     -      -      -     -     -      G     G     G     G
-VCVBG     VRRI        E652    -     -     -      -      -     -     -      G     G     G     G
+VCVBG     VRRI1       E652    -     -     -      -      -     -     -      G     G     G     G
 VUPKZH    VRRK        E654    -     -     -      -      -     -     -      G     G     G     G
 VCNF      VRRA4       E655    -     -     -      -      -     -     -      G     G     G     G
 VCLFNH    VRRA4       E656    -     -     -      -      -     -     -      G     G     G     G
@@ -7465,8 +7465,8 @@ VSEL      VRRE1       E78D    -     -     -      -      -     -     -      G    
 VLVGP     VRRF1       E762    -     -     -      -      -     -     -      G     G     G     G
 VTP       VRRG        E65F    -     -     -      -      -     -     -      G     G     G     G
 VCP       VRRH        E677    -     -     -      -      -     -     -      G     G     G     G
-VCVB      VRRI        E650    -     -     -      -      -     -     -      G     G     G     G
-VCVBG     VRRI        E652    -     -     -      -      -     -     -      G     G     G     G
+VCVB      VRRI1       E650    -     -     -      -      -     -     -      G     G     G     G
+VCVBG     VRRI1       E652    -     -     -      -      -     -     -      G     G     G     G
 VCSPH     VRRJ        E67D    -     -     -      -      -     -     -      G     G     G     G
 VCLZDP    VRRK        E651    -     -     -      -      -     -     -      G     G     G     G
 VUPKZH    VRRK        E654    -     -     -      -      -     -     -      G     G     G     G
@@ -7681,7 +7681,7 @@ MNEMONIC   FORMAT    OPCODE   s360  s370  s380  s370XA  e370  e390  s390  s390x 
           VRRF1                  0     0     0       0     0     0     0      1     1     1     1
           VRRG                   0     0     0       0     0     0     0      1     1     1     1
           VRRH                   0     0     0       0     0     0     0      1     1     1     1
-          VRRI                   0     0     0       0     0     0     0      2     2     2     2
+          VRRI1                  0     0     0       0     0     0     0      2     2     2     2
           VRRJ                   0     0     0       0     0     0     0      1     1     1     1
           VRRK                   0     0     0       0     0     0     0      3     3     3     3
           VRSA                   0     0     0       0     0     0     0      4     4     4     4
